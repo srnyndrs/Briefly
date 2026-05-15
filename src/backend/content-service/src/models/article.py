@@ -1,0 +1,52 @@
+"""
+SQLAlchemy ORM model for the Article table.
+"""
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.types import JSON
+
+from src.config.database import Base
+
+
+class Article(Base):
+    """Represents a stored article in PostgreSQL."""
+
+    __tablename__ = "articles"
+
+    id = Column(
+        String,
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    feed_id = Column(String, nullable=False, index=True)
+    item_guid = Column(String, nullable=False, index=True)
+    url = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    content = Column(Text, nullable=True)
+    author = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    crawled_at = Column(DateTime(timezone=True), nullable=True)
+    parsed_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow,
+    )
+    image_url = Column(String, nullable=True)
+    language = Column(String, nullable=True)
+    categories = Column(JSON, nullable=False, default=list)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "feed_id", "item_guid", name="uix_feed_guid"
+        ),
+    )

@@ -1,0 +1,100 @@
+"""
+Crawler Service  FastAPI entry point.
+
+Responsibilities
+----------------
+- Expose a health-check endpoint (GET /health)
+- Expose a feeds CRUD endpoint (GET/POST/DELETE /feeds)
+- Start an APScheduler job that runs ``services.crawl_orchestrator.CrawlCycleOrchestrator``
+  every ``crawl_interval_seconds`` on application startup.
+
+Run
+---
+    python -m src.app
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
+import uvicorn
+from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import FastAPI
+
+from src.config.database import SessionLocal, init_db
+from src.config.settings import settings
+from src.routers import feeds
+from src.schemas.schemas import HealthResponse
+from src.services.crawl_orchestrator import CrawlCycleOrchestrator
+
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger("crawler-service")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = None
+    if not getattr(app.state, "testing", False):
+        # 1. Initialise database schema
+        init_db()
+
+        # 2. Schedule periodic crawl cycle
+        orchestrator = CrawlCycleOrchestrator(
+            session_factory=SessionLocal
+        )
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            func=orchestrator.run_crawl_cycle,
+            trigger="interval",
+            seconds=settings.crawl_interval_seconds,
+            id="crawl_cycle",
+            replace_existing=True,
+        )
+        scheduler.start()
+
+        logger.info(
+            "Crawler Service started crawl interval=%ds, port=%d",
+            settings.crawl_interval_seconds,
+            settings.app_port,
+        )
+
+    yield
+
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("Scheduler stopped.")
+
+    logger.info("Crawler Service stopped.")
+
+
+app = FastAPI(
+    title="Crawler Service",
+    description=(
+        "Periodically crawls RSS/Atom feeds and publishes events to RabbitMQ. "
+        "Part of the Briefly news aggregator platform."
+    ),
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.include_router(feeds.router)
+
+
+@app.get("/health", response_model=HealthResponse, tags=["ops"])
+def health_check() -> HealthResponse:
+    """Liveness probe returns 200 when the service is running."""
+    return HealthResponse(
+        status="ok",
+        service="crawler-service",
+    )
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "src.app:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=settings.env == "development",
+    )
