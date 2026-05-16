@@ -26,7 +26,6 @@ def get_article_service(
 def article_count(
     service: ArticleService = Depends(get_article_service),
 ) -> dict:
-    """Return total number of parsed articles in DB."""
     return {"count": service.get_count()}
 
 
@@ -43,7 +42,6 @@ def list_articles(
     parsed_to: datetime | None = None,
     service: ArticleService = Depends(get_article_service),
 ) -> list[dict]:
-    """Return parsed articles with optional filters and pagination."""
     return service.list_articles(
         limit=max(1, min(limit, 200)),
         skip=max(0, skip),

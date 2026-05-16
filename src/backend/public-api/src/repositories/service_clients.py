@@ -233,7 +233,7 @@ def ingestion_explore_sources(body: dict) -> list[dict]:
     result = _forward(
         "POST",
         settings.ingestion_service_url,
-        "/explore",
+        "/feeds/explore",
         json=body,
     )
     if isinstance(result, list):

@@ -1,10 +1,3 @@
-"""
-Content Service — entry point.
-
-Starts the RabbitMQ consumer in a background thread so FastAPI can
-still serve the /health and /articles endpoints.
-"""
-
 import json
 import logging
 import threading
@@ -31,7 +24,6 @@ logger = logging.getLogger("content-service")
 def _on_message(
     ch: Any, method: Any, properties: Any, body: bytes
 ) -> None:
-    """Pika message callback — runs inside the consumer thread."""
     try:
         event = json.loads(body)
         db = SessionLocal()
@@ -50,12 +42,6 @@ def _on_message(
 
 
 def _start_consumer() -> None:
-    """
-    Connect to RabbitMQ and consume messages indefinitely.
-
-    Retries with exponential backoff (1 s → 60 s) so a transient
-    broker restart does not kill the consumer thread permanently.
-    """
     import time
 
     delay = 1

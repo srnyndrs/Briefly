@@ -1,9 +1,3 @@
-"""
-ArticleService — business logic for reading articles.
-
-Used by the HTTP routers via FastAPI Depends().
-"""
-
 from datetime import datetime
 
 from src.models.article import Article

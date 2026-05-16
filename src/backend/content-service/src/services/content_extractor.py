@@ -1,9 +1,3 @@
-"""
-Content extraction via newspaper4k.
-
-Wraps the newspaper library so callers don't import it directly.
-"""
-
 import logging
 from typing import Any
 
@@ -11,12 +5,6 @@ logger = logging.getLogger(__name__)
 
 
 def extract_article(url: str) -> dict[str, Any]:
-    """
-    Download and parse an article URL.
-    Returns a dict with title, description, content, image,
-    authors, language, keywords, publish_date keys.
-    On failure returns {"error": ..., "content": "", "title": ""}.
-    """
     try:
         from newspaper import Article
 

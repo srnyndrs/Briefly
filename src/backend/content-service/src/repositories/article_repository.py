@@ -13,10 +13,6 @@ class ArticleRepository:
         self._db = db
 
     def save(self, article_data: dict[str, Any]) -> str | None:
-        """
-        Insert an article row. On duplicate (feed_id, item_guid)
-        returns the existing article's id. Returns None on error.
-        """
         stmt = insert(Article).values(**article_data)
         stmt = stmt.on_conflict_do_nothing(
             index_elements=["feed_id", "item_guid"]
@@ -66,7 +62,7 @@ class ArticleRepository:
         published_to: datetime | None = None,
         parsed_from: datetime | None = None,
         parsed_to: datetime | None = None,
-    ) -> list[Article]:
+    ) -> list[type[Article]]:
         query = self._db.query(Article)
 
         if source_id:

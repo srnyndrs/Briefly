@@ -1,10 +1,3 @@
-"""
-RabbitMQ event publishing for content-service.
-
-All publish_* functions accept a pika channel and emit a
-standard event envelope to the configured parsed exchange.
-"""
-
 import json
 import uuid
 from datetime import datetime, timezone

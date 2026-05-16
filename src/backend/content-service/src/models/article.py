@@ -1,7 +1,3 @@
-"""
-SQLAlchemy ORM model for the Article table.
-"""
-
 import uuid
 from datetime import datetime
 
@@ -18,8 +14,6 @@ from src.config.database import Base
 
 
 class Article(Base):
-    """Represents a stored article in PostgreSQL."""
-
     __tablename__ = "articles"
 
     id = Column(

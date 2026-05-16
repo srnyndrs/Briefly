@@ -1,10 +1,3 @@
-"""
-FeedProcessorService — processes a raw feed.raw_fetched.v1 event.
-
-Parses RSS entries, extracts article content, persists to DB,
-and publishes downstream events.  Called by the RabbitMQ consumer.
-"""
-
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -40,7 +33,6 @@ def _build_article_data(
     entry: Any,
     crawled_at: datetime | None,
 ) -> dict[str, Any]:
-    """Extract and enrich one RSS entry into a flat article dict."""
     item_guid = entry.get("id") or entry.get("link", "")
     url = entry.get("link", "")
     title = entry.get("title", "")
@@ -86,7 +78,6 @@ class FeedProcessorService:
         self._repo = ArticleRepository(db)
 
     def process(self, channel: Any, event: dict[str, Any]) -> None:
-        """Process one feed.raw_fetched.v1 event message."""
         payload = event.get("payload", {})
         raw_xml = payload.get("raw_xml", "")
         feed_id = payload.get("feed_id", "")
