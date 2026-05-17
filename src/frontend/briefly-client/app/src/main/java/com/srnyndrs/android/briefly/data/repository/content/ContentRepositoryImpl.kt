@@ -24,6 +24,17 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun fetchFeedSources(): Result<List<FeedSourceResultItem>> {
+        return try {
+            val response = contentApiService.getFeedSources()
+            val result = response.map { it.toDomain() }
+
+            Result.success(result)
+        }  catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
     override suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>> {
         return try {
             val response = contentApiService.exploreFeedSource(

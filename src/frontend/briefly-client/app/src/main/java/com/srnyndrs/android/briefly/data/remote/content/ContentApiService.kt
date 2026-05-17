@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.data.remote.content
 
 import com.srnyndrs.android.briefly.data.remote.content.dto.ArticleDetailsDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResultDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceResultItemDto
 import io.ktor.client.HttpClient
@@ -20,6 +21,11 @@ class ContentApiService (
             parameter("limit", limit ?: 20)
             parameter("offset", offset ?: 0)
         }.body()
+    }
+
+    suspend fun getFeedSources(): List<FeedSourceDto> {
+        return client.get("sources")
+            .body()
     }
 
     suspend fun exploreFeedSource(request: FeedSourceExploreRequestDto): List<FeedSourceResultItemDto>{

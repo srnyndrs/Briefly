@@ -73,7 +73,9 @@ fun FeedSearchScreen(
                 onValueChange = setSearchText,
                 modifier = Modifier.weight(1f),
                 onSearch = {
-                    onSearch(searchText)
+                    if (searchText.isNotBlank()) {
+                        onSearch(searchText)
+                    }
                 }
             )
         }

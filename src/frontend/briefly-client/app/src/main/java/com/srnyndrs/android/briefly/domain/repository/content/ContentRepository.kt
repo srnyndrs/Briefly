@@ -6,6 +6,7 @@ import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 
 interface ContentRepository {
     suspend fun fetchArticles(limit: Long? = null, offset: Long? = null): Result<List<ArticleItem>>
+    suspend fun fetchFeedSources(): Result<List<FeedSourceResultItem>>
     suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>>
     suspend fun getArticleById(articleId: String): Result<ArticleDetails>
 }

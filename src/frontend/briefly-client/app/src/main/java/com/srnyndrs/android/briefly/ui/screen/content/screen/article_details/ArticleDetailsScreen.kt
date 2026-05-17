@@ -186,13 +186,15 @@ fun ArticleDetailsScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         // Description
-                        Text(
-                            modifier = Modifier.fillMaxWidth(0.98f),
-                            text = article.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            lineHeight = 26.sp,
-                            textAlign = TextAlign.Justify,
-                        )
+                        article.content?.let { content ->
+                            Text(
+                                modifier = Modifier.fillMaxWidth(0.98f),
+                                text = content,
+                                style = MaterialTheme.typography.bodyLarge,
+                                lineHeight = 26.sp,
+                                textAlign = TextAlign.Justify,
+                            )
+                        }
                     }
                 }
             }
