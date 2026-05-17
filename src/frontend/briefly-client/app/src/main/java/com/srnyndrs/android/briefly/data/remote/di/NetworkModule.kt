@@ -39,6 +39,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideKtorClient(tokenManager: TokenManager): HttpClient = HttpClient(OkHttp) {
+        expectSuccess = true
         install(Logging) {
             level = LogLevel.INFO
             logger = object : Logger {

@@ -12,30 +12,19 @@ data class FeedResultDto (
 @Serializable
 data class FeedResultItemDto (
     @SerialName("article_id")
-    val articleID: String,
-
-    @SerialName("source_id")
-    val sourceID: String,
-
+    val articleId: String,
     val title: String,
-
+    @SerialName("source_title")
+    val sourceTitle: String? = null,
+    val description: String? = null,
     @SerialName("canonical_url")
-    val canonicalURL: String,
-
-    val language: JsonElement? = null,
-    val categories: JsonArray,
-
-    @SerialName("content_ref")
-    val contentRef: String,
-
+    val canonicalURL: String? = null,
+    val language: String? = null,
+    val category: String? = null,
     @SerialName("image_ref")
     val imageRef: String? = null,
-
-    val sentiment: String,
-    val topics: JsonArray,
-
     @SerialName("published_at")
-    val publishedAt: String
+    val publishedAt: String? = null // ISO-format
 )
 
 @Serializable
@@ -47,10 +36,8 @@ data class FeedSourceExploreRequestDto(
 data class FeedSourceResultItemDto(
     val url: String,
     val title: String,
-
     @SerialName("content_type")
     val contentType: String? = null,
-
     val favicon: String? = null,
     val description: String? = null
 )
@@ -60,35 +47,52 @@ data class FeedSourceResultItemDto(
 data class ArticleDetailsDto (
     @SerialName("article_id")
     val articleId: String,
-
-    @SerialName("source_id")
-    val sourceID: String,
-
     val title: String,
-
+    @SerialName("source_title")
+    val sourceTitle: String? = null,
+    val description: String? = null,
     @SerialName("canonical_url")
-    val canonicalURL: String,
-
+    val canonicalURL: String? = null,
     val language: String? = null,
-    val categories: List<String>,
-
-    @SerialName("content_ref")
-    val contentRef: String,
-
-    val content: String? = null,
-
+    val category: String? = null,
     @SerialName("image_ref")
     val imageRef: String? = null,
-
-    val sentiment: String,
-    val topics: List<String>,
-
     @SerialName("published_at")
-    val publishedAt: String,
+    val publishedAt: String? = null, // ISO-format
+    val content: String? = null,
+)
 
-    @SerialName("cluster_id")
-    val clusterID: String? = null,
+@Serializable
+data class FeedSourceDto (
+    @SerialName("feed_id")
+    val feedId: String,
 
-    @SerialName("model_version")
-    val modelVersion: String
+    @SerialName("user_id")
+    val userId: String,
+
+    val url: String,
+    val title: String? = null,
+    val description: String? = null,
+    val favicon: String? = null,
+
+    @SerialName("last_crawled_at")
+    val lastCrawledAt: String? = null,
+
+    @SerialName("next_crawl_scheduled_at")
+    val nextCrawlScheduledAt: String,
+
+    @SerialName("last_crawl_succeeded")
+    val lastCrawlSucceeded: Boolean,
+
+    @SerialName("consecutive_failures")
+    val consecutiveFailures: Long,
+
+    @SerialName("health_score")
+    val healthScore: Double,
+
+    @SerialName("created_at")
+    val createdAt: String,
+
+    @SerialName("updated_at")
+    val updatedAt: String
 )
