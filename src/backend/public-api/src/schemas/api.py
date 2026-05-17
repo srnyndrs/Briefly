@@ -172,6 +172,7 @@ class AdminArticleResponse(BaseModel):
     url: str
     title: str
     description: str | None = None
+    category: str | None = None
     content: str | None = None
     author: str | None = None
     published_at: datetime | None = None
@@ -179,20 +180,18 @@ class AdminArticleResponse(BaseModel):
     parsed_at: datetime | None = None
     image_url: str | None = None
     language: str | None = None
-    categories: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
 
 
 class FeedItemResponse(BaseModel):
     article_id: UUID
-    source_id: UUID | None = None
     title: str
+    source_title: str | None = None
+    description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
-    categories: list[str] = Field(default_factory=list)
-    content_ref: str | None = None
+    category: str | None = None
     image_ref: str | None = None
-    sentiment: str | None = None
-    topics: list[str] = Field(default_factory=list)
     published_at: datetime | None = None
 
 
@@ -203,5 +202,3 @@ class FeedResponse(BaseModel):
 
 class ArticleResponse(FeedItemResponse):
     content: str | None = None
-    cluster_id: str | None = None
-    model_version: str | None = None

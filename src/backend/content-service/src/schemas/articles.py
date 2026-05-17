@@ -10,6 +10,7 @@ class ArticleResponse(BaseModel):
     url: str
     title: str
     description: str | None
+    category: str | None
     content: str | None
     author: str | None
     published_at: datetime | None
@@ -17,7 +18,7 @@ class ArticleResponse(BaseModel):
     parsed_at: datetime
     image_url: str | None
     language: str | None
-    categories: list[str]
+    keywords: list[str]
 
     model_config = {"from_attributes": True}
 

@@ -52,11 +52,14 @@ def publish_parsed_success(
     item_guid: str,
     url: str,
     title: str,
+    category: str | None = None,
     content: str | None,
     content_length: int,
+    description: str | None = None,
     published_at: str | None = None,
     language: str | None = None,
-    categories: list[str] | None = None,
+    keywords: list[str] | None = None,
+    source_title: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "article_id": article_id,
@@ -67,13 +70,18 @@ def publish_parsed_success(
         "parsed_at": datetime.now(timezone.utc).isoformat(),
         "content": content,
         "content_length": content_length,
+        "source_title": source_title,
     }
+    if description is not None:
+        payload["description"] = description
     if published_at:
         payload["published_at"] = published_at
     if language:
         payload["language"] = language
-    if categories is not None:
-        payload["categories"] = categories
+    if keywords is not None:
+        payload["keywords"] = keywords
+    if category is not None:
+        payload["category"] = category
     _publish(
         channel,
         "article.parsed.v1",

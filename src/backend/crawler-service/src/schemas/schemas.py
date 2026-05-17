@@ -91,6 +91,7 @@ class EventEnvelope(BaseModel):
 class FeedRawFetchedPayload(BaseModel):
     feed_id: uuid.UUID
     feed_url: str
+    source_title: str | None = None
     raw_xml: str
 
 

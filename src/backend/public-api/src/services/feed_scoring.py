@@ -19,7 +19,7 @@ class FeedScoringService:
         def _score(
             article: ArticleEntity,
         ) -> tuple[int, object, object]:
-            categories = {cat.lower() for cat in article.categories}
+            categories = {cat.lower() for cat in article.keywords}
             overlap = len(categories.intersection(preferred))
             return (
                 overlap,

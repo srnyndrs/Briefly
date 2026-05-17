@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,18 +36,23 @@ class ArticleProjection(Base):
     source_id: Mapped[str | None] = mapped_column(
         String(64), index=True
     )
+    source_title: Mapped[str | None] = mapped_column(
+        String(1024), nullable=True
+    )
     canonical_url: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
     title: Mapped[str] = mapped_column(String(1024), default="")
+    description: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    category: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
-    categories: Mapped[list[str]] = mapped_column(
-        JSON, default=list
-    )
-    from sqlalchemy import Text
-
+    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_ref: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
@@ -58,12 +64,6 @@ class ArticleProjection(Base):
         String(32), nullable=True
     )
     topics: Mapped[list[str]] = mapped_column(JSON, default=list)
-    cluster_id: Mapped[str | None] = mapped_column(
-        String(128), nullable=True
-    )
-    model_version: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
-    )
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )

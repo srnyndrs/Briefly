@@ -18,6 +18,10 @@ class SqlAlchemyFeedRepository:
     def __init__(self, db: Session):
         self._db = db
 
+    def get_feeds(self) -> list[Feed]:
+        """Return all feeds registered in the system."""
+        return self._db.query(Feed).all()
+
     def get_active_feeds(
         self, now: datetime, max_retries: int
     ) -> list[Feed]:

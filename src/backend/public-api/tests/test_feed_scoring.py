@@ -22,7 +22,7 @@ class TestFeedScoringService:
                 title="Article 1",
                 canonical_url="http://a1.com",
                 language="en",
-                categories=["tech", "news"],
+                keywords=["tech", "news"],
             ),
             ArticleEntity(
                 article_id="2",
@@ -30,7 +30,7 @@ class TestFeedScoringService:
                 title="Article 2",
                 canonical_url="http://a2.com",
                 language="en",
-                categories=["business"],
+                keywords=["business"],
             ),
         ]
 
@@ -59,7 +59,7 @@ class TestFeedScoringService:
                 title="Business Article",
                 canonical_url="http://a1.com",
                 language="en",
-                categories=["business"],
+                keywords=["business"],
                 published_at=now,
             ),
             ArticleEntity(
@@ -68,7 +68,7 @@ class TestFeedScoringService:
                 title="Tech Article",
                 canonical_url="http://a2.com",
                 language="en",
-                categories=["tech"],
+                keywords=["tech"],
                 published_at=now,
             ),
         ]
@@ -95,7 +95,7 @@ class TestFeedScoringService:
                 title=f"Article {i}",
                 canonical_url=f"http://a{i}.com",
                 language="en",
-                categories=[],
+                keywords=[],
             )
             for i in range(10)
         ]
@@ -121,7 +121,7 @@ class TestFeedScoringService:
                 title="One Match",
                 canonical_url="http://a1.com",
                 language="en",
-                categories=["tech"],
+                keywords=["tech"],
                 published_at=now,
             ),
             ArticleEntity(
@@ -130,7 +130,7 @@ class TestFeedScoringService:
                 title="Two Matches",
                 canonical_url="http://a2.com",
                 language="en",
-                categories=["tech", "science"],
+                keywords=["tech", "science"],
                 published_at=now,
             ),
         ]

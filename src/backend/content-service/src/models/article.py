@@ -26,6 +26,7 @@ class Article(Base):
     url = Column(String, nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
+    category = Column(String, nullable=True)
     content = Column(Text, nullable=True)
     author = Column(String, nullable=True)
     published_at = Column(DateTime(timezone=True), nullable=True)
@@ -37,10 +38,11 @@ class Article(Base):
     )
     image_url = Column(String, nullable=True)
     language = Column(String, nullable=True)
-    categories = Column(JSON, nullable=False, default=list)
+    keywords = Column(JSON, nullable=False, default=list)
 
     __table_args__ = (
         UniqueConstraint(
             "feed_id", "item_guid", name="uix_feed_guid"
         ),
+        UniqueConstraint("feed_id", "url", name="uix_feed_url"),
     )

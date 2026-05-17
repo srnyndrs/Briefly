@@ -40,11 +40,13 @@ class RabbitMQEventPublisher:
         *,
         feed_id: uuid.UUID,
         feed_url: str,
+        source_title: str | None = None,
         raw_xml: str,
     ) -> None:
         payload = FeedRawFetchedPayload(
             feed_id=feed_id,
             feed_url=feed_url,
+            source_title=source_title,
             raw_xml=raw_xml,
         )
         event = FeedRawFetchedEvent(

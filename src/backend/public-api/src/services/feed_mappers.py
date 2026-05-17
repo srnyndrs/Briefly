@@ -12,10 +12,13 @@ def article_projection_to_entity(
     return ArticleEntity(
         article_id=model.article_id,
         source_id=model.source_id,
+        source_title=model.source_title,
         title=model.title,
+        description=model.description,
         canonical_url=model.canonical_url,
         language=model.language,
-        categories=model.categories or [],
+        category=model.category,
+        keywords=model.keywords or [],
         content=model.content,
         content_ref=model.content_ref,
         image_ref=model.image_ref,
@@ -23,8 +26,6 @@ def article_projection_to_entity(
         topics=model.topics or [],
         published_at=model.published_at,
         updated_at=model.updated_at,
-        cluster_id=model.cluster_id,
-        model_version=model.model_version,
     )
 
 
@@ -32,18 +33,19 @@ def entity_to_feed_item_dto(entity: ArticleEntity) -> FeedItemDTO:
     return FeedItemDTO(
         article_id=entity.article_id,
         source_id=entity.source_id,
+        source_title=entity.source_title,
         title=entity.title,
+        description=entity.description,
         canonical_url=entity.canonical_url,
         language=entity.language,
-        categories=entity.categories,
+        category=entity.category,
+        keywords=entity.keywords,
         content=entity.content,
         content_ref=entity.content_ref,
         image_ref=entity.image_ref,
         sentiment=entity.sentiment,
         topics=entity.topics,
         published_at=entity.published_at,
-        cluster_id=entity.cluster_id,
-        model_version=entity.model_version,
     )
 
 

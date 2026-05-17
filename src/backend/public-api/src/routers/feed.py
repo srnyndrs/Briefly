@@ -41,17 +41,13 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
     return FeedItemResponse(
         article_id=uuid.UUID(item.article_id),
-        source_id=uuid.UUID(item.source_id)
-        if item.source_id
-        else None,
         title=item.title,
+        source_title=item.source_title,
+        description=item.description,
         canonical_url=item.canonical_url,
         language=item.language,
-        categories=item.categories or [],
-        content_ref=item.content_ref,
+        category=item.category,
         image_ref=item.image_ref,
-        sentiment=item.sentiment,
-        topics=item.topics or [],
         published_at=item.published_at,
     )
 
@@ -61,8 +57,6 @@ def _to_article_response(item: FeedItemDTO) -> ArticleResponse:
     return ArticleResponse(
         **feed_item.model_dump(),
         content=item.content,
-        cluster_id=item.cluster_id,
-        model_version=item.model_version,
     )
 
 

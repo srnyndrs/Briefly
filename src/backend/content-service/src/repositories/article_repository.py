@@ -14,31 +14,39 @@ class ArticleRepository:
 
     def save(self, article_data: dict[str, Any]) -> str | None:
         stmt = insert(Article).values(**article_data)
-        stmt = stmt.on_conflict_do_nothing(
-            index_elements=["feed_id", "item_guid"]
+        update_fields = {
+            "item_guid": stmt.excluded.item_guid,
+            "title": stmt.excluded.title,
+            "description": stmt.excluded.description,
+            "category": stmt.excluded.category,
+            "content": stmt.excluded.content,
+            "author": stmt.excluded.author,
+            "published_at": stmt.excluded.published_at,
+            "crawled_at": stmt.excluded.crawled_at,
+            "parsed_at": stmt.excluded.parsed_at,
+            "image_url": stmt.excluded.image_url,
+            "language": stmt.excluded.language,
+            "keywords": stmt.excluded.keywords,
+        }
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["feed_id", "url"],
+            set_=update_fields,
         ).returning(Article.id)
         try:
             inserted_id = self._db.scalar(stmt)
             self._db.commit()
-            if inserted_id is None:
-                existing_id = (
-                    self._db.query(Article.id)
-                    .filter(
-                        Article.feed_id == article_data["feed_id"],
-                        Article.item_guid
-                        == article_data["item_guid"],
-                    )
-                    .scalar()
-                )
-                return (
-                    str(existing_id)
-                    if existing_id is not None
-                    else None
-                )
-            return str(inserted_id)
+            return str(inserted_id) if inserted_id else None
         except IntegrityError:
             self._db.rollback()
-            return None
+            existing_id = (
+                self._db.query(Article.id)
+                .filter(
+                    Article.feed_id == article_data["feed_id"],
+                    Article.item_guid == article_data["item_guid"],
+                )
+                .scalar()
+            )
+            return str(existing_id) if existing_id else None
 
     def get_by_id(self, article_id: str) -> Article | None:
         return (
@@ -92,7 +100,7 @@ class ArticleRepository:
                 for doc in all_docs
                 if any(
                     c.lower() == category_lower
-                    for c in (doc.categories or [])
+                    for c in (doc.keywords or [])
                 )
             ]
             return filtered[skip : skip + limit]

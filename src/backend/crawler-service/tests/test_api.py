@@ -159,3 +159,35 @@ def test_patch_feed_success(mock_repo_cls, client):
     )
     assert response.status_code == 200
     assert response.json()["title"] == "Updated Title"
+
+
+@patch("src.routers.feeds.SqlAlchemyFeedRepository")
+def test_list_feeds_returns_all(mock_repo_cls, client):
+    feed_id = uuid.uuid4()
+    now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
+    repository = MagicMock()
+    repository.get_feeds.return_value = [
+        Feed(
+            feed_id=feed_id,
+            user_id=uuid.uuid4(),
+            url="https://example.com/feed",
+            title="Example",
+            description="Desc",
+            favicon="icon.ico",
+            health_score=1.0,
+            consecutive_failures=0,
+            last_crawled_at=None,
+            next_crawl_scheduled_at=now_dt,
+            last_crawl_succeeded=True,
+            created_at=now_dt,
+            updated_at=now_dt,
+        )
+    ]
+    mock_repo_cls.return_value = repository
+
+    response = client.get("/feeds")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["feed_id"] == str(feed_id)
+    repository.get_feeds.assert_called_once()

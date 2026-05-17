@@ -12,6 +12,7 @@ def _to_dict(doc: Article) -> dict:
         "url": doc.url,
         "title": doc.title,
         "description": doc.description,
+        "category": doc.category,
         "content": doc.content,
         "author": doc.author,
         "published_at": doc.published_at,
@@ -19,7 +20,7 @@ def _to_dict(doc: Article) -> dict:
         "parsed_at": doc.parsed_at,
         "image_url": doc.image_url,
         "language": doc.language,
-        "categories": doc.categories or [],
+        "keywords": doc.keywords or [],
     }
 
 

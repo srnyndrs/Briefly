@@ -68,6 +68,7 @@ class CrawlCycleOrchestrator:
                         event_publisher,
                         feed.feed_id,
                         feed.url,
+                        feed.title,
                         current_etag,
                         current_last_modified,
                         feed.consecutive_failures,
@@ -92,6 +93,7 @@ class CrawlCycleOrchestrator:
         event_publisher: RabbitMQEventPublisher,
         feed_id: UUID,
         feed_url: str,
+        source_title: str | None,
         etag: str | None,
         last_modified: str | None,
         retry_count: int,
@@ -109,6 +111,7 @@ class CrawlCycleOrchestrator:
             event_publisher.publish_feed_fetched(
                 feed_id=feed_id,
                 feed_url=feed_url,
+                source_title=source_title,
                 raw_xml=result.body,
             )
 

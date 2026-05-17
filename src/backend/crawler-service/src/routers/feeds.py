@@ -29,13 +29,24 @@ def discover_feeds(url: str) -> List[ExploreResult]:
 
 
 @router.get("", response_model=List[FeedResponse])
-def list_feeds(db: Session = Depends(get_db)) -> List[FeedResponse]:
-    """Return all feeds that are currently active and due for crawling."""
+def list_feeds(
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+) -> List[FeedResponse]:
+    """
+    Return feeds registered in the crawler service.
+
+    If active_only=True, only returns feeds that are due for crawling
+    (next_crawl_scheduled_at <= now and failures < max_retries).
+    """
     repository = SqlAlchemyFeedRepository(db)
-    feeds = repository.get_active_feeds(
-        now=datetime.now(timezone.utc),
-        max_retries=settings.max_retries,
-    )
+    if active_only:
+        feeds = repository.get_active_feeds(
+            now=datetime.now(timezone.utc),
+            max_retries=settings.max_retries,
+        )
+    else:
+        feeds = repository.get_feeds()
     return feeds
 
 

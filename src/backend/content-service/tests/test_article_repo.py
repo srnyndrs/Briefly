@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+from sqlalchemy.exc import IntegrityError
+
 from src.repositories.article_repository import ArticleRepository
 
 
@@ -11,6 +13,7 @@ def _make_article_data(**overrides) -> dict:
         "url": "https://example.com/1",
         "title": "t1",
         "description": "",
+        "category": "",
         "content": "",
         "author": "",
         "published_at": None,
@@ -18,7 +21,7 @@ def _make_article_data(**overrides) -> dict:
         "parsed_at": datetime.now(timezone.utc),
         "image_url": None,
         "language": None,
-        "categories": [],
+        "keywords": [],
         **overrides,
     }
 
@@ -34,9 +37,11 @@ def test_save_returns_inserted_id() -> None:
     db.commit.assert_called_once()
 
 
-def test_save_returns_existing_id_for_duplicate() -> None:
+def test_save_returns_existing_id_on_integrity_error() -> None:
     db = MagicMock()
-    db.scalar.return_value = None
+    db.scalar.side_effect = IntegrityError(
+        "stmt", {}, Exception("boom")
+    )
     query_mock = MagicMock()
     filter_mock = MagicMock()
     db.query.return_value = query_mock
@@ -47,4 +52,4 @@ def test_save_returns_existing_id_for_duplicate() -> None:
     article_id = repo.save(_make_article_data())
 
     assert article_id == "existing-article-id"
-    db.commit.assert_called_once()
+    db.rollback.assert_called_once()

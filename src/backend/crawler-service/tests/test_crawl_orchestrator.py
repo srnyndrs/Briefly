@@ -24,6 +24,7 @@ def test_orchestrator_runs_crawl_and_updates_cache(
     feed = SimpleNamespace(
         feed_id=uuid.uuid4(),
         url="https://example.com/feed.xml",
+        title="Test Feed",
         etag=None,
         last_modified=None,
         consecutive_failures=1,
@@ -84,6 +85,7 @@ def test_orchestrator_skips_seen_feed(
     feed = SimpleNamespace(
         feed_id=uuid.uuid4(),
         url="https://example.com/feed.xml",
+        title="Test Feed",
         etag=None,
         last_modified=None,
         consecutive_failures=0,

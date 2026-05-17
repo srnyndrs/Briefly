@@ -55,24 +55,33 @@ class ProjectArticleUseCase:
             self._db.add(existing)
 
         existing.source_id = source_id
+        existing.source_title = (
+            payload.get("source_title") or existing.source_title
+        )
         existing.canonical_url = payload.get(
             "canonical_url"
         ) or payload.get("url")
         existing.title = payload.get("title") or existing.title
+        if "description" in payload:
+            existing.description = payload.get("description")
         # Store content if present on the parsed event.
         if (
             "content" in payload
             and payload.get("content") is not None
         ):
             existing.content = payload.get("content")
+        existing.category = (
+            payload.get("category") or existing.category
+        )
         # Only set language on first parse event (immutable)
         if not existing.language and payload.get("language"):
             existing.language = payload.get("language")
-        # Only set categories on first parse event (immutable)
+        # Only set keywords on first parse event (immutable)
+        keywords_payload = payload.get("keywords")
         if (
-            not existing.categories or existing.categories == []
-        ) and payload.get("categories"):
-            existing.categories = payload.get("categories")
+            not existing.keywords or existing.keywords == []
+        ) and keywords_payload:
+            existing.keywords = keywords_payload
         # Only set published_at on first parse event (immutable)
         if not existing.published_at and published_at:
             existing.published_at = published_at
@@ -104,6 +113,11 @@ class UpdateArticleUseCase:
         article.source_id = (
             payload.get("source_id") or article.source_id
         )
+        article.source_title = (
+            payload.get("source_title") or article.source_title
+        )
+        if "description" in payload:
+            article.description = payload.get("description")
         article.updated_at = (
             parse_dt(payload.get("updated_at"))
             or article.updated_at
@@ -113,12 +127,16 @@ class UpdateArticleUseCase:
             and payload.get("content") is not None
         ):
             article.content = payload.get("content")
+        article.category = (
+            payload.get("category") or article.category
+        )
         if not article.language and payload.get("language"):
             article.language = payload.get("language")
+        keywords_payload = payload.get("keywords")
         if (
-            not article.categories or article.categories == []
-        ) and payload.get("categories"):
-            article.categories = payload.get("categories")
+            not article.keywords or article.keywords == []
+        ) and keywords_payload:
+            article.keywords = keywords_payload
 
 
 @dataclass(frozen=True)
@@ -188,12 +206,6 @@ class EnrichArticleUseCase:
         )
         article.topics = (
             payload.get("topics") or article.topics or []
-        )
-        article.cluster_id = (
-            payload.get("cluster_id") or article.cluster_id
-        )
-        article.model_version = (
-            payload.get("model_version") or article.model_version
         )
         article.updated_at = (
             parse_dt(payload.get("enriched_at"))

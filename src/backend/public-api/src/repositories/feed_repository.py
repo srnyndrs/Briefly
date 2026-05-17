@@ -97,7 +97,7 @@ class ArticleRepository:
             category.lower() for category in include_categories
         }
         existing = {
-            category.lower() for category in (row.categories or [])
+            category.lower() for category in (row.keywords or [])
         }
         return bool(existing.intersection(wanted))
 

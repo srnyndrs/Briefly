@@ -32,12 +32,13 @@ def _build_article_data(
     feed_id: str,
     entry: Any,
     crawled_at: datetime | None,
+    source_title: str | None = None,
 ) -> dict[str, Any]:
-    item_guid = entry.get("id") or entry.get("link", "")
+    item_guid = entry.get("guid") or entry.get("link", "")
     url = entry.get("link", "")
-    title = entry.get("title", "")
-    summary = entry.get("summary", "")
-    author = entry.get("author", "")
+    title = entry.get("title", "Untitled")
+    author = entry.get("author", None)
+    category = entry.get("category", None)
     published_at = _entry_published_at(entry)
 
     extracted = (
@@ -45,7 +46,7 @@ def _build_article_data(
     )
 
     final_title = extracted.get("title") or title
-    description = extracted.get("description") or summary
+    description = extracted.get("description") or None
     content = extracted.get("content") or None
     authors = extracted.get("authors") or []
     final_author = authors[0] if authors else author
@@ -53,7 +54,7 @@ def _build_article_data(
         "publish_date"
     )
     image_url = extracted.get("image") or None
-    keywords = extracted.get("keywords") or None
+    keywords = extracted.get("keywords") or []
     language = extracted.get("language") or None
 
     return {
@@ -62,6 +63,7 @@ def _build_article_data(
         "url": url,
         "title": final_title,
         "description": description,
+        "category": category,
         "content": content,
         "author": final_author,
         "published_at": final_published_at,
@@ -69,7 +71,8 @@ def _build_article_data(
         "parsed_at": datetime.now(timezone.utc),
         "image_url": image_url,
         "language": language,
-        "categories": keywords or [],
+        "keywords": keywords,
+        "source_title": source_title,
     }
 
 
@@ -84,11 +87,16 @@ class FeedProcessorService:
         crawled_at = _parse_dt(event.get("occurred_at"))
 
         feed = feedparser.parse(raw_xml)
+        source_title = payload.get("source_title") or (
+            feed.feed.get("title")
+            if hasattr(feed, "feed")
+            else None
+        )
         for entry in feed.entries:
             item_guid = entry.get("id") or entry.get("link", "")
             try:
                 article_data = _build_article_data(
-                    feed_id, entry, crawled_at
+                    feed_id, entry, crawled_at, source_title
                 )
             except Exception as exc:
                 logger.error(
@@ -105,8 +113,10 @@ class FeedProcessorService:
                 )
                 continue
 
+            source_title_val = article_data.pop("source_title", None)
             article_id = self._repo.save(article_data)
             if article_id:
+                article_data["source_title"] = source_title_val
                 self._publish_success_events(
                     channel, article_id, article_data
                 )
@@ -125,13 +135,16 @@ class FeedProcessorService:
             item_guid=data["item_guid"],
             url=data["url"],
             title=data["title"],
+            category=data["category"],
             content=data["content"],
             content_length=len(data["content"] or ""),
+            description=data.get("description"),
             published_at=data["published_at"].isoformat()
             if data["published_at"]
             else None,
             language=data["language"],
-            categories=data["categories"],
+            keywords=data["keywords"],
+            source_title=data.get("source_title"),
         )
         event_publisher.publish_article_updated(
             channel,
@@ -140,6 +153,7 @@ class FeedProcessorService:
             changed_fields=[
                 "title",
                 "description",
+                "category",
                 "content",
                 "author",
                 "published_at",

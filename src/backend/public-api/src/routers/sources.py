@@ -48,10 +48,31 @@ def create_source(
     response_model=list[SourceResponse],
     tags=["sources"],
 )
-def list_sources(user: CurrentUser) -> list[SourceResponse]:
-    _ = user
+def list_sources(
+    user: CurrentUser,
+    subscribed_only: bool = False,
+) -> list[SourceResponse]:
+    """
+    List news sources.
+    By default, returns all available sources for discovery.
+    If subscribed_only=True, only returns sources the user is subscribed to.
+    """
     try:
         sources = ingestion_list_sources()
+
+        if subscribed_only:
+            subscriptions = account_list_subscriptions(
+                str(user.user_id)
+            )
+            subscribed_ids = {
+                str(s["source_id"]) for s in subscriptions
+            }
+            return [
+                SourceResponse(**item)
+                for item in sources
+                if str(item["feed_id"]) in subscribed_ids
+            ]
+
         return [SourceResponse(**item) for item in sources]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

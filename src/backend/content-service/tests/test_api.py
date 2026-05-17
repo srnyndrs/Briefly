@@ -16,6 +16,7 @@ def _seed_articles(db_session, article_id: str, other_id: str):
             url="https://example.com/a",
             title="Tech News",
             description="desc",
+            category="technology",
             content="content",
             author="Author",
             published_at=now,
@@ -23,7 +24,7 @@ def _seed_articles(db_session, article_id: str, other_id: str):
             parsed_at=now,
             image_url=None,
             language="en",
-            categories=["technology", "ai"],
+            keywords=["technology", "ai"],
         )
     )
     db_session.add(
@@ -34,6 +35,7 @@ def _seed_articles(db_session, article_id: str, other_id: str):
             url="https://example.com/b",
             title="Sports",
             description="desc",
+            category="sports",
             content="content",
             author="Author",
             published_at=now,
@@ -41,7 +43,7 @@ def _seed_articles(db_session, article_id: str, other_id: str):
             parsed_at=now,
             image_url=None,
             language="fr",
-            categories=["sports"],
+            keywords=["sports", "football"],
         )
     )
     db_session.commit()

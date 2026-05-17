@@ -17,30 +17,37 @@ class EventPublisher:
         self._channel: pika.channel.Channel | None = None
 
     def connect(self) -> None:
+        """Startup check to declare exchange and verify connectivity.
+        
+        Connection is closed immediately to avoid holding open stale sockets.
+        """
         try:
             params = pika.URLParameters(settings.rabbitmq_url)
-            self._connection = pika.BlockingConnection(params)
-            self._channel = self._connection.channel()
-            self._channel.exchange_declare(
+            # Use short timeouts for the startup check to avoid blocking app start
+            params.connection_attempts = 2
+            params.retry_delay = 1.0
+            
+            connection = pika.BlockingConnection(params)
+            channel = connection.channel()
+            channel.exchange_declare(
                 exchange=settings.account_exchange,
                 exchange_type="topic",
                 durable=True,
             )
+            connection.close()
             logger.info(
-                "Connected to RabbitMQ exchange=%s",
+                "Successfully declared RabbitMQ exchange '%s' on startup.",
                 settings.account_exchange,
             )
         except Exception as exc:  # pragma: no cover
             logger.warning(
-                "Event publisher disabled (RabbitMQ unavailable): %s",
+                "RabbitMQ unavailable at startup: %s. Event publisher will auto-recover on demand.",
                 exc,
             )
-            self._connection = None
-            self._channel = None
 
     def close(self) -> None:
-        if self._connection:
-            self._connection.close()
+        """No-op cleanup since connections are opened and closed on demand."""
+        pass
 
     def publish(
         self,
@@ -52,9 +59,11 @@ class EventPublisher:
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
-        if self._channel is None:
-            return
-
+        """Publish an event by opening a connection on demand.
+        
+        This prevents thread-safety issues from FastAPI's sync threadpool
+        and completely avoids stale connection errors (StreamLostError).
+        """
         envelope = {
             "event_id": str(uuid.uuid4()),
             "event_type": event_type,
@@ -79,9 +88,39 @@ class EventPublisher:
             type=event_type,
             delivery_mode=2,
         )
-        self._channel.basic_publish(
-            exchange=settings.account_exchange,
-            routing_key=event_type,
-            body=message,
-            properties=properties,
-        )
+
+        try:
+            params = pika.URLParameters(settings.rabbitmq_url)
+            params.connection_attempts = 2
+            params.retry_delay = 1.0
+            
+            connection = pika.BlockingConnection(params)
+            try:
+                channel = connection.channel()
+                channel.exchange_declare(
+                    exchange=settings.account_exchange,
+                    exchange_type="topic",
+                    durable=True,
+                )
+                channel.basic_publish(
+                    exchange=settings.account_exchange,
+                    routing_key=event_type,
+                    body=message,
+                    properties=properties,
+                )
+                logger.info(
+                    "Published event %s to exchange %s",
+                    event_type,
+                    settings.account_exchange,
+                )
+            finally:
+                if connection.is_open:
+                    connection.close()
+        except Exception as exc:
+            logger.error(
+                "Failed to publish event %s: %s",
+                event_type,
+                exc,
+                exc_info=True,
+            )
+

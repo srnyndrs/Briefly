@@ -29,6 +29,7 @@ def test_project_article_use_case_persists_content() -> None:
                     "source_id": "s1",
                     "url": "https://example.com/a1",
                     "title": "Title",
+                    "description": "Short description",
                     "content": "Full body",
                     "parsed_at": datetime.now(UTC).isoformat(),
                 },
@@ -39,5 +40,6 @@ def test_project_article_use_case_persists_content() -> None:
         article = db.get(ArticleProjection, "a1")
         assert article is not None
         assert article.content == "Full body"
+        assert article.description == "Short description"
     finally:
         db.close()
