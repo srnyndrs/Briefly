@@ -1,16 +1,19 @@
 package com.srnyndrs.android.briefly.data.remote.content.dto
 
+import com.srnyndrs.android.briefly.data.utils.InstantIso8601Serializer
 import kotlinx.serialization.*
-import kotlinx.serialization.json.*
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Serializable
-data class FeedResultDto (
+data class FeedResultDto(
     val items: List<FeedResultItemDto>,
     val total: Long
 )
 
 @Serializable
-data class FeedResultItemDto (
+@OptIn(ExperimentalTime::class)
+data class FeedResultItemDto(
     @SerialName("article_id")
     val articleId: String,
     val title: String,
@@ -23,8 +26,29 @@ data class FeedResultItemDto (
     val category: String? = null,
     @SerialName("image_ref")
     val imageRef: String? = null,
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("published_at")
-    val publishedAt: String? = null // ISO-format
+    val publishedAt: Instant,
+    @SerialName("has_content")
+    val hasContent: Boolean,
+)
+
+@Serializable
+data class FeedSourceSubscribeRequestDto(
+    @SerialName("source_id")
+    val sourceId: String,
+)
+
+@Serializable
+@OptIn(ExperimentalTime::class)
+data class FeedSourceSubscribeResponseDto(
+    @SerialName("user_id")
+    val userId: String,
+    @SerialName("source_id")
+    val sourceId: String,
+    @Serializable(with = InstantIso8601Serializer::class)
+    @SerialName("created_at")
+    val createdAt: Instant,
 )
 
 @Serializable
@@ -34,16 +58,21 @@ data class FeedSourceExploreRequestDto(
 
 @Serializable
 data class FeedSourceResultItemDto(
+    @SerialName("feed_id")
+    val feedId: String,
     val url: String,
     val title: String,
     @SerialName("content_type")
     val contentType: String? = null,
     val favicon: String? = null,
-    val description: String? = null
+    val description: String? = null,
+    @SerialName("is_subscribed")
+    val isSubscribed: Boolean,
 )
 
 
 @Serializable
+@OptIn(ExperimentalTime::class)
 data class ArticleDetailsDto (
     @SerialName("article_id")
     val articleId: String,
@@ -57,12 +86,14 @@ data class ArticleDetailsDto (
     val category: String? = null,
     @SerialName("image_ref")
     val imageRef: String? = null,
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("published_at")
-    val publishedAt: String? = null, // ISO-format
+    val publishedAt: Instant,
     val content: String? = null,
 )
 
 @Serializable
+@OptIn(ExperimentalTime::class)
 data class FeedSourceDto (
     @SerialName("feed_id")
     val feedId: String,
@@ -75,11 +106,13 @@ data class FeedSourceDto (
     val description: String? = null,
     val favicon: String? = null,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("last_crawled_at")
-    val lastCrawledAt: String? = null,
+    val lastCrawledAt: Instant,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("next_crawl_scheduled_at")
-    val nextCrawlScheduledAt: String,
+    val nextCrawlScheduledAt: Instant,
 
     @SerialName("last_crawl_succeeded")
     val lastCrawlSucceeded: Boolean,
@@ -90,9 +123,14 @@ data class FeedSourceDto (
     @SerialName("health_score")
     val healthScore: Double,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("created_at")
-    val createdAt: String,
+    val createdAt: Instant,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("updated_at")
-    val updatedAt: String
+    val updatedAt: Instant,
+
+    @SerialName("is_subscribed")
+    val isSubscribed: Boolean,
 )

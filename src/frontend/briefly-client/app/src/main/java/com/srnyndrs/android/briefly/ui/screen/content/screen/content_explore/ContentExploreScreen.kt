@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleCard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,6 +57,7 @@ import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleRow
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview.ContentExploreStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
+import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
 @Composable
 fun ContentExploreScreen(
@@ -65,6 +67,7 @@ fun ContentExploreScreen(
 ) {
 
     // VARIABLES
+    val context = LocalContext.current
     val numberOfHeadliners = 3
     val articles = state.result
     val pagerState = rememberPagerState() {
@@ -100,6 +103,9 @@ fun ContentExploreScreen(
                 ) { page ->
                     when(articles) {
                         is UiState.Success -> {
+                            if(articles.data.items.isEmpty()) {
+                                return@HorizontalPager
+                            }
                             val article = articles.data.items[page]
                             // Headline Card
                             Column(
@@ -284,7 +290,13 @@ fun ContentExploreScreen(
                             description = article.description,
                             tag = article.category
                         ) {
-                            onArticleSelected(article.id)
+                            if (article.hasContent) {
+                                onArticleSelected(article.id)
+                            } else {
+                                article.url?.let {
+                                    openCustomTab(context, it)
+                                }
+                            }
                         }
                         HorizontalDivider(
                             modifier = Modifier

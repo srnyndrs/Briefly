@@ -14,8 +14,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsViewModel
+import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ContentDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_search.ArticleSearch
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreViewModel
@@ -57,9 +59,8 @@ fun ContentNavigationGraph(
                 modifier = Modifier.fillMaxSize()
                     .padding(6.dp),
                 state = state
-            ) { url ->
-                // TODO: refactor to events
-                viewModel.exploreFeedSources(url)
+            ) { event ->
+                viewModel.onEvent(event)
             }
         }
         composable(
@@ -84,10 +85,21 @@ fun ContentNavigationGraph(
 
                 val state by viewModel.state.collectAsStateWithLifecycle()
 
-                ArticleDetailsScreen(
+                UiStateContainer(
                     modifier = Modifier.fillMaxSize(),
                     state = state
-                )
+                ) { data, isLoading ->
+                    ContentDetailsScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        isLoading = isLoading,
+                        article = data
+                    ) { }
+                }
+
+                /*ArticleDetailsScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    state = state
+                )*/
             } ?: Column {
                 // TODO: handle null state
             }

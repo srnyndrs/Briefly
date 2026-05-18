@@ -7,7 +7,7 @@ import javax.inject.Inject
 class GetFeedSourcesUseCase @Inject constructor(
     private val repository: ContentRepository
 ) {
-    suspend operator fun invoke(): Result<List<FeedSourceResultItem>> {
-        return repository.fetchFeedSources()
+    suspend operator fun invoke(query: String? = null): Result<List<FeedSourceResultItem>> {
+        return repository.fetchFeedSources(query)
     }
 }

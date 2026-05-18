@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.browser)
     // Dagger Hilt
     ksp(libs.hilt.android.compiler)
     implementation(libs.hilt.android)
@@ -90,6 +91,8 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
+    // Datetime
+    implementation(libs.kotlinx.datetime)
     // Test
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -16,6 +16,7 @@ import com.srnyndrs.android.briefly.ui.common.SearchTextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
@@ -25,6 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,7 +48,7 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun FeedSearchScreen(
     modifier: Modifier = Modifier,
     state: UiState<List<FeedSourceResultItem>>,
-    onSearch: (url: String) -> Unit
+    onEvent: (FeedSearchEvent) -> Unit
 ) {
 
     val (searchText, setSearchText) = remember { mutableStateOf("") }
@@ -73,9 +77,7 @@ fun FeedSearchScreen(
                 onValueChange = setSearchText,
                 modifier = Modifier.weight(1f),
                 onSearch = {
-                    if (searchText.isNotBlank()) {
-                        onSearch(searchText)
-                    }
+                    onEvent(FeedSearchEvent.SearchFeedSource(searchText))
                 }
             )
         }
@@ -117,6 +119,7 @@ fun FeedSearchScreen(
                         }
                     } else {
                         items(state.data) { feedSource ->
+                            val favourite = feedSource.isSubscribed
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -174,13 +177,21 @@ fun FeedSearchScreen(
                                 IconButton(
                                     modifier = Modifier.size(48.dp),
                                     onClick = {
-                                        // TODO: toggle favourite state
+                                        if(!favourite) {
+                                            onEvent(FeedSearchEvent.SubscribeFeedSource(feedSource.id))
+                                        } else {
+                                            onEvent(FeedSearchEvent.UnsubscribeFeedSource(feedSource.id))
+                                        }
                                     }
                                 ) {
-                                    // TODO: switch favourite state
                                     Icon(
                                         modifier = Modifier.size(32.dp),
-                                        imageVector = Icons.Default.FavoriteBorder,
+                                        imageVector =
+                                            if(!favourite) {
+                                                Icons.Default.FavoriteBorder
+                                            } else {
+                                                Icons.Default.Favorite
+                                            },
                                         contentDescription = null
                                     )
                                 }
