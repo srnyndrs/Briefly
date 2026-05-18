@@ -159,6 +159,7 @@ class SourceResponse(BaseModel):
     health_score: float
     created_at: datetime
     updated_at: datetime
+    is_subscribed: bool = False
 
 
 class ArticleCountResponse(BaseModel):
@@ -193,6 +194,7 @@ class FeedItemResponse(BaseModel):
     category: str | None = None
     image_ref: str | None = None
     published_at: datetime | None = None
+    has_content: bool = False
 
 
 class FeedResponse(BaseModel):

@@ -50,30 +50,44 @@ def create_source(
 )
 def list_sources(
     user: CurrentUser,
-    subscribed_only: bool = False,
+    q: str = "",
 ) -> list[SourceResponse]:
     """
     List news sources.
-    By default, returns all available sources for discovery.
-    If subscribed_only=True, only returns sources the user is subscribed to.
+    Returns all available sources for discovery with subscription status.
+    Results can be filtered by search query (q parameter).
+    Empty query string returns all sources.
     """
     try:
         sources = ingestion_list_sources()
-
-        if subscribed_only:
-            subscriptions = account_list_subscriptions(
-                str(user.user_id)
+        subscriptions = account_list_subscriptions(
+            str(user.user_id)
+        )
+        subscribed_ids = {
+            str(s["source_id"]) for s in subscriptions
+        }
+        
+        results = []
+        for item in sources:
+            source_response = SourceResponse(
+                **item,
+                is_subscribed=str(item["feed_id"]) in subscribed_ids
             )
-            subscribed_ids = {
-                str(s["source_id"]) for s in subscriptions
-            }
-            return [
-                SourceResponse(**item)
-                for item in sources
-                if str(item["feed_id"]) in subscribed_ids
-            ]
-
-        return [SourceResponse(**item) for item in sources]
+            
+            # Filter by search query if provided
+            if q:
+                search_fields = [
+                    source_response.title or "",
+                    source_response.description or "",
+                    source_response.url or "",
+                ]
+                search_text = " ".join(search_fields).lower()
+                if q.lower() in search_text:
+                    results.append(source_response)
+            else:
+                results.append(source_response)
+        
+        return results
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -105,10 +119,18 @@ def explore_sources(
 def get_source(
     source_id: uuid.UUID, user: CurrentUser
 ) -> SourceResponse:
-    _ = user
     try:
+        source_data = ingestion_get_source(str(source_id))
+        subscriptions = account_list_subscriptions(
+            str(user.user_id)
+        )
+        subscribed_ids = {
+            str(s["source_id"]) for s in subscriptions
+        }
+        
         return SourceResponse(
-            **ingestion_get_source(str(source_id))
+            **source_data,
+            is_subscribed=str(source_data["feed_id"]) in subscribed_ids
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

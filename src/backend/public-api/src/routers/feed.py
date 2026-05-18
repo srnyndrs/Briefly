@@ -13,6 +13,7 @@ from src.repositories.feed_repository import (
 )
 from src.repositories.service_clients import (
     ServiceClientError,
+    account_list_subscriptions,
     content_articles_count,
     content_get_article,
     content_list_articles,
@@ -49,6 +50,7 @@ def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
         category=item.category,
         image_ref=item.image_ref,
         published_at=item.published_at,
+        has_content=item.content is not None,
     )
 
 
@@ -83,7 +85,32 @@ def get_feed(
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
     sort: str | None = None,
+    subscribed_only: bool = False,
 ) -> FeedResponse:
+    # If subscribed_only is True, filter to only subscribed sources
+    filtered_source_ids = source_ids
+    if subscribed_only:
+        try:
+            subscriptions = account_list_subscriptions(
+                str(user.user_id)
+            )
+            subscribed_ids = [
+                str(s["source_id"]) for s in subscriptions
+            ]
+            # If no subscriptions, return empty result
+            if not subscribed_ids:
+                return FeedResponse(items=[], total=0)
+            # If source_ids are already provided, intersect with subscriptions
+            if filtered_source_ids:
+                filtered_source_ids = [
+                    sid for sid in filtered_source_ids
+                    if sid in subscribed_ids
+                ]
+            else:
+                filtered_source_ids = subscribed_ids
+        except ServiceClientError as exc:
+            raise map_service_error(exc) from exc
+    
     output = service.list_feed(
         ListFeedInput(
             user_id=user.user_id,
@@ -93,7 +120,7 @@ def get_feed(
             categories=categories,
             languages=languages,
             exclude_languages=exclude_languages,
-            source_ids=source_ids,
+            source_ids=filtered_source_ids,
             published_from=from_,
             published_to=to_,
             sort=sort,
@@ -122,12 +149,37 @@ def feed_search(
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
     sort: str | None = None,
+    subscribed_only: bool = False,
 ) -> FeedResponse:
     q = q.strip()
     if not q:
         raise HTTPException(
             status_code=400, detail="Query cannot be empty"
         )
+
+    # If subscribed_only is True, filter to only subscribed sources
+    filtered_source_ids = source_ids
+    if subscribed_only:
+        try:
+            subscriptions = account_list_subscriptions(
+                str(user.user_id)
+            )
+            subscribed_ids = [
+                str(s["source_id"]) for s in subscriptions
+            ]
+            # If no subscriptions, return empty result
+            if not subscribed_ids:
+                return FeedResponse(items=[], total=0)
+            # If source_ids are already provided, intersect with subscriptions
+            if filtered_source_ids:
+                filtered_source_ids = [
+                    sid for sid in filtered_source_ids
+                    if sid in subscribed_ids
+                ]
+            else:
+                filtered_source_ids = subscribed_ids
+        except ServiceClientError as exc:
+            raise map_service_error(exc) from exc
 
     output = service.search_feed(
         SearchFeedInput(
@@ -139,7 +191,7 @@ def feed_search(
             categories=categories,
             languages=languages,
             exclude_languages=exclude_languages,
-            source_ids=source_ids,
+            source_ids=filtered_source_ids,
             published_from=from_,
             published_to=to_,
             sort=sort,
