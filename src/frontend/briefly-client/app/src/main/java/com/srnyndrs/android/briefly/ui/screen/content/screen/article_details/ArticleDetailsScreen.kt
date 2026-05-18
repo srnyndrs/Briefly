@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +28,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,13 +38,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
+import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.preview.ArticleDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticleDetailsScreen(
     modifier: Modifier = Modifier,
@@ -48,170 +55,184 @@ fun ArticleDetailsScreen(
 ) {
 
     val scrollState = rememberScrollState()
+    val sheetState = rememberBottomSheetScaffoldState(
+        bottomSheetState = rememberModalBottomSheetState()
+    )
 
-    Column(
-        modifier = Modifier.then(modifier)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        when(state) {
-            is UiState.Success -> {
-                val article = state.data
+    BottomSheetScaffold(
+        modifier = Modifier.then(modifier),
+        scaffoldState = sheetState,
+        sheetDragHandle = {
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Header Overlay
-                    Box(
+        },
+        sheetContent = {
+
+        },
+        sheetPeekHeight = 256.dp
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.padding(paddingValues),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            when(state) {
+                is UiState.Success -> {
+                    val article = state.data
+
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.TopCenter
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Image
+                        // Header Overlay
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9)
-                                .background(
-                                    MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                                ),
-                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.TopCenter
                         ) {
-                            article.imageUrl?.let { url ->
-                                RemoteImageContainer(
-                                    modifier = Modifier.fillMaxSize(),
-                                    imageUrl = url,
-                                    contentScale = ContentScale.Crop
-                                )
-                            } ?:
+                            // Image
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9)
+                                    .background(
+                                        MaterialTheme.colorScheme.onSurface.copy(0.4f)
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                article.imageUrl?.let { url ->
+                                    RemoteImageContainer(
+                                        modifier = Modifier.fillMaxSize(),
+                                        imageUrl = url,
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } ?:
                                 Image(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = null
                                 )
-                        }
-                        // TODO: reposition top bar
-                        // Bar
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Return button
-                            IconButton(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(5.dp)),
-                                colors = IconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
-                                    contentColor = MaterialTheme.colorScheme.surface,
-                                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
-                                    disabledContentColor = MaterialTheme.colorScheme.onSurface,
-                                ),
-                                onClick = {
-                                    // TODO: return previous page
-                                }
-                            ) {
-                                Icon(
-                                    modifier = Modifier.size(24.dp),
-                                    imageVector = Icons.Default.KeyboardArrowLeft,
-                                    contentDescription = null
-                                )
                             }
-                            // Source
-                            Box(
+                            // TODO: reposition top bar
+                            // Bar
+                            Row(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(
-                                        MaterialTheme.colorScheme.onSurface.copy(0.05f)
+                                    .fillMaxWidth()
+                                    .padding(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // Return button
+                                IconButton(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(5.dp)),
+                                    colors = IconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
+                                        contentColor = MaterialTheme.colorScheme.surface,
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    onClick = {
+                                        // TODO: return previous page
+                                    }
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(24.dp),
+                                        imageVector = Icons.Default.KeyboardArrowLeft,
+                                        contentDescription = null
                                     )
-                                    .padding(vertical = 3.dp, horizontal = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-
-                                Text(
-                                    text = "Source", // TODO
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textDecoration = TextDecoration.Underline
-                                )
-                            }
-                            // External button
-                            IconButton(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(5.dp)),
-                                colors = IconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
-                                    contentColor = MaterialTheme.colorScheme.surface,
-                                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
-                                    disabledContentColor = MaterialTheme.colorScheme.onSurface,
-                                ),
-                                onClick = {
-                                    // TODO: external link
                                 }
-                            ) {
-                                Icon(
-                                    modifier = Modifier.size(24.dp),
-                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                    contentDescription = null
-                                )
+                                // Source
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.onSurface.copy(0.05f)
+                                        )
+                                        .padding(vertical = 3.dp, horizontal = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+
+                                    Text(
+                                        text = "Source", // TODO
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                }
+                                // External button
+                                IconButton(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(5.dp)),
+                                    colors = IconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
+                                        contentColor = MaterialTheme.colorScheme.surface,
+                                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(0.4f),
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    onClick = {
+                                        // TODO: external link
+                                    }
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(24.dp),
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = null
+                                    )
+                                }
                             }
                         }
-                    }
-                    // Content
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        // Title
-                        Text(
-                            modifier = Modifier.fillMaxWidth(),
-                            text = article.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            textAlign = TextAlign.Start,
-                            minLines = 1,
-                        )
-                        // Divider
-                        HorizontalDivider(
+                        // Content
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            thickness = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        // Description
-                        article.content?.let { content ->
+                                .padding(horizontal = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // Title
                             Text(
-                                modifier = Modifier.fillMaxWidth(0.98f),
-                                text = content,
-                                style = MaterialTheme.typography.bodyLarge,
-                                lineHeight = 26.sp,
-                                textAlign = TextAlign.Justify,
+                                modifier = Modifier.fillMaxWidth(),
+                                text = article.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                textAlign = TextAlign.Start,
+                                minLines = 1,
                             )
+                            // Divider
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                thickness = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            // Description
+                            article.content?.let { content ->
+                                Text(
+                                    modifier = Modifier.fillMaxWidth(0.98f),
+                                    text = content,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    lineHeight = 26.sp,
+                                    textAlign = TextAlign.Justify,
+                                )
+                            }
                         }
                     }
                 }
-            }
-            is UiState.Error -> {
-                // TODO: handle error state
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = state.message,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            is UiState.Loading -> {
-                LinearProgressIndicator()
-            }
-            else -> {
-                // Show nothing on IDLE
+                is UiState.Error -> {
+                    // TODO: handle error state
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = state.message,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                is UiState.Loading -> {
+                    LinearProgressIndicator()
+                }
+                else -> {
+                    // Show nothing on IDLE
+                }
             }
         }
     }
@@ -219,19 +240,14 @@ fun ArticleDetailsScreen(
 
 @PreviewLightDark
 @Composable
-fun ArticleDetailsScreenPreview() {
+fun ArticleDetailsScreenPreview(@PreviewParameter(ArticleDetailsStateProvider::class) state: ArticleDetailsState) {
     BrieflyTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            /*topBar = {
-                TopAppBar(
-                    onMenuSelect = {}
-                ) { }
-            }*/
         ) { paddingValues ->
             ArticleDetailsScreen(
                 modifier = Modifier.padding(paddingValues),
-                state = UiState.Idle
+                state = state.details
             )
         }
     }

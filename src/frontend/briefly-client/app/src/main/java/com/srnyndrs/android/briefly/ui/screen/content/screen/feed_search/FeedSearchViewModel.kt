@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.ExploreFeedSourcesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourceSubscriptionsUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourcesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.SubscribeFeedSourceUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.UnsubscribeFeedSourceUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +20,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FeedSearchViewModel @Inject constructor(
-    private val exploreFeedSourcesUseCase: ExploreFeedSourcesUseCase,
     private val getFeedSourcesUseCase: GetFeedSourcesUseCase,
+    private val subscribeFeedSourceUseCase: SubscribeFeedSourceUseCase,
+    private val unsubscribeFeedSourceUseCase: UnsubscribeFeedSourceUseCase,
 ): ViewModel() {
 
     private val _state = MutableStateFlow<UiState<List<FeedSourceResultItem>>>(UiState.Idle)
@@ -32,9 +36,29 @@ class FeedSearchViewModel @Inject constructor(
             UiState.Idle
         )
 
-    private fun getFeedSources() = viewModelScope.launch {
+    private val queryState = MutableStateFlow<String?>(null)
+
+    fun onEvent(event: FeedSearchEvent) {
+        when(event) {
+            is FeedSearchEvent.SearchFeedSource -> {
+                val query = event.query
+                getFeedSources(query)
+            }
+            is FeedSearchEvent.SubscribeFeedSource -> {
+                val sourceId = event.sourceId
+                subscribeFeedSource(sourceId)
+            }
+            is FeedSearchEvent.UnsubscribeFeedSource -> {
+                val sourceId = event.sourceId
+                unsubscribeFeedSource(sourceId)
+            }
+        }
+    }
+
+    private fun getFeedSources(query: String? = null) = viewModelScope.launch {
         _state.value = UiState.Loading
-        getFeedSourcesUseCase().fold(
+        queryState.value = query
+        getFeedSourcesUseCase(query).fold(
             onSuccess = { results ->
                 _state.value = UiState.Success(data = results)
             },
@@ -44,14 +68,24 @@ class FeedSearchViewModel @Inject constructor(
         )
     }
 
-    fun exploreFeedSources(url: String) = viewModelScope.launch {
-        _state.value = UiState.Loading
-        exploreFeedSourcesUseCase(url).fold(
-            onSuccess = { results ->
-                _state.value = UiState.Success(data = results)
+    private fun subscribeFeedSource(sourceId: String) = viewModelScope.launch {
+        subscribeFeedSourceUseCase(sourceId).fold(
+            onSuccess = {
+                getFeedSources(queryState.value)
             },
-            onFailure = { exception ->
-                _state.value = UiState.Error(message = exception.message ?: "Unknown error")
+            onFailure = {
+
+            }
+        )
+    }
+
+    private fun unsubscribeFeedSource(sourceId: String) = viewModelScope.launch {
+        unsubscribeFeedSourceUseCase(sourceId).fold(
+            onSuccess = { sourceId ->
+                getFeedSources(queryState.value)
+            },
+            onFailure = {
+
             }
         )
     }
