@@ -25,7 +25,7 @@ class FeedSearchViewModel @Inject constructor(
     private val unsubscribeFeedSourceUseCase: UnsubscribeFeedSourceUseCase,
 ): ViewModel() {
 
-    private val _state = MutableStateFlow<UiState<List<FeedSourceResultItem>>>(UiState.Idle)
+    private val _state = MutableStateFlow<FeedSearchState>(FeedSearchState())
     val state = _state.asStateFlow()
         .onStart {
             getFeedSources()
@@ -33,7 +33,7 @@ class FeedSearchViewModel @Inject constructor(
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            UiState.Idle
+            FeedSearchState()
         )
 
     private val queryState = MutableStateFlow<String?>(null)
@@ -56,14 +56,18 @@ class FeedSearchViewModel @Inject constructor(
     }
 
     private fun getFeedSources(query: String? = null) = viewModelScope.launch {
-        _state.value = UiState.Loading
+        _state.value = _state.value.copy(results = UiState.Loading)
         queryState.value = query
         getFeedSourcesUseCase(query).fold(
             onSuccess = { results ->
-                _state.value = UiState.Success(data = results)
+                _state.value = _state.value.copy(
+                    results = UiState.Success(data = results)
+                )
             },
             onFailure = { exception ->
-                _state.value = UiState.Error(message = exception.message ?: "Unknown error")
+                _state.value = _state.value.copy(
+                    results = UiState.Error(message = exception.message ?: "Unknown error")
+                )
             }
         )
     }

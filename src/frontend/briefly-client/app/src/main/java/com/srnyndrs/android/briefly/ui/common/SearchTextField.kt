@@ -16,6 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.MagnifyingGlass
+import com.composables.icons.heroicons.solid.MagnifyingGlass
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -39,7 +42,7 @@ fun SearchTextField(
                 onClick = { onSearch?.invoke() }
             ) {
                 Icon(
-                    imageVector = Icons.Default.Search,
+                    imageVector = Heroicons.Solid.MagnifyingGlass,
                     contentDescription = null
                 )
             }
@@ -53,7 +56,9 @@ fun SearchTextFieldPreview() {
     BrieflyTheme {
         Surface {
             SearchTextField(
-                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp),
                 value = "",
                 onValueChange = {},
             ) {
