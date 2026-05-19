@@ -21,7 +21,7 @@ fun AuthFormContainer(
         modifier = Modifier.then(modifier)
             .fillMaxWidth()
             .padding(vertical = 6.dp, horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         items().forEach { composable ->

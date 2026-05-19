@@ -121,8 +121,8 @@ fun AuthScreen(
                                         pagerState.animateScrollToPage(0)
                                     }
                                 }
-                            ) { email, password ->
-                                onEvent(AuthEvent.RegisterWithEmail(email, password))
+                            ) { username, email, password ->
+                                onEvent(AuthEvent.RegisterWithEmail(username, email, password))
                             }
                         }
                     }

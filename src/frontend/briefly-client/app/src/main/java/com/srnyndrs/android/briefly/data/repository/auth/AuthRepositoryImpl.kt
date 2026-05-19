@@ -39,12 +39,13 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun register(
+        username: String,
         email: String,
         password: String
     ): Result<Unit> {
         _authState.value = AuthState.Loading
         return try {
-            val response = apiAuthService.register(RegisterRequestDto(email, password))
+            val response = apiAuthService.register(RegisterRequestDto(username, email, password))
             tokenManager.saveAccessToken(response.accessToken)
             tokenManager.saveRefreshToken(response.refreshToken)
             _authState.value = AuthState.Authenticated

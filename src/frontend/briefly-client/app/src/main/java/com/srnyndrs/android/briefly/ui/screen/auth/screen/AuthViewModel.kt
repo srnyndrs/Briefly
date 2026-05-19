@@ -29,8 +29,8 @@ class AuthViewModel @Inject constructor(
                 loginWithEmail(email, password)
             }
             is AuthEvent.RegisterWithEmail -> {
-                val (email, password) = event
-                registerWithEmail(email, password)
+                val (username, email, password) = event
+                registerWithEmail(username, email, password)
             }
         }
     }
@@ -47,9 +47,9 @@ class AuthViewModel @Inject constructor(
         )
     }
 
-    private fun registerWithEmail(email: String, password: String) = viewModelScope.launch {
+    private fun registerWithEmail(username: String, email: String, password: String) = viewModelScope.launch {
         _state.value = UiState.Loading
-        allAuthUseCase.registerUseCase(email, password).fold(
+        allAuthUseCase.registerUseCase(username, email, password).fold(
             onSuccess = {
                 _state.value = UiState.Success(data = Unit)
             },
