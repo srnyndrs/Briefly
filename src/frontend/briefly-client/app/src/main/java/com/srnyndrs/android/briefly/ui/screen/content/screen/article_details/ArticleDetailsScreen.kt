@@ -41,6 +41,8 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.solid.Photo
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
@@ -106,7 +108,7 @@ fun ArticleDetailsScreen(
                                     )
                                 } ?:
                                 Image(
-                                    imageVector = Icons.Default.Info,
+                                    imageVector = Heroicons.Solid.Photo,
                                     contentDescription = null
                                 )
                             }
@@ -211,7 +213,6 @@ fun ArticleDetailsScreen(
                                     modifier = Modifier.fillMaxWidth(0.98f),
                                     text = content,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    lineHeight = 26.sp,
                                     textAlign = TextAlign.Justify,
                                 )
                             }

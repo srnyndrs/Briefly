@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Warning
@@ -37,6 +38,9 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.ExclamationTriangle
+import com.composables.icons.heroicons.solid.ExclamationTriangle
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -70,7 +74,9 @@ fun RemoteImage(
     when (state) {
         is AsyncImagePainter.State.Empty,
         is AsyncImagePainter.State.Loading -> {
-            CircularProgressIndicator()
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+            )
         }
         is AsyncImagePainter.State.Success -> {
             Image(
@@ -90,9 +96,10 @@ fun RemoteImage(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Warning,
+                    modifier = Modifier.size(24.dp),
+                    imageVector = Heroicons.Outline.ExclamationTriangle,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer.copy(0.4f),
+                    tint = MaterialTheme.colorScheme.onErrorContainer.copy(0.7f),
                 )
             }
         }

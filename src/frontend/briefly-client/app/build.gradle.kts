@@ -93,6 +93,11 @@ dependencies {
     implementation(libs.coil.network.ktor3)
     // Datetime
     implementation(libs.kotlinx.datetime)
+    // Fonts
+    implementation(libs.androidx.compose.ui.text.google.fonts)
+    // Icons
+    implementation(libs.icons.heroicons.outline.cmp)
+    implementation(libs.icons.heroicons.solid.cmp)
     // Test
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

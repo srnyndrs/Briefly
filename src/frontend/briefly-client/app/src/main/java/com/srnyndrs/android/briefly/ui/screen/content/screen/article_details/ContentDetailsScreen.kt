@@ -37,9 +37,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
@@ -79,8 +82,8 @@ fun ContentDetailsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(top = 36.dp, start = 8.dp, end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(top = 36.dp, start = 12.dp, end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     // Category
                     Box(
@@ -88,7 +91,7 @@ fun ContentDetailsScreen(
                             .wrapContentWidth()
                             .defaultMinSize(minHeight = 36.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(0.2f))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(0.12f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -103,9 +106,7 @@ fun ContentDetailsScreen(
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article?.title ?: "",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Black,
-                        lineHeight = 28.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Start,
                         minLines = 1,
                     )
@@ -139,8 +140,9 @@ fun ContentDetailsScreen(
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article?.content ?: "",
-                        fontSize = 18.sp,
-                        lineHeight = 26.sp,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            letterSpacing = TextUnit.Unspecified
+                        ),
                         textAlign = TextAlign.Justify
                     )
                 }

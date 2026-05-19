@@ -25,6 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.solid.Bars3
+import com.composables.icons.heroicons.solid.Equals
+import com.composables.icons.heroicons.solid.User
+import com.composables.icons.heroicons.solid.UserCircle
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -51,13 +56,13 @@ fun TopAppBar(
             // Hamburger menu
             IconButton(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(48.dp)
                     .clip(CircleShape),
                 onClick = onMenuSelect
             ) {
                 Icon(
                     modifier = Modifier.size(32.dp),
-                    imageVector = Icons.Default.Menu,
+                    imageVector = Heroicons.Solid.Bars3,
                     contentDescription = null // TODO
                 )
             }
@@ -69,7 +74,7 @@ fun TopAppBar(
             // User settings
             IconButton(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(48.dp)
                     .clip(CircleShape),
                 onClick = onProfileSelect,
                 colors = IconButtonColors(
@@ -88,7 +93,7 @@ fun TopAppBar(
                                 CircleShape
                         )
                         .padding(3.dp),
-                    imageVector = Icons.Default.Person,
+                    imageVector = Heroicons.Solid.User,
                     contentDescription = null // TODO
                 )
             }
