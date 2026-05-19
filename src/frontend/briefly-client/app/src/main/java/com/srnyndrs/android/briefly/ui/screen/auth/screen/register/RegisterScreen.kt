@@ -26,26 +26,26 @@ import androidx.compose.ui.unit.sp
 import com.srnyndrs.android.briefly.ui.screen.auth.components.AuthFormContainer
 import com.srnyndrs.android.briefly.ui.screen.auth.components.EmailTextField
 import com.srnyndrs.android.briefly.ui.screen.auth.components.PasswordTextField
+import com.srnyndrs.android.briefly.ui.screen.auth.components.UsernameTextField
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
 fun RegisterScreen(
     modifier: Modifier = Modifier,
     onNavigation: () -> Unit,
-    onRegister: (String, String) -> Unit
+    onRegister: (String, String, String) -> Unit
 ) {
 
+    var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordConfirmation by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var passwordConfirmationVisible by remember { mutableStateOf(false) }
 
     val validation = {
         // TODO: extend validation
         email.isNotEmpty()
+                && username.isNotEmpty()
                 && password.isNotEmpty()
-                && password == passwordConfirmation
     }
 
     Column(
@@ -74,6 +74,18 @@ fun RegisterScreen(
                 items = {
                     listOf(
                         {
+                            UsernameTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
+                                value = username,
+                                onValueChange = {
+                                    username = it
+                                },
+                                label = "Username"
+                            )
+                        },
+                        {
                             EmailTextField(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -100,20 +112,6 @@ fun RegisterScreen(
                             )
                         },
                         {
-                            PasswordTextField(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp),
-                                value = passwordConfirmation,
-                                onValueChange = {
-                                    passwordConfirmation = it
-                                },
-                                label = "Confirm password",
-                                passwordVisible = passwordConfirmationVisible,
-                                onPasswordVisibilityChange = { passwordConfirmationVisible = it }
-                            )
-                        },
-                        {
                             Button(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -121,7 +119,7 @@ fun RegisterScreen(
                                 shape = RoundedCornerShape(5.dp),
                                 onClick = {
                                     if(validation()) {
-                                        onRegister(email, password)
+                                        onRegister(username, email, password)
                                     }
                                 }
                             ) {
@@ -154,7 +152,7 @@ fun RegisterScreenPreview() {
             RegisterScreen(
                 modifier = Modifier.fillMaxSize(),
                 onNavigation = {}
-            ) { _,_ -> }
+            ) { _,_,_ -> }
         }
     }
 }

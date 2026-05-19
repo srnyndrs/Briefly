@@ -25,6 +25,9 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.Envelope
+import com.composables.icons.heroicons.solid.Envelope
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -33,8 +36,9 @@ fun EmailTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String = "Email",
-    leadingIcon: Painter? = rememberVectorPainter(image = Icons.Outlined.Email),
+    leadingIcon: Painter? = rememberVectorPainter(image = Heroicons.Outline.Envelope),
 ) {
+
     val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
     val textFieldIsFocused = interactionSource.collectIsFocusedAsState()
 
@@ -48,13 +52,17 @@ fun EmailTextField(
                 if (textFieldIsFocused.value) MaterialTheme.typography.titleSmall
                 else MaterialTheme.typography.bodyMedium
 
-            Text(text = label, style = style)
+            Text(
+                text = label,
+                style = style
+            )
         },
         leadingIcon = leadingIcon?.let {
             @Composable {
                 Icon(
-                    modifier = Modifier.size(28.dp),
-                    painter = leadingIcon, contentDescription = null
+                    modifier = Modifier.size(24.dp),
+                    painter = leadingIcon,
+                    contentDescription = null
                 )
             }
         },
