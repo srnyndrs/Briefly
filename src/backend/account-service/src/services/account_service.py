@@ -28,6 +28,7 @@ class AccountService:
     def register_user(
         self,
         *,
+        username: str,
         email: str,
         password: str,
         correlation_id: str,
@@ -43,6 +44,7 @@ class AccountService:
         password_hash = self._auth_service.hash_password(password)
         user = self._repo.create_user(
             user_id=user_id,
+            username=username,
             email=email,
             password_hash=password_hash,
             now=now,

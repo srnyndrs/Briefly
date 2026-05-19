@@ -44,6 +44,7 @@ def register(
     trace_id, span_id = trace_ids(request_id)
     try:
         access_token, refresh_token = service.register_user(
+            username=body.username,
             email=body.email,
             password=body.password,
             correlation_id=request_id,
