@@ -6,6 +6,7 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeR
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
+import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
@@ -42,6 +43,17 @@ class ContentRepositoryImpl @Inject constructor(
         return try {
             val response = contentApiService.getFeedSourceSubscriptions()
             val result = response.map { it.toDomain() }
+
+            Result.success(result)
+        }  catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
+    override suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails> {
+        return try {
+            val response = contentApiService.getFeedSourceDetails(sourceId)
+            val result = response.toDomain()
 
             Result.success(result)
         }  catch (exception: Exception) {
