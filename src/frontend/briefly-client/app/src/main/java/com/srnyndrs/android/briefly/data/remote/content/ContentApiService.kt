@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.data.remote.content
 
 import com.srnyndrs.android.briefly.data.remote.content.dto.ArticleDetailsDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResultDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDetailsDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceResultItemDto
@@ -54,6 +55,11 @@ class ContentApiService (
         return client.post("sources/explore") {
             setBody(request)
         }.body()
+    }
+
+    suspend fun getFeedSourceDetails(sourceId: String): FeedSourceDetailsDto {
+        return client.get("sources/${sourceId}")
+            .body()
     }
 
     suspend fun getArticleById(articleId: String): ArticleDetailsDto {

@@ -134,3 +134,41 @@ data class FeedSourceDto (
     @SerialName("is_subscribed")
     val isSubscribed: Boolean,
 )
+
+@Serializable
+data class FeedSourceDetailsDto(
+    @SerialName("feed_id")
+    val feedId: String,
+
+    @SerialName("user_id")
+    val userId: String,
+
+    val url: String,
+    val title: String? = null,
+    val description: String? = null,
+    val favicon: String? = null,
+
+    @SerialName("last_crawled_at")
+    val lastCrawledAt: String? = null,
+
+    @SerialName("next_crawl_scheduled_at")
+    val nextCrawlScheduledAt: String,
+
+    @SerialName("last_crawl_succeeded")
+    val lastCrawlSucceeded: Boolean,
+
+    @SerialName("consecutive_failures")
+    val consecutiveFailures: Long,
+
+    @SerialName("health_score")
+    val healthScore: Float,
+
+    @SerialName("created_at")
+    val createdAt: String,
+
+    @SerialName("updated_at")
+    val updatedAt: String,
+
+    @SerialName("is_subscribed")
+    val isSubscribed: Boolean
+)

@@ -1,5 +1,6 @@
 package com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun FeedSearchScreen(
     modifier: Modifier = Modifier,
     state: FeedSearchState,
+    onNavigate: (String) -> Unit,
     onEvent: (FeedSearchEvent) -> Unit
 ) {
 
@@ -130,7 +132,10 @@ fun FeedSearchScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(56.dp),
+                                    .requiredHeight(56.dp)
+                                    .clickable {
+                                        onNavigate(feedSource.id)
+                                    },
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -232,7 +237,8 @@ fun FeedSearchScreenPreview(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(6.dp),
-                state = state
+                state = state,
+                onNavigate = {}
             ) {
 
             }

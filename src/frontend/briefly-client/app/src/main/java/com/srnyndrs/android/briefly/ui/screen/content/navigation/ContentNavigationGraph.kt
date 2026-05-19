@@ -21,6 +21,9 @@ import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.Con
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_search.ArticleSearch
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreViewModel
+import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsScreen
+import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsState
+import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSearchScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSearchViewModel
 
@@ -56,9 +59,13 @@ fun ContentNavigationGraph(
             val state by viewModel.state.collectAsStateWithLifecycle()
 
             FeedSearchScreen(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .padding(6.dp),
-                state = state
+                state = state,
+                onNavigate = { sourceId ->
+                    navController.navigate(ContentScreens.FeedSourceDetails.createRoute(sourceId))
+                }
             ) { event ->
                 viewModel.onEvent(event)
             }
@@ -102,6 +109,25 @@ fun ContentNavigationGraph(
                 )*/
             } ?: Column {
                 // TODO: handle null state
+            }
+        }
+        composable(
+            route = ContentScreens.FeedSourceDetails.route,
+            arguments = listOf(
+                navArgument(ContentScreens.FEED_SOURCE_ID_ARG) { type = NavType.StringType },
+            ),
+        ) { entry ->
+            val sourceId = entry.arguments?.getString(ContentScreens.FEED_SOURCE_ID_ARG)
+            sourceId?.let {
+                val viewModel = hiltViewModel<FeedDetailsViewModel, FeedDetailsViewModel.FeedDetailsViewModelFactory>(
+                    creationCallback = { factory -> factory.create(sourceId) }
+                )
+                val state by viewModel.state.collectAsStateWithLifecycle()
+
+                FeedDetailsScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    feedDetailsState = state.feedDetails
+                )
             }
         }
     }
