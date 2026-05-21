@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticlesUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourceDetailsUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
@@ -18,7 +19,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel(assistedFactory = FeedDetailsViewModel.FeedDetailsViewModelFactory::class)
 class FeedDetailsViewModel @AssistedInject constructor(
     @Assisted private val sourceId: String,
-    private val getFeedSourceDetailsUseCase: GetFeedSourceDetailsUseCase
+    private val getFeedSourceDetailsUseCase: GetFeedSourceDetailsUseCase,
+    private val getArticlesUseCase: GetArticlesUseCase
 ): ViewModel() {
 
     @AssistedFactory
@@ -30,6 +32,7 @@ class FeedDetailsViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
         .onStart {
             fetchFeedDetails()
+            fetchFeedArticles()
         }
         .stateIn(
             viewModelScope,
@@ -63,7 +66,21 @@ class FeedDetailsViewModel @AssistedInject constructor(
     }
 
     private fun fetchFeedArticles() = viewModelScope.launch {
-
+        _state.value = _state.value.copy(
+            articles = UiState.Loading
+        )
+        getArticlesUseCase(sourceIds = listOf(sourceId)).fold(
+            onSuccess = { (_, _, items) ->
+                _state.value = _state.value.copy(
+                    articles = UiState.Success(items)
+                )
+            },
+            onFailure = { exception ->
+                _state.value = _state.value.copy(
+                    articles = UiState.Error(exception.message ?: "Unknown error occurred")
+                )
+            }
+        )
     }
 
 }

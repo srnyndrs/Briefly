@@ -4,14 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -38,7 +39,6 @@ fun ArticleCard(
     title: String,
     description: String,
     imageUrl: String? = null,
-    source: String? = null,
     isLoading: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
@@ -67,7 +67,6 @@ fun ArticleCard(
                                 MaterialTheme.colorScheme.onSurface,
                                 RectangleShape
                             )
-                            .padding(end = 8.dp)
                     } else it.size(0.dp)
                 },
             isLoading = isLoading
@@ -79,39 +78,53 @@ fun ArticleCard(
                 )
             }
         }
+        if(imageUrl != null) {
+            Spacer(
+                modifier = Modifier.requiredWidth(8.dp)
+            )
+        }
         // Content
         Column(
             modifier = Modifier.weight(2 / 3f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.Top
         ) {
             // Title
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                minLines = 1,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Start,
+            ShimmerItem(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 16.dp),
+                isLoading = isLoading,
+                cornerRadius = 5.dp
+            ) {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    minLines = 1,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Start,
+                )
+            }
+            Spacer(
+                modifier = Modifier.requiredHeight(4.dp)
             )
             // Description
-            Text(
-                text = description,
-                minLines = 1,
-                maxLines = 3,
-                style = MaterialTheme.typography.bodyMedium,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Justify,
-            )
-            // Optional Source
-            if (!source.isNullOrBlank()) {
+            ShimmerItem(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 16.dp),
+                isLoading = isLoading,
+                cornerRadius = 5.dp
+            ) {
                 Text(
-                    text = source,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.W400,
-                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth(),
+                    text = description,
                     minLines = 1,
-                    textAlign = TextAlign.Start
+                    maxLines = 3,
+                    style = MaterialTheme.typography.bodyMedium,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Justify,
                 )
             }
         }
@@ -127,8 +140,8 @@ fun ArticleCardPreview() {
                 modifier = Modifier.fillMaxWidth().padding(6.dp),
                 title = "Breaking news",
                 description = "This is the description",
-                imageUrl = null,
-                isLoading = false
+                imageUrl = "",
+                isLoading = true
             )
         }
     }
