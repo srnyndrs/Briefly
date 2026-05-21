@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
+import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 /**
@@ -37,6 +39,7 @@ fun ArticleCard(
     description: String,
     imageUrl: String? = null,
     source: String? = null,
+    isLoading: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     Row(
@@ -47,25 +50,29 @@ fun ArticleCard(
                 enabled = onClick !== null
             ) { onClick?.invoke() }
             .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top
     ) {
         // Image
-        if (imageUrl != null) {
-            Box(
-                modifier = Modifier
-                    .aspectRatio(16 / 9f)
-                    .weight(1 / 3f)
-                    .background(
-                        MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                    )
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.onSurface,
-                        RectangleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
+        ShimmerItem(
+            modifier = Modifier
+                .let {
+                    if(imageUrl != null) {
+                        it.aspectRatio(16 / 9f)
+                            .weight(1 / 3f)
+                            .background(
+                                MaterialTheme.colorScheme.onSurface.copy(0.4f)
+                            )
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.onSurface,
+                                RectangleShape
+                            )
+                            .padding(end = 8.dp)
+                    } else it.size(0.dp)
+                },
+            isLoading = isLoading
+        ) {
+            if(imageUrl != null) {
                 RemoteImageContainer(
                     modifier = Modifier.fillMaxSize(),
                     imageUrl = imageUrl
@@ -120,7 +127,8 @@ fun ArticleCardPreview() {
                 modifier = Modifier.fillMaxWidth().padding(6.dp),
                 title = "Breaking news",
                 description = "This is the description",
-                imageUrl = ""
+                imageUrl = null,
+                isLoading = false
             )
         }
     }

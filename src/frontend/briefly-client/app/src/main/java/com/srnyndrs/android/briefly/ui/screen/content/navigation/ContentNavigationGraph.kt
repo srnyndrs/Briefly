@@ -126,7 +126,7 @@ fun ContentNavigationGraph(
 
                 FeedDetailsScreen(
                     modifier = Modifier.fillMaxSize(),
-                    feedDetailsState = state.feedDetails
+                    state = state
                 )
             }
         }

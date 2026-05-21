@@ -5,5 +5,7 @@ data class FeedSourceDetails(
     val title: String?,
     val description: String? = null,
     val imageUrl: String? = null,
+    val favourite: Boolean = false,
+    val subscribed: Boolean = false // NOT YET IMPLEMENTED
     //val lastUpdatedAt: Instant
 )
