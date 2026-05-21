@@ -25,6 +25,7 @@ securityCrypto = "1.1.0-alpha06"
 ktorAuth = "3.0.0"
 browser = "1.10.0"
 uiTextGoogleFonts = "1.11.1"
+uiGeometry = "1.11.2"
 
 [libraries]
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
@@ -70,6 +71,7 @@ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lif
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 ktor-client-auth = { group = "io.ktor", name = "ktor-client-auth", version.ref = "ktorAuth" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "uiGeometry" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
