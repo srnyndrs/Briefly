@@ -7,7 +7,7 @@ import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
 
 interface ContentRepository {
-    suspend fun fetchArticles(limit: Long? = null, offset: Long? = null): Result<List<ArticleItem>>
+    suspend fun fetchArticles(limit: Long? = null, offset: Long? = null, sourceIds: List<String>? = null): Result<List<ArticleItem>>
     suspend fun fetchFeedSources(query: String? = null): Result<List<FeedSourceResultItem>>
     suspend fun getFeedSourceSubscriptions(): Result<List<FeedSubscription>>
     suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails>

@@ -21,11 +21,14 @@ import io.ktor.http.HttpStatusCode
 class ContentApiService (
     private val client: HttpClient
 ) {
-    suspend fun getFeeds(limit: Long? = null, offset: Long? = null): FeedResultDto {
+    suspend fun getFeeds(limit: Long? = null, offset: Long? = null, sourceIds: List<String>? = null): FeedResultDto {
         return client.get("feed") {
             parameter("limit", limit ?: 20)
             parameter("offset", offset ?: 0)
-            parameter("subscribed_only", true)
+            sourceIds?.forEach { id ->
+                parameter("source_ids", id)
+            }
+            parameter("subscribed_only", sourceIds == null)
         }.body()
     }
 

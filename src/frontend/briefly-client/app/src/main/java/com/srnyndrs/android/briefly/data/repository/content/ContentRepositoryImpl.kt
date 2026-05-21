@@ -17,9 +17,9 @@ class ContentRepositoryImpl @Inject constructor(
     private val contentApiService: ContentApiService
 ): ContentRepository {
 
-    override suspend fun fetchArticles(limit: Long?, offset: Long?): Result<List<ArticleItem>> {
+    override suspend fun fetchArticles(limit: Long?, offset: Long?, sourceIds: List<String>?): Result<List<ArticleItem>> {
         return try {
-            val response = contentApiService.getFeeds()
+            val response = contentApiService.getFeeds(limit, offset, sourceIds)
             val items = response.items.map { it.toDomain() }
 
             Result.success(items)

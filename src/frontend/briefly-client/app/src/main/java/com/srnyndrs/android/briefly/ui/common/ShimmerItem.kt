@@ -19,7 +19,7 @@ fun ShimmerItem(
         modifier = Modifier
             .then(modifier)
             .shimmer(isLoading, cornerRadius),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopStart
     ) {
         if (!isLoading) content()
     }

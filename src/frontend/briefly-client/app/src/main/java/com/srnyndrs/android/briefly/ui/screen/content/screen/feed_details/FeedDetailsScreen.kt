@@ -10,35 +10,31 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Bell
 import com.composables.icons.heroicons.outline.BellSlash
+import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.outline.Link
-import com.composables.icons.heroicons.outline.Minus
-import com.composables.icons.heroicons.outline.Plus
+import com.composables.icons.heroicons.solid.Heart
 import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
@@ -46,8 +42,8 @@ import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleCard
+import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.preview.FeedDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
-import com.srnyndrs.android.briefly.ui.util.shimmer
 
 @Composable
 fun FeedDetailsScreen(
@@ -67,47 +63,68 @@ fun FeedDetailsScreen(
                 verticalArrangement = Arrangement.spacedBy(22.dp)
             ) {
                 // Source card
-                ShimmerItem(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .requiredHeight(196.dp)
+                        .requiredHeight(126.dp)
                         .padding(top = 12.dp)
                         .border(
                             1.dp,
                             MaterialTheme.colorScheme.onSurface,
                             RoundedCornerShape(5.dp)
                         ),
-                    isLoading = isLoading
+                    verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        RemoteImageContainer(
+                        ShimmerItem(
                             modifier = Modifier.size(126.dp),
-                            imageUrl = feedDetails?.imageUrl ?: ""
-                        )
+                            isLoading = isLoading
+                        ) {
+                            RemoteImageContainer(
+                                modifier = Modifier.fillMaxSize(),
+                                imageUrl = feedDetails?.imageUrl ?: ""
+                            )
+                        }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(6.dp),
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Source title
-                            Text(
-                                text = feedDetails?.title ?: "",
-                                style = MaterialTheme.typography.titleLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            ShimmerItem(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 24.dp),
+                                isLoading = isLoading,
+                                cornerRadius = 3.dp
+                            ) {
+                                Text(
+                                    text = feedDetails?.title ?: "",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                             // Source description
-                            Text(
-                                text = feedDetails?.description ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            ShimmerItem(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 32.dp),
+                                isLoading = isLoading,
+                                cornerRadius = 3.dp
+                            ) {
+                                Text(
+                                    text = feedDetails?.description ?: "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -146,13 +163,12 @@ fun FeedDetailsScreen(
                         ) {
                             val followed = feedDetails?.favourite ?: false
                             Row(
-                                modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     modifier = Modifier.size(16.dp),
-                                    imageVector = if(!followed) Heroicons.Outline.Plus else Heroicons.Outline.Minus,
+                                    imageVector = if(!followed) Heroicons.Solid.Heart else Heroicons.Outline.Heart,
                                     contentDescription = if(!followed) "Follow" else "Unfollow"
                                 )
                                 Text(
@@ -169,7 +185,6 @@ fun FeedDetailsScreen(
                             }
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -209,15 +224,26 @@ fun FeedDetailsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                if(articles?.isNotEmpty() == true) {
-                    items(articles) {
+                if(isLoading) {
+                    items(3) {
                         ArticleCard(
-                            title = "Breaking news!",
-                            source = null,
-                            description = "Something happened",
-                            imageUrl = ""
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .requiredHeight(72.dp),
+                            title = "Title",
+                            description = "Description",
+                            imageUrl = "",
+                            isLoading = isLoading
+                        )
+                    }
+                } else {
+                    items(articles ?: emptyList()) { article ->
+                        ArticleCard(
+                            title = article.title,
+                            description = article.description ?: "",
+                            imageUrl = article.imageUrl
                         ) {
-
+                            // TODO: onClick
                         }
                         HorizontalDivider(
                             modifier = Modifier
@@ -227,10 +253,6 @@ fun FeedDetailsScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                } else {
-                    items(3) {
-                        LinearProgressIndicator()
-                    }
                 }
             }
         }
@@ -239,31 +261,14 @@ fun FeedDetailsScreen(
 
 @PreviewLightDark
 @Composable
-fun FeedDetailsScreenPreview() {
+fun FeedDetailsScreenPreview(
+    @PreviewParameter(FeedDetailsStateProvider::class) state: FeedDetailsState
+) {
     BrieflyTheme {
         Surface {
             FeedDetailsScreen(
                 modifier = Modifier.fillMaxSize(),
-                state = FeedDetailsState(
-                    feedDetails = /*UiState.Success(
-                        FeedSourceDetails(
-                            id = "1",
-                            title = "24.hu",
-                            description = "Hírek, podcastek stb.",
-                            favourite = true
-                        )
-                    )*/
-                    UiState.Loading
-                    ,
-                    articles = UiState.Success(
-                        listOf(
-                            ArticleItem(
-                                id = "1",
-                                title = "Breaking news!",
-                            )
-                        )
-                    )
-                )
+                state = state
             )
         }
     }
