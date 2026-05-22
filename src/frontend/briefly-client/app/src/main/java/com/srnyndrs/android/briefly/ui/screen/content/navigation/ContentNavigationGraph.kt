@@ -15,7 +15,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
-import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ContentDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_search.ArticleSearch

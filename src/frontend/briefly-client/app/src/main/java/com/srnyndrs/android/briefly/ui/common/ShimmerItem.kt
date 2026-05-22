@@ -13,13 +13,14 @@ fun ShimmerItem(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     cornerRadius: Dp = 0.dp,
+    contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = Modifier
             .then(modifier)
             .shimmer(isLoading, cornerRadius),
-        contentAlignment = Alignment.TopStart
+        contentAlignment = contentAlignment
     ) {
         if (!isLoading) content()
     }
