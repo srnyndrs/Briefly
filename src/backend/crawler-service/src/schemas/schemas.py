@@ -53,6 +53,7 @@ class FeedResponse(BaseModel):
     title: str | None
     description: str | None
     favicon: str | None
+    website_url: str | None
     last_crawled_at: datetime | None
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool

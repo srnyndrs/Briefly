@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import List
 
+import feedparser
+import requests
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,18 @@ def discover_feeds(url: str) -> List[ExploreResult]:
     """Discover candidate feed endpoints for a website URL."""
     discovery = FeedDiscoveryAdapter()
     return discovery.discover(url)
+
+
+def extract_website_url(feed_url: str) -> str | None:
+    try:
+        response = requests.get(feed_url, timeout=10)
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
+        if hasattr(feed, "feed") and hasattr(feed.feed, "link"):
+            return feed.feed.link or None
+        return None
+    except Exception as exc:
+        return None
 
 
 @router.get("", response_model=List[FeedResponse])
@@ -89,12 +103,15 @@ def register_feed(
         "00000000-0000-0000-0000-000000000001"
     )
 
+    website_url = extract_website_url(final_url)
+
     feed = repository.create_feed(
         user_id=placeholder_user_id,
         url=final_url,
         title=body.title or first_feed.title,
         description=body.description or first_feed.description,
         favicon=body.favicon or first_feed.favicon,
+        website_url=website_url,
     )
     return feed
 

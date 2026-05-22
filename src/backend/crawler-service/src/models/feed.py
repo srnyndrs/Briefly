@@ -52,6 +52,9 @@ class Feed(Base):
     favicon: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
+    website_url: Mapped[str | None] = mapped_column(
+        String(2048), nullable=True
+    )
 
     # ── Crawl State ───────────────────────────────────────────────────────────
     last_crawled_at: Mapped[datetime | None] = mapped_column(

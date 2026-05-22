@@ -60,6 +60,7 @@ class SqlAlchemyFeedRepository:
         title: str | None = None,
         description: str | None = None,
         favicon: str | None = None,
+        website_url: str | None = None,
     ) -> Feed:
         feed = Feed(
             feed_id=uuid.uuid4(),
@@ -68,6 +69,7 @@ class SqlAlchemyFeedRepository:
             title=title,
             description=description,
             favicon=favicon,
+            website_url=website_url,
         )
         self._db.add(feed)
         self._db.commit()
@@ -94,6 +96,7 @@ class SqlAlchemyFeedRepository:
         title: str | None,
         description: str | None,
         favicon: str | None,
+        website_url: str | None = None,
     ) -> Feed | None:
         item = (
             self._db.query(Feed)
@@ -107,6 +110,8 @@ class SqlAlchemyFeedRepository:
         item.title = title
         item.description = description
         item.favicon = favicon
+        if website_url is not None:
+            item.website_url = website_url
         item.updated_at = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(item)
