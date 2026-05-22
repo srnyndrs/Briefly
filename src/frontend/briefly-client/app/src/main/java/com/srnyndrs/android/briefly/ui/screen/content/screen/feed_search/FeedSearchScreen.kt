@@ -49,6 +49,7 @@ import com.composables.icons.heroicons.solid.Heart
 import com.composables.icons.heroicons.solid.Phone
 import com.composables.icons.heroicons.solid.Photo
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
+import com.srnyndrs.android.briefly.ui.common.CustomTextField
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
@@ -74,23 +75,25 @@ fun FeedSearchScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Screen Title
-        Text(
-            modifier = Modifier.fillMaxWidth(),
+        /*Text(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             text = "Explore Feeds",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
-        )
+        )*/
         // Search
         Row(
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SearchTextField(
+                modifier = Modifier.weight(1f),
                 value = searchText,
                 onValueChange = setSearchText,
-                modifier = Modifier.weight(1f),
+                placeholder = "Search feeds",
                 onSearch = {
                     onEvent(FeedSearchEvent.SearchFeedSource(searchText))
                 }
