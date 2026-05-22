@@ -53,7 +53,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.SearchTextField
+import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
+import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleRow
 import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
@@ -96,30 +98,39 @@ fun ContentExploreScreen(
         ) {
             // Headline
             item {
-                HorizontalPager(
+                UiStateContainer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .requiredHeight(356.dp),
-                    state = pagerState,
-                    pageSpacing = 12.dp
-                ) { page ->
-                    when(articles) {
-                        is UiState.Success -> {
-                            if(articles.data.items.isEmpty()) {
-                                return@HorizontalPager
-                            }
-                            val article = articles.data.items[page]
-                            // Headline Card
+                    state = state.result
+                ) { data, isLoading ->
+                    HorizontalPager(
+                        modifier = Modifier.fillMaxSize(),
+                        state = pagerState,
+                        pageSpacing = 12.dp
+                    ) { page ->
+
+                        val article = data?.items?.getOrNull(page)
+                        if(data?.items?.isEmpty() == true) {
+                            return@HorizontalPager
+                        }
+                        // Headline Card
+                        ShimmerItem(
+                            modifier = Modifier.fillMaxSize(),
+                            isLoading = isLoading
+                        ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clickable {
-                                        onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(article.id))
+                                        article?.id?.let {
+                                            onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(it))
+                                        }
                                     },
                                 verticalArrangement = Arrangement.Top
                             ) {
                                 // Optional Image
-                                article.imageUrl?.let { imageUrl ->
+                                article?.imageUrl?.let { imageUrl ->
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -151,7 +162,7 @@ fun ContentExploreScreen(
                                     // Source
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
-                                        text = article.source ?: "",
+                                        text = article?.source ?: "",
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         textAlign = TextAlign.Start
@@ -159,7 +170,7 @@ fun ContentExploreScreen(
                                     // Title
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
-                                        text = article.title,
+                                        text = article?.title ?: "",
                                         textAlign = TextAlign.Start,
                                         // TODO
                                         style = MaterialTheme.typography.titleLarge,
@@ -170,7 +181,7 @@ fun ContentExploreScreen(
                                     )
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
-                                        text = article.description ?: "",
+                                        text = article?.description ?: "",
                                         textAlign = TextAlign.Start,
                                         style = MaterialTheme.typography.bodyMedium,
                                         minLines = 1,
@@ -179,9 +190,6 @@ fun ContentExploreScreen(
                                     )
                                 }
                             }
-                        }
-                        else -> {
-
                         }
                     }
                 }
