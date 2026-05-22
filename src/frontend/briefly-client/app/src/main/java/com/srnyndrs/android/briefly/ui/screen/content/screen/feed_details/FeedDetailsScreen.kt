@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,9 +26,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Bell
@@ -42,92 +46,93 @@ import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleCard
+import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.preview.FeedDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
+import kotlin.math.max
 
 @Composable
 fun FeedDetailsScreen(
     modifier: Modifier = Modifier,
     state: FeedDetailsState,
+    onNavigationEvent: (ContentNavigationEvent) -> Unit
 ) {
     Column(
         modifier = Modifier.then(modifier).padding(horizontal = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp)
+        verticalArrangement = Arrangement.spacedBy(32.dp)
     ) {
         UiStateContainer(
             modifier = Modifier.fillMaxWidth(),
             state = state.feedDetails
         ) { feedDetails, isLoading ->
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp)
             ) {
-                // Source card
+                // New source card
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .requiredHeight(126.dp)
-                        .padding(top = 12.dp)
-                        .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.onSurface,
-                            RoundedCornerShape(5.dp)
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(22.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ShimmerItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 56.dp),
+                        isLoading = isLoading,
+                        cornerRadius = 5.dp
                     ) {
-                        ShimmerItem(
-                            modifier = Modifier.size(126.dp),
-                            isLoading = isLoading
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Picture
                             RemoteImageContainer(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.size(42.dp),
                                 imageUrl = feedDetails?.imageUrl ?: ""
                             )
-                        }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(6.dp),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Source title
-                            ShimmerItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 24.dp),
-                                isLoading = isLoading,
-                                cornerRadius = 3.dp
-                            ) {
-                                Text(
-                                    text = feedDetails?.title ?: "",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            // Source description
-                            ShimmerItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 32.dp),
-                                isLoading = isLoading,
-                                cornerRadius = 3.dp
-                            ) {
-                                Text(
-                                    text = feedDetails?.description ?: "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            // Title
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = feedDetails?.title ?: "",
+                                style = MaterialTheme.typography.titleLarge,
+                                textAlign = TextAlign.Start,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
+                    // Description
+                    if(isLoading) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            repeat(3) {
+                                ShimmerItem(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .requiredHeight(12.dp),
+                                    isLoading = true,
+                                    cornerRadius = 3.dp
+                                ) { }
+                            }
+                        }
+                    } else {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = feedDetails?.description ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Justify,
+                            letterSpacing = TextUnit.Unspecified
+                        )
+                    }
                 }
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
+                )
                 // Actions
                 ShimmerItem(
                     modifier = Modifier
@@ -250,7 +255,7 @@ fun FeedDetailsScreen(
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp),
                             thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
                         )
                     }
                 }
@@ -269,7 +274,7 @@ fun FeedDetailsScreenPreview(
             FeedDetailsScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = state
-            )
+            ) {}
         }
     }
 }

@@ -9,8 +9,6 @@ import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.Con
 class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState> {
     override val values = sequenceOf(
         ContentExploreState(
-            page = 1,
-            count = 1,
             result = UiState.Success(
                 ArticlePagingResult(
                     page = 1,

@@ -9,6 +9,9 @@ class FeedSearchStateProvider: PreviewParameterProvider<FeedSearchState> {
     override val values: Sequence<FeedSearchState>
         get() = sequenceOf(
             FeedSearchState(
+                results = UiState.Loading
+            ),
+            FeedSearchState(
                 results = UiState.Success(
                     data = listOf(
                         FeedSourceResultItem(

@@ -47,6 +47,7 @@ import com.srnyndrs.android.briefly.ui.common.SearchTextField
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleRow
+import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview.ContentExploreStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 import com.srnyndrs.android.briefly.ui.util.openCustomTab
@@ -55,11 +56,10 @@ import com.srnyndrs.android.briefly.ui.util.openCustomTab
 fun ContentExploreScreen(
     modifier: Modifier = Modifier,
     state: ContentExploreState,
-    onArticleSelected: (String) -> Unit,
+    onNavigationEvent: (ContentNavigationEvent) -> Unit,
 ) {
 
     // VARIABLES
-    val context = LocalContext.current
     val numberOfHeadliners = 3
     val articles = state.result
     val pagerState = rememberPagerState() {
@@ -101,11 +101,11 @@ fun ContentExploreScreen(
                             val article = articles.data.items[page]
                             // Headline Card
                             Column(
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
                                     .clickable {
-                                        onArticleSelected(article.id)
+                                        onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(article.id))
                                     },
-                                //verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 // Optional Image
                                 article.imageUrl?.let { imageUrl ->
@@ -264,15 +264,6 @@ fun ContentExploreScreen(
                 }
                 is UiState.Success -> {
                     items(articles.data.items.drop(numberOfHeadliners)) { article ->
-                        /*ArticleCard(
-                            title = article.title,
-                            description = article.description,
-                            imageUrl = article.imageUrl,
-                            // TODO: add source
-                            source = null
-                        ) {
-                            onArticleSelected(article.id)
-                        }*/
                         ArticleRow(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -283,11 +274,9 @@ fun ContentExploreScreen(
                             tag = article.category
                         ) {
                             if (article.hasContent) {
-                                onArticleSelected(article.id)
+                                onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(article.id))
                             } else {
-                                article.url?.let {
-                                    openCustomTab(context, it)
-                                }
+                                onNavigationEvent(ContentNavigationEvent.OpenCustomTab(article.url))
                             }
                         }
                         HorizontalDivider(

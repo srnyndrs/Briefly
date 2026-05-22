@@ -30,7 +30,7 @@ fun SearchTextField(
     onSearch: (() -> Unit)? = null
 ) {
     OutlinedTextField(
-        modifier = modifier.requiredHeight(52.dp),
+        modifier = modifier.requiredHeight(58.dp),
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(placeholder) },
