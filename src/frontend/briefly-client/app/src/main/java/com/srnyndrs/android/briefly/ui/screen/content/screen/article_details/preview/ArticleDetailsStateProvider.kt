@@ -12,6 +12,9 @@ class ArticleDetailsStateProvider: PreviewParameterProvider<ArticleDetailsState>
     override val values: Sequence<ArticleDetailsState>
         get() = sequenceOf(
             ArticleDetailsState(
+                details = UiState.Loading
+            ),
+            ArticleDetailsState(
                 details = UiState.Success(
                     data = ArticleDetails(
                         id = "1",

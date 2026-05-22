@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
+import com.srnyndrs.android.briefly.ui.common.ShimmerItem
+import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.preview.ArticleDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -64,45 +68,80 @@ fun ContentDetailsScreen(
     onEvent: () -> Unit
 ) {
 
-    val bottomSheetState = rememberStandardBottomSheetState(
-        initialValue = SheetValue.PartiallyExpanded,
-        skipHiddenState = true
-    )
-    val sheetState = rememberBottomSheetScaffoldState(
-        bottomSheetState = bottomSheetState
-    )
     val scrollState = rememberScrollState()
 
-    BottomSheetScaffold(
-            modifier = Modifier.then(modifier),
-            scaffoldState = sheetState,
-            sheetDragHandle = {},
-            sheetContent = {
-                Column(
+    Box(
+        modifier = Modifier.then(modifier)
+            .verticalScroll(scrollState),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        // Image
+        ShimmerItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .requiredHeight(356.dp),
+            isLoading = isLoading
+        ) {
+            // Picture
+            RemoteImageContainer(
+                modifier = Modifier.fillMaxWidth(),
+                imageUrl = article?.imageUrl ?: "",
+                contentScale = ContentScale.Crop
+            )
+            // Fade layer
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(0.12f))
+            )
+        }
+        // Sheet
+        Surface(
+            modifier = Modifier
+                .padding(top = 326.dp)
+                .fillMaxSize()
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 24.dp,
+                        topEnd = 24.dp
+                    )
+                )
+                .background(BottomSheetDefaults.ContainerColor),
+            shadowElevation = 24.dp,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 36.dp, horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // Category
+                ShimmerItem(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
-                        .padding(top = 36.dp, start = 12.dp, end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(0.12f))
+                        ,
+                    isLoading = isLoading,
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Category
-                    Box(
-                        modifier = Modifier
-                            .wrapContentWidth()
-                            .defaultMinSize(minHeight = 36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(0.12f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = article?.category ?: "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                    // Title
+                    Text(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        text = article?.category ?: "",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                // Title
+                ShimmerItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp),
+                    isLoading = isLoading,
+                    cornerRadius = 3.dp
+                ) {
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article?.title ?: "",
@@ -110,7 +149,15 @@ fun ContentDetailsScreen(
                         textAlign = TextAlign.Start,
                         minLines = 1,
                     )
-                    //
+                }
+                // Information's
+                ShimmerItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 26.dp),
+                    isLoading = isLoading,
+                    cornerRadius = 3.dp
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -131,12 +178,24 @@ fun ContentDetailsScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp, top = 6.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                    )
-                    // Content
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(bottom = 12.dp, top = 6.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                )
+                // Content
+                if(isLoading) {
+                    repeat(5) {
+                        ShimmerItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .requiredHeight(24.dp),
+                            isLoading = true,
+                            cornerRadius = 3.dp
+                        ) {}
+                    }
+                } else {
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article?.content ?: "",
@@ -146,54 +205,10 @@ fun ContentDetailsScreen(
                         textAlign = TextAlign.Justify
                     )
                 }
-        },
-        sheetSwipeEnabled = true,
-        sheetPeekHeight = 564.dp,
-        sheetShape = if (bottomSheetState.currentValue == SheetValue.Expanded) {
-            RectangleShape
-        } else {
-            RoundedCornerShape(
-                topStart = 24.dp,
-                topEnd = 24.dp
-            )
-        },
-        sheetShadowElevation = 24.dp,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(paddingValues),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .requiredHeight(356.dp)
-            ) {
-                RemoteImageContainer(
-                    modifier = Modifier.fillMaxWidth(),
-                    imageUrl = article?.imageUrl ?: "",
-                    contentScale = ContentScale.Crop
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(0.12f))
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(vertical = 16.dp, horizontal = 6.dp),
-                horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-
             }
         }
     }
+
 }
 
 @PreviewLightDark
@@ -203,10 +218,16 @@ fun ContentDetailsScreenPreview(
 ) {
     BrieflyTheme {
         Surface {
-            ContentDetailsScreen(
+            UiStateContainer(
                 modifier = Modifier.fillMaxSize(),
-                article = (state.details as UiState.Success).data
-            ) { }
+                state = state.details
+            ) { data, isLoading ->
+                ContentDetailsScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    article = data,
+                    isLoading =  isLoading
+                ) { }
+            }
         }
     }
 }
