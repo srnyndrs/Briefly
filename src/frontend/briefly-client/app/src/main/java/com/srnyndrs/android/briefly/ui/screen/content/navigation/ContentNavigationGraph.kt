@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,16 +22,40 @@ import com.srnyndrs.android.briefly.ui.screen.content.screen.article_search.Arti
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsScreen
-import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSearchScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSearchViewModel
+import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
 @Composable
 fun ContentNavigationGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController,
 ) {
+
+    val context = LocalContext.current
+    val handleNavigationEvent = { event: ContentNavigationEvent ->
+        when(event) {
+            is ContentNavigationEvent.ShowArticleDetails -> {
+                navController.navigate(ContentScreens.ArticleDetails.createRoute(event.articleId))
+            }
+            is ContentNavigationEvent.ShowFeedDetails -> {
+                navController.navigate(ContentScreens.FeedSourceDetails.createRoute(event.sourceId))
+            }
+
+            is ContentNavigationEvent.OpenCustomTab -> {
+                event.url?.let {
+                    openCustomTab(context, it)
+                } ?: Unit
+            }
+            ContentNavigationEvent.NavigateBack -> {
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            }
+        }
+    }
+
     NavHost(
         modifier = Modifier.then(modifier),
         navController = navController,
@@ -45,10 +70,9 @@ fun ContentNavigationGraph(
 
             ContentExploreScreen(
                 modifier = Modifier.fillMaxSize(),
-                state = state
-            ) { articleId ->
-                navController.navigate(ContentScreens.ArticleDetails.createRoute(articleId))
-            }
+                state = state,
+                onNavigationEvent = handleNavigationEvent
+            )
         }
         composable(
             route = ContentScreens.FeedSearch.route
@@ -62,9 +86,7 @@ fun ContentNavigationGraph(
                     .fillMaxSize()
                     .padding(6.dp),
                 state = state,
-                onNavigate = { sourceId ->
-                    navController.navigate(ContentScreens.FeedSourceDetails.createRoute(sourceId))
-                }
+                onNavigationEvent = handleNavigationEvent
             ) { event ->
                 viewModel.onEvent(event)
             }
@@ -125,7 +147,8 @@ fun ContentNavigationGraph(
 
                 FeedDetailsScreen(
                     modifier = Modifier.fillMaxSize(),
-                    state = state
+                    state = state,
+                    onNavigationEvent = handleNavigationEvent
                 )
             }
         }
