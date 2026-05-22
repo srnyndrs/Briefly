@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 
 class ArticleResponse(BaseModel):
@@ -21,6 +21,14 @@ class ArticleResponse(BaseModel):
     keywords: list[str]
 
     model_config = {"from_attributes": True}
+    
+    @field_serializer("published_at", "crawled_at", "parsed_at")
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class ArticleCountResponse(BaseModel):

@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_serializer
 
 
 class UserResponse(BaseModel):
@@ -9,6 +9,12 @@ class UserResponse(BaseModel):
     email: EmailStr
     status: str
     created_at: datetime
+    
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -23,6 +29,12 @@ class ProfileResponse(BaseModel):
     bio: str | None
     avatar_url: str | None
     updated_at: datetime
+    
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class PreferencesUpdateRequest(BaseModel):
@@ -46,6 +58,12 @@ class PreferencesResponse(BaseModel):
     excluded_languages: list[str]
     blocked_source_ids: list[UUID]
     updated_at: datetime
+    
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class SubscriptionCreateRequest(BaseModel):
@@ -56,3 +74,10 @@ class SubscriptionResponse(BaseModel):
     user_id: UUID
     source_id: UUID
     created_at: datetime
+    
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        # Ensure naive datetimes are treated as UTC and serialized with Z suffix
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()

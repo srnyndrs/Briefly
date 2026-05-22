@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_serializer
 
 
 class HealthResponse(BaseModel):
@@ -65,6 +65,12 @@ class UserResponse(BaseModel):
     email: EmailStr
     status: str
     created_at: datetime
+    
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -85,6 +91,12 @@ class ProfileResponse(BaseModel):
     bio: str | None
     avatar_url: str | None
     updated_at: datetime
+    
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class PreferencesResponse(BaseModel):
@@ -94,6 +106,12 @@ class PreferencesResponse(BaseModel):
     excluded_languages: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
     updated_at: datetime
+    
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class PreferencesUpdateRequest(BaseModel):
@@ -137,6 +155,12 @@ class SubscriptionResponse(BaseModel):
     user_id: UUID
     source_id: UUID
     created_at: datetime
+    
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class SourcePatchRequest(BaseModel):
@@ -161,6 +185,14 @@ class SourceResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_subscribed: bool = False
+    
+    @field_serializer("last_crawled_at", "next_crawl_scheduled_at", "created_at", "updated_at")
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class ArticleCountResponse(BaseModel):

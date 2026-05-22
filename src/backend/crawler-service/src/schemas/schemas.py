@@ -5,10 +5,10 @@ Pydantic schemas used for:
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl, field_serializer
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +62,14 @@ class FeedResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_serializer("last_crawled_at", "next_crawl_scheduled_at", "created_at", "updated_at")
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 # ---------------------------------------------------------------------------
