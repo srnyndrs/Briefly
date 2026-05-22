@@ -72,6 +72,7 @@ fun FeedSourceSubscribeResponseDto.toDomain(): FeedSubscription {
     )
 }
 
+@OptIn(ExperimentalTime::class)
 fun FeedSourceDetailsDto.toDomain(): FeedSourceDetails {
     return FeedSourceDetails(
         id = feedId,
@@ -79,5 +80,6 @@ fun FeedSourceDetailsDto.toDomain(): FeedSourceDetails {
         description = description,
         imageUrl = favicon,
         favourite = isSubscribed,
+        lastUpdatedAt = updatedAt
     )
 }

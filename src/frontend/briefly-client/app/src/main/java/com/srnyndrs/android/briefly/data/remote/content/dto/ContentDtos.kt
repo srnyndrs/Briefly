@@ -135,6 +135,7 @@ data class FeedSourceDto (
     val isSubscribed: Boolean,
 )
 
+@OptIn(ExperimentalTime::class)
 @Serializable
 data class FeedSourceDetailsDto(
     @SerialName("feed_id")
@@ -148,14 +149,17 @@ data class FeedSourceDetailsDto(
     val description: String? = null,
     val favicon: String? = null,
 
-    @SerialName("last_crawled_at")
-    val lastCrawledAt: String? = null,
 
+    @Serializable(with = InstantIso8601Serializer::class)
+    @SerialName("last_crawled_at")
+    val lastCrawledAt: Instant,
+
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("next_crawl_scheduled_at")
-    val nextCrawlScheduledAt: String,
+    val nextCrawlScheduledAt: Instant,
 
     @SerialName("last_crawl_succeeded")
-    val lastCrawlSucceeded: Boolean,
+    val lastCrawlSucceeded: Boolean = false,
 
     @SerialName("consecutive_failures")
     val consecutiveFailures: Long,
@@ -163,11 +167,13 @@ data class FeedSourceDetailsDto(
     @SerialName("health_score")
     val healthScore: Float,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("created_at")
-    val createdAt: String,
+    val createdAt: Instant,
 
+    @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("updated_at")
-    val updatedAt: String,
+    val updatedAt: Instant,
 
     @SerialName("is_subscribed")
     val isSubscribed: Boolean
