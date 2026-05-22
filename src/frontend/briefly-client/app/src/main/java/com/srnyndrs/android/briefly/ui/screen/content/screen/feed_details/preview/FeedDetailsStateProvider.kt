@@ -5,8 +5,11 @@ import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsState
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 class FeedDetailsStateProvider: PreviewParameterProvider<FeedDetailsState> {
+    @OptIn(ExperimentalTime::class)
     override val values = sequenceOf(
         FeedDetailsState(
             feedDetails = UiState.Loading,
@@ -20,7 +23,8 @@ class FeedDetailsStateProvider: PreviewParameterProvider<FeedDetailsState> {
                     description = "Hírek, podcastek és egyebek! Minden megtalálsz amit szeretnél a nap 24 órájában!",
                     imageUrl = "",
                     favourite = true,
-                    subscribed = false
+                    subscribed = false,
+                    lastUpdatedAt = Instant.parse("2026-05-22T12:36:11Z")
                 )
             ),
             articles = UiState.Success(
