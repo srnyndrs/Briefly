@@ -133,14 +133,13 @@ fun FeedDetailsScreen(
                             OutlinedButton(
                                 modifier = Modifier.wrapContentWidth(),
                                 shape = RoundedCornerShape(5.dp),
-                                enabled = !isLoading,
+                                enabled = !isLoading && feedDetails?.websiteUrl != null,
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = Color.Transparent,
                                     disabledContainerColor = Color.Transparent,
                                 ),
                                 onClick = {
-                                    // TODO: extract url
-                                    //onNavigationEvent(ContentNavigationEvent.OpenCustomTab(url = ""))
+                                    onNavigationEvent(ContentNavigationEvent.OpenCustomTab(url = feedDetails?.websiteUrl))
                                 }
                             ) {
                                 Row(

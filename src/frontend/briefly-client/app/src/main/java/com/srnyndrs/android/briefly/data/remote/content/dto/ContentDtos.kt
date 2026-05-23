@@ -149,6 +149,8 @@ data class FeedSourceDetailsDto(
     val description: String? = null,
     val favicon: String? = null,
 
+    @SerialName("website_url")
+    val websiteUrl: String? = null,
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("last_crawled_at")

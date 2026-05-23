@@ -40,7 +40,7 @@ fun TopAppBar(
 ) {
 
     Column(
-        modifier = Modifier.then(Modifier)
+        modifier = Modifier.then(modifier)
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -58,7 +58,13 @@ fun TopAppBar(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape),
-                onClick = onMenuSelect
+                onClick = onMenuSelect,
+                colors = IconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface
+                )
             ) {
                 Icon(
                     modifier = Modifier.size(32.dp),
@@ -77,6 +83,7 @@ fun TopAppBar(
                     .size(48.dp)
                     .clip(CircleShape),
                 onClick = onProfileSelect,
+                enabled = false, // TODO
                 colors = IconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
@@ -117,9 +124,7 @@ fun TopAppBar(
 
 @PreviewLightDark
 @Composable
-fun TopAppBarPreview(
-    modifier: Modifier = Modifier
-) {
+fun TopAppBarPreview() {
     BrieflyTheme {
         Surface {
             TopAppBar(
