@@ -83,7 +83,7 @@ fun TopAppBar(
                     .size(48.dp)
                     .clip(CircleShape),
                 onClick = onProfileSelect,
-                enabled = false, // TODO
+                enabled = true,
                 colors = IconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
                     contentColor = MaterialTheme.colorScheme.onSurface,

@@ -41,6 +41,7 @@ fun FeedSourceResultItemDto.toDomain(): FeedSourceResultItem {
 fun ArticleDetailsDto.toDomain(): ArticleDetails {
     return ArticleDetails(
         id = articleId,
+        sourceId = sourceId,
         title = title,
         content = content,
         imageUrl = imageRef,
