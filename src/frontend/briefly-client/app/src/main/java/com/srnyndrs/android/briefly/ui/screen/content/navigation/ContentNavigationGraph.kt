@@ -142,7 +142,8 @@ fun ContentNavigationGraph(
                 FeedDetailsScreen(
                     modifier = Modifier.fillMaxSize(),
                     state = state,
-                    onNavigationEvent = handleNavigationEvent
+                    onNavigationEvent = handleNavigationEvent,
+                    onEvent = viewModel::onEvent
                 )
             }
         }

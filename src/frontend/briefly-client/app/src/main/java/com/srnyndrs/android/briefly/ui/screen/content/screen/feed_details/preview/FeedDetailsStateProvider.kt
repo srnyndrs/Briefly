@@ -23,7 +23,7 @@ class FeedDetailsStateProvider: PreviewParameterProvider<FeedDetailsState> {
                     title = "24.hu",
                     description = "Hírek, podcastek és egyebek! Minden megtalálsz amit szeretnél a nap 24 órájában!",
                     imageUrl = "",
-                    favourite = true,
+                    followed = true,
                     subscribed = false,
                     lastUpdatedAt = Instant.parse("2026-05-22T12:36:11Z")
                 )

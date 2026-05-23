@@ -17,6 +17,7 @@ import androidx.navigation.compose.navigation
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentScreen
+import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentViewModel
 
 @Composable
 fun AppNavigation(
@@ -59,7 +60,16 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
         startDestination = Screen.Content
     ) {
         composable<Screen.Content> {
+            val viewModel = hiltViewModel<ContentViewModel>()
+
             ContentScreen(
+                onLogout = {
+                    viewModel.logoutUser {
+                        navController.navigate(Graph.Auth) {
+                            popUpTo(Graph.Main) { inclusive = true }
+                        }
+                    }
+                },
                 onNavigateProfile = {
                     navController.navigate(Graph.Profile)
                 }

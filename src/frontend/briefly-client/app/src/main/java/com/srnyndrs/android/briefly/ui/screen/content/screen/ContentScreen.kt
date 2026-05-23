@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
 import com.srnyndrs.android.briefly.ui.screen.content.components.DrawerContent
+import com.srnyndrs.android.briefly.ui.screen.content.components.DrawerContentEvent
 import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationGraph
 import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentScreens
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -31,6 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ContentScreen(
+    onLogout: () -> Unit,
     onNavigateProfile: () -> Unit
 ) {
 
@@ -51,6 +53,17 @@ fun ContentScreen(
 
     var isTopBarShow by remember { mutableStateOf(true) }
 
+    val navigateToRoute = { route: String ->
+        navController.navigate(route) {
+            launchSingleTop = true
+            restoreState = true
+            popUpTo(navController.graph.startDestinationId) {
+                saveState = true
+            }
+        }
+        scope.launch { drawerState.close() }
+    }
+
     LaunchedEffect(currentRoute) {
         isTopBarShow = currentRoute !in listOf(
             ContentScreens.ArticleDetails.route,
@@ -59,7 +72,6 @@ fun ContentScreen(
     }
 
     ModalNavigationDrawer(
-
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
@@ -69,15 +81,18 @@ fun ContentScreen(
                     DrawerContent(
                         modifier = Modifier.fillMaxWidth(),
                         currentRoute = currentRoute
-                    ) { route ->
-                        navController.navigate(route) {
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
+                    ) { event ->
+                        when(event) {
+                            DrawerContentEvent.NavigateFeedsScreen -> {
+                                navigateToRoute(ContentScreens.FeedSearch.route)
+                            }
+                            DrawerContentEvent.NavigateHomeScreen -> {
+                                navigateToRoute(ContentScreens.Explore.route)
+                            }
+                            DrawerContentEvent.SignOutUser -> {
+                                onLogout()
                             }
                         }
-                        scope.launch { drawerState.close() }
                     }
                 }
             }
@@ -118,6 +133,7 @@ fun ContentScreen(
 fun ContentScreenPreview() {
     BrieflyTheme {
         ContentScreen(
+            onLogout = {},
             onNavigateProfile = { }
         )
     }

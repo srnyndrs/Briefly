@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ExitToApp
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,7 +39,7 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun DrawerContent(
     modifier: Modifier = Modifier,
     currentRoute: String?,
-    onNavigation: (route: String) -> Unit
+    onDrawerEvent: (DrawerContentEvent) -> Unit
 ) {
 
     val scrollState = rememberScrollState()
@@ -100,7 +97,7 @@ fun DrawerContent(
                     )
                 },
                 onClick = {
-                    onNavigation("content_explore")
+                    onDrawerEvent(DrawerContentEvent.NavigateHomeScreen)
                 }
             )
             NavigationDrawerItem(
@@ -118,7 +115,7 @@ fun DrawerContent(
                     )
                 },
                 onClick = {
-                    onNavigation("feed_search")
+                    onDrawerEvent(DrawerContentEvent.NavigateFeedsScreen)
                 }
             )
         }
@@ -142,10 +139,16 @@ fun DrawerContent(
                 )
             },
             onClick = {
-                // TODO: Logout
+                onDrawerEvent(DrawerContentEvent.SignOutUser)
             }
         )
     }
+}
+
+sealed class DrawerContentEvent {
+    data object NavigateHomeScreen: DrawerContentEvent()
+    data object NavigateFeedsScreen: DrawerContentEvent()
+    data object SignOutUser: DrawerContentEvent()
 }
 
 @PreviewLightDark
@@ -161,7 +164,7 @@ fun DrawerContentPreview() {
                     DrawerContent(
                         modifier = Modifier.fillMaxWidth(),
                         currentRoute = "content_explore"
-                    ) { }
+                    ) { _ -> }
                 }
             }
         ) {
