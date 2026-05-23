@@ -19,6 +19,7 @@ class FeedDetailsStateProvider: PreviewParameterProvider<FeedDetailsState> {
             feedDetails = UiState.Success(
                 data = FeedSourceDetails(
                     id = "1",
+                    websiteUrl = "",
                     title = "24.hu",
                     description = "Hírek, podcastek és egyebek! Minden megtalálsz amit szeretnél a nap 24 órájában!",
                     imageUrl = "",

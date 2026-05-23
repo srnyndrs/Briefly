@@ -76,6 +76,8 @@ data class FeedSourceResultItemDto(
 data class ArticleDetailsDto (
     @SerialName("article_id")
     val articleId: String,
+    @SerialName("source_id")
+    val sourceId: String? = null,
     val title: String,
     @SerialName("source_title")
     val sourceTitle: String? = null,

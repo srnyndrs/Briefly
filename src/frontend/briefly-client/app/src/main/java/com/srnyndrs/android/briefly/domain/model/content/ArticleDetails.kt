@@ -7,6 +7,7 @@ import kotlin.time.Instant
 data class ArticleDetails(
     val id: String,
     val title: String,
+    val sourceId: String? = null,
     val source: String? = null,
     val category: String? = null,
     val url: String? = null,

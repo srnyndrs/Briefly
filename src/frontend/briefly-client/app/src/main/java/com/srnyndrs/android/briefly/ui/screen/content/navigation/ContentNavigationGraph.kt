@@ -42,7 +42,6 @@ fun ContentNavigationGraph(
             is ContentNavigationEvent.ShowFeedDetails -> {
                 navController.navigate(ContentScreens.FeedSourceDetails.createRoute(event.sourceId))
             }
-
             is ContentNavigationEvent.OpenCustomTab -> {
                 event.url?.let {
                     openCustomTab(context, it)
@@ -86,10 +85,9 @@ fun ContentNavigationGraph(
                     .fillMaxSize()
                     .padding(6.dp),
                 state = state,
-                onNavigationEvent = handleNavigationEvent
-            ) { event ->
-                viewModel.onEvent(event)
-            }
+                onNavigationEvent = handleNavigationEvent,
+                onEvent = viewModel::onEvent
+            )
         }
         composable(
             route = ContentScreens.ArticleSearch.route
@@ -120,14 +118,10 @@ fun ContentNavigationGraph(
                     ContentDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         isLoading = isLoading,
-                        article = data
-                    ) { }
+                        article = data,
+                        onNavigationEvent = handleNavigationEvent
+                    )
                 }
-
-                /*ArticleDetailsScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    state = state
-                )*/
             } ?: Column {
                 // TODO: handle null state
             }

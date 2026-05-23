@@ -20,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
@@ -32,7 +31,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ContentScreen(
-    mainNavController: NavHostController,
+    onNavigateProfile: () -> Unit
 ) {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -53,10 +52,14 @@ fun ContentScreen(
     var isTopBarShow by remember { mutableStateOf(true) }
 
     LaunchedEffect(currentRoute) {
-        isTopBarShow = currentRoute != ContentScreens.ArticleDetails.route
+        isTopBarShow = currentRoute !in listOf(
+            ContentScreens.ArticleDetails.route,
+            ContentScreens.FeedSourceDetails.route,
+        )
     }
 
     ModalNavigationDrawer(
+
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
@@ -88,11 +91,9 @@ fun ContentScreen(
                 ) {
                     TopAppBar(
                         modifier = Modifier.fillMaxWidth(),
-                        onMenuSelect = { interactDrawer() }
-                    ) {
-                        // TODO: use Profile screen route
-                        mainNavController.navigate("profile")
-                    }
+                        onMenuSelect = { interactDrawer() },
+                        onProfileSelect = onNavigateProfile
+                    )
                 }
             }
         ) { innerPadding ->
@@ -117,7 +118,7 @@ fun ContentScreen(
 fun ContentScreenPreview() {
     BrieflyTheme {
         ContentScreen(
-            mainNavController = rememberNavController()
+            onNavigateProfile = { }
         )
     }
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.solid.Heart
@@ -208,7 +209,8 @@ fun FeedSearchScreen(
                                             minLines = 1,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.titleLarge.copy(
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Medium
                                             )
                                         )

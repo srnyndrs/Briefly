@@ -1,6 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.content.screen.article_details
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +23,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,11 +55,17 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.ArrowTopRightOnSquare
+import com.composables.icons.heroicons.outline.ArrowUpRight
+import com.composables.icons.heroicons.outline.Bell
+import com.composables.icons.heroicons.outline.BellSlash
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
+import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.preview.ArticleDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 import com.srnyndrs.android.briefly.ui.util.toFormattedDateString
@@ -65,7 +79,7 @@ fun ContentDetailsScreen(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     article: ArticleDetails?,
-    onEvent: () -> Unit
+    onNavigationEvent: (ContentNavigationEvent) -> Unit
 ) {
 
     val scrollState = rememberScrollState()
@@ -113,26 +127,47 @@ fun ContentDetailsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 36.dp, horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                    .padding(vertical = 32.dp, horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Category
-                ShimmerItem(
+                Row(
                     modifier = Modifier
-                        .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.onSurface.copy(0.12f))
-                        ,
-                    isLoading = isLoading,
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        text = article?.category ?: "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Black
-                    )
+                    // Category
+                    ShimmerItem(
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(0.112f)),
+                        isLoading = isLoading,
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            text = article?.category ?: "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                    // External
+                    OutlinedIconButton(
+                        modifier = Modifier.size(36.dp),
+                        enabled = !isLoading,
+                        onClick = {
+                            onNavigationEvent(ContentNavigationEvent.OpenCustomTab(article?.url))
+                        }
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(22.dp),
+                            imageVector = Heroicons.Outline.ArrowTopRightOnSquare,
+                            contentDescription = null
+                        )
+                    }
                 }
                 // Title
                 ShimmerItem(
@@ -163,10 +198,22 @@ fun ContentDetailsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = article?.source ?: "",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Row(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .clickable(
+                                    enabled = article?.sourceId != null
+                                ) {
+                                    article?.sourceId?.let {
+                                        onNavigationEvent(ContentNavigationEvent.ShowFeedDetails(it))
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = article?.source ?: "",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .size(4.dp)

@@ -60,7 +60,9 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
     ) {
         composable<Screen.Content> {
             ContentScreen(
-                mainNavController = navController
+                onNavigateProfile = {
+                    navController.navigate(Graph.Profile)
+                }
             )
         }
     }
