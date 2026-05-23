@@ -78,6 +78,7 @@ fun FeedSourceDetailsDto.toDomain(): FeedSourceDetails {
         id = feedId,
         title = title,
         description = description,
+        websiteUrl = websiteUrl,
         imageUrl = favicon,
         favourite = isSubscribed,
         lastUpdatedAt = updatedAt
