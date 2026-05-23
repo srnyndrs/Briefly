@@ -29,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -60,6 +61,7 @@ import com.composables.icons.heroicons.outline.ArrowTopRightOnSquare
 import com.composables.icons.heroicons.outline.ArrowUpRight
 import com.composables.icons.heroicons.outline.Bell
 import com.composables.icons.heroicons.outline.BellSlash
+import com.composables.icons.heroicons.outline.ChevronLeft
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
@@ -254,8 +256,28 @@ fun ContentDetailsScreen(
                 }
             }
         }
+        // Back button
+        IconButton(
+            modifier = Modifier
+                .padding(12.dp)
+                .size(48.dp)
+                .clip(CircleShape)
+                .align(Alignment.TopStart),
+            onClick = { onNavigationEvent(ContentNavigationEvent.NavigateBack) },
+            colors = IconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                disabledContainerColor = MaterialTheme.colorScheme.surface,
+                disabledContentColor = MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Icon(
+                modifier = Modifier.size(28.dp),
+                imageVector = Heroicons.Outline.ChevronLeft,
+                contentDescription = null
+            )
+        }
     }
-
 }
 
 @PreviewLightDark
