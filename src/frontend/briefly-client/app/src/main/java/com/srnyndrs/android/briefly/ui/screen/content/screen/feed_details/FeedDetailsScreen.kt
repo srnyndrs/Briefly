@@ -40,6 +40,7 @@ import com.composables.icons.heroicons.outline.ArrowTopRightOnSquare
 import com.composables.icons.heroicons.outline.Bell
 import com.composables.icons.heroicons.outline.BellSlash
 import com.composables.icons.heroicons.outline.CloudArrowDown
+import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.solid.Heart
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
@@ -56,7 +57,8 @@ import kotlin.time.ExperimentalTime
 fun FeedDetailsScreen(
     modifier: Modifier = Modifier,
     state: FeedDetailsState,
-    onNavigationEvent: (ContentNavigationEvent) -> Unit
+    onNavigationEvent: (ContentNavigationEvent) -> Unit,
+    onEvent: (FeedDetailsEvent) -> Unit
 ) {
 
     val scrollState = rememberScrollState()
@@ -127,12 +129,14 @@ fun FeedDetailsScreen(
                                     modifier = Modifier.size(42.dp),
                                     enabled = !isLoading,
                                     onClick = {
-
+                                        feedDetails?.followed?.let {
+                                            onEvent(FeedDetailsEvent.ToggleFollow(it))
+                                        }
                                     }
                                 ) {
                                     Icon(
                                         modifier = Modifier.size(32.dp),
-                                        imageVector = if (feedDetails?.subscribed!!) Heroicons.Outline.BellSlash else Heroicons.Outline.Bell,
+                                        imageVector = if (feedDetails?.followed!!) Heroicons.Outline.BellSlash else Heroicons.Outline.Bell,
                                         contentDescription = null
                                     )
                                 }
@@ -143,12 +147,14 @@ fun FeedDetailsScreen(
                                     modifier = Modifier.size(42.dp),
                                     enabled = !isLoading,
                                     onClick = {
-
+                                        feedDetails?.subscribed?.let {
+                                            onEvent(FeedDetailsEvent.ToggleSubscribe(it))
+                                        }
                                     }
                                 ) {
                                     Icon(
                                         modifier = Modifier.size(32.dp),
-                                        imageVector = if (feedDetails?.favourite!!) Heroicons.Solid.Heart else Heroicons.Outline.Bell,
+                                        imageVector = if (feedDetails?.subscribed!!) Heroicons.Solid.Heart else Heroicons.Outline.Heart,
                                         contentDescription = null
                                     )
                                 }
@@ -228,7 +234,6 @@ fun FeedDetailsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-
                                 Text(
                                     text = "Visit website",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -314,7 +319,8 @@ fun FeedDetailsScreenPreview(
         Surface {
             FeedDetailsScreen(
                 modifier = Modifier.fillMaxSize(),
-                state = state
+                state = state,
+                onNavigationEvent = {}
             ) {}
         }
     }

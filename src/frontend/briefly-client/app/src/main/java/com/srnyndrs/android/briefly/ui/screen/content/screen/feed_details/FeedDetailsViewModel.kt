@@ -3,6 +3,7 @@ package com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticlesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.AllFeedSourceUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourceDetailsUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
@@ -15,12 +16,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.ExperimentalTime
 
 @HiltViewModel(assistedFactory = FeedDetailsViewModel.FeedDetailsViewModelFactory::class)
 class FeedDetailsViewModel @AssistedInject constructor(
     @Assisted private val sourceId: String,
-    private val getFeedSourceDetailsUseCase: GetFeedSourceDetailsUseCase,
-    private val getArticlesUseCase: GetArticlesUseCase
+    private val feedSourceUseCases: AllFeedSourceUseCase,
+    private val getArticlesUseCase: GetArticlesUseCase,
 ): ViewModel() {
 
     @AssistedFactory
@@ -42,8 +44,14 @@ class FeedDetailsViewModel @AssistedInject constructor(
 
     fun onEvent(event: FeedDetailsEvent) {
         when(event) {
-            FeedDetailsEvent.FollowFeed -> TODO()
-            FeedDetailsEvent.UnfollowFeed -> TODO()
+            is FeedDetailsEvent.ToggleFollow -> {
+                val isFollowed = event.followed
+                changeFollowState(!isFollowed)
+            }
+            is FeedDetailsEvent.ToggleSubscribe -> {
+                val isSubscribed = event.subscribed
+                changeSubscription(!isSubscribed)
+            }
         }
     }
 
@@ -51,7 +59,7 @@ class FeedDetailsViewModel @AssistedInject constructor(
         _state.value = _state.value.copy(
             feedDetails = UiState.Loading
         )
-        getFeedSourceDetailsUseCase(sourceId).fold(
+        feedSourceUseCases.getFeedSourceDetailsUseCase(sourceId).fold(
             onSuccess = { data ->
                 _state.value = _state.value.copy(
                     feedDetails = UiState.Success(data)
@@ -80,6 +88,50 @@ class FeedDetailsViewModel @AssistedInject constructor(
                     articles = UiState.Error(exception.message ?: "Unknown error occurred")
                 )
             }
+        )
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private fun changeSubscription(newValue: Boolean) = viewModelScope.launch {
+        val feedDetails = (_state.value.feedDetails as UiState.Success).data
+        if(newValue) {
+            feedSourceUseCases.subscribeFeedSourceUseCase(sourceId).fold(
+                onSuccess = {
+                    _state.value = _state.value.copy(
+                        feedDetails = UiState.Success(
+                            data = feedDetails.copy(
+                                subscribed = true
+                            )
+                        )
+                    )
+                },
+                onFailure = {}
+            )
+        } else {
+            feedSourceUseCases.unsubscribeFeedSourceUseCase(sourceId).fold(
+                onSuccess = {
+                    _state.value = _state.value.copy(
+                        feedDetails = UiState.Success(
+                            data = feedDetails.copy(
+                                subscribed = false
+                            )
+                        )
+                    )
+                },
+                onFailure = {}
+            )
+        }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private fun changeFollowState(newValue: Boolean) = viewModelScope.launch {
+        val feedDetails = (_state.value.feedDetails as UiState.Success).data
+        _state.value = _state.value.copy(
+            feedDetails = UiState.Success(
+                data = feedDetails.copy(
+                    followed = newValue
+                )
+            )
         )
     }
 
