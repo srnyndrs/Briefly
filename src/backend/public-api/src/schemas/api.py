@@ -220,6 +220,7 @@ class AdminArticleResponse(BaseModel):
 
 class FeedItemResponse(BaseModel):
     article_id: UUID
+    source_id: UUID | None = None
     title: str
     source_title: str | None = None
     description: str | None = None

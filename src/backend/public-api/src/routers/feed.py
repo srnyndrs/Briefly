@@ -42,6 +42,7 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
     return FeedItemResponse(
         article_id=uuid.UUID(item.article_id),
+        source_id=uuid.UUID(item.source_id) if item.source_id else None,
         title=item.title,
         source_title=item.source_title,
         description=item.description,
