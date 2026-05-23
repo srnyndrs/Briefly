@@ -83,7 +83,7 @@ fun ContentNavigationGraph(
             FeedSearchScreen(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(6.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 state = state,
                 onNavigationEvent = handleNavigationEvent,
                 onEvent = viewModel::onEvent
