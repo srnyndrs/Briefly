@@ -1,33 +1,46 @@
 package com.srnyndrs.android.briefly.ui.screen.auth.screen
 
+import android.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.Newspaper
 import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.login.LoginScreen
@@ -84,26 +97,50 @@ fun AuthScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
-                            ),
+                            /*.background(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(0.2f)
+                            ),*/,
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_launcher_foreground),
-                            contentDescription = null // TODO
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(52.dp),
+                                imageVector = Heroicons.Outline.Newspaper,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                contentDescription = null
+                            )
+                            Spacer(
+                                modifier = Modifier.requiredHeight(20.dp)
+                            )
+                            Text(
+                                text = "Briefly",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color =MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
+                HorizontalDivider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 HorizontalPager(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     state = pagerState,
                     userScrollEnabled = false
                 ) { page ->
                     when (page) {
                         0 -> {
                             LoginScreen(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 12.dp),
                                 onNavigation = {
                                     scope.launch {
                                         pagerState.animateScrollToPage(1)
@@ -115,7 +152,9 @@ fun AuthScreen(
                         }
                         1 -> {
                             RegisterScreen(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 12.dp),
                                 onNavigation = {
                                     scope.launch {
                                         pagerState.animateScrollToPage(0)
