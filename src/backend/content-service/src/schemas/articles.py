@@ -21,9 +21,11 @@ class ArticleResponse(BaseModel):
     keywords: list[str]
 
     model_config = {"from_attributes": True}
-    
+
     @field_serializer("published_at", "crawled_at", "parsed_at")
-    def serialize_datetimes(self, value: datetime | None) -> str | None:
+    def serialize_datetime(
+        self, value: datetime | None
+    ) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:

@@ -54,7 +54,9 @@ def test_publish_parsed_success_emits_content_body() -> None:
     assert routing_key == "article.parsed.v1"
     assert envelope["payload"]["content"] == "Full body"
     assert envelope["payload"]["content_length"] == 9
-    assert envelope["payload"]["description"] == "A short description"
+    assert (
+        envelope["payload"]["description"] == "A short description"
+    )
 
 
 def test_publish_article_content_extracted_emits_expected_event() -> (

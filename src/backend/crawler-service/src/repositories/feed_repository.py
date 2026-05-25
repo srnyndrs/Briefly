@@ -1,5 +1,3 @@
-"""SQLAlchemy-backed feed repository adapter."""
-
 import uuid
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -13,13 +11,10 @@ HOURS = 3600
 
 
 class SqlAlchemyFeedRepository:
-    """Adapter that directly persists feed state through SQLAlchemy."""
-
     def __init__(self, db: Session):
         self._db = db
 
     def get_feeds(self) -> list[Feed]:
-        """Return all feeds registered in the system."""
         return self._db.query(Feed).all()
 
     def get_active_feeds(

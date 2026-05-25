@@ -28,7 +28,7 @@ class AccountService:
     def register_user(
         self,
         *,
-        username: str,
+        username: str | None,
         email: str,
         password: str,
         correlation_id: str,
@@ -42,9 +42,12 @@ class AccountService:
         now = utc_now_naive()
         user_id = str(uuid.uuid4())
         password_hash = self._auth_service.hash_password(password)
+        effective_username = (
+            username if username else email.split("@")[0]
+        )
         user = self._repo.create_user(
             user_id=user_id,
-            username=username,
+            username=effective_username,
             email=email,
             password_hash=password_hash,
             now=now,

@@ -1,18 +1,3 @@
-"""
-SQLAlchemy engine and session factory for PostgreSQL.
-
-Usage
------
-    from src.config.database import SessionLocal, Base
-
-    # In a repository function:
-    with SessionLocal() as db:
-        ...
-
-    # Create all tables (run once on startup):
-    Base.metadata.create_all(bind=engine)
-"""
-
 import logging
 
 from sqlalchemy import create_engine
@@ -42,8 +27,6 @@ class Base(DeclarativeBase):
 
 
 def init_db() -> None:
-    """Create tables if they don't exist yet (idempotent)."""
-    # Import models so that Base.metadata is populated before create_all
     from src.models import feed  # noqa: F401
 
     logger.info("Running database migrations (create_all)...")
@@ -52,7 +35,6 @@ def init_db() -> None:
 
 
 def get_db():
-    """FastAPI dependency that yields a database session."""
     db = SessionLocal()
     try:
         yield db

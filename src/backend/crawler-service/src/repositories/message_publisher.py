@@ -1,5 +1,3 @@
-"""RabbitMQ-backed event publisher adapter (clean architecture)."""
-
 import json
 import uuid
 from datetime import datetime, timezone
@@ -18,8 +16,6 @@ from src.schemas.schemas import (
 
 
 class RabbitMQEventPublisher:
-    """Publish feed events to RabbitMQ exchange."""
-
     def __init__(self) -> None:
         self._channel = create_channel()
 
@@ -96,5 +92,8 @@ class RabbitMQEventPublisher:
         self._publish("feed.fetch_failed.v1", event.model_dump())
 
     def close(self) -> None:
-        if self._channel.connection and self._channel.connection.is_open:
+        if (
+            self._channel.connection
+            and self._channel.connection.is_open
+        ):
             self._channel.connection.close()

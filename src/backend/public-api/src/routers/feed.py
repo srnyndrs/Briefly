@@ -1,5 +1,3 @@
-"""Feed and article routes (list, search, get article)."""
-
 import uuid
 from datetime import datetime
 
@@ -42,7 +40,9 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
     return FeedItemResponse(
         article_id=uuid.UUID(item.article_id),
-        source_id=uuid.UUID(item.source_id) if item.source_id else None,
+        source_id=uuid.UUID(item.source_id)
+        if item.source_id
+        else None,
         title=item.title,
         source_title=item.source_title,
         description=item.description,
@@ -104,14 +104,15 @@ def get_feed(
             # If source_ids are already provided, intersect with subscriptions
             if filtered_source_ids:
                 filtered_source_ids = [
-                    sid for sid in filtered_source_ids
+                    sid
+                    for sid in filtered_source_ids
                     if sid in subscribed_ids
                 ]
             else:
                 filtered_source_ids = subscribed_ids
         except ServiceClientError as exc:
             raise map_service_error(exc) from exc
-    
+
     output = service.list_feed(
         ListFeedInput(
             user_id=user.user_id,
@@ -174,7 +175,8 @@ def feed_search(
             # If source_ids are already provided, intersect with subscriptions
             if filtered_source_ids:
                 filtered_source_ids = [
-                    sid for sid in filtered_source_ids
+                    sid
+                    for sid in filtered_source_ids
                     if sid in subscribed_ids
                 ]
             else:

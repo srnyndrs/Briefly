@@ -15,7 +15,6 @@ def create_channel() -> (
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
-    # Declare both exchanges
     channel.exchange_declare(
         exchange=settings.feed_exchange,
         exchange_type="topic",
@@ -27,7 +26,6 @@ def create_channel() -> (
         durable=True,
     )
 
-    # Durable queue bound to feed.content exchange
     channel.queue_declare(queue=settings.feed_queue, durable=True)
     channel.queue_bind(
         queue=settings.feed_queue,

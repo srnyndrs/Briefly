@@ -113,7 +113,9 @@ class FeedProcessorService:
                 )
                 continue
 
-            source_title_val = article_data.pop("source_title", None)
+            source_title_val = article_data.pop(
+                "source_title", None
+            )
             article_id = self._repo.save(article_data)
             if article_id:
                 article_data["source_title"] = source_title_val

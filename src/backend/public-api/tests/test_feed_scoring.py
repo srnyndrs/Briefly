@@ -1,5 +1,3 @@
-"""Unit tests for domain services and entities."""
-
 import pytest
 from datetime import UTC, datetime
 
@@ -8,10 +6,7 @@ from src.services.feed_types import ArticleEntity, UserPreferencesVO
 
 
 class TestFeedScoringService:
-    """Test feed ranking logic."""
-
     def test_rank_with_no_preferences_returns_in_order(self):
-        """Without preferences, articles returned in original order."""
         service = FeedScoringService()
         prefs = UserPreferencesVO()
 
@@ -45,7 +40,6 @@ class TestFeedScoringService:
     def test_rank_with_preferences_prioritizes_matching_categories(
         self,
     ):
-        """With preferences, articles matching preferred categories ranked first."""
         service = FeedScoringService()
         prefs = UserPreferencesVO(
             preferred_categories=["tech", "science"]
@@ -84,7 +78,6 @@ class TestFeedScoringService:
         )  # Business article second
 
     def test_rank_respects_limit(self):
-        """Respects the limit parameter."""
         service = FeedScoringService()
         prefs = UserPreferencesVO()
 
@@ -107,7 +100,6 @@ class TestFeedScoringService:
         assert len(ranked) == 5
 
     def test_rank_with_partial_category_match(self):
-        """Higher overlap in preferred categories scores higher."""
         service = FeedScoringService()
         prefs = UserPreferencesVO(
             preferred_categories=["tech", "science", "news"]
@@ -146,10 +138,7 @@ class TestFeedScoringService:
 
 
 class TestArticleEntity:
-    """Test article entity behavior."""
-
     def test_rank_published_at_returns_min_when_none(self):
-        """rank_published_at property handles None."""
         article = ArticleEntity(
             article_id="1",
             source_id="s1",
@@ -165,7 +154,6 @@ class TestArticleEntity:
         )
 
     def test_entity_is_frozen(self):
-        """Entities are immutable."""
         article = ArticleEntity(
             article_id="1",
             source_id="s1",
@@ -179,22 +167,17 @@ class TestArticleEntity:
 
 
 class TestUserPreferencesVO:
-    """Test user preferences value object."""
-
     def test_empty_preferences_has_no_preferred_categories(self):
-        """Empty preferences have no preferred categories."""
         prefs = UserPreferencesVO()
 
         assert not prefs.has_preferred_categories
 
     def test_preferences_with_categories_reports_true(self):
-        """Preferences with categories report has_preferred_categories=True."""
         prefs = UserPreferencesVO(preferred_categories=["tech"])
 
         assert prefs.has_preferred_categories
 
     def test_value_object_is_frozen(self):
-        """Value objects are immutable."""
         prefs = UserPreferencesVO(preferred_categories=["tech"])
 
         with pytest.raises(Exception):  # FrozenInstanceError

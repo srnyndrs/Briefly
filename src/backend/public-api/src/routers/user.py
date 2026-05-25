@@ -1,5 +1,3 @@
-"""User profile and preferences routes."""
-
 import uuid
 from typing import Annotated
 

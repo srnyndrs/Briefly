@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 def backfill_article_projections(
     db: Session, *, batch_size: int = 500
 ) -> int:
-    """Backfill missing article projections from the articles table."""
     _ = batch_size  # Kept for backward compatibility of call sites.
 
     result = db.execute(

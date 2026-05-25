@@ -25,7 +25,6 @@ router = APIRouter(prefix="/feeds", tags=["feeds"])
 
 
 def discover_feeds(url: str) -> List[ExploreResult]:
-    """Discover candidate feed endpoints for a website URL."""
     discovery = FeedDiscoveryAdapter()
     return discovery.discover(url)
 
@@ -38,7 +37,7 @@ def extract_website_url(feed_url: str) -> str | None:
         if hasattr(feed, "feed") and hasattr(feed.feed, "link"):
             return feed.feed.link or None
         return None
-    except Exception as exc:
+    except Exception:
         return None
 
 
@@ -47,12 +46,6 @@ def list_feeds(
     active_only: bool = False,
     db: Session = Depends(get_db),
 ) -> List[FeedResponse]:
-    """
-    Return feeds registered in the crawler service.
-
-    If active_only=True, only returns feeds that are due for crawling
-    (next_crawl_scheduled_at <= now and failures < max_retries).
-    """
     repository = SqlAlchemyFeedRepository(db)
     if active_only:
         feeds = repository.get_active_feeds(
@@ -66,7 +59,6 @@ def list_feeds(
 
 @router.post("/explore", response_model=List[ExploreResult])
 def explore_feeds(body: ExploreRequest) -> List[ExploreResult]:
-    """Discover RSS/Atom feeds at the given URL."""
     return discover_feeds(str(body.url))
 
 
@@ -75,11 +67,6 @@ def register_feed(
     body: FeedCreate,
     db: Session = Depends(get_db),
 ) -> FeedResponse:
-    """
-    Register a new feed URL.
-
-    Returns 409 if the URL is already registered.
-    """
     discovered = discover_feeds(str(body.url))
     if not discovered:
         raise HTTPException(
@@ -120,7 +107,6 @@ def register_feed(
 def delete_feed(
     feed_id: uuid.UUID, db: Session = Depends(get_db)
 ) -> None:
-    """Remove a feed from the crawl schedule."""
     repository = SqlAlchemyFeedRepository(db)
     deleted = repository.delete_feed(feed_id)
     if not deleted:

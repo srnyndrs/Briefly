@@ -1,5 +1,3 @@
-"""Unit tests for feed service."""
-
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -14,10 +12,7 @@ from src.services.feed_types import ArticleEntity
 
 
 class TestFeedServiceList:
-    """Test feed listing behavior."""
-
     def test_execute_calls_repository_with_correct_parameters(self):
-        """execute() calls repository with expanded limit for scoring."""
         # Arrange
         mock_repo = Mock()
         mock_prefs_reader = Mock()
@@ -55,7 +50,6 @@ class TestFeedServiceList:
         assert len(result.items) == 1
 
     def test_execute_returns_empty_when_no_articles(self):
-        """execute() returns empty result when repository finds nothing."""
         # Arrange
         mock_repo = Mock()
         mock_prefs_reader = Mock()
@@ -81,7 +75,6 @@ class TestFeedServiceList:
         assert len(result.items) == 0
 
     def test_execute_ignores_profile_when_use_profile_false(self):
-        """execute() does not apply stored exclusions when use_profile is false."""
         mock_repo = Mock()
         mock_prefs_reader = Mock()
         mock_scoring_service = Mock()
@@ -114,7 +107,6 @@ class TestFeedServiceList:
     def test_execute_applies_query_override_for_excluded_languages(
         self,
     ):
-        """execute() applies request excluded language overrides over profile values."""
         mock_repo = Mock()
         mock_prefs_reader = Mock()
         mock_scoring_service = Mock()
@@ -144,10 +136,7 @@ class TestFeedServiceList:
 
 
 class TestFeedServiceSearch:
-    """Test feed search behavior."""
-
     def test_execute_calls_repository_with_search_query(self):
-        """execute() calls repository with search query."""
         # Arrange
         mock_repo = Mock()
         mock_prefs_reader = Mock()
@@ -181,7 +170,6 @@ class TestFeedServiceSearch:
         assert result.total == 1
 
     def test_execute_applies_preferences_filters(self):
-        """execute() applies user preferences for language/source filtering."""
         # Arrange
         mock_repo = Mock()
         mock_prefs_reader = Mock()
@@ -211,7 +199,6 @@ class TestFeedServiceSearch:
         ]
 
     def test_execute_ignores_profile_when_use_profile_false(self):
-        """execute() ignores profile hard filters when use_profile is false."""
         mock_repo = Mock()
         mock_prefs_reader = Mock()
 
@@ -240,10 +227,7 @@ class TestFeedServiceSearch:
 
 
 class TestFeedServiceGetArticle:
-    """Test article retrieval behavior."""
-
     def test_execute_returns_article_when_found(self):
-        """execute() returns article when found."""
         # Arrange
         mock_repo = Mock()
         article = ArticleEntity(
@@ -267,7 +251,6 @@ class TestFeedServiceGetArticle:
         assert result.article_id == "a1"
 
     def test_execute_returns_none_when_not_found(self):
-        """execute() returns None when article not found."""
         # Arrange
         mock_repo = Mock()
         mock_repo.get_article.return_value = None

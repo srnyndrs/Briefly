@@ -1,7 +1,3 @@
-"""
-Tests for FeedProcessorService (replaces old use-case tests).
-"""
-
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 

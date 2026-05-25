@@ -30,8 +30,6 @@ class EffectivePersonalizationContext:
 
 
 class PersonalizationMergeService:
-    """Merges stored profile preferences and request-level overrides."""
-
     def merge(
         self,
         *,
