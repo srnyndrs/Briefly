@@ -1,14 +1,14 @@
 # Schedule
 - [X] Define technologies
 - [X] Draft system architecture
-- [ ] Setup local dev infrastructure
-- [ ] Implement crawler service
-- [ ] Implement content extractor service
-- [ ] Implement storage & repositories
-- [ ] Integrate message broker
-- [ ] Implement content service
-- [ ] Implement public API
-- [ ] Implement account service
+- [X] Setup local dev infrastructure
+- [X] Implement crawler service
+- [X] Implement content extractor service
+- [X] Implement storage & repositories
+- [X] Integrate message broker
+- [X] Implement content service
+- [X] Implement public API
+- [X] Implement account service
 - [ ] Implement feed search & indexing
 - [ ] Investigate AI-based content enrichment
 - [ ] Build frontend clients
