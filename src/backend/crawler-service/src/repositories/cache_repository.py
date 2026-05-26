@@ -1,13 +1,9 @@
-"""Redis cache adapter."""
-
 import redis as redis_lib
 
 from src.config.settings import settings
 
 
 class RedisCacheRepository:
-    """Adapter for Redis-backed crawl metadata cache."""
-
     def __init__(self) -> None:
         self._client = redis_lib.from_url(
             settings.redis_url,

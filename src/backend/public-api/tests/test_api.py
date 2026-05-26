@@ -462,6 +462,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "title": "Source",
             "description": "Desc",
             "favicon": None,
+            "website_url": "https://example.com",
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,
@@ -471,8 +472,15 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "updated_at": now,
         }
 
+    def fake_list_subscriptions(user_id: str) -> list[dict]:
+        return []
+
     monkeypatch.setattr(
         "src.routers.sources.ingestion_get_source", fake_get_source
+    )
+    monkeypatch.setattr(
+        "src.routers.sources.account_list_subscriptions",
+        fake_list_subscriptions,
     )
 
     response = client.get(f"/sources/{source_id}")
@@ -493,6 +501,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
                 "title": "Source",
                 "description": "Desc",
                 "favicon": None,
+                "website_url": "https://example.com",
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -503,9 +512,16 @@ def test_list_sources_endpoint(monkeypatch) -> None:
             }
         ]
 
+    def fake_list_subscriptions(user_id: str) -> list[dict]:
+        return []
+
     monkeypatch.setattr(
         "src.routers.sources.ingestion_list_sources",
         fake_list_sources,
+    )
+    monkeypatch.setattr(
+        "src.routers.sources.account_list_subscriptions",
+        fake_list_subscriptions,
     )
 
     response = client.get("/sources")
@@ -579,6 +595,7 @@ def test_patch_source_endpoint(monkeypatch) -> None:
             "title": "Updated",
             "description": "Desc",
             "favicon": None,
+            "website_url": "https://example.com",
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,

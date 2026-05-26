@@ -1,5 +1,3 @@
-"""Feed discovery adapter."""
-
 import logging
 from urllib.parse import urljoin, urlparse
 
@@ -20,8 +18,6 @@ FEED_TYPES = {
 
 
 class FeedDiscoveryAdapter:
-    """Discover RSS/Atom feeds for a given URL."""
-
     def discover(self, url: str) -> list[ExploreResult]:
         if not url:
             logger.warning("URL is empty or None")

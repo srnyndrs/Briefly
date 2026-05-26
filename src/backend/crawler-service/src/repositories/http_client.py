@@ -1,10 +1,7 @@
-"""Requests-based HTTP client adapter."""
-
 import requests
 
 from src.config.settings import settings
 from dataclasses import dataclass
-
 
 
 @dataclass
@@ -22,8 +19,6 @@ class HttpFetchResult:
 
 
 class RequestsHttpClient:
-    """HTTP adapter for conditional feed fetches."""
-
     def fetch(
         self, url: str, headers: FetchHeaders
     ) -> HttpFetchResult:

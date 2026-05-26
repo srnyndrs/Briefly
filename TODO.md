@@ -2,15 +2,15 @@
 - [X] Define technologies
 - [X] Draft system architecture
 - [ ] Setup local dev infrastructure
-- [ ] Implement crawler service
-- [ ] Implement content extractor service
-- [ ] Implement storage & repositories
-- [ ] Integrate message broker
-- [ ] Implement content service
-- [ ] Implement public API
-- [ ] Implement account service
+- [x] Implement crawler service
+- [x] Implement content extractor service
+- [x] Implement storage & repositories
+- [x] Integrate message broker
+- [x] Implement content service
+- [x] Implement public API
+- [x] Implement account service
 - [ ] Implement feed search & indexing
 - [ ] Investigate AI-based content enrichment
-- [ ] Build frontend clients
+- [x] Build frontend clients
 - [ ] Tests and CI
 - [ ] Deployment & monitoring

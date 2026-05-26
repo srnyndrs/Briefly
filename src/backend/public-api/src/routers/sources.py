@@ -1,5 +1,3 @@
-"""Subscription and source creation routes."""
-
 import uuid
 from typing import Annotated
 
@@ -52,12 +50,6 @@ def list_sources(
     user: CurrentUser,
     q: str = "",
 ) -> list[SourceResponse]:
-    """
-    List news sources.
-    Returns all available sources for discovery with subscription status.
-    Results can be filtered by search query (q parameter).
-    Empty query string returns all sources.
-    """
     try:
         sources = ingestion_list_sources()
         subscriptions = account_list_subscriptions(
@@ -66,14 +58,15 @@ def list_sources(
         subscribed_ids = {
             str(s["source_id"]) for s in subscriptions
         }
-        
+
         results = []
         for item in sources:
             source_response = SourceResponse(
                 **item,
-                is_subscribed=str(item["feed_id"]) in subscribed_ids
+                is_subscribed=str(item["feed_id"])
+                in subscribed_ids,
             )
-            
+
             # Filter by search query if provided
             if q:
                 search_fields = [
@@ -86,7 +79,7 @@ def list_sources(
                     results.append(source_response)
             else:
                 results.append(source_response)
-        
+
         return results
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -127,10 +120,11 @@ def get_source(
         subscribed_ids = {
             str(s["source_id"]) for s in subscriptions
         }
-        
+
         return SourceResponse(
             **source_data,
-            is_subscribed=str(source_data["feed_id"]) in subscribed_ids
+            is_subscribed=str(source_data["feed_id"])
+            in subscribed_ids,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

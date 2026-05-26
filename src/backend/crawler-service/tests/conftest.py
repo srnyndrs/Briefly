@@ -1,5 +1,3 @@
-"""Shared pytest fixtures for database and TestClient setup."""
-
 import sys
 from pathlib import Path
 

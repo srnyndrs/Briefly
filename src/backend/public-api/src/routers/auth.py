@@ -1,5 +1,3 @@
-"""Auth routes (register, login, refresh, logout)."""
-
 import uuid
 from typing import Annotated
 

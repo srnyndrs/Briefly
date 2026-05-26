@@ -1,10 +1,3 @@
-"""
-Shared fixtures for all tests.
-
-Sets up an in-memory SQLite DB and overrides FastAPI Depends()
-so tests never hit a real PostgreSQL or RabbitMQ.
-"""
-
 from typing import Any, Generator
 
 import pytest
@@ -39,11 +32,6 @@ def _session_factory(engine):
 def db_session(
     engine, _session_factory
 ) -> Generator[Session, None, None]:
-    """
-    Each test gets a clean transaction via savepoint + rollback.
-    Calls to session.commit() inside tests are demoted to savepoint
-    releases so data never actually persists across tests.
-    """
     connection = engine.connect()
     transaction = connection.begin()
     session = _session_factory(bind=connection)

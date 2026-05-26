@@ -1,9 +1,3 @@
-"""
-SQLAlchemy ORM model for the ``feeds`` table.
-
-Schema matches the PostgreSQL DDL defined in ARCHITECTURE.md §2.2.
-"""
-
 import uuid
 from datetime import datetime
 
@@ -24,8 +18,6 @@ from src.config.database import Base
 
 
 class Feed(Base):
-    """Represents a single RSS/Atom feed owned by a user."""
-
     __tablename__ = "feeds"
 
     feed_id: Mapped[uuid.UUID] = mapped_column(
@@ -33,9 +25,6 @@ class Feed(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    # user_id references the users table owned by the user-service.
-    # No DB-level FK here — cross-service constraints are enforced at the
-    # application layer (API gateway), not at the database level.
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         nullable=False,
@@ -56,7 +45,6 @@ class Feed(Base):
         String(2048), nullable=True
     )
 
-    # ── Crawl State ───────────────────────────────────────────────────────────
     last_crawled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -75,7 +63,6 @@ class Feed(Base):
         Float, nullable=False, default=1.0
     )
 
-    # ── HTTP Cache Headers ────────────────────────────────────────────────────
     etag: Mapped[str | None] = mapped_column(
         String(512), nullable=True
     )
@@ -83,7 +70,6 @@ class Feed(Base):
         String(128), nullable=True
     )
 
-    # ── Metadata ──────────────────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

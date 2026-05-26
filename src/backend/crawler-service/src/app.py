@@ -1,18 +1,3 @@
-"""
-Crawler Service  FastAPI entry point.
-
-Responsibilities
-----------------
-- Expose a health-check endpoint (GET /health)
-- Expose a feeds CRUD endpoint (GET/POST/DELETE /feeds)
-- Start an APScheduler job that runs ``services.crawl_orchestrator.CrawlCycleOrchestrator``
-  every ``crawl_interval_seconds`` on application startup.
-
-Run
----
-    python -m src.app
-"""
-
 import logging
 from contextlib import asynccontextmanager
 
@@ -84,7 +69,6 @@ app.include_router(feeds.router)
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health_check() -> HealthResponse:
-    """Liveness probe returns 200 when the service is running."""
     return HealthResponse(
         status="ok",
         service="crawler-service",

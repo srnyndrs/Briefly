@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -165,9 +166,7 @@ class AccountRepository:
         self._db.refresh(subscription)
         return subscription
 
-    def list_subscriptions(
-        self, *, user_id: str
-    ) -> list[UserSubscription]:
+    def list_subscriptions(self, *, user_id: str) -> Sequence[Any]:
         return (
             self._db.execute(
                 select(UserSubscription)
@@ -215,7 +214,7 @@ class AccountRepository:
 
     def list_active_refresh_tokens(
         self, user_id: str
-    ) -> list[RefreshToken]:
+    ) -> Sequence[Any]:
         return (
             self._db.execute(
                 select(RefreshToken).where(

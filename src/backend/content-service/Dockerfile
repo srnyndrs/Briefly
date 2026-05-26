@@ -11,8 +11,6 @@ RUN pip install --no-cache-dir poetry==2.3.2
 
 COPY pyproject.toml poetry.lock ./
 
-# Install production dependencies into the system Python so the final image
-# does not need Poetry at runtime.
 RUN poetry config virtualenvs.create false \
     && poetry install --without dev --no-root
 

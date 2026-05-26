@@ -1,5 +1,3 @@
-"""Presentation orchestrator for scheduled crawl cycles."""
-
 import logging
 from datetime import datetime, timezone
 from uuid import UUID
@@ -24,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class CrawlCycleOrchestrator:
-    """Runs one full crawl cycle."""
-
     def __init__(self, session_factory: sessionmaker):
         self._session_factory = session_factory
         self._cache = RedisCacheRepository()

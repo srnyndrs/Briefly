@@ -1,5 +1,3 @@
-"""Projection use-cases for event-driven projections."""
-
 import logging
 from dataclasses import dataclass
 from typing import Any

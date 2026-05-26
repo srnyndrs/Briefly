@@ -17,16 +17,11 @@ class EventPublisher:
         self._channel: pika.channel.Channel | None = None
 
     def connect(self) -> None:
-        """Startup check to declare exchange and verify connectivity.
-        
-        Connection is closed immediately to avoid holding open stale sockets.
-        """
         try:
             params = pika.URLParameters(settings.rabbitmq_url)
-            # Use short timeouts for the startup check to avoid blocking app start
             params.connection_attempts = 2
             params.retry_delay = 1.0
-            
+
             connection = pika.BlockingConnection(params)
             channel = connection.channel()
             channel.exchange_declare(
@@ -46,7 +41,6 @@ class EventPublisher:
             )
 
     def close(self) -> None:
-        """No-op cleanup since connections are opened and closed on demand."""
         pass
 
     def publish(
@@ -59,11 +53,6 @@ class EventPublisher:
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
-        """Publish an event by opening a connection on demand.
-        
-        This prevents thread-safety issues from FastAPI's sync threadpool
-        and completely avoids stale connection errors (StreamLostError).
-        """
         envelope = {
             "event_id": str(uuid.uuid4()),
             "event_type": event_type,
@@ -93,7 +82,7 @@ class EventPublisher:
             params = pika.URLParameters(settings.rabbitmq_url)
             params.connection_attempts = 2
             params.retry_delay = 1.0
-            
+
             connection = pika.BlockingConnection(params)
             try:
                 channel = connection.channel()
@@ -123,4 +112,3 @@ class EventPublisher:
                 exc,
                 exc_info=True,
             )
-
