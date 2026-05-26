@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: briefly
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d briefly"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    # 'management' variant ships with the web UI at http://localhost:15672
+    # Default credentials: guest / guest
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  crawler-service:
+    build:
+      context: ./src/backend/crawler-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8001
+      ENV: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      FEED_EXCHANGE: feed.content
+      CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
+      FETCH_TIMEOUT_SECONDS: 30
+      MAX_RETRIES: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  content-service:
+    build:
+      context: ./src/backend/content-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8002
+      ENV: production
+      LOG_LEVEL: INFO
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      FEED_EXCHANGE: feed.content
+      PARSED_EXCHANGE: content.parsed
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8002/health')\""]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  account-service:
+    build:
+      context: ./src/backend/account-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8003
+      ENV: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      ACCOUNT_EXCHANGE: account.events
+      JWT_SECRET: local-dev-secret-change-me
+      JWT_ISSUER: briefly-account-service
+      JWT_AUDIENCE: briefly-public-api
+      ACCESS_TOKEN_TTL_SECONDS: 900
+      REFRESH_TOKEN_TTL_SECONDS: 2592000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8003/health')\""]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  public-api:
+    build:
+      context: ./src/backend/public-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      ENV: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      ACCOUNT_EXCHANGE: account.events
+      CONTENT_EXCHANGE: content.parsed
+      QUERY_QUEUE: public-api.query.v1
+      QUERY_CONSUMER_ENABLED: "true"
+      JWT_SECRET: local-dev-secret-change-me
+      JWT_ISSUER: briefly-account-service
+      JWT_AUDIENCE: briefly-public-api
+      ACCOUNT_SERVICE_URL: http://account-service:8003
+      INGESTION_SERVICE_URL: http://crawler-service:8001
+      CONTENT_SERVICE_URL: http://content-service:8002
+      REQUEST_TIMEOUT_SECONDS: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      crawler-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:

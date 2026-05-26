@@ -1,0 +1,8 @@
+.workspace
+.idea
+*.iml
+.venv
+.vscode
+docs
+node_modules
+build

@@ -1,0 +1,73 @@
+from src.models.read_models import (
+    ArticleProjection,
+    UserPreferencesProjection,
+)
+from src.services.feed_dtos import FeedItemDTO, UserPreferencesDTO
+from src.services.feed_types import ArticleEntity, UserPreferencesVO
+
+
+def article_projection_to_entity(
+    model: ArticleProjection,
+) -> ArticleEntity:
+    return ArticleEntity(
+        article_id=model.article_id,
+        source_id=model.source_id,
+        source_title=model.source_title,
+        title=model.title,
+        description=model.description,
+        canonical_url=model.canonical_url,
+        language=model.language,
+        category=model.category,
+        keywords=model.keywords or [],
+        content=model.content,
+        content_ref=model.content_ref,
+        image_ref=model.image_ref,
+        sentiment=model.sentiment,
+        topics=model.topics or [],
+        published_at=model.published_at,
+        updated_at=model.updated_at,
+    )
+
+
+def entity_to_feed_item_dto(entity: ArticleEntity) -> FeedItemDTO:
+    return FeedItemDTO(
+        article_id=entity.article_id,
+        source_id=entity.source_id,
+        source_title=entity.source_title,
+        title=entity.title,
+        description=entity.description,
+        canonical_url=entity.canonical_url,
+        language=entity.language,
+        category=entity.category,
+        keywords=entity.keywords,
+        content=entity.content,
+        content_ref=entity.content_ref,
+        image_ref=entity.image_ref,
+        sentiment=entity.sentiment,
+        topics=entity.topics,
+        published_at=entity.published_at,
+    )
+
+
+def user_preferences_projection_to_dto(
+    model: UserPreferencesProjection | None,
+) -> UserPreferencesDTO:
+    if model is None:
+        return UserPreferencesDTO()
+    return UserPreferencesDTO(
+        preferred_categories=model.preferred_categories or [],
+        preferred_languages=model.preferred_languages or [],
+        excluded_languages=model.excluded_languages or [],
+        blocked_source_ids=model.blocked_source_ids or [],
+    )
+
+
+def user_preferences_dto_to_vo(
+    dto: UserPreferencesDTO,
+) -> UserPreferencesVO:
+    return UserPreferencesVO(
+        preferred_categories=dto.preferred_categories,
+        preferred_languages=dto.preferred_languages,
+        excluded_languages=dto.excluded_languages,
+        blocked_source_ids=dto.blocked_source_ids,
+    )
