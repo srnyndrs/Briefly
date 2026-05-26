@@ -6,24 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
-import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview.ContentExploreStateProvider
@@ -34,8 +29,6 @@ fun ArticleRow(
     modifier: Modifier = Modifier,
     title: String,
     source: String?,
-    description: String?,
-    tag: String?,
     onClick: () -> Unit
 ) {
     Column(
@@ -52,14 +45,6 @@ fun ArticleRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Favicon
-                /*RemoteImageContainer(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape),
-                    imageUrl = "", // TODO
-                    contentScale = ContentScale.Fit
-                )*/
                 // Source name
                 Text(
                     text = sourceTitle,
@@ -68,24 +53,6 @@ fun ArticleRow(
                 )
             }
         }
-        // Category Tag
-        /*Row(
-            modifier = Modifier
-                .wrapContentWidth()
-                .clip(RoundedCornerShape(5.dp))
-                .background(
-                    // TODO
-                    Color(0xFF124578)
-                )
-        ) {
-            Text(
-                modifier = Modifier.padding(3.dp),
-                text = tag,
-                style = MaterialTheme.typography.labelMedium,
-                // TODO
-                color = MaterialTheme.colorScheme.surface
-            )
-        }*/
         // Title
         Text(
             modifier = Modifier.fillMaxWidth(),
@@ -96,17 +63,6 @@ fun ArticleRow(
             fontWeight = FontWeight.Black,
             overflow = TextOverflow.Ellipsis
         )
-        // Description
-        /*description?.let {
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = it,
-                minLines = 1,
-                maxLines = 2,
-                style = MaterialTheme.typography.bodyMedium,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }*/
     }
 }
 
@@ -130,9 +86,7 @@ fun ArticleRowPreview(
                             .fillMaxWidth()
                             .padding(vertical = 8.dp, horizontal = 6.dp),
                         title = article.title,
-                        source = "24.hu",
-                        description = article.description,
-                        tag = "Belföld"
+                        source = "24.hu"
                     ) {}
                 }
             }

@@ -2,9 +2,6 @@ package com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.ExploreFeedSourcesUseCase
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourceSubscriptionsUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourcesUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.SubscribeFeedSourceUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.UnsubscribeFeedSourceUseCase
@@ -25,7 +22,7 @@ class FeedSearchViewModel @Inject constructor(
     private val unsubscribeFeedSourceUseCase: UnsubscribeFeedSourceUseCase,
 ): ViewModel() {
 
-    private val _state = MutableStateFlow<FeedSearchState>(FeedSearchState())
+    private val _state = MutableStateFlow(FeedSearchState())
     val state = _state.asStateFlow()
         .onStart {
             getFeedSources()

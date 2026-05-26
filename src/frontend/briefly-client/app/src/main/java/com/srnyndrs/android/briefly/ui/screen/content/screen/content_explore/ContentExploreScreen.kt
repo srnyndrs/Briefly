@@ -15,20 +15,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -36,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,26 +37,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
-import com.srnyndrs.android.briefly.ui.common.SearchTextField
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
-import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleRow
 import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview.ContentExploreStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
-import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
 @Composable
 fun ContentExploreScreen(
@@ -74,12 +61,9 @@ fun ContentExploreScreen(
 
     // VARIABLES
     val numberOfHeadliners = 3
-    val articles = state.result
-    val pagerState = rememberPagerState() {
+    state.result
+    val pagerState = rememberPagerState {
         numberOfHeadliners
-    }
-    var query by rememberSaveable {
-        mutableStateOf("")
     }
     var selectedCategoryIndex by rememberSaveable {
         mutableIntStateOf(0)
@@ -339,9 +323,7 @@ fun ContentExploreScreen(
                                         .fillMaxWidth()
                                         .padding(vertical = 12.dp),
                                     title = article.title,
-                                    source = article.source,
-                                    description = article.description,
-                                    tag = article.category
+                                    source = article.source
                                 ) {
                                     if (article.hasContent) {
                                         onNavigationEvent(

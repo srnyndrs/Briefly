@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,10 +30,6 @@ import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Eye
 import com.composables.icons.heroicons.outline.EyeSlash
 import com.composables.icons.heroicons.outline.LockClosed
-import com.composables.icons.heroicons.solid.Eye
-import com.composables.icons.heroicons.solid.EyeSlash
-import com.composables.icons.heroicons.solid.LockClosed
-import com.composables.icons.heroicons.solid.LockOpen
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable

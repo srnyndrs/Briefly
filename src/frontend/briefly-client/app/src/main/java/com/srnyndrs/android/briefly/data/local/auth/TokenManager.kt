@@ -13,6 +13,11 @@ class TokenManager @Inject constructor(
     @ApplicationContext context: Context
 ) {
 
+    companion object {
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+    }
+
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
@@ -46,10 +51,5 @@ class TokenManager @Inject constructor(
             remove(KEY_ACCESS_TOKEN)
                 .remove(KEY_REFRESH_TOKEN)
         }
-    }
-
-    companion object {
-        private const val KEY_ACCESS_TOKEN = "access_token"
-        private const val KEY_REFRESH_TOKEN = "refresh_token"
     }
 }

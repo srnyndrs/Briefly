@@ -57,8 +57,6 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshSession(): Result<Unit> {
-        // Handled automatically by Ktor Auth plugin.
-        // We could manually trigger a protected endpoint or just verify token existence.
         val hasRefreshToken = tokenManager.getRefreshToken() != null
         _authState.value = if (hasRefreshToken) AuthState.Authenticated else AuthState.Unauthenticated
         return if (hasRefreshToken) Result.success(Unit) else Result.failure(Exception("No refresh token"))

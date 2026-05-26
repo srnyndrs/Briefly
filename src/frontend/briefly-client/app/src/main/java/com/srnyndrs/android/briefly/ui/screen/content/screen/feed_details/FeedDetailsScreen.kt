@@ -301,7 +301,7 @@ fun FeedDetailsScreen(
                                 title = "Title",
                                 description = "Description",
                                 imageUrl = "",
-                                isLoading = isLoading
+                                isLoading = true
                             )
                         }
                     } else {

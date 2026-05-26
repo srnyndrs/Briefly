@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,9 +24,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.Bars3
-import com.composables.icons.heroicons.solid.Equals
 import com.composables.icons.heroicons.solid.User
-import com.composables.icons.heroicons.solid.UserCircle
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable

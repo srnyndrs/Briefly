@@ -24,9 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
-import com.composables.icons.heroicons.outline.LockClosed
 import com.composables.icons.heroicons.outline.User
-import com.composables.icons.heroicons.solid.User
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable

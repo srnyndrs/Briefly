@@ -18,7 +18,6 @@ import androidx.navigation.navArgument
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ContentDetailsScreen
-import com.srnyndrs.android.briefly.ui.screen.content.screen.article_search.ArticleSearch
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_details.FeedDetailsScreen
@@ -87,13 +86,6 @@ fun ContentNavigationGraph(
                 state = state,
                 onNavigationEvent = handleNavigationEvent,
                 onEvent = viewModel::onEvent
-            )
-        }
-        composable(
-            route = ContentScreens.ArticleSearch.route
-        ) {
-            ArticleSearch(
-                modifier = Modifier.fillMaxSize()
             )
         }
         composable(

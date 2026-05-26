@@ -43,11 +43,6 @@ fun DrawerContent(
 ) {
 
     val scrollState = rememberScrollState()
-    val menuOptions = listOf(
-        "Home" to "content_explore",
-        "Explore" to "article_search",
-        "Feed Search" to "feed_search",
-    )
 
     Column(
         modifier = Modifier.then(modifier)

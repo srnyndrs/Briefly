@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticlesUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.AllFeedSourceUseCase
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourceDetailsUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory

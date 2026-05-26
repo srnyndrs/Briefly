@@ -11,7 +11,6 @@ sealed class ContentScreens(
     }
 
     object Explore: ContentScreens("content_explore")
-    object ArticleSearch: ContentScreens("article_search")
     object FeedSearch: ContentScreens("feed_search")
     object ArticleDetails: ContentScreens("article_details/{$ARTICLE_ID_ARG}") {
         fun createRoute(articleId: String) = "article_details/$articleId"

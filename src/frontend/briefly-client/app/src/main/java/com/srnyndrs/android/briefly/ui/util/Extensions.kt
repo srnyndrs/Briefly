@@ -1,7 +1,6 @@
 package com.srnyndrs.android.briefly.ui.util
 
 import android.content.Context
-import android.net.Uri
 import android.text.format.DateUtils
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -31,17 +30,14 @@ import kotlin.time.Instant
 
 fun openCustomTab(context: Context, url: String) {
     val builder = CustomTabsIntent.Builder()
-
-    // Optional: You can customize the toolbar color to match your app theme here
     // builder.setDefaultColorSchemeParams(...)
 
     val customTabsIntent = builder.build()
 
     try {
         customTabsIntent.launchUrl(context, url.toUri())
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         // Fallback in case the user has no browser installed that supports Custom Tabs
-        // You could launch a standard Intent.ACTION_VIEW here
     }
 }
 

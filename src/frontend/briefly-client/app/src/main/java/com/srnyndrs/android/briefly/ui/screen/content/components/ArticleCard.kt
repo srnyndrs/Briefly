@@ -30,9 +30,7 @@ import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
-/**
- * Reusable Article Card composable for displaying article info.
- */
+
 @Composable
 fun ArticleCard(
     modifier: Modifier = Modifier,

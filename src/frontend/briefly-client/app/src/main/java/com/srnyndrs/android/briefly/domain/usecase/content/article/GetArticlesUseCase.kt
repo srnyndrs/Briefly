@@ -1,6 +1,5 @@
 package com.srnyndrs.android.briefly.domain.usecase.content.article
 
-import androidx.compose.ui.geometry.Offset
 import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
 import javax.inject.Inject
@@ -15,7 +14,7 @@ class GetArticlesUseCase @Inject constructor(
     ): Result<ArticlePagingResult> {
         repository.fetchArticles(limit, offset, sourceIds).fold(
             onSuccess = { items ->
-                // TODO: actual paging result
+                // TODO: use paging result
                 val result =  ArticlePagingResult(
                     page = 1,
                     count = 5,
