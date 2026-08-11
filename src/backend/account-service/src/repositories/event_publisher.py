@@ -12,37 +12,6 @@ logger = logging.getLogger("account-service.events")
 
 
 class EventPublisher:
-    def __init__(self) -> None:
-        self._connection: pika.BlockingConnection | None = None
-        self._channel: pika.channel.Channel | None = None
-
-    def connect(self) -> None:
-        try:
-            params = pika.URLParameters(settings.rabbitmq_url)
-            params.connection_attempts = 2
-            params.retry_delay = 1.0
-
-            connection = pika.BlockingConnection(params)
-            channel = connection.channel()
-            channel.exchange_declare(
-                exchange=settings.account_exchange,
-                exchange_type="topic",
-                durable=True,
-            )
-            connection.close()
-            logger.info(
-                "Successfully declared RabbitMQ exchange '%s' on startup.",
-                settings.account_exchange,
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.warning(
-                "RabbitMQ unavailable at startup: %s. Event publisher will auto-recover on demand.",
-                exc,
-            )
-
-    def close(self) -> None:
-        pass
-
     def publish(
         self,
         *,

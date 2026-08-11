@@ -110,28 +110,13 @@ class AccountService:
         self,
         *,
         refresh_token: str,
-        reason: str,
-        correlation_id: str,
-        trace_id: str,
-        span_id: str,
+        reason: str = "logout",
+        correlation_id: str = "",
+        trace_id: str = "",
+        span_id: str = "",
     ) -> None:
-        user_id, token_version = (
-            self._auth_service.revoke_refresh_token(refresh_token)
-        )
-        now = datetime.now(UTC)
-        self._publisher.publish(
-            event_type="account.token_revoked.v1",
-            correlation_id=correlation_id,
-            partition_key=f"user:{user_id}",
-            trace_id=trace_id,
-            span_id=span_id,
-            payload={
-                "user_id": user_id,
-                "token_version": token_version,
-                "revoked_at": now.isoformat(),
-                "reason": reason,
-            },
-        )
+        _ = (reason, correlation_id, trace_id, span_id)
+        self._auth_service.revoke_refresh_token(refresh_token)
 
     def get_user(self, user_id: str):
         user = self._repo.get_user_by_id(user_id)

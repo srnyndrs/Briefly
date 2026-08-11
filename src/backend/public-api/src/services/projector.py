@@ -15,16 +15,10 @@ from src.services.projection_use_cases import (
     CreateSubscriptionUseCase,
     DeleteSubscriptionInput,
     DeleteSubscriptionUseCase,
-    EnrichArticleInput,
-    EnrichArticleUseCase,
-    ExtractArticleContentInput,
-    ExtractArticleContentUseCase,
     ProjectArticleInput,
     ProjectArticleUseCase,
     ProjectUserPreferencesInput,
     ProjectUserPreferencesUseCase,
-    UpdateArticleInput,
-    UpdateArticleUseCase,
 )
 
 logger = logging.getLogger("public-api.projector")
@@ -104,12 +98,7 @@ class QueryProjector:
                 routing_key=key,
             )
 
-        for key in (
-            "article.parsed.v1",
-            "article.updated.v1",
-            "article.content_extracted.v1",
-            "article.enriched.v1",
-        ):
+        for key in ("article.parsed.v1",):
             self._channel.queue_bind(
                 queue=settings.query_queue,
                 exchange=settings.content_exchange,
@@ -202,30 +191,6 @@ class QueryProjector:
             if article_id:
                 ProjectArticleUseCase(db).execute(
                     ProjectArticleInput(
-                        article_id=article_id, payload=payload
-                    )
-                )
-        elif event_type == "article.updated.v1":
-            article_id = payload.get("article_id")
-            if article_id:
-                UpdateArticleUseCase(db).execute(
-                    UpdateArticleInput(
-                        article_id=article_id, payload=payload
-                    )
-                )
-        elif event_type == "article.content_extracted.v1":
-            article_id = payload.get("article_id")
-            if article_id:
-                ExtractArticleContentUseCase(db).execute(
-                    ExtractArticleContentInput(
-                        article_id=article_id, payload=payload
-                    )
-                )
-        elif event_type == "article.enriched.v1":
-            article_id = payload.get("article_id")
-            if article_id:
-                EnrichArticleUseCase(db).execute(
-                    EnrichArticleInput(
                         article_id=article_id, payload=payload
                     )
                 )

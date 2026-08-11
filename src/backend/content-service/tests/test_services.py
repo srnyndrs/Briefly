@@ -59,9 +59,7 @@ def test_process_feed_persists_and_publishes() -> None:
         assert call_kwargs["feed_id"] == "f1"
 
 
-def test_process_feed_publishes_failure_on_extraction_error() -> (
-    None
-):
+def test_process_feed_skips_entry_on_extraction_error() -> None:
     db = MagicMock()
     channel = MagicMock()
 
@@ -84,9 +82,9 @@ def test_process_feed_publishes_failure_on_extraction_error() -> (
             side_effect=RuntimeError("network error"),
         ),
         patch(
-            "src.services.feed_processor"
-            ".event_publisher.publish_parsed_failed"
-        ) as mock_fail,
+            "src.repositories.article_repository"
+            ".ArticleRepository.save"
+        ) as mock_save,
     ):
         FeedProcessorService(db).process(channel, _make_event())
-        assert mock_fail.called
+        assert not mock_save.called

@@ -22,7 +22,6 @@ async def lifespan(app: FastAPI):
     if not getattr(app.state, "testing", False):
         init_db()
         app.state.publisher = EventPublisher()
-        app.state.publisher.connect()
         logger.info(
             "Account Service started on port=%d", settings.app_port
         )
@@ -30,11 +29,6 @@ async def lifespan(app: FastAPI):
     yield
 
     if not getattr(app.state, "testing", False):
-        publisher: EventPublisher | None = getattr(
-            app.state, "publisher", None
-        )
-        if publisher:
-            publisher.close()
         logger.info("Account Service stopped")
 
 

@@ -180,13 +180,7 @@ class CrawlCycleOrchestrator:
         error_message: str,
         retry_count: int,
     ) -> None:
-        event_publisher.publish_feed_failed(
-            feed_id=feed_id,
-            feed_url=feed_url,
-            error_code=error_code,
-            error_message=error_message,
-            retry_count=retry_count,
-        )
+        _ = (event_publisher, feed_url, error_code, retry_count)
         feed_repository.save_crawl_failure(
             feed_id=feed_id,
             error=error_message,

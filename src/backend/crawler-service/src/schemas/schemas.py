@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -95,24 +94,6 @@ class FeedRawFetchedPayload(BaseModel):
 
 class FeedRawFetchedEvent(EventEnvelope):
     payload: FeedRawFetchedPayload
-
-
-class FeedFetchFailedPayload(BaseModel):
-    feed_id: uuid.UUID
-    feed_url: str
-    error_code: Literal[
-        "TIMEOUT",
-        "NETWORK_ERROR",
-        "HTTP_ERROR",
-        "INVALID_XML",
-        "UNKNOWN_ERROR",
-    ]
-    error_message: str
-    retry_count: int
-
-
-class FeedFetchFailedEvent(EventEnvelope):
-    payload: FeedFetchFailedPayload
 
 
 class HealthResponse(BaseModel):

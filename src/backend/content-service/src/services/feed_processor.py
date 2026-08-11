@@ -105,12 +105,6 @@ class FeedProcessorService:
                     item_guid,
                     exc,
                 )
-                event_publisher.publish_parsed_failed(
-                    channel,
-                    feed_id=feed_id,
-                    item_guid=item_guid,
-                    error=str(exc),
-                )
                 continue
 
             source_title_val = article_data.pop(
@@ -148,33 +142,4 @@ class FeedProcessorService:
             keywords=data["keywords"],
             source_title=data.get("source_title"),
         )
-        event_publisher.publish_article_updated(
-            channel,
-            article_id=article_id,
-            source_id=feed_id,
-            changed_fields=[
-                "title",
-                "description",
-                "category",
-                "content",
-                "author",
-                "published_at",
-                "parsed_at",
-            ],
-        )
-        event_publisher.publish_article_content_extracted(
-            channel,
-            article_id=article_id,
-            source_id=feed_id,
-            content_ref=f"article:{article_id}",
-            image_ref=data["image_url"],
-        )
-        event_publisher.publish_article_enriched(
-            channel,
-            article_id=article_id,
-            source_id=feed_id,
-            sentiment="unknown",
-            topics=[],
-            cluster_id=None,
-            model_version="content-service-default-v1",
-        )
+
