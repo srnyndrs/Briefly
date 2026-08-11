@@ -1,32 +1,11 @@
 import json
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 import pika
 
 from src.config.settings import settings
-
-
-def _envelope(
-    event_type: str,
-    partition_key: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "event_id": str(uuid.uuid4()),
-        "event_type": event_type,
-        "schema_version": 1,
-        "occurred_at": datetime.now(timezone.utc).isoformat(),
-        "producer": "content-service",
-        "correlation_id": str(uuid.uuid4()),
-        "partition_key": partition_key,
-        "trace": {
-            "trace_id": uuid.uuid4().hex,
-            "span_id": uuid.uuid4().hex[:16],
-        },
-        "payload": payload,
-    }
+from src.events.envelope import build_envelope
 
 
 def _publish(
@@ -52,6 +31,7 @@ def publish_parsed_success(
     item_guid: str,
     url: str,
     title: str,
+    correlation_id: str,
     category: str | None = None,
     content: str | None,
     content_length: int,
@@ -82,14 +62,14 @@ def publish_parsed_success(
         payload["keywords"] = keywords
     if category is not None:
         payload["category"] = category
+    envelope = build_envelope(
+        event_type="article.parsed.v1",
+        partition_key=f"source:{feed_id}",
+        payload=payload,
+        correlation_id=correlation_id,
+    )
     _publish(
         channel,
         "article.parsed.v1",
-        _envelope(
-            "article.parsed.v1",
-            f"source:{feed_id}",
-            payload,
-        ),
+        envelope,
     )
-
-

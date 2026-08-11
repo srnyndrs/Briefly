@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -85,6 +86,7 @@ class FeedProcessorService:
         raw_xml = payload.get("raw_xml", "")
         feed_id = payload.get("feed_id", "")
         crawled_at = _parse_dt(event.get("occurred_at"))
+        correlation_id = event.get("correlation_id") or str(uuid.uuid4())
 
         feed = feedparser.parse(raw_xml)
         source_title = payload.get("source_title") or (
@@ -114,7 +116,7 @@ class FeedProcessorService:
             if article_id:
                 article_data["source_title"] = source_title_val
                 self._publish_success_events(
-                    channel, article_id, article_data
+                    channel, article_id, article_data, correlation_id
                 )
 
     def _publish_success_events(
@@ -122,6 +124,7 @@ class FeedProcessorService:
         channel: Any,
         article_id: str,
         data: dict[str, Any],
+        correlation_id: str,
     ) -> None:
         feed_id = data["feed_id"]
         event_publisher.publish_parsed_success(
@@ -131,6 +134,7 @@ class FeedProcessorService:
             item_guid=data["item_guid"],
             url=data["url"],
             title=data["title"],
+            correlation_id=correlation_id,
             category=data["category"],
             content=data["content"],
             content_length=len(data["content"] or ""),

@@ -19,6 +19,7 @@ def test_publish_parsed_success_emits_content_body() -> None:
         item_guid="g1",
         url="https://example.com/a1",
         title="Title",
+        correlation_id="corr-123",
         content="Full body",
         content_length=9,
         description="A short description",
@@ -29,6 +30,7 @@ def test_publish_parsed_success_emits_content_body() -> None:
     envelope = json.loads(body.decode())
 
     assert routing_key == "article.parsed.v1"
+    assert envelope["correlation_id"] == "corr-123"
     assert envelope["payload"]["content"] == "Full body"
     assert envelope["payload"]["content_length"] == 9
     assert (

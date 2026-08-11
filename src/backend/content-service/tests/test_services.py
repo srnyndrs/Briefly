@@ -5,9 +5,12 @@ from src.services.feed_processor import FeedProcessorService
 
 
 def _make_event(
-    feed_id: str = "f1", raw_xml: str = "<xml/>"
+    feed_id: str = "f1",
+    raw_xml: str = "<xml/>",
+    correlation_id: str = "test-corr-id",
 ) -> dict:
     return {
+        "correlation_id": correlation_id,
         "payload": {
             "feed_id": feed_id,
             "raw_xml": raw_xml,
@@ -57,6 +60,7 @@ def test_process_feed_persists_and_publishes() -> None:
         call_kwargs = mock_publish.call_args.kwargs
         assert call_kwargs["article_id"] == "a1"
         assert call_kwargs["feed_id"] == "f1"
+        assert call_kwargs["correlation_id"] == "test-corr-id"
 
 
 def test_process_feed_skips_entry_on_extraction_error() -> None:

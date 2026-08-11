@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -29,6 +30,7 @@ class CrawlCycleOrchestrator:
 
     def run_crawl_cycle(self) -> None:
         event_publisher = RabbitMQEventPublisher()
+        cycle_correlation_id = str(uuid.uuid4())
         with self._session_factory() as db:
             feed_repository = SqlAlchemyFeedRepository(db)
             now = datetime.now(timezone.utc)
@@ -37,7 +39,9 @@ class CrawlCycleOrchestrator:
             )
 
             logger.info(
-                "Crawl cycle started - %d feed(s) due.", len(feeds)
+                "Crawl cycle started (correlation_id=%s) - %d feed(s) due.",
+                cycle_correlation_id,
+                len(feeds),
             )
 
             try:
@@ -68,6 +72,7 @@ class CrawlCycleOrchestrator:
                         current_etag,
                         current_last_modified,
                         feed.consecutive_failures,
+                        cycle_correlation_id,
                     )
 
                     if success:
@@ -93,6 +98,7 @@ class CrawlCycleOrchestrator:
         etag: str | None,
         last_modified: str | None,
         retry_count: int,
+        correlation_id: str,
     ) -> tuple[bool, str | None, str | None]:
         headers = FetchHeaders(
             etag=etag, last_modified=last_modified
@@ -107,6 +113,7 @@ class CrawlCycleOrchestrator:
             event_publisher.publish_feed_fetched(
                 feed_id=feed_id,
                 feed_url=feed_url,
+                correlation_id=correlation_id,
                 source_title=source_title,
                 raw_xml=result.body,
             )

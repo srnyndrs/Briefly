@@ -1,16 +1,12 @@
 import json
 import uuid
-from datetime import datetime, timezone
 
 import pika
 
 from src.config.message_broker import create_channel
 from src.config.settings import settings
-from src.schemas.schemas import (
-    EventTrace,
-    FeedRawFetchedEvent,
-    FeedRawFetchedPayload,
-)
+from src.events.envelope import build_envelope
+from src.schemas.schemas import FeedRawFetchedPayload
 
 
 class RabbitMQEventPublisher:
@@ -34,6 +30,7 @@ class RabbitMQEventPublisher:
         *,
         feed_id: uuid.UUID,
         feed_url: str,
+        correlation_id: str,
         source_title: str | None = None,
         raw_xml: str,
     ) -> None:
@@ -43,20 +40,13 @@ class RabbitMQEventPublisher:
             source_title=source_title,
             raw_xml=raw_xml,
         )
-        event = FeedRawFetchedEvent(
-            event_id=uuid.uuid4(),
+        envelope = build_envelope(
             event_type="feed.raw_fetched.v1",
-            occurred_at=datetime.now(timezone.utc),
-            producer="crawler-service",
-            correlation_id=uuid.uuid4(),
             partition_key=f"source:{feed_id}",
-            trace=EventTrace(
-                trace_id=uuid.uuid4().hex,
-                span_id=uuid.uuid4().hex[:16],
-            ),
-            payload=payload,
+            payload=payload.model_dump(),
+            correlation_id=correlation_id,
         )
-        self._publish("feed.raw_fetched.v1", event.model_dump())
+        self._publish("feed.raw_fetched.v1", envelope)
 
     def close(self) -> None:
         if (
