@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql://postgres:postgres@localhost:5432/briefly"
     )
+    admin_token: str | None = None
 
 
 settings = Settings()

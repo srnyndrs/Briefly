@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -91,3 +92,25 @@ def test_list_articles_with_filters(
 def test_get_article_not_found(client: TestClient) -> None:
     missing = client.get(f"/articles/{uuid4()}")
     assert missing.status_code == 404
+
+
+def test_replay_articles_publishes_events(
+    client: TestClient, db_session
+) -> None:
+    article_id = str(uuid4())
+    other_id = str(uuid4())
+    _seed_articles(db_session, article_id, other_id)
+
+    with (
+        patch(
+            "src.routers.admin.create_channel",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "src.routers.admin.event_publisher.publish_parsed_success"
+        ) as mock_publish,
+    ):
+        response = client.post("/admin/articles/replay")
+        assert response.status_code == 200
+        assert response.json() == {"replayed": 2}
+        assert mock_publish.call_count == 2

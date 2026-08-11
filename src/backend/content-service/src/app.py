@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from src.config.database import SessionLocal, init_db
 from src.config.message_broker import create_channel
 from src.config.settings import settings
-from src.routers import articles
+from src.routers import admin, articles
 from src.schemas.common import HealthResponse
 from src.services.feed_processor import FeedProcessorService
 
@@ -104,6 +104,7 @@ def health() -> HealthResponse:
 
 
 app.include_router(articles.router)
+app.include_router(admin.router)
 
 
 if __name__ == "__main__":

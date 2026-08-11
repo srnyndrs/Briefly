@@ -7,9 +7,6 @@ from fastapi import FastAPI
 
 from src.config.database import init_db, SessionLocal
 from src.config.settings import settings
-from src.repositories.projection_backfill import (
-    backfill_article_projections,
-)
 from src.routers.auth import router as auth_router
 from src.routers.feed import admin_router, router as feed_router
 from src.routers.sources import router as sources_router
@@ -41,21 +38,6 @@ async def lifespan(app: FastAPI):
             thread.start()
             app.state.projector = projector
             app.state.projector_thread = thread
-
-        db = SessionLocal()
-        try:
-            backfilled = backfill_article_projections(db)
-            if backfilled > 0:
-                logger.info(
-                    "Backfilled article projections from content articles: count=%d",
-                    backfilled,
-                )
-        except Exception as exc:  # pragma: no cover
-            logger.warning(
-                "Projection backfill skipped due to error: %s", exc
-            )
-        finally:
-            db.close()
 
         logger.info(
             "Public API started on port=%d", settings.app_port
