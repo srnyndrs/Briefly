@@ -124,7 +124,6 @@ class FeedService:
                 sort=context.sort,
                 limit=data.limit,
                 offset=data.offset,
-                expand_limit=prefs_vo.has_preferred_categories,
             )
         )
         ranked = self._scoring_service.rank(

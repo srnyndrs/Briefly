@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    ARRAY,
     JSON,
     DateTime,
+    Index,
     Integer,
     String,
     Text,
@@ -52,7 +54,9 @@ class ArticleProjection(Base):
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
-    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    keywords: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+    )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_ref: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
@@ -63,7 +67,9 @@ class ArticleProjection(Base):
     sentiment: Mapped[str | None] = mapped_column(
         String(32), nullable=True
     )
-    topics: Mapped[list[str]] = mapped_column(JSON, default=list)
+    topics: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+    )
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -76,6 +82,16 @@ class ArticleProjection(Base):
             "canonical_url",
             name="uq_article_projection_canonical_url",
         ),
+        Index(
+            "ix_article_projections_keywords_gin",
+            "keywords",
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_article_projections_topics_gin",
+            "topics",
+            postgresql_using="gin",
+        ),
     )
 
 
@@ -86,16 +102,16 @@ class UserPreferencesProjection(Base):
         String(64), primary_key=True
     )
     preferred_categories: Mapped[list[str]] = mapped_column(
-        JSON, default=list
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     preferred_languages: Mapped[list[str]] = mapped_column(
-        JSON, default=list
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     excluded_languages: Mapped[list[str]] = mapped_column(
-        JSON, default=list
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
-        JSON, default=list
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
@@ -118,6 +134,6 @@ class UserSubscriptionProjection(Base):
         UniqueConstraint(
             "user_id",
             "source_id",
-            name="uq_user_subscription_projection",
+            name="uq_user_subscription_user_source",
         ),
     )

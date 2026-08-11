@@ -28,6 +28,7 @@ class ArticleRepository:
         blocked_source_ids: Sequence[str],
         include_languages: Sequence[str] | None,
         include_source_ids: Sequence[str] | None,
+        include_categories: Sequence[str] | None = None,
         published_from: datetime | None,
         published_to: datetime | None,
     ):
@@ -61,6 +62,23 @@ class ArticleRepository:
                 ArticleProjection.source_id.in_(include_source_ids)
             )
 
+        if include_categories:
+            if self._db.bind and self._db.bind.dialect.name == "sqlite":
+                query = query.where(
+                    or_(
+                        *[
+                            ArticleProjection.keywords.contains(c)
+                            for c in include_categories
+                        ]
+                    )
+                )
+            else:
+                query = query.where(
+                    ArticleProjection.keywords.op("&&")(
+                        list(include_categories)
+                    )
+                )
+
         if published_from is not None:
             query = query.where(
                 ArticleProjection.published_at >= published_from
@@ -85,22 +103,6 @@ class ArticleRepository:
             ArticleProjection.updated_at.desc(),
         )
 
-    @staticmethod
-    def _matches_categories(
-        row: ArticleProjection,
-        include_categories: Sequence[str] | None,
-    ) -> bool:
-        if not include_categories:
-            return True
-
-        wanted = {
-            category.lower() for category in include_categories
-        }
-        existing = {
-            category.lower() for category in (row.keywords or [])
-        }
-        return bool(existing.intersection(wanted))
-
     def list_feed_candidates(
         self,
         *,
@@ -115,7 +117,6 @@ class ArticleRepository:
         sort: str | None,
         limit: int,
         offset: int,
-        expand_limit: bool,
     ):
         _ = user_id
         query = select(ArticleProjection)
@@ -125,34 +126,21 @@ class ArticleRepository:
             blocked_source_ids=blocked_source_ids,
             include_languages=include_languages,
             include_source_ids=include_source_ids,
+            include_categories=include_categories,
             published_from=published_from,
             published_to=published_to,
         )
 
         ordered = query.order_by(*self._order_by(sort))
-        read_limit = limit * 4 if expand_limit else limit
-
-        if include_categories:
-            all_rows = self._db.scalars(ordered).all()
-            filtered_rows = [
-                row
-                for row in all_rows
-                if self._matches_categories(row, include_categories)
-            ]
-            total = len(filtered_rows)
-            rows = filtered_rows[offset : offset + read_limit]
-        else:
-            total = (
-                self._db.scalar(
-                    select(func.count()).select_from(
-                        query.subquery()
-                    )
-                )
-                or 0
+        total = (
+            self._db.scalar(
+                select(func.count()).select_from(query.subquery())
             )
-            rows = self._db.scalars(
-                ordered.offset(offset).limit(read_limit)
-            ).all()
+            or 0
+        )
+        rows = self._db.scalars(
+            ordered.offset(offset).limit(limit)
+        ).all()
 
         return [
             article_projection_to_entity(row) for row in rows
@@ -188,33 +176,21 @@ class ArticleRepository:
             blocked_source_ids=blocked_source_ids,
             include_languages=include_languages,
             include_source_ids=include_source_ids,
+            include_categories=include_categories,
             published_from=published_from,
             published_to=published_to,
         )
 
         ordered = query.order_by(*self._order_by(sort))
-
-        if include_categories:
-            all_rows = self._db.scalars(ordered).all()
-            filtered_rows = [
-                row
-                for row in all_rows
-                if self._matches_categories(row, include_categories)
-            ]
-            total = len(filtered_rows)
-            rows = filtered_rows[offset : offset + limit]
-        else:
-            total = (
-                self._db.scalar(
-                    select(func.count()).select_from(
-                        query.subquery()
-                    )
-                )
-                or 0
+        total = (
+            self._db.scalar(
+                select(func.count()).select_from(query.subquery())
             )
-            rows = self._db.scalars(
-                ordered.offset(offset).limit(limit)
-            ).all()
+            or 0
+        )
+        rows = self._db.scalars(
+            ordered.offset(offset).limit(limit)
+        ).all()
 
         return [
             article_projection_to_entity(row) for row in rows
