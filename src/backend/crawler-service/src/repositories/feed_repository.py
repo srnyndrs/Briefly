@@ -50,7 +50,6 @@ class SqlAlchemyFeedRepository:
     def create_feed(
         self,
         *,
-        user_id: UUID,
         url: str,
         title: str | None = None,
         description: str | None = None,
@@ -59,7 +58,6 @@ class SqlAlchemyFeedRepository:
     ) -> Feed:
         feed = Feed(
             feed_id=uuid.uuid4(),
-            user_id=user_id,
             url=url,
             title=title,
             description=description,

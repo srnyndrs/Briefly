@@ -37,7 +37,6 @@ class ExploreResult(BaseModel):
 
 class FeedResponse(BaseModel):
     feed_id: uuid.UUID
-    user_id: uuid.UUID
     url: str
     title: str | None
     description: str | None

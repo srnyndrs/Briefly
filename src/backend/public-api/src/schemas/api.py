@@ -172,7 +172,6 @@ class SourcePatchRequest(BaseModel):
 
 class SourceResponse(BaseModel):
     feed_id: UUID
-    user_id: UUID
     url: str
     title: str | None
     description: str | None

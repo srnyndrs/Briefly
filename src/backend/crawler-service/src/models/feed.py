@@ -25,10 +25,6 @@ class Feed(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        nullable=False,
-    )
     url: Mapped[str] = mapped_column(
         String(2048), unique=True, nullable=False
     )

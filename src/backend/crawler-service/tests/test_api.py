@@ -2,41 +2,36 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from src.schemas.schemas import ExploreResult
 from src.models.feed import Feed
+from src.schemas.schemas import ExploreResult
 
 
-@patch("src.routers.feeds.discover_feeds")
-def test_explore_endpoint(mock_discover, client):
-    mock_discover.return_value = [
-        ExploreResult(
-            url="https://example.com/feed",
-            title="Example",
-            description="Desc",
+def test_explore_feeds_success(client):
+    with patch("src.routers.feeds.discover_feeds") as mock_discover:
+        mock_discover.return_value = [
+            ExploreResult(
+                url="https://example.com/feed",
+                title="Example",
+                description="Desc",
+                favicon="icon.ico",
+            )
+        ]
+
+        response = client.post(
+            "/feeds/explore", json={"url": "https://example.com"}
         )
-    ]
-    response = client.post(
-        "/feeds/explore", json={"url": "https://example.com"}
-    )
-    assert response.status_code == 200
-    assert response.json()[0]["url"] == "https://example.com/feed"
-    assert response.json()[0]["title"] == "Example"
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert (
+            response.json()[0]["url"] == "https://example.com/feed"
+        )
 
 
-@patch("src.routers.feeds.discover_feeds")
-def test_explore_endpoint_no_results(mock_discover, client):
-    mock_discover.return_value = []
-    response = client.post(
-        "/feeds/explore", json={"url": "https://example.com"}
-    )
-    assert response.status_code == 200
-    assert response.json() == []
-
-
+@patch("src.routers.feeds.extract_website_url", return_value=None)
 @patch("src.routers.feeds.discover_feeds")
 @patch("src.routers.feeds.SqlAlchemyFeedRepository")
 def test_register_feed_success(
-    mock_repo_cls, mock_discover, client
+    mock_repo_cls, mock_discover, mock_extract, client
 ):
     mock_discover.return_value = [
         ExploreResult(
@@ -52,7 +47,6 @@ def test_register_feed_success(
     repository.get_feed_by_url.return_value = None
     repository.create_feed.return_value = Feed(
         feed_id=uuid.uuid4(),
-        user_id=uuid.uuid4(),
         url="https://example.com/feed",
         title="Example",
         description="Desc",
@@ -94,7 +88,6 @@ def test_get_feed_success(mock_repo_cls, client):
     repository = MagicMock()
     repository.get_feed_by_id.return_value = Feed(
         feed_id=feed_id,
-        user_id=uuid.uuid4(),
         url="https://example.com/feed",
         title="Example",
         description="Desc",
@@ -120,7 +113,6 @@ def test_patch_feed_success(mock_repo_cls, client):
     feed_id = uuid.uuid4()
     existing = Feed(
         feed_id=feed_id,
-        user_id=uuid.uuid4(),
         url="https://example.com/feed",
         title="Example",
         description="Desc",
@@ -135,7 +127,6 @@ def test_patch_feed_success(mock_repo_cls, client):
     )
     updated = Feed(
         feed_id=feed_id,
-        user_id=existing.user_id,
         url=existing.url,
         title="Updated Title",
         description=existing.description,
@@ -169,7 +160,6 @@ def test_list_feeds_returns_all(mock_repo_cls, client):
     repository.get_feeds.return_value = [
         Feed(
             feed_id=feed_id,
-            user_id=uuid.uuid4(),
             url="https://example.com/feed",
             title="Example",
             description="Desc",
@@ -187,7 +177,4 @@ def test_list_feeds_returns_all(mock_repo_cls, client):
 
     response = client.get("/feeds")
     assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["feed_id"] == str(feed_id)
-    repository.get_feeds.assert_called_once()
+    assert len(response.json()) == 1

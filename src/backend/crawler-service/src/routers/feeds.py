@@ -84,16 +84,9 @@ def register_feed(
             status_code=409, detail="Feed URL already registered."
         )
 
-    # In production the user_id comes from the validated JWT token.
-    # Using a sentinel UUID until auth middleware is wired up.
-    placeholder_user_id = uuid.UUID(
-        "00000000-0000-0000-0000-000000000001"
-    )
-
     website_url = extract_website_url(final_url)
 
     feed = repository.create_feed(
-        user_id=placeholder_user_id,
         url=final_url,
         title=body.title or first_feed.title,
         description=body.description or first_feed.description,
