@@ -49,7 +49,7 @@ class RabbitMQEventPublisher:
             event_id=uuid.uuid4(),
             event_type="feed.raw_fetched.v1",
             occurred_at=datetime.now(timezone.utc),
-            producer="feed-ingestion-service",
+            producer="crawler-service",
             correlation_id=uuid.uuid4(),
             partition_key=f"source:{feed_id}",
             trace=EventTrace(
@@ -80,7 +80,7 @@ class RabbitMQEventPublisher:
             event_id=uuid.uuid4(),
             event_type="feed.fetch_failed.v1",
             occurred_at=datetime.now(timezone.utc),
-            producer="feed-ingestion-service",
+            producer="crawler-service",
             correlation_id=uuid.uuid4(),
             partition_key=f"source:{feed_id}",
             trace=EventTrace(
