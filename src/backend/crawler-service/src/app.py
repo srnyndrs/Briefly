@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
         scheduler.start()
+        app.state.scheduler = scheduler
 
         logger.info(
             "Crawler Service started crawl interval=%ds, port=%d",
@@ -47,8 +48,11 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    scheduler: BackgroundScheduler | None = getattr(
+        app.state, "scheduler", None
+    )
     if scheduler and scheduler.running:
-        scheduler.shutdown(wait=False)
+        scheduler.shutdown(wait=True)
         logger.info("Scheduler stopped.")
 
     logger.info("Crawler Service stopped.")
