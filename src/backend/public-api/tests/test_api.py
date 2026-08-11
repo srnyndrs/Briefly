@@ -24,6 +24,7 @@ def _build_client() -> TestClient:
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        execution_options={"schema_translate_map": {"query": None}},
     )
     TestingSessionLocal = sessionmaker(
         bind=engine,

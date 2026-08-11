@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.config.settings import settings
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 engine = create_engine(
     settings.database_url,
-    pool_pre_ping=True,  # Re-validate connections before use
+    pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
     echo=False,
@@ -23,11 +23,15 @@ SessionLocal = sessionmaker(
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema="crawler")
 
 
 def init_db() -> None:
     from src.models import feed  # noqa: F401
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS crawler;"))
 
     logger.info("Running database migrations (create_all)...")
     Base.metadata.create_all(bind=engine)

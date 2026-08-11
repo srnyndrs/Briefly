@@ -12,7 +12,10 @@ from src.models.read_models import ArticleProjection
 
 
 def test_project_article_use_case_persists_content() -> None:
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        execution_options={"schema_translate_map": {"query": None}},
+    )
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(
         bind=engine, autoflush=False, autocommit=False

@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres/01-init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d briefly"]
       interval: 5s

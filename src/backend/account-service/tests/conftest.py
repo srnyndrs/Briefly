@@ -31,6 +31,7 @@ def engine():
         "sqlite+pysqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        execution_options={"schema_translate_map": {"account": None}},
     )
 
 

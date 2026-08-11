@@ -1,13 +1,13 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config.settings import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema="query")
 
 
 engine = create_engine(
@@ -26,6 +26,9 @@ SessionLocal = sessionmaker(
 def init_db() -> None:
     from src.models import read_models  # noqa: F401
 
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS query;"))
     Base.metadata.create_all(bind=engine)
 
 
