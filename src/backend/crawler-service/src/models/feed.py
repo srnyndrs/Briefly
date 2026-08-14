@@ -65,6 +65,9 @@ class Feed(Base):
     last_modified: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )
+    enrich_with_ai: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

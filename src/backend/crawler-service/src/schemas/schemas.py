@@ -14,6 +14,7 @@ class FeedCreate(BaseModel):
     title: str | None = None
     description: str | None = None
     favicon: str | None = None
+    enrich_with_ai: bool = False
 
 
 class FeedPatchRequest(BaseModel):
@@ -21,6 +22,7 @@ class FeedPatchRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     favicon: str | None = None
+    enrich_with_ai: bool | None = None
 
 
 class ExploreRequest(BaseModel):
@@ -47,6 +49,7 @@ class FeedResponse(BaseModel):
     last_crawl_succeeded: bool
     consecutive_failures: int
     health_score: float
+    enrich_with_ai: bool
     created_at: datetime
     updated_at: datetime
 
