@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Query, Response
 
 from src.repositories.service_clients import (
     ServiceClientError,
@@ -22,15 +22,14 @@ from src.schemas.api import (
     SourceExploreResult,
     SourcePatchRequest,
     SourceResponse,
-    SubscriptionCreateRequest,
     SubscriptionResponse,
 )
 from src.services.auth import CurrentUser
 
-router = APIRouter(tags=["users", "sources"])
+router = APIRouter(prefix="/sources", tags=["sources"])
 
 
-@router.post("/sources", status_code=201, tags=["sources"])
+@router.post("", status_code=201)
 def create_source(
     body: SourceCreateRequest, user: CurrentUser
 ) -> dict:
@@ -41,14 +40,15 @@ def create_source(
         raise map_service_error(exc) from exc
 
 
-@router.get(
-    "/sources",
-    response_model=list[SourceResponse],
-    tags=["sources"],
-)
+@router.get("", response_model=list[SourceResponse])
 def list_sources(
     user: CurrentUser,
-    q: str = "",
+    query: str = Query(
+        default="", description="Search text to filter sources"
+    ),
+    subscribed_only: bool = Query(
+        default=False, description="Filter only subscribed sources"
+    ),
 ) -> list[SourceResponse]:
     try:
         sources = ingestion_list_sources()
@@ -61,21 +61,24 @@ def list_sources(
 
         results = []
         for item in sources:
+            is_sub = str(item["feed_id"]) in subscribed_ids
+            if subscribed_only and not is_sub:
+                continue
+
             source_response = SourceResponse(
                 **item,
-                is_subscribed=str(item["feed_id"])
-                in subscribed_ids,
+                is_subscribed=is_sub,
             )
 
             # Filter by search query if provided
-            if q:
+            if query:
                 search_fields = [
                     source_response.title or "",
                     source_response.description or "",
                     source_response.url or "",
                 ]
                 search_text = " ".join(search_fields).lower()
-                if q.lower() in search_text:
+                if query.lower() in search_text:
                     results.append(source_response)
             else:
                 results.append(source_response)
@@ -86,9 +89,8 @@ def list_sources(
 
 
 @router.post(
-    "/sources/explore",
+    "/explore",
     response_model=list[SourceExploreResult],
-    tags=["sources"],
 )
 def explore_sources(
     body: SourceExploreRequest,
@@ -105,9 +107,8 @@ def explore_sources(
 
 
 @router.get(
-    "/sources/{source_id}",
+    "/{source_id}",
     response_model=SourceResponse,
-    tags=["sources"],
 )
 def get_source(
     source_id: uuid.UUID, user: CurrentUser
@@ -131,9 +132,8 @@ def get_source(
 
 
 @router.patch(
-    "/sources/{source_id}",
+    "/{source_id}",
     response_model=SourceResponse,
-    tags=["sources"],
 )
 def patch_source(
     source_id: uuid.UUID,
@@ -151,9 +151,7 @@ def patch_source(
         raise map_service_error(exc) from exc
 
 
-@router.delete(
-    "/sources/{source_id}", status_code=204, tags=["sources"]
-)
+@router.delete("/{source_id}", status_code=204)
 def delete_source(
     source_id: uuid.UUID, user: CurrentUser
 ) -> Response:
@@ -165,37 +163,20 @@ def delete_source(
         raise map_service_error(exc) from exc
 
 
-@router.get(
-    "/me/subscriptions", response_model=list[SubscriptionResponse]
-)
-def list_my_subscriptions(
-    user: CurrentUser,
-) -> list[SubscriptionResponse]:
-    try:
-        subscriptions = account_list_subscriptions(
-            str(user.user_id)
-        )
-        return [
-            SubscriptionResponse(**item) for item in subscriptions
-        ]
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
 @router.post(
-    "/me/subscriptions",
+    "/{source_id}/subscription",
     response_model=SubscriptionResponse,
     status_code=201,
 )
-def create_my_subscription(
-    body: SubscriptionCreateRequest,
+def create_source_subscription(
+    source_id: uuid.UUID,
     user: CurrentUser,
     x_correlation_id: Annotated[str | None, Header()] = None,
 ) -> SubscriptionResponse:
     try:
         created = account_create_subscription(
             str(user.user_id),
-            body.model_dump(mode="json"),
+            {"source_id": str(source_id)},
             correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
         return SubscriptionResponse(**created)
@@ -203,8 +184,11 @@ def create_my_subscription(
         raise map_service_error(exc) from exc
 
 
-@router.delete("/me/subscriptions/{source_id}", status_code=204)
-def delete_my_subscription(
+@router.delete(
+    "/{source_id}/subscription",
+    status_code=204,
+)
+def delete_source_subscription(
     source_id: uuid.UUID,
     user: CurrentUser,
     x_correlation_id: Annotated[str | None, Header()] = None,

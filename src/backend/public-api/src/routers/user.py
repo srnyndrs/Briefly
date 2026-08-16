@@ -6,48 +6,52 @@ from fastapi import APIRouter, Header
 from src.repositories.service_clients import (
     ServiceClientError,
     account_get_preferences,
+    account_get_profile,
     account_get_user,
     account_patch_preferences,
     account_patch_profile,
-    account_update_preferences,
-    account_update_profile,
     map_service_error,
 )
 from src.schemas.api import (
+    MeDetailsResponse,
     PreferencesPatchRequest,
     PreferencesResponse,
-    PreferencesUpdateRequest,
     ProfilePatchRequest,
     ProfileResponse,
-    ProfileUpdateRequest,
-    UserResponse,
 )
 from src.services.auth import CurrentUser
 
 router = APIRouter(prefix="/me", tags=["users"])
 
 
-@router.get("", response_model=UserResponse)
-def get_me(user: CurrentUser) -> UserResponse:
+@router.get("", response_model=MeDetailsResponse)
+def get_me(user: CurrentUser) -> MeDetailsResponse:
     try:
-        return UserResponse(**account_get_user(str(user.user_id)))
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
+        user_data = account_get_user(str(user.user_id))
 
+        profile_data = None
+        try:
+            profile_data = account_get_profile(str(user.user_id))
+        except ServiceClientError as exc:
+            if exc.status_code != 404:
+                raise map_service_error(exc) from exc
 
-@router.put("/profile", response_model=ProfileResponse)
-def update_my_profile(
-    body: ProfileUpdateRequest,
-    user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
-) -> ProfileResponse:
-    try:
-        updated = account_update_profile(
-            str(user.user_id),
-            body.model_dump(mode="json"),
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
+        prefs_data = None
+        try:
+            prefs_data = account_get_preferences(str(user.user_id))
+        except ServiceClientError as exc:
+            if exc.status_code != 404:
+                raise map_service_error(exc) from exc
+
+        return MeDetailsResponse(
+            **user_data,
+            profile=ProfileResponse(**profile_data)
+            if profile_data
+            else None,
+            preferences=PreferencesResponse(**prefs_data)
+            if prefs_data
+            else None,
         )
-        return ProfileResponse(**updated)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -75,23 +79,6 @@ def get_my_preferences(user: CurrentUser) -> PreferencesResponse:
         return PreferencesResponse(
             **account_get_preferences(str(user.user_id))
         )
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@router.put("/preferences", response_model=PreferencesResponse)
-def update_my_preferences(
-    body: PreferencesUpdateRequest,
-    user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
-) -> PreferencesResponse:
-    try:
-        updated = account_update_preferences(
-            str(user.user_id),
-            body.model_dump(mode="json"),
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
-        )
-        return PreferencesResponse(**updated)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

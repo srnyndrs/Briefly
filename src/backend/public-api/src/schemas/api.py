@@ -73,12 +73,6 @@ class UserResponse(BaseModel):
         return value.isoformat()
 
 
-class ProfileUpdateRequest(BaseModel):
-    display_name: str | None = None
-    bio: str | None = None
-    avatar_url: str | None = None
-
-
 class ProfilePatchRequest(BaseModel):
     display_name: str | None = None
     bio: str | None = None
@@ -99,6 +93,13 @@ class ProfileResponse(BaseModel):
         return value.isoformat()
 
 
+class PreferencesPatchRequest(BaseModel):
+    preferred_categories: list[str] | None = None
+    preferred_languages: list[str] | None = None
+    excluded_languages: list[str] | None = None
+    blocked_source_ids: list[UUID] | None = None
+
+
 class PreferencesResponse(BaseModel):
     user_id: UUID
     preferred_categories: list[str] = Field(default_factory=list)
@@ -114,18 +115,9 @@ class PreferencesResponse(BaseModel):
         return value.isoformat()
 
 
-class PreferencesUpdateRequest(BaseModel):
-    preferred_categories: list[str] = Field(default_factory=list)
-    preferred_languages: list[str] = Field(default_factory=list)
-    excluded_languages: list[str] = Field(default_factory=list)
-    blocked_source_ids: list[UUID] = Field(default_factory=list)
-
-
-class PreferencesPatchRequest(BaseModel):
-    preferred_categories: list[str] | None = None
-    preferred_languages: list[str] | None = None
-    excluded_languages: list[str] | None = None
-    blocked_source_ids: list[UUID] | None = None
+class MeDetailsResponse(UserResponse):
+    profile: ProfileResponse | None = None
+    preferences: PreferencesResponse | None = None
 
 
 class SourceCreateRequest(BaseModel):

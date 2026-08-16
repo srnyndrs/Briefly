@@ -63,7 +63,10 @@ class ArticleRepository:
             )
 
         if include_categories:
-            if self._db.bind and self._db.bind.dialect.name == "sqlite":
+            if (
+                self._db.bind
+                and self._db.bind.dialect.name == "sqlite"
+            ):
                 query = query.where(
                     or_(
                         *[

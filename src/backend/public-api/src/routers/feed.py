@@ -34,6 +34,7 @@ from src.services.feed_service import (
 )
 
 router = APIRouter(prefix="/feed", tags=["feed"])
+articles_router = APIRouter(prefix="/articles", tags=["articles"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
@@ -76,6 +77,9 @@ def get_feed_service(
 def get_feed(
     user: CurrentUser,
     service: FeedService = Depends(get_feed_service),
+    query: str | None = Query(
+        default=None, description="Optional search query text"
+    ),
     limit: int = 20,
     offset: int = 0,
     use_profile: bool = True,
@@ -113,93 +117,40 @@ def get_feed(
         except ServiceClientError as exc:
             raise map_service_error(exc) from exc
 
-    output = service.list_feed(
-        ListFeedInput(
-            user_id=user.user_id,
-            limit=max(1, min(limit, 100)),
-            offset=max(0, offset),
-            use_profile=use_profile,
-            categories=categories,
-            languages=languages,
-            exclude_languages=exclude_languages,
-            source_ids=filtered_source_ids,
-            published_from=from_,
-            published_to=to_,
-            sort=sort,
-        )
-    )
-    return FeedResponse(
-        items=[
-            _to_feed_item_response(item) for item in output.items
-        ],
-        total=output.total,
-    )
-
-
-@router.get("/search", response_model=FeedResponse)
-def feed_search(
-    q: str,
-    user: CurrentUser,
-    service: FeedService = Depends(get_feed_service),
-    limit: int = 20,
-    offset: int = 0,
-    use_profile: bool = True,
-    categories: list[str] | None = Query(default=None),
-    languages: list[str] | None = Query(default=None),
-    exclude_languages: list[str] | None = Query(default=None),
-    source_ids: list[str] | None = Query(default=None),
-    from_: datetime | None = Query(default=None, alias="from"),
-    to_: datetime | None = Query(default=None, alias="to"),
-    sort: str | None = None,
-    subscribed_only: bool = False,
-) -> FeedResponse:
-    q = q.strip()
-    if not q:
-        raise HTTPException(
-            status_code=400, detail="Query cannot be empty"
-        )
-
-    # If subscribed_only is True, filter to only subscribed sources
-    filtered_source_ids = source_ids
-    if subscribed_only:
-        try:
-            subscriptions = account_list_subscriptions(
-                str(user.user_id)
+    if query and query.strip():
+        output = service.search_feed(
+            SearchFeedInput(
+                user_id=user.user_id,
+                q=query.strip(),
+                limit=max(1, min(limit, 100)),
+                offset=max(0, offset),
+                use_profile=use_profile,
+                categories=categories,
+                languages=languages,
+                exclude_languages=exclude_languages,
+                source_ids=filtered_source_ids,
+                published_from=from_,
+                published_to=to_,
+                sort=sort,
             )
-            subscribed_ids = [
-                str(s["source_id"]) for s in subscriptions
-            ]
-            # If no subscriptions, return empty result
-            if not subscribed_ids:
-                return FeedResponse(items=[], total=0)
-            # If source_ids are already provided, intersect with subscriptions
-            if filtered_source_ids:
-                filtered_source_ids = [
-                    sid
-                    for sid in filtered_source_ids
-                    if sid in subscribed_ids
-                ]
-            else:
-                filtered_source_ids = subscribed_ids
-        except ServiceClientError as exc:
-            raise map_service_error(exc) from exc
-
-    output = service.search_feed(
-        SearchFeedInput(
-            user_id=user.user_id,
-            q=q,
-            limit=max(1, min(limit, 100)),
-            offset=max(0, offset),
-            use_profile=use_profile,
-            categories=categories,
-            languages=languages,
-            exclude_languages=exclude_languages,
-            source_ids=filtered_source_ids,
-            published_from=from_,
-            published_to=to_,
-            sort=sort,
         )
-    )
+    else:
+        output = service.list_feed(
+            ListFeedInput(
+                user_id=user.user_id,
+                limit=max(1, min(limit, 100)),
+                offset=max(0, offset),
+                use_profile=use_profile,
+                categories=categories,
+                languages=languages,
+                exclude_languages=exclude_languages,
+                source_ids=filtered_source_ids,
+                published_from=from_,
+                published_to=to_,
+                sort=sort,
+            )
+        )
+
     return FeedResponse(
         items=[
             _to_feed_item_response(item) for item in output.items
@@ -208,10 +159,10 @@ def feed_search(
     )
 
 
-@router.get(
-    "/articles/{article_id}",
+@articles_router.get(
+    "/{article_id}",
     response_model=ArticleResponse,
-    tags=["feed"],
+    tags=["articles"],
 )
 def get_article_by_id(
     article_id: uuid.UUID,

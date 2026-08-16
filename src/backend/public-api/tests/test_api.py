@@ -341,6 +341,7 @@ def test_create_subscription_endpoint(monkeypatch) -> None:
         user_id: str, body: dict, correlation_id: str | None
     ) -> dict:
         assert user_id == str(user.user_id)
+        assert body["source_id"] == source_id
         assert correlation_id is not None
         return {
             "user_id": user_id,
@@ -353,40 +354,36 @@ def test_create_subscription_endpoint(monkeypatch) -> None:
         fake_create_subscription,
     )
 
-    response = client.post(
-        "/me/subscriptions", json={"source_id": source_id}
-    )
+    response = client.post(f"/sources/{source_id}/subscription")
     assert response.status_code == 201
     payload = response.json()
     assert payload["user_id"] == str(user.user_id)
     assert payload["source_id"] == source_id
 
 
-def test_list_subscriptions_endpoint(monkeypatch) -> None:
+def test_delete_subscription_endpoint(monkeypatch) -> None:
     client = _build_client()
     user = app.dependency_overrides[get_current_user]()
     source_id = str(uuid4())
 
-    def fake_list_subscriptions(user_id: str) -> list[dict]:
+    called = {"value": False}
+
+    def fake_delete_subscription(
+        user_id: str, s_id: str, correlation_id: str | None
+    ) -> None:
         assert user_id == str(user.user_id)
-        return [
-            {
-                "user_id": user_id,
-                "source_id": source_id,
-                "created_at": datetime.now(UTC).isoformat(),
-            }
-        ]
+        assert s_id == source_id
+        assert correlation_id is not None
+        called["value"] = True
 
     monkeypatch.setattr(
-        "src.routers.sources.account_list_subscriptions",
-        fake_list_subscriptions,
+        "src.routers.sources.account_delete_subscription",
+        fake_delete_subscription,
     )
 
-    response = client.get("/me/subscriptions")
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["source_id"] == source_id
+    response = client.delete(f"/sources/{source_id}/subscription")
+    assert response.status_code == 204
+    assert called["value"] is True
 
 
 def test_patch_profile_endpoint(monkeypatch) -> None:
@@ -746,3 +743,201 @@ def test_admin_get_article_endpoint(monkeypatch) -> None:
     response = client.get(f"/admin/articles/{article_id}")
     assert response.status_code == 200
     assert response.json()["id"] == article_id
+
+
+def test_get_me_composite_response(monkeypatch) -> None:
+    client = _build_client()
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC).isoformat()
+
+    def fake_get_user(u_id: str) -> dict:
+        assert u_id == str(user.user_id)
+        return {
+            "user_id": u_id,
+            "email": "test@example.com",
+            "status": "active",
+            "created_at": now,
+        }
+
+    def fake_get_profile(u_id: str) -> dict:
+        assert u_id == str(user.user_id)
+        return {
+            "user_id": u_id,
+            "display_name": "Test User",
+            "bio": "Bio",
+            "avatar_url": None,
+            "updated_at": now,
+        }
+
+    def fake_get_preferences(u_id: str) -> dict:
+        assert u_id == str(user.user_id)
+        return {
+            "user_id": u_id,
+            "preferred_categories": ["tech"],
+            "preferred_languages": ["en"],
+            "excluded_languages": [],
+            "blocked_source_ids": [],
+            "updated_at": now,
+        }
+
+    monkeypatch.setattr(
+        "src.routers.user.account_get_user", fake_get_user
+    )
+    monkeypatch.setattr(
+        "src.routers.user.account_get_profile", fake_get_profile
+    )
+    monkeypatch.setattr(
+        "src.routers.user.account_get_preferences",
+        fake_get_preferences,
+    )
+
+    response = client.get("/me")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["user_id"] == str(user.user_id)
+    assert payload["email"] == "test@example.com"
+    assert payload["profile"]["display_name"] == "Test User"
+    assert payload["preferences"]["preferred_categories"] == [
+        "tech"
+    ]
+
+
+def test_feed_search_query_parameter() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    now = datetime.now(UTC)
+
+    art_id = str(uuid4())
+    db.add(
+        ArticleProjection(
+            article_id=art_id,
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/search-test",
+            title="Antigravity Release Notes",
+            description="Antigravity agent tooling",
+            language="en",
+            keywords=["tech"],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        "/feed",
+        params={"query": "Antigravity", "use_profile": "false"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 1
+    assert (
+        payload["items"][0]["title"] == "Antigravity Release Notes"
+    )
+
+
+def test_get_article_by_id_endpoint() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    now = datetime.now(UTC)
+
+    art_id = str(uuid4())
+    db.add(
+        ArticleProjection(
+            article_id=art_id,
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/single-article",
+            title="Single Article",
+            description="Detail",
+            language="en",
+            keywords=[],
+            topics=[],
+            content="Full body text",
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    response = client.get(f"/articles/{art_id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["article_id"] == art_id
+    assert payload["title"] == "Single Article"
+    assert payload["content"] == "Full body text"
+
+
+def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
+    client = _build_client()
+    now = datetime.now(UTC).isoformat()
+    feed_1 = str(uuid4())
+    feed_2 = str(uuid4())
+
+    def fake_list_sources() -> list[dict]:
+        return [
+            {
+                "feed_id": feed_1,
+                "user_id": str(uuid4()),
+                "url": "https://example.com/1",
+                "title": "Subscribed Feed",
+                "description": "Desc",
+                "favicon": None,
+                "website_url": "https://example.com",
+                "last_crawled_at": None,
+                "next_crawl_scheduled_at": now,
+                "last_crawl_succeeded": True,
+                "consecutive_failures": 0,
+                "health_score": 1.0,
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "feed_id": feed_2,
+                "user_id": str(uuid4()),
+                "url": "https://example.com/2",
+                "title": "Unsubscribed Feed",
+                "description": "Desc",
+                "favicon": None,
+                "website_url": "https://example.com",
+                "last_crawled_at": None,
+                "next_crawl_scheduled_at": now,
+                "last_crawl_succeeded": True,
+                "consecutive_failures": 0,
+                "health_score": 1.0,
+                "created_at": now,
+                "updated_at": now,
+            },
+        ]
+
+    def fake_list_subscriptions(user_id: str) -> list[dict]:
+        return [
+            {
+                "user_id": user_id,
+                "source_id": feed_1,
+                "created_at": now,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "src.routers.sources.ingestion_list_sources",
+        fake_list_sources,
+    )
+    monkeypatch.setattr(
+        "src.routers.sources.account_list_subscriptions",
+        fake_list_subscriptions,
+    )
+
+    # Without subscribed_only
+    all_res = client.get("/sources")
+    assert all_res.status_code == 200
+    assert len(all_res.json()) == 2
+
+    # With subscribed_only=true
+    sub_res = client.get(
+        "/sources", params={"subscribed_only": "true"}
+    )
+    assert sub_res.status_code == 200
+    sub_items = sub_res.json()
+    assert len(sub_items) == 1
+    assert sub_items[0]["feed_id"] == feed_1
+    assert sub_items[0]["is_subscribed"] is True

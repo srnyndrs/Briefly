@@ -52,6 +52,26 @@ def get_user(
     )
 
 
+@router.get("/{user_id}/profile", response_model=ProfileResponse)
+def get_profile(
+    user_id: uuid.UUID,
+    service: AccountService = Depends(get_account_service),
+) -> ProfileResponse:
+    try:
+        profile = service.get_profile(str(user_id))
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    return ProfileResponse(
+        user_id=user_id,
+        display_name=profile.display_name,
+        bio=profile.bio,
+        avatar_url=profile.avatar_url,
+        updated_at=profile.updated_at,
+    )
+
+
 @router.put("/{user_id}/profile", response_model=ProfileResponse)
 def update_profile(
     user_id: uuid.UUID,
