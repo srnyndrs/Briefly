@@ -24,6 +24,7 @@ def test_publish_parsed_success_emits_content_body() -> None:
         content_length=9,
         description="A short description",
         published_at="2026-05-05T00:00:00+00:00",
+        image_url="https://example.com/images/a1.png",
     )
 
     routing_key, body = _extract_publish_args(channel)
@@ -35,4 +36,8 @@ def test_publish_parsed_success_emits_content_body() -> None:
     assert envelope["payload"]["content_length"] == 9
     assert (
         envelope["payload"]["description"] == "A short description"
+    )
+    assert (
+        envelope["payload"]["image_url"]
+        == "https://example.com/images/a1.png"
     )

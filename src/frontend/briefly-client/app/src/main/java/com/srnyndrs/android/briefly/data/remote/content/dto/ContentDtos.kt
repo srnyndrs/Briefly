@@ -8,7 +8,12 @@ import kotlin.time.Instant
 @Serializable
 data class FeedResultDto(
     val items: List<FeedResultItemDto>,
-    val total: Long
+    val total: Long,
+    val page: Int = 1,
+    @SerialName("page_count")
+    val pageCount: Int = 1,
+    @SerialName("page_size")
+    val pageSize: Int = 20,
 )
 
 @Serializable

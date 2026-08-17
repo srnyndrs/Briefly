@@ -83,6 +83,21 @@ class ArticleProjection(Base):
             name="uq_article_projection_canonical_url",
         ),
         Index(
+            "ix_article_projections_published_updated",
+            "published_at",
+            "updated_at",
+        ),
+        Index(
+            "ix_article_projections_source_published",
+            "source_id",
+            "published_at",
+        ),
+        Index(
+            "ix_article_projections_lang_published",
+            "language",
+            "published_at",
+        ),
+        Index(
             "ix_article_projections_keywords_gin",
             "keywords",
             postgresql_using="gin",

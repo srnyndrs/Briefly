@@ -40,6 +40,7 @@ def publish_parsed_success(
     language: str | None = None,
     keywords: list[str] | None = None,
     source_title: str | None = None,
+    image_url: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "article_id": article_id,
@@ -52,6 +53,8 @@ def publish_parsed_success(
         "content_length": content_length,
         "source_title": source_title,
     }
+    if image_url is not None:
+        payload["image_url"] = image_url
     if description is not None:
         payload["description"] = description
     if published_at:

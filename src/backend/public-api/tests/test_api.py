@@ -941,3 +941,116 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
     assert len(sub_items) == 1
     assert sub_items[0]["feed_id"] == feed_1
     assert sub_items[0]["is_subscribed"] is True
+
+
+def test_feed_pagination_pages_and_counts() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            preferred_categories=[],
+            preferred_languages=[],
+            excluded_languages=[],
+            blocked_source_ids=[],
+            updated_at=now,
+        )
+    )
+
+    for i in range(5):
+        db.add(
+            ArticleProjection(
+                article_id=str(uuid4()),
+                source_id=str(uuid4()),
+                canonical_url=f"https://example.com/{i}",
+                title=f"Article {i}",
+                language="en",
+                keywords=[],
+                topics=[],
+                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
+                updated_at=now,
+            )
+        )
+    db.commit()
+
+    # Page 1 with page_size=2
+    res_p1 = client.get("/feed", params={"page": 1, "page_size": 2})
+    assert res_p1.status_code == 200
+    p1 = res_p1.json()
+    assert p1["total"] == 5
+    assert p1["page"] == 1
+    assert p1["page_count"] == 3
+    assert p1["page_size"] == 2
+    assert len(p1["items"]) == 2
+    assert p1["items"][0]["title"] == "Article 4"
+    assert p1["items"][1]["title"] == "Article 3"
+
+    # Page 2 with page_size=2
+    res_p2 = client.get("/feed", params={"page": 2, "page_size": 2})
+    assert res_p2.status_code == 200
+    p2 = res_p2.json()
+    assert p2["page"] == 2
+    assert p2["page_count"] == 3
+    assert len(p2["items"]) == 2
+    assert p2["items"][0]["title"] == "Article 2"
+    assert p2["items"][1]["title"] == "Article 1"
+
+    # Page 3 (last page with remaining 1 item)
+    res_p3 = client.get("/feed", params={"page": 3, "page_size": 2})
+    assert res_p3.status_code == 200
+    p3 = res_p3.json()
+    assert p3["page"] == 3
+    assert p3["page_count"] == 3
+    assert len(p3["items"]) == 1
+    assert p3["items"][0]["title"] == "Article 0"
+
+    # Alias /feeds works identically
+    res_feeds = client.get("/feeds", params={"page": 1, "page_size": 2})
+    assert res_feeds.status_code == 200
+    assert res_feeds.json()["page_count"] == 3
+    assert len(res_feeds.json()["items"]) == 2
+
+    # Alias page_count parameter for page size
+    res_pc = client.get("/feed", params={"page": 1, "page_count": 2})
+    assert res_pc.status_code == 200
+    assert res_pc.json()["page_size"] == 2
+
+
+def test_admin_feed_pagination() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    now = datetime.now(UTC)
+
+    for i in range(3):
+        db.add(
+            ArticleProjection(
+                article_id=str(uuid4()),
+                source_id=str(uuid4()),
+                canonical_url=f"https://example.com/admin/{i}",
+                title=f"Admin Article {i}",
+                language="en",
+                keywords=[],
+                topics=[],
+                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
+                updated_at=now,
+            )
+        )
+    db.commit()
+
+    res = client.get("/admin/feed", params={"page": 1, "page_size": 2})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 3
+    assert data["page"] == 1
+    assert data["page_count"] == 2
+    assert data["page_size"] == 2
+    assert len(data["items"]) == 2
+
+    res_alias = client.get("/admin/feeds", params={"page": 2, "page_size": 2})
+    assert res_alias.status_code == 200
+    data_alias = res_alias.json()
+    assert data_alias["page"] == 2
+    assert len(data_alias["items"]) == 1

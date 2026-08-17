@@ -34,6 +34,7 @@ def test_project_article_use_case_persists_content() -> None:
                     "title": "Title",
                     "description": "Short description",
                     "content": "Full body",
+                    "image_url": "https://example.com/images/a1.png",
                     "parsed_at": datetime.now(UTC).isoformat(),
                 },
             )
@@ -44,5 +45,6 @@ def test_project_article_use_case_persists_content() -> None:
         assert article is not None
         assert article.content == "Full body"
         assert article.description == "Short description"
+        assert article.image_ref == "https://example.com/images/a1.png"
     finally:
         db.close()

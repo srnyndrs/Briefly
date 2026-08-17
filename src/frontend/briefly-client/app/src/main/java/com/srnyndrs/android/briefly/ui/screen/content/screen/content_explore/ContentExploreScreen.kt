@@ -12,18 +12,21 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,324 +44,539 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
-import com.srnyndrs.android.briefly.ui.common.UiStateContainer
 import com.srnyndrs.android.briefly.ui.screen.content.components.ArticleRow
 import com.srnyndrs.android.briefly.ui.screen.content.navigation.ContentNavigationEvent
-import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview.ContentExploreStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
+import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun ContentExploreScreen(
     modifier: Modifier = Modifier,
-    state: ContentExploreState,
+    articles: LazyPagingItems<ArticleItem>,
     onNavigationEvent: (ContentNavigationEvent) -> Unit,
 ) {
-
-    // VARIABLES
-    val numberOfHeadliners = 3
-    state.result
-    val pagerState = rememberPagerState {
-        numberOfHeadliners
-    }
     var selectedCategoryIndex by rememberSaveable {
         mutableIntStateOf(0)
     }
 
-    // CONTENT
-    Column(
-        modifier = Modifier.then(modifier)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        // Headline
-            UiStateContainer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .requiredHeight(356.dp),
-                state = state.result
-            ) { data, isLoading ->
-                HorizontalPager(
-                    modifier = Modifier.fillMaxSize(),
-                    state = pagerState,
-                    pageSpacing = 12.dp
-                ) { page ->
+    when (val refreshState = articles.loadState.refresh) {
+        is LoadState.Loading -> {
+            ContentExploreLoadingSkeleton(
+                modifier = modifier.padding(horizontal = 8.dp),
+                selectedCategoryIndex = selectedCategoryIndex
+            )
+        }
+        is LoadState.Error -> {
+            ContentExploreErrorState(
+                modifier = modifier.fillMaxSize().padding(16.dp),
+                errorMessage = refreshState.error.localizedMessage ?: "Failed to load articles",
+                onRetry = { articles.retry() }
+            )
+        }
+        is LoadState.NotLoading -> {
+            if (articles.itemCount == 0) {
+                ContentExploreEmptyState(
+                    modifier = modifier.fillMaxSize().padding(16.dp),
+                    onRefresh = { articles.refresh() }
+                )
+            } else {
+                val numberOfHeadliners = minOf(3, articles.itemCount)
+                val pagerState = rememberPagerState { numberOfHeadliners }
 
-                    val article = data?.items?.getOrNull(page)
-                    if(data?.items?.isEmpty() == true) {
-                        return@HorizontalPager
-                    }
-                    // Headline Card
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable {
-                                article?.id?.let {
-                                    onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(it))
-                                }
-                            },
-                        verticalArrangement = Arrangement.Top
-                    ) {
-                        // Optional Image
-                        ShimmerItem(
+                LazyColumn(
+                    modifier = Modifier
+                        .then(modifier)
+                        .padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    // 1. Headline section
+                    item(key = "headlines") {
+                        HorizontalPager(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(16f / 9)
-                                .padding(bottom = 12.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                                )
-                                .border(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.onSurface,
-                                    RectangleShape
-                                ),
-                            isLoading = isLoading,
-                            contentAlignment = Alignment.BottomCenter,
-                        ) {
-                            article?.imageUrl?.let { imageUrl ->
-                                RemoteImageContainer(
-                                    modifier = Modifier.fillMaxSize(),
-                                    imageUrl = imageUrl
-                                )
-                            }
-                        }
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            // Source
-                            ShimmerItem(
-                                modifier = Modifier
-                                    .defaultMinSize(minHeight = 24.dp, minWidth = 42.dp),
-                                isLoading = isLoading,
-                                cornerRadius = 3.dp
-                            ) {
-                                Text(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    text = article?.source ?: "",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Start
-                                )
-                            }
-                            // Title
-                            ShimmerItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 42.dp),
-                                isLoading = isLoading,
-                                cornerRadius = 3.dp
-                            ) {
-                                Text(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    text = article?.title ?: "",
-                                    textAlign = TextAlign.Start,
-                                    // TODO
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Black,
-                                    maxLines = 3,
-                                    minLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            // Description
-                            if(isLoading) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(1.dp)
-                                ) {
-                                    repeat(4) {
-                                        ShimmerItem(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .requiredHeight(12.dp)
-                                                .padding(vertical = 3.dp),
-                                            isLoading = true,
-                                            cornerRadius = 3.dp
-                                        ) {}
+                                .requiredHeight(356.dp),
+                            state = pagerState,
+                            pageSpacing = 12.dp
+                        ) { page ->
+                            val article = articles[page]
+                            if (article != null) {
+                                HeadlineCard(
+                                    article = article,
+                                    onClick = {
+                                        onNavigationEvent(
+                                            ContentNavigationEvent.ShowArticleDetails(article.id)
+                                        )
                                     }
-                                }
-                            } else {
-                                Text(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    text = article?.description ?: "",
-                                    textAlign = TextAlign.Start,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    minLines = 1,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
                     }
 
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .fillMaxWidth()
-                    .requiredHeight(32.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val pageCount = pagerState.pageCount
-                repeat(pageCount) { iteration ->
-                    val selected = pagerState.currentPage == iteration
-                    HorizontalDivider(
-                        modifier = Modifier.weight(1f / pageCount)
-                            .clip(RoundedCornerShape(3.dp)),
-                        thickness = if(selected) 3.dp else 1.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(0.8f)
-                    )
-                    if(pageCount - 1 > iteration) {
-                        Spacer(
-                            modifier = Modifier.requiredWidth(3.dp)
+                    // 2. Pager indicators
+                    item(key = "indicators") {
+                        val pageCount = pagerState.pageCount
+                        Row(
+                            modifier = Modifier
+                                .padding(vertical = 12.dp)
+                                .fillMaxWidth()
+                                .requiredHeight(32.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(pageCount) { iteration ->
+                                val selected = pagerState.currentPage == iteration
+                                HorizontalDivider(
+                                    modifier = Modifier
+                                        .weight(1f / pageCount)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    thickness = if (selected) 3.dp else 1.dp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(0.8f)
+                                )
+                                if (pageCount - 1 > iteration) {
+                                    Spacer(modifier = Modifier.requiredWidth(3.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Category selectors
+                    item(key = "categories") {
+                        CategorySelectorRow(
+                            selectedIndex = selectedCategoryIndex,
+                            onCategorySelected = { selectedCategoryIndex = it }
                         )
                     }
-                }
-            }
-            UiStateContainer(
-                modifier = Modifier.fillMaxSize(),
-                state = state.result
-            ) { data, isLoading ->
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // Category selectors
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 18.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val options = listOf(
-                            "Összes", // TODO
-                            "Sport",
-                            "Belföld",
-                            "Külföld",
-                            "Kultúra"
-                        )
-                        items(options.size) { index ->
-                            val selected = index == selectedCategoryIndex
-                            ShimmerItem(
-                                modifier = Modifier,
-                                isLoading = isLoading,
-                                cornerRadius = 24.dp
+
+                    // 4. Paginated article items
+                    val remainingCount = (articles.itemCount - numberOfHeadliners).coerceAtLeast(0)
+                    items(
+                        count = remainingCount,
+                        key = { index -> articles.peek(index + numberOfHeadliners)?.id ?: "article_$index" }
+                    ) { index ->
+                        val article = articles[index + numberOfHeadliners]
+                        if (article != null) {
+                            ArticleRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                title = article.title,
+                                source = article.source
                             ) {
+                                if (article.hasContent) {
+                                    onNavigationEvent(
+                                        ContentNavigationEvent.ShowArticleDetails(article.id)
+                                    )
+                                } else {
+                                    onNavigationEvent(
+                                        ContentNavigationEvent.OpenCustomTab(article.url)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp, bottom = 12.dp),
+                                thickness = 1.dp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
+                            )
+                        }
+                    }
+
+                    // 5. Append load state (loading more or error)
+                    when (val appendState = articles.loadState.append) {
+                        is LoadState.Loading -> {
+                            item(key = "append_loading") {
                                 Box(
                                     modifier = Modifier
-                                        .wrapContentSize()
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .border(
-                                            1.dp,
-                                            if (isLoading) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                                            RoundedCornerShape(24.dp)
-                                        )
-                                        .background(
-                                            if (!selected || isLoading) {
-                                                MaterialTheme.colorScheme.surface
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface.copy(0.2f)
-                                            }
-                                        )
-                                        .clickable(enabled = !isLoading) {
-                                            selectedCategoryIndex = index
-                                        }
-                                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = options[index],
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = if (isLoading) Color.Transparent else MaterialTheme.colorScheme.onSurface
+                                    CircularProgressIndicator(
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
                         }
-                    }
-                    // Articles
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (isLoading) {
-                            repeat(3) {
+                        is LoadState.Error -> {
+                            item(key = "append_error") {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    ShimmerItem(
-                                        modifier = Modifier.defaultMinSize(minWidth = 60.dp, minHeight = 20.dp),
-                                        isLoading = true,
-                                        cornerRadius = 3.dp
-                                    ) {}
-                                    ShimmerItem(
-                                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 42.dp),
-                                        isLoading = true,
-                                        cornerRadius = 3.dp
-                                    ) {}
-                                }
-                                HorizontalDivider(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 4.dp, bottom = 12.dp),
-                                    thickness = 1.dp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                                )
-                            }
-                        } else {
-                            data!!.items.drop(numberOfHeadliners).forEach { article ->
-                                ArticleRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
-                                    title = article.title,
-                                    source = article.source
-                                ) {
-                                    if (article.hasContent) {
-                                        onNavigationEvent(
-                                            ContentNavigationEvent.ShowArticleDetails(
-                                                article.id
-                                            )
-                                        )
-                                    } else {
-                                        onNavigationEvent(
-                                            ContentNavigationEvent.OpenCustomTab(
-                                                article.url
-                                            )
-                                        )
+                                    Text(
+                                        text = appendState.error.localizedMessage ?: "Failed to load more articles",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    OutlinedButton(
+                                        onClick = { articles.retry() }
+                                    ) {
+                                        Text("Retry")
                                     }
                                 }
-                                HorizontalDivider(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 4.dp, bottom = 12.dp),
-                                    thickness = 1.dp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                                )
                             }
                         }
+                        else -> {}
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HeadlineCard(
+    modifier: Modifier = Modifier,
+    article: ArticleItem,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .clickable(onClick = onClick),
+        verticalArrangement = Arrangement.Top
+    ) {
+        ShimmerItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9)
+                .padding(bottom = 12.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(0.4f))
+                .border(1.dp, MaterialTheme.colorScheme.onSurface, RectangleShape),
+            isLoading = false,
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            article.imageUrl?.let { imageUrl ->
+                RemoteImageContainer(
+                    modifier = Modifier.fillMaxSize(),
+                    imageUrl = imageUrl
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = article.source ?: "",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start
+            )
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = article.title,
+                textAlign = TextAlign.Start,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                maxLines = 3,
+                minLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = article.description ?: "",
+                textAlign = TextAlign.Start,
+                style = MaterialTheme.typography.bodyMedium,
+                minLines = 1,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategorySelectorRow(
+    modifier: Modifier = Modifier,
+    selectedIndex: Int,
+    isLoading: Boolean = false,
+    onCategorySelected: (Int) -> Unit = {}
+) {
+    val options = listOf(
+        "Összes",
+        "Sport",
+        "Belföld",
+        "Külföld",
+        "Kultúra"
+    )
+    LazyRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items(options.size) { index ->
+            val selected = index == selectedIndex
+            ShimmerItem(
+                isLoading = isLoading,
+                cornerRadius = 24.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .clip(RoundedCornerShape(24.dp))
+                        .border(
+                            1.dp,
+                            if (isLoading) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                            RoundedCornerShape(24.dp)
+                        )
+                        .background(
+                            if (!selected || isLoading) {
+                                MaterialTheme.colorScheme.surface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(0.2f)
+                            }
+                        )
+                        .clickable(enabled = !isLoading) {
+                            onCategorySelected(index)
+                        }
+                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = options[index],
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isLoading) Color.Transparent else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContentExploreLoadingSkeleton(
+    modifier: Modifier = Modifier,
+    selectedCategoryIndex: Int
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        // Headline Skeleton
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .requiredHeight(356.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            ShimmerItem(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9)
+                    .padding(bottom = 12.dp)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(0.4f))
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface, RectangleShape),
+                isLoading = true,
+                contentAlignment = Alignment.BottomCenter,
+            ) {}
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ShimmerItem(
+                    modifier = Modifier.defaultMinSize(minHeight = 24.dp, minWidth = 42.dp),
+                    isLoading = true,
+                    cornerRadius = 3.dp
+                ) {}
+                ShimmerItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 42.dp),
+                    isLoading = true,
+                    cornerRadius = 3.dp
+                ) {}
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    repeat(4) {
+                        ShimmerItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .requiredHeight(12.dp)
+                                .padding(vertical = 3.dp),
+                            isLoading = true,
+                            cornerRadius = 3.dp
+                        ) {}
+                    }
+                }
+            }
+        }
+
+        // Indicator skeleton
+        Row(
+            modifier = Modifier
+                .padding(vertical = 12.dp)
+                .fillMaxWidth()
+                .requiredHeight(32.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(3) { iteration ->
+                HorizontalDivider(
+                    modifier = Modifier
+                        .weight(1f / 3)
+                        .clip(RoundedCornerShape(3.dp)),
+                    thickness = if (iteration == 0) 3.dp else 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.8f)
+                )
+                if (2 > iteration) {
+                    Spacer(modifier = Modifier.requiredWidth(3.dp))
+                }
+            }
+        }
+
+        // Category skeleton
+        CategorySelectorRow(
+            selectedIndex = selectedCategoryIndex,
+            isLoading = true
+        )
+
+        // Article rows skeleton
+        repeat(3) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ShimmerItem(
+                    modifier = Modifier.defaultMinSize(minWidth = 60.dp, minHeight = 20.dp),
+                    isLoading = true,
+                    cornerRadius = 3.dp
+                ) {}
+                ShimmerItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 42.dp),
+                    isLoading = true,
+                    cornerRadius = 3.dp
+                ) {}
+            }
+            HorizontalDivider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 12.dp),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContentExploreErrorState(
+    modifier: Modifier = Modifier,
+    errorMessage: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Button(onClick = onRetry) {
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContentExploreEmptyState(
+    modifier: Modifier = Modifier,
+    onRefresh: () -> Unit
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "No articles available",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center
+            )
+            OutlinedButton(onClick = onRefresh) {
+                Text("Refresh")
+            }
+        }
     }
 }
 
 @PreviewLightDark
 @Composable
-fun ContentExplorePreview(
-    @PreviewParameter(ContentExploreStateProvider::class) state: ContentExploreState
-) {
+fun ContentExplorePreview() {
+    val sampleArticles = listOf(
+        ArticleItem(
+            id = "1",
+            title = "Itthon és Európában is duplázna a kínai óriás, amely Magyarországon már előzi a Teslát",
+            description = "This is really important",
+            imageUrl = "asd",
+            category = "Külföld",
+            source = "24.hu"
+        ),
+        ArticleItem(
+            id = "2",
+            title = "Bérfizetési probléma: egy hévízi háromcsillagos szálloda dolgozói nem kapták meg fizetésüket",
+            description = "This is really important",
+            imageUrl = "asd",
+            category = "Belföld",
+            source = "Telex"
+        ),
+        ArticleItem(
+            id = "3",
+            title = "Elárulta az ETO edzője, hol folytatja a pályafutását",
+            description = "This is really important",
+            imageUrl = "asd",
+            category = "Foci",
+            source = "24.hu"
+        ),
+        ArticleItem(
+            id = "4",
+            title = "\"Biztos, hogy nem\" – Havasi Bertalan karrierjének emlékére",
+            description = "This is really important",
+            imageUrl = "asd",
+            category = "Belföld",
+            source = "24.hu"
+        )
+    )
+
+    val pagingDataFlow = flowOf(PagingData.from(sampleArticles))
+    val lazyPagingItems = pagingDataFlow.collectAsLazyPagingItems()
+
     BrieflyTheme {
         Surface {
             Scaffold(
@@ -374,10 +592,9 @@ fun ContentExplorePreview(
                         .fillMaxSize()
                         .padding(paddingValues)
                         .padding(top = 12.dp),
-                    state = state
-                ) {
-
-                }
+                    articles = lazyPagingItems,
+                    onNavigationEvent = {}
+                )
             }
         }
     }

@@ -233,6 +233,9 @@ class FeedItemResponse(BaseModel):
 class FeedResponse(BaseModel):
     items: list[FeedItemResponse]
     total: int
+    page: int = 1
+    page_count: int = 1
+    page_size: int = 20
 
 
 class ArticleResponse(FeedItemResponse):

@@ -26,6 +26,8 @@ import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSea
 import com.srnyndrs.android.briefly.ui.screen.content.screen.feed_search.FeedSearchViewModel
 import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
+import androidx.paging.compose.collectAsLazyPagingItems
+
 @Composable
 fun ContentNavigationGraph(
     modifier: Modifier = Modifier,
@@ -64,14 +66,15 @@ fun ContentNavigationGraph(
         ) {
 
             val viewModel = hiltViewModel<ContentExploreViewModel>()
-            val state by viewModel.state.collectAsStateWithLifecycle()
+            val articles = viewModel.articles.collectAsLazyPagingItems()
 
             ContentExploreScreen(
                 modifier = Modifier.fillMaxSize(),
-                state = state,
+                articles = articles,
                 onNavigationEvent = handleNavigationEvent
             )
         }
+
         composable(
             route = ContentScreens.FeedSearch.route
         ) {

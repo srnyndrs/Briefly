@@ -2,12 +2,16 @@ package com.srnyndrs.android.briefly.domain.repository.content
 
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
+import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
+import androidx.paging.PagingData
+import kotlinx.coroutines.flow.Flow
 
 interface ContentRepository {
-    suspend fun fetchArticles(limit: Long? = null, offset: Long? = null, sourceIds: List<String>? = null): Result<List<ArticleItem>>
+    fun getArticlePagingFlow(sourceIds: List<String>? = null): Flow<PagingData<ArticleItem>>
+    suspend fun fetchArticles(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): Result<ArticlePagingResult>
     suspend fun fetchFeedSources(query: String? = null): Result<List<FeedSourceResultItem>>
     suspend fun getFeedSourceSubscriptions(): Result<List<FeedSubscription>>
     suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails>
@@ -16,3 +20,4 @@ interface ContentRepository {
     suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>>
     suspend fun getArticleById(articleId: String): Result<ArticleDetails>
 }
+

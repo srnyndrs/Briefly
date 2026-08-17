@@ -65,6 +65,7 @@ def replay_articles(
                 language=article.language,
                 keywords=keywords_val,
                 source_title=None,
+                image_url=article.image_url,
             )
             replayed_count += 1
     finally:

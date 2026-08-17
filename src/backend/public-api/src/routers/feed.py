@@ -80,8 +80,16 @@ def get_feed(
     query: str | None = Query(
         default=None, description="Optional search query text"
     ),
-    limit: int = 20,
-    offset: int = 0,
+    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(
+        default=20, ge=1, le=100, description="Items per page"
+    ),
+    page_count: int | None = Query(
+        default=None, ge=1, le=100, alias="page_count", description="Alias for page_size"
+    ),
+    pageCount: int | None = Query(
+        default=None, ge=1, le=100, alias="pageCount", description="Alias for page_size"
+    ),
     use_profile: bool = True,
     categories: list[str] | None = Query(default=None),
     languages: list[str] | None = Query(default=None),
@@ -92,6 +100,12 @@ def get_feed(
     sort: str | None = None,
     subscribed_only: bool = False,
 ) -> FeedResponse:
+    resolved_size = page_count or pageCount or page_size
+    resolved_size = max(1, min(resolved_size, 100))
+    resolved_page = max(1, page)
+    offset = (resolved_page - 1) * resolved_size
+    limit = resolved_size
+
     # If subscribed_only is True, filter to only subscribed sources
     filtered_source_ids = source_ids
     if subscribed_only:
@@ -104,7 +118,13 @@ def get_feed(
             ]
             # If no subscriptions, return empty result
             if not subscribed_ids:
-                return FeedResponse(items=[], total=0)
+                return FeedResponse(
+                    items=[],
+                    total=0,
+                    page=resolved_page,
+                    page_count=0,
+                    page_size=resolved_size,
+                )
             # If source_ids are already provided, intersect with subscriptions
             if filtered_source_ids:
                 filtered_source_ids = [
@@ -122,8 +142,8 @@ def get_feed(
             SearchFeedInput(
                 user_id=user.user_id,
                 q=query.strip(),
-                limit=max(1, min(limit, 100)),
-                offset=max(0, offset),
+                limit=limit,
+                offset=offset,
                 use_profile=use_profile,
                 categories=categories,
                 languages=languages,
@@ -138,8 +158,8 @@ def get_feed(
         output = service.list_feed(
             ListFeedInput(
                 user_id=user.user_id,
-                limit=max(1, min(limit, 100)),
-                offset=max(0, offset),
+                limit=limit,
+                offset=offset,
                 use_profile=use_profile,
                 categories=categories,
                 languages=languages,
@@ -151,11 +171,19 @@ def get_feed(
             )
         )
 
+    total_pages = (
+        (output.total + resolved_size - 1) // resolved_size
+        if output.total > 0
+        else 0
+    )
     return FeedResponse(
         items=[
             _to_feed_item_response(item) for item in output.items
         ],
         total=output.total,
+        page=resolved_page,
+        page_count=total_pages,
+        page_size=resolved_size,
     )
 
 
@@ -181,28 +209,51 @@ def get_article_by_id(
 
 
 @admin_router.get("/feed", response_model=FeedResponse)
+@admin_router.get("/feeds", response_model=FeedResponse)
 def get_general_feed(
     admin_user: CurrentAdminUser,
     service: FeedService = Depends(get_feed_service),
-    limit: int = 20,
-    offset: int = 0,
+    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(
+        default=20, ge=1, le=100, description="Items per page"
+    ),
+    page_count: int | None = Query(
+        default=None, ge=1, le=100, alias="page_count", description="Alias for page_size"
+    ),
+    pageCount: int | None = Query(
+        default=None, ge=1, le=100, alias="pageCount", description="Alias for page_size"
+    ),
 ) -> FeedResponse:
     _ = admin_user
+    resolved_size = page_count or pageCount or page_size
+    resolved_size = max(1, min(resolved_size, 100))
+    resolved_page = max(1, page)
+    offset = (resolved_page - 1) * resolved_size
+    limit = resolved_size
+
     output = service.list_feed(
         ListFeedInput(
             user_id=uuid.UUID(
                 "00000000-0000-0000-0000-000000000000"
             ),
-            limit=max(1, min(limit, 100)),
-            offset=max(0, offset),
+            limit=limit,
+            offset=offset,
             use_profile=False,
         )
+    )
+    total_pages = (
+        (output.total + resolved_size - 1) // resolved_size
+        if output.total > 0
+        else 0
     )
     return FeedResponse(
         items=[
             _to_feed_item_response(item) for item in output.items
         ],
         total=output.total,
+        page=resolved_page,
+        page_count=total_pages,
+        page_size=resolved_size,
     )
 
 

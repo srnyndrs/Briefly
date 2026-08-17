@@ -100,10 +100,12 @@ class ArticleRepository:
             return (
                 ArticleProjection.published_at.asc().nullslast(),
                 ArticleProjection.updated_at.asc(),
+                ArticleProjection.article_id.asc(),
             )
         return (
             ArticleProjection.published_at.desc().nullslast(),
             ArticleProjection.updated_at.desc(),
+            ArticleProjection.article_id.desc(),
         )
 
     def list_feed_candidates(

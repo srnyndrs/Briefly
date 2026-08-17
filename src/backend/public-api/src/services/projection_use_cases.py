@@ -83,6 +83,10 @@ class ProjectArticleUseCase:
         # Only set published_at on first parse event (immutable)
         if not existing.published_at and published_at:
             existing.published_at = published_at
+        if "image_url" in payload or "image_ref" in payload:
+            existing.image_ref = (
+                payload.get("image_url") or payload.get("image_ref")
+            )
 
 
 @dataclass(frozen=True)

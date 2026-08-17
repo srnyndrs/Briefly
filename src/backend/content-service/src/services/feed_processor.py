@@ -145,5 +145,6 @@ class FeedProcessorService:
             language=data["language"],
             keywords=data["keywords"],
             source_title=data.get("source_title"),
+            image_url=data.get("image_url"),
         )
 
