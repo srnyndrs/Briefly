@@ -20,4 +20,3 @@ interface ContentRepository {
     suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>>
     suspend fun getArticleById(articleId: String): Result<ArticleDetails>
 }
-

@@ -22,11 +22,15 @@ class ContentRepositoryImpl @Inject constructor(
     private val contentApiService: ContentApiService
 ): ContentRepository {
 
+    companion object {
+        const val PAGE_SIZE = 20
+    }
+
     override fun getArticlePagingFlow(sourceIds: List<String>?): Flow<PagingData<ArticleItem>> {
         return Pager(
             config = PagingConfig(
-                pageSize = 20,
-                initialLoadSize = 20,
+                pageSize = PAGE_SIZE,
+                initialLoadSize = PAGE_SIZE,
                 enablePlaceholders = false
             ),
             pagingSourceFactory = {
@@ -35,7 +39,11 @@ class ContentRepositoryImpl @Inject constructor(
         ).flow
     }
 
-    override suspend fun fetchArticles(page: Int?, pageSize: Int?, sourceIds: List<String>?): Result<ArticlePagingResult> {
+    override suspend fun fetchArticles(
+        page: Int?,
+        pageSize: Int?,
+        sourceIds: List<String>?
+    ): Result<ArticlePagingResult> {
         return try {
             val response = contentApiService.getFeeds(page, pageSize, sourceIds)
             val items = response.items.map { it.toDomain() }
