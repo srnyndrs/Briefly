@@ -14,7 +14,6 @@ class ArticleEntity:
     category: str | None = None
     keywords: list[str] = field(default_factory=list)
     content: str | None = None
-    content_ref: str | None = None
     image_ref: str | None = None
     sentiment: str | None = None
     topics: list[str] = field(default_factory=list)

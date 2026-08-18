@@ -34,6 +34,7 @@ from src.services.feed_service import (
 )
 
 router = APIRouter(prefix="/feed", tags=["feed"])
+feeds_router = APIRouter(prefix="/feeds", tags=["feed"])
 articles_router = APIRouter(prefix="/articles", tags=["articles"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -185,6 +186,14 @@ def get_feed(
         page_count=total_pages,
         page_size=resolved_size,
     )
+
+
+feeds_router.add_api_route(
+    "",
+    get_feed,
+    response_model=FeedResponse,
+    methods=["GET"],
+)
 
 
 @articles_router.get(

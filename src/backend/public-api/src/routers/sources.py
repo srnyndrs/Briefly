@@ -1,12 +1,9 @@
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Query, Response
 
 from src.repositories.service_clients import (
     ServiceClientError,
-    account_create_subscription,
-    account_delete_subscription,
     account_list_subscriptions,
     ingestion_create_source,
     ingestion_delete_source,
@@ -22,7 +19,6 @@ from src.schemas.api import (
     SourceExploreResult,
     SourcePatchRequest,
     SourceResponse,
-    SubscriptionResponse,
 )
 from src.services.auth import CurrentUser
 
@@ -162,43 +158,3 @@ def delete_source(
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
-
-@router.post(
-    "/{source_id}/subscription",
-    response_model=SubscriptionResponse,
-    status_code=201,
-)
-def create_source_subscription(
-    source_id: uuid.UUID,
-    user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
-) -> SubscriptionResponse:
-    try:
-        created = account_create_subscription(
-            str(user.user_id),
-            {"source_id": str(source_id)},
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
-        )
-        return SubscriptionResponse(**created)
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@router.delete(
-    "/{source_id}/subscription",
-    status_code=204,
-)
-def delete_source_subscription(
-    source_id: uuid.UUID,
-    user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
-) -> Response:
-    try:
-        account_delete_subscription(
-            str(user.user_id),
-            str(source_id),
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
-        )
-        return Response(status_code=204)
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc

@@ -1,3 +1,4 @@
+import json
 from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, text
@@ -15,6 +16,7 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
 )
 
 SessionLocal = sessionmaker(

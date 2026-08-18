@@ -332,60 +332,6 @@ def test_password_reset_confirm_endpoint(monkeypatch) -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_create_subscription_endpoint(monkeypatch) -> None:
-    client = _build_client()
-    user = app.dependency_overrides[get_current_user]()
-    source_id = str(uuid4())
-
-    def fake_create_subscription(
-        user_id: str, body: dict, correlation_id: str | None
-    ) -> dict:
-        assert user_id == str(user.user_id)
-        assert body["source_id"] == source_id
-        assert correlation_id is not None
-        return {
-            "user_id": user_id,
-            "source_id": body["source_id"],
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-
-    monkeypatch.setattr(
-        "src.routers.sources.account_create_subscription",
-        fake_create_subscription,
-    )
-
-    response = client.post(f"/sources/{source_id}/subscription")
-    assert response.status_code == 201
-    payload = response.json()
-    assert payload["user_id"] == str(user.user_id)
-    assert payload["source_id"] == source_id
-
-
-def test_delete_subscription_endpoint(monkeypatch) -> None:
-    client = _build_client()
-    user = app.dependency_overrides[get_current_user]()
-    source_id = str(uuid4())
-
-    called = {"value": False}
-
-    def fake_delete_subscription(
-        user_id: str, s_id: str, correlation_id: str | None
-    ) -> None:
-        assert user_id == str(user.user_id)
-        assert s_id == source_id
-        assert correlation_id is not None
-        called["value"] = True
-
-    monkeypatch.setattr(
-        "src.routers.sources.account_delete_subscription",
-        fake_delete_subscription,
-    )
-
-    response = client.delete(f"/sources/{source_id}/subscription")
-    assert response.status_code == 204
-    assert called["value"] is True
-
-
 def test_patch_profile_endpoint(monkeypatch) -> None:
     client = _build_client()
     user = app.dependency_overrides[get_current_user]()
@@ -1054,3 +1000,135 @@ def test_admin_feed_pagination() -> None:
     data_alias = res_alias.json()
     assert data_alias["page"] == 2
     assert len(data_alias["items"]) == 1
+
+
+def test_get_my_subscriptions(monkeypatch) -> None:
+    client = _build_client()
+    user = app.dependency_overrides[get_current_user]()
+    src_id = str(uuid4())
+    now_iso = datetime.now(UTC).isoformat()
+
+    mock_subs = [
+        {
+            "user_id": str(user.user_id),
+            "source_id": src_id,
+            "created_at": now_iso,
+        }
+    ]
+
+    monkeypatch.setattr(
+        "src.routers.user.account_list_subscriptions",
+        lambda uid: mock_subs if uid == str(user.user_id) else [],
+    )
+
+    res = client.get("/me/subscriptions")
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["source_id"] == src_id
+    assert data[0]["user_id"] == str(user.user_id)
+
+
+def test_create_my_subscription_success(monkeypatch) -> None:
+    client = _build_client()
+    user = app.dependency_overrides[get_current_user]()
+    src_id = str(uuid4())
+    now_iso = datetime.now(UTC).isoformat()
+
+    def mock_create(uid, body, correlation_id=None):
+        return {
+            "user_id": uid,
+            "source_id": body["source_id"],
+            "created_at": now_iso,
+        }
+
+    monkeypatch.setattr(
+        "src.routers.user.account_create_subscription",
+        mock_create,
+    )
+
+    res = client.post(
+        "/me/subscriptions",
+        json={"source_id": src_id},
+        headers={"x-correlation-id": "test-corr-id"},
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["source_id"] == src_id
+    assert data["user_id"] == str(user.user_id)
+
+
+def test_create_my_subscription_conflict(monkeypatch) -> None:
+    from src.repositories.service_clients import ServiceClientError
+
+    client = _build_client()
+    src_id = str(uuid4())
+
+    def mock_conflict(*args, **kwargs):
+        raise ServiceClientError(
+            status_code=409, detail="Subscription already exists"
+        )
+
+    monkeypatch.setattr(
+        "src.routers.user.account_create_subscription",
+        mock_conflict,
+    )
+
+    res = client.post(
+        "/me/subscriptions",
+        json={"source_id": src_id},
+    )
+    assert res.status_code == 409
+    assert res.json()["detail"] == "Subscription already exists"
+
+
+def test_delete_my_subscription_success(monkeypatch) -> None:
+    client = _build_client()
+    src_id = str(uuid4())
+    deleted = []
+
+    def mock_delete(uid, source_id, correlation_id=None):
+        deleted.append((uid, source_id))
+
+    monkeypatch.setattr(
+        "src.routers.user.account_delete_subscription",
+        mock_delete,
+    )
+
+    res = client.delete(f"/me/subscriptions/{src_id}")
+    assert res.status_code == 204
+    assert len(deleted) == 1
+    assert deleted[0][1] == src_id
+
+
+def test_delete_my_subscription_not_found(monkeypatch) -> None:
+    from src.repositories.service_clients import ServiceClientError
+
+    client = _build_client()
+    src_id = str(uuid4())
+
+    def mock_not_found(*args, **kwargs):
+        raise ServiceClientError(
+            status_code=404, detail="Subscription not found"
+        )
+
+    monkeypatch.setattr(
+        "src.routers.user.account_delete_subscription",
+        mock_not_found,
+    )
+
+    res = client.delete(f"/me/subscriptions/{src_id}")
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Subscription not found"
+
+
+def test_old_sources_subscription_endpoints_removed() -> None:
+    client = _build_client()
+    src_id = str(uuid4())
+
+    res_post = client.post(f"/sources/{src_id}/subscription", json={})
+    assert res_post.status_code == 404
+
+    res_delete = client.delete(f"/sources/{src_id}/subscription")
+    assert res_delete.status_code == 404
+

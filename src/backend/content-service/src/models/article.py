@@ -8,6 +8,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import JSON
 
 from src.config.database import Base
@@ -38,7 +39,7 @@ class Article(Base):
     )
     image_url = Column(String, nullable=True)
     language = Column(String, nullable=True)
-    keywords = Column(JSON, nullable=False, default=list)
+    keywords = Column(JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list)
 
     __table_args__ = (
         UniqueConstraint(

@@ -11,7 +11,7 @@ from src.events.envelope import build_envelope
 def _publish(
     channel: Any, routing_key: str, envelope: dict[str, Any]
 ) -> None:
-    body = json.dumps(envelope, default=str).encode()
+    body = json.dumps(envelope, default=str, ensure_ascii=False).encode("utf-8")
     channel.basic_publish(
         exchange=settings.parsed_exchange,
         routing_key=routing_key,

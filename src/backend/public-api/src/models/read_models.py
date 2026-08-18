@@ -58,9 +58,6 @@ class ArticleProjection(Base):
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    content_ref: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
     image_ref: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )

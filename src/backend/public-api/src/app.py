@@ -11,6 +11,7 @@ from src.routers.auth import router as auth_router
 from src.routers.feed import (
     admin_router,
     articles_router,
+    feeds_router,
     router as feed_router,
 )
 from src.routers.sources import router as sources_router
@@ -81,6 +82,7 @@ def health() -> HealthResponse:
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(feed_router)
+app.include_router(feeds_router)
 app.include_router(articles_router)
 app.include_router(admin_router)
 app.include_router(sources_router)
