@@ -14,15 +14,15 @@ from sqlalchemy.types import JSON
 from src.config.database import Base
 
 
-class Article(Base):
-    __tablename__ = "articles"
+class Post(Base):
+    __tablename__ = "posts"
 
-    id = Column(
+    post_id = Column(
         String,
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-    feed_id = Column(String, nullable=False, index=True)
+    source_id = Column(String, nullable=False, index=True)
     item_guid = Column(String, nullable=False, index=True)
     url = Column(String, nullable=False)
     title = Column(String, nullable=False)
@@ -39,11 +39,15 @@ class Article(Base):
     )
     image_url = Column(String, nullable=True)
     language = Column(String, nullable=True)
-    keywords = Column(JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list)
+    keywords = Column(
+        JSONB().with_variant(JSON, "sqlite"),
+        nullable=False,
+        default=list,
+    )
 
     __table_args__ = (
         UniqueConstraint(
-            "feed_id", "item_guid", name="uix_feed_guid"
+            "source_id", "item_guid", name="uix_source_guid"
         ),
-        UniqueConstraint("feed_id", "url", name="uix_feed_url"),
+        UniqueConstraint("source_id", "url", name="uix_source_url"),
     )

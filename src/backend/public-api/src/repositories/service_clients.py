@@ -224,24 +224,24 @@ def account_delete_subscription(
 
 def ingestion_create_source(body: dict) -> dict:
     return _forward(
-        "POST", settings.ingestion_service_url, "/feeds", json=body
+        "POST", settings.ingestion_service_url, "/sources", json=body
     )
 
 
 def ingestion_list_sources() -> list[dict]:
     result = _forward(
-        "GET", settings.ingestion_service_url, "/feeds"
+        "GET", settings.ingestion_service_url, "/sources"
     )
     if isinstance(result, list):
         return result
     return []
 
 
-def ingestion_explore_sources(body: dict) -> list[dict]:
+def ingestion_discover_sources(body: dict) -> list[dict]:
     result = _forward(
         "POST",
         settings.ingestion_service_url,
-        "/feeds/explore",
+        "/sources/discover",
         json=body,
     )
     if isinstance(result, list):
@@ -251,7 +251,7 @@ def ingestion_explore_sources(body: dict) -> list[dict]:
 
 def ingestion_get_source(source_id: str) -> dict:
     return _forward(
-        "GET", settings.ingestion_service_url, f"/feeds/{source_id}"
+        "GET", settings.ingestion_service_url, f"/sources/{source_id}"
     )
 
 
@@ -259,7 +259,7 @@ def ingestion_patch_source(source_id: str, body: dict) -> dict:
     return _forward(
         "PATCH",
         settings.ingestion_service_url,
-        f"/feeds/{source_id}",
+        f"/sources/{source_id}",
         json=body,
     )
 
@@ -268,23 +268,23 @@ def ingestion_delete_source(source_id: str) -> None:
     _forward(
         "DELETE",
         settings.ingestion_service_url,
-        f"/feeds/{source_id}",
+        f"/sources/{source_id}",
     )
 
 
-def content_get_article(article_id: str) -> dict:
+def content_get_post(post_id: str) -> dict:
     return _forward(
         "GET",
         settings.content_service_url,
-        f"/articles/{article_id}",
+        f"/posts/{post_id}",
     )
 
 
-def content_list_articles(params: dict) -> list[dict]:
+def content_list_posts(params: dict) -> list[dict]:
     result = _forward(
         "GET",
         settings.content_service_url,
-        "/articles",
+        "/posts",
         params=params,
     )
     if isinstance(result, list):
@@ -292,7 +292,7 @@ def content_list_articles(params: dict) -> list[dict]:
     return []
 
 
-def content_articles_count() -> dict:
+def content_posts_count() -> dict:
     return _forward(
-        "GET", settings.content_service_url, "/articles/count"
+        "GET", settings.content_service_url, "/posts/count"
     )

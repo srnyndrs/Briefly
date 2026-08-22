@@ -1,14 +1,14 @@
-from src.services.feed_types import ArticleEntity, UserPreferencesVO
+from src.services.feed_types import PostEntity, UserPreferencesVO
 
 
 class FeedScoringService:
     def rank(
         self,
         *,
-        articles: list[ArticleEntity],
+        articles: list[PostEntity],
         preferences: UserPreferencesVO,
         limit: int,
-    ) -> list[ArticleEntity]:
+    ) -> list[PostEntity]:
         if not preferences.has_category_interests:
             return articles[:limit]
 
@@ -18,31 +18,30 @@ class FeedScoringService:
         }
 
         def _score(
-            article: ArticleEntity,
+            post: PostEntity,
         ) -> tuple[float, object, object]:
             score = 0.0
 
             # Direct category affinity boost
             if (
-                article.category
-                and article.category.lower() in interests
+                post.category
+                and post.category.lower() in interests
             ):
-                score += interests[article.category.lower()] * 2.0
+                score += interests[post.category.lower()] * 2.0
 
             # Keyword / Topic affinity boost
-            article_keywords = {
-                k.lower() for k in (article.keywords or [])
+            post_keywords = {
+                k.lower() for k in (post.keywords or [])
             }
             keyword_matches = len(
-                article_keywords.intersection(interests.keys())
+                post_keywords.intersection(interests.keys())
             )
             score += keyword_matches * 0.5
 
             return (
                 score,
-                article.rank_published_at,
-                article.rank_updated_at,
+                post.rank_published_at,
+                post.rank_updated_at,
             )
 
         return sorted(articles, key=_score, reverse=True)[:limit]
-

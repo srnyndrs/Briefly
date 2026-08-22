@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
-from src.routers import feeds
+from src.routers import sources
 from src.schemas.schemas import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
@@ -61,14 +61,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Crawler Service",
     description=(
-        "Periodically crawls RSS/Atom feeds and publishes events to RabbitMQ. "
+        "Periodically crawls RSS/Atom sources and publishes events to RabbitMQ. "
         "Part of the Briefly news aggregator platform."
     ),
     version="0.1.0",
     lifespan=lifespan,
 )
 
-app.include_router(feeds.router)
+app.include_router(sources.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])

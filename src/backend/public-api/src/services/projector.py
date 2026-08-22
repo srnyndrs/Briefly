@@ -15,8 +15,8 @@ from src.services.projection_use_cases import (
     CreateSubscriptionUseCase,
     DeleteSubscriptionInput,
     DeleteSubscriptionUseCase,
-    ProjectArticleInput,
-    ProjectArticleUseCase,
+    ProjectPostInput,
+    ProjectPostUseCase,
     ProjectUserPreferencesInput,
     ProjectUserPreferencesUseCase,
 )
@@ -98,7 +98,7 @@ class QueryProjector:
                 routing_key=key,
             )
 
-        for key in ("article.parsed.v1",):
+        for key in ("post.parsed.v1",):
             self._channel.queue_bind(
                 queue=settings.query_queue,
                 exchange=settings.content_exchange,
@@ -186,12 +186,12 @@ class QueryProjector:
         self, db: Session, event_type: str, payload: dict[str, Any]
     ) -> None:
         """Route event to appropriate use-case."""
-        if event_type == "article.parsed.v1":
-            article_id = payload.get("article_id")
-            if article_id:
-                ProjectArticleUseCase(db).execute(
-                    ProjectArticleInput(
-                        article_id=article_id, payload=payload
+        if event_type == "post.parsed.v1":
+            post_id = payload.get("post_id")
+            if post_id:
+                ProjectPostUseCase(db).execute(
+                    ProjectPostInput(
+                        post_id=post_id, payload=payload
                     )
                 )
         elif event_type == "preferences.updated.v1":

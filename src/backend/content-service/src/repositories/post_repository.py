@@ -5,15 +5,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.models.article import Article
+from src.models.post import Post
 
 
-class ArticleRepository:
+class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def save(self, article_data: dict[str, Any]) -> str | None:
-        stmt = insert(Article).values(**article_data)
+    def save(self, post_data: dict[str, Any]) -> str | None:
+        stmt = insert(Post).values(**post_data)
         update_fields = {
             "item_guid": stmt.excluded.item_guid,
             "title": stmt.excluded.title,
@@ -29,9 +29,9 @@ class ArticleRepository:
             "keywords": stmt.excluded.keywords,
         }
         stmt = stmt.on_conflict_do_update(
-            index_elements=["feed_id", "url"],
+            index_elements=["source_id", "url"],
             set_=update_fields,
-        ).returning(Article.id)
+        ).returning(Post.post_id)
         try:
             inserted_id = self._db.scalar(stmt)
             self._db.commit()
@@ -39,24 +39,24 @@ class ArticleRepository:
         except IntegrityError:
             self._db.rollback()
             existing_id = (
-                self._db.query(Article.id)
+                self._db.query(Post.post_id)
                 .filter(
-                    Article.feed_id == article_data["feed_id"],
-                    Article.item_guid == article_data["item_guid"],
+                    Post.source_id == post_data["source_id"],
+                    Post.item_guid == post_data["item_guid"],
                 )
                 .scalar()
             )
             return str(existing_id) if existing_id else None
 
-    def get_by_id(self, article_id: str) -> Article | None:
+    def get_by_id(self, post_id: str) -> Post | None:
         return (
-            self._db.query(Article)
-            .filter(Article.id == article_id)
+            self._db.query(Post)
+            .filter(Post.post_id == post_id)
             .one_or_none()
         )
 
     def count(self) -> int:
-        return self._db.query(Article).count()
+        return self._db.query(Post).count()
 
     def list(
         self,
@@ -70,27 +70,27 @@ class ArticleRepository:
         published_to: datetime | None = None,
         parsed_from: datetime | None = None,
         parsed_to: datetime | None = None,
-    ) -> list[type[Article]]:
-        query = self._db.query(Article)
+    ) -> list[Post]:
+        query = self._db.query(Post)
 
         if source_id:
-            query = query.filter(Article.feed_id == source_id)
+            query = query.filter(Post.source_id == source_id)
         if language:
-            query = query.filter(Article.language == language)
+            query = query.filter(Post.language == language)
         if published_from:
             query = query.filter(
-                Article.published_at >= published_from
+                Post.published_at >= published_from
             )
         if published_to:
             query = query.filter(
-                Article.published_at <= published_to
+                Post.published_at <= published_to
             )
         if parsed_from:
-            query = query.filter(Article.parsed_at >= parsed_from)
+            query = query.filter(Post.parsed_at >= parsed_from)
         if parsed_to:
-            query = query.filter(Article.parsed_at <= parsed_to)
+            query = query.filter(Post.parsed_at <= parsed_to)
 
-        query = query.order_by(Article.parsed_at.desc())
+        query = query.order_by(Post.parsed_at.desc())
 
         if category:
             category_lower = category.lower()

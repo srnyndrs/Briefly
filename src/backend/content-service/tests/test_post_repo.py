@@ -3,12 +3,12 @@ from unittest.mock import MagicMock
 
 from sqlalchemy.exc import IntegrityError
 
-from src.repositories.article_repository import ArticleRepository
+from src.repositories.post_repository import PostRepository
 
 
-def _make_article_data(**overrides) -> dict:
+def _make_post_data(**overrides) -> dict:
     return {
-        "feed_id": "feed-1",
+        "source_id": "source-1",
         "item_guid": "guid-1",
         "url": "https://example.com/1",
         "title": "t1",
@@ -28,12 +28,12 @@ def _make_article_data(**overrides) -> dict:
 
 def test_save_returns_inserted_id() -> None:
     db = MagicMock()
-    db.scalar.return_value = "new-article-id"
-    repo = ArticleRepository(db)
+    db.scalar.return_value = "new-post-id"
+    repo = PostRepository(db)
 
-    article_id = repo.save(_make_article_data())
+    post_id = repo.save(_make_post_data())
 
-    assert article_id == "new-article-id"
+    assert post_id == "new-post-id"
     db.commit.assert_called_once()
 
 
@@ -46,10 +46,10 @@ def test_save_returns_existing_id_on_integrity_error() -> None:
     filter_mock = MagicMock()
     db.query.return_value = query_mock
     query_mock.filter.return_value = filter_mock
-    filter_mock.scalar.return_value = "existing-article-id"
+    filter_mock.scalar.return_value = "existing-post-id"
 
-    repo = ArticleRepository(db)
-    article_id = repo.save(_make_article_data())
+    repo = PostRepository(db)
+    post_id = repo.save(_make_post_data())
 
-    assert article_id == "existing-article-id"
+    assert post_id == "existing-post-id"
     db.rollback.assert_called_once()

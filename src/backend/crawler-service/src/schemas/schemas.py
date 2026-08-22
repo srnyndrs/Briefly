@@ -9,7 +9,7 @@ from pydantic import (
 )
 
 
-class FeedCreate(BaseModel):
+class SourceCreate(BaseModel):
     url: HttpUrl
     title: str | None = None
     description: str | None = None
@@ -17,7 +17,7 @@ class FeedCreate(BaseModel):
     enrich_with_ai: bool = False
 
 
-class FeedPatchRequest(BaseModel):
+class SourcePatchRequest(BaseModel):
     url: HttpUrl | None = None
     title: str | None = None
     description: str | None = None
@@ -25,11 +25,11 @@ class FeedPatchRequest(BaseModel):
     enrich_with_ai: bool | None = None
 
 
-class ExploreRequest(BaseModel):
+class SourceDiscoverRequest(BaseModel):
     url: HttpUrl
 
 
-class ExploreResult(BaseModel):
+class SourceDiscoverResult(BaseModel):
     url: str
     title: str | None = None
     content_type: str | None = None
@@ -37,19 +37,19 @@ class ExploreResult(BaseModel):
     description: str | None = None
 
 
-class FeedResponse(BaseModel):
-    feed_id: uuid.UUID
+class SourceResponse(BaseModel):
+    source_id: uuid.UUID
     url: str
-    title: str | None
-    description: str | None
-    favicon: str | None
-    website_url: str | None
-    last_crawled_at: datetime | None
+    title: str | None = None
+    description: str | None = None
+    favicon: str | None = None
+    website_url: str | None = None
+    last_crawled_at: datetime | None = None
     next_crawl_scheduled_at: datetime
-    last_crawl_succeeded: bool
-    consecutive_failures: int
-    health_score: float
-    enrich_with_ai: bool
+    last_crawl_succeeded: bool = False
+    consecutive_failures: int = 0
+    health_score: float = 1.0
+    enrich_with_ai: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -87,15 +87,15 @@ class EventEnvelope(BaseModel):
     trace: EventTrace
 
 
-class FeedRawFetchedPayload(BaseModel):
-    feed_id: uuid.UUID
-    feed_url: str
+class SourceRawFetchedPayload(BaseModel):
+    source_id: uuid.UUID
+    source_url: str
     source_title: str | None = None
     raw_xml: str
 
 
-class FeedRawFetchedEvent(EventEnvelope):
-    payload: FeedRawFetchedPayload
+class SourceRawFetchedEvent(EventEnvelope):
+    payload: SourceRawFetchedPayload
 
 
 class HealthResponse(BaseModel):

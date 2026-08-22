@@ -6,17 +6,17 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
-    ArticleProjection,
+    PostProjection,
     UserPreferencesProjection,
 )
 from src.services.feed_dtos import UserPreferencesDTO
 from src.services.feed_mappers import (
-    article_projection_to_entity,
+    post_projection_to_entity,
     user_preferences_projection_to_dto,
 )
 
 
-class ArticleRepository:
+class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
@@ -38,8 +38,8 @@ class ArticleRepository:
         if blocked_source_ids:
             query = query.where(
                 or_(
-                    ArticleProjection.source_id.is_(None),
-                    ArticleProjection.source_id.not_in(
+                    PostProjection.source_id.is_(None),
+                    PostProjection.source_id.not_in(
                         blocked_source_ids
                     ),
                 )
@@ -49,8 +49,8 @@ class ArticleRepository:
         if muted_categories:
             query = query.where(
                 or_(
-                    ArticleProjection.category.is_(None),
-                    ArticleProjection.category.not_in(
+                    PostProjection.category.is_(None),
+                    PostProjection.category.not_in(
                         muted_categories
                     ),
                 )
@@ -71,12 +71,12 @@ class ArticleRepository:
                     for kw in normalized_muted:
                         query = query.where(
                             ~cast(
-                                ArticleProjection.keywords, String
+                                PostProjection.keywords, String
                             ).ilike(f"%{kw}%")
                         )
                 else:
                     query = query.where(
-                        ~ArticleProjection.keywords.op("&&")(
+                        ~PostProjection.keywords.op("&&")(
                             normalized_muted
                         )
                     )
@@ -89,13 +89,13 @@ class ArticleRepository:
         )
         if effective_languages:
             query = query.where(
-                ArticleProjection.language.in_(effective_languages)
+                PostProjection.language.in_(effective_languages)
             )
 
         # 5. Ad-hoc query overrides
         if include_source_ids:
             query = query.where(
-                ArticleProjection.source_id.in_(include_source_ids)
+                PostProjection.source_id.in_(include_source_ids)
             )
 
         if include_categories:
@@ -107,7 +107,7 @@ class ArticleRepository:
                     or_(
                         *[
                             cast(
-                                ArticleProjection.keywords, String
+                                PostProjection.keywords, String
                             ).ilike(f"%{c}%")
                             for c in include_categories
                         ]
@@ -115,7 +115,7 @@ class ArticleRepository:
                 )
             else:
                 query = query.where(
-                    ArticleProjection.keywords.op("&&")(
+                    PostProjection.keywords.op("&&")(
                         list(include_categories)
                     )
                 )
@@ -123,12 +123,12 @@ class ArticleRepository:
         # 6. Date Range Constraints
         if published_from is not None:
             query = query.where(
-                ArticleProjection.published_at >= published_from
+                PostProjection.published_at >= published_from
             )
 
         if published_to is not None:
             query = query.where(
-                ArticleProjection.published_at <= published_to
+                PostProjection.published_at <= published_to
             )
 
         return query
@@ -137,14 +137,14 @@ class ArticleRepository:
         normalized = (sort or "freshness").lower()
         if normalized == "oldest":
             return (
-                ArticleProjection.published_at.asc().nullslast(),
-                ArticleProjection.updated_at.asc(),
-                ArticleProjection.article_id.asc(),
+                PostProjection.published_at.asc().nullslast(),
+                PostProjection.updated_at.asc(),
+                PostProjection.post_id.asc(),
             )
         return (
-            ArticleProjection.published_at.desc().nullslast(),
-            ArticleProjection.updated_at.desc(),
-            ArticleProjection.article_id.desc(),
+            PostProjection.published_at.desc().nullslast(),
+            PostProjection.updated_at.desc(),
+            PostProjection.post_id.desc(),
         )
 
     def list_feed_candidates(
@@ -165,7 +165,7 @@ class ArticleRepository:
         offset: int,
     ):
         _ = user_id
-        query = select(ArticleProjection)
+        query = select(PostProjection)
         query = self._apply_common_filters(
             query,
             languages=languages,
@@ -191,7 +191,7 @@ class ArticleRepository:
         ).all()
 
         return [
-            article_projection_to_entity(row) for row in rows
+            post_projection_to_entity(row) for row in rows
         ], total
 
     def search_feed(
@@ -213,10 +213,10 @@ class ArticleRepository:
         offset: int,
     ):
         _ = user_id
-        query = select(ArticleProjection).where(
+        query = select(PostProjection).where(
             or_(
-                ArticleProjection.title.ilike(f"%{q}%"),
-                ArticleProjection.canonical_url.ilike(f"%{q}%"),
+                PostProjection.title.ilike(f"%{q}%"),
+                PostProjection.canonical_url.ilike(f"%{q}%"),
             )
         )
 
@@ -245,14 +245,14 @@ class ArticleRepository:
         ).all()
 
         return [
-            article_projection_to_entity(row) for row in rows
+            post_projection_to_entity(row) for row in rows
         ], total
 
-    def get_article(self, article_id: UUID):
-        model = self._db.get(ArticleProjection, str(article_id))
+    def get_post(self, post_id: UUID):
+        model = self._db.get(PostProjection, str(post_id))
         if model is None:
             return None
-        return article_projection_to_entity(model)
+        return post_projection_to_entity(model)
 
 
 class UserPreferencesRepository:

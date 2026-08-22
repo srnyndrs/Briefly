@@ -4,33 +4,33 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
-from src.repositories.article_repository import ArticleRepository
-from src.services.article_service import ArticleService
+from src.repositories.post_repository import PostRepository
+from src.services.post_service import PostService
 
-router = APIRouter(prefix="/articles", tags=["articles"])
+router = APIRouter(prefix="/posts", tags=["posts"])
 
 
-def get_article_repository(
+def get_post_repository(
     db: Session = Depends(get_db),
-) -> ArticleRepository:
-    return ArticleRepository(db)
+) -> PostRepository:
+    return PostRepository(db)
 
 
-def get_article_service(
-    repo: ArticleRepository = Depends(get_article_repository),
-) -> ArticleService:
-    return ArticleService(repo)
+def get_post_service(
+    repo: PostRepository = Depends(get_post_repository),
+) -> PostService:
+    return PostService(repo)
 
 
 @router.get("/count")
-def article_count(
-    service: ArticleService = Depends(get_article_service),
+def post_count(
+    service: PostService = Depends(get_post_service),
 ) -> dict:
     return {"count": service.get_count()}
 
 
 @router.get("")
-def list_articles(
+def list_posts(
     limit: int = 20,
     skip: int = 0,
     source_id: str | None = None,
@@ -40,9 +40,9 @@ def list_articles(
     published_to: datetime | None = None,
     parsed_from: datetime | None = None,
     parsed_to: datetime | None = None,
-    service: ArticleService = Depends(get_article_service),
+    service: PostService = Depends(get_post_service),
 ) -> list[dict]:
-    return service.list_articles(
+    return service.list_posts(
         limit=max(1, min(limit, 200)),
         skip=max(0, skip),
         source_id=source_id,
@@ -55,14 +55,14 @@ def list_articles(
     )
 
 
-@router.get("/{article_id}")
-def get_article(
-    article_id: str,
-    service: ArticleService = Depends(get_article_service),
+@router.get("/{post_id}")
+def get_post(
+    post_id: str,
+    service: PostService = Depends(get_post_service),
 ) -> dict:
-    article = service.get_by_id(article_id)
-    if article is None:
+    post = service.get_by_id(post_id)
+    if post is None:
         raise HTTPException(
-            status_code=404, detail="Article not found"
+            status_code=404, detail="Post not found"
         )
-    return article
+    return post

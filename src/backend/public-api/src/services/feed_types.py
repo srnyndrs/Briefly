@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 
 
 @dataclass(frozen=True)
-class ArticleEntity:
-    article_id: str
+class PostEntity:
+    post_id: str
     title: str
     source_id: str | None = None
     source_title: str | None = None
@@ -40,4 +40,3 @@ class UserPreferencesVO:
     @property
     def has_category_interests(self) -> bool:
         return bool(self.category_interests)
-

@@ -17,10 +17,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.config.database import Base
 
 
-class Feed(Base):
-    __tablename__ = "feeds"
+class Source(Base):
+    __tablename__ = "sources"
 
-    feed_id: Mapped[uuid.UUID] = mapped_column(
+    source_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
@@ -83,11 +83,11 @@ class Feed(Base):
 
     __table_args__ = (
         Index(
-            "ix_feeds_next_crawl_scheduled_at",
+            "ix_sources_next_crawl_scheduled_at",
             "next_crawl_scheduled_at",
         ),
-        Index("ix_feeds_health_score", "health_score"),
+        Index("ix_sources_health_score", "health_score"),
     )
 
     def __repr__(self) -> str:
-        return f"<Feed feed_id={self.feed_id} url={self.url!r}>"
+        return f"<Source source_id={self.source_id} url={self.url!r}>"

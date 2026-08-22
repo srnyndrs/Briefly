@@ -23,11 +23,11 @@ def _publish(
     )
 
 
-def publish_parsed_success(
+def publish_post_parsed_success(
     channel: Any,
     *,
-    article_id: str,
-    feed_id: str,
+    post_id: str,
+    source_id: str,
     item_guid: str,
     url: str,
     title: str,
@@ -43,8 +43,8 @@ def publish_parsed_success(
     image_url: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {
-        "article_id": article_id,
-        "feed_id": feed_id,
+        "post_id": post_id,
+        "source_id": source_id,
         "item_guid": item_guid,
         "url": url,
         "title": title,
@@ -65,14 +65,15 @@ def publish_parsed_success(
         payload["keywords"] = keywords
     if category is not None:
         payload["category"] = category
+
     envelope = build_envelope(
-        event_type="article.parsed.v1",
-        partition_key=f"source:{feed_id}",
+        event_type="post.parsed.v1",
+        partition_key=f"source:{source_id}",
         payload=payload,
         correlation_id=correlation_id,
     )
     _publish(
         channel,
-        "article.parsed.v1",
+        "post.parsed.v1",
         envelope,
     )

@@ -1,16 +1,22 @@
 from src.models.read_models import (
-    ArticleProjection,
+    PostProjection,
     UserPreferencesProjection,
 )
-from src.services.feed_dtos import FeedItemDTO, UserPreferencesDTO
-from src.services.feed_types import ArticleEntity, UserPreferencesVO
+from src.services.feed_dtos import (
+    PostDTO,
+    UserPreferencesDTO,
+)
+from src.services.feed_types import (
+    PostEntity,
+    UserPreferencesVO,
+)
 
 
-def article_projection_to_entity(
-    model: ArticleProjection,
-) -> ArticleEntity:
-    return ArticleEntity(
-        article_id=model.article_id,
+def post_projection_to_entity(
+    model: PostProjection,
+) -> PostEntity:
+    return PostEntity(
+        post_id=model.post_id,
         source_id=model.source_id,
         source_title=model.source_title,
         title=model.title,
@@ -28,9 +34,9 @@ def article_projection_to_entity(
     )
 
 
-def entity_to_feed_item_dto(entity: ArticleEntity) -> FeedItemDTO:
-    return FeedItemDTO(
-        article_id=entity.article_id,
+def entity_to_post_dto(entity: PostEntity) -> PostDTO:
+    return PostDTO(
+        post_id=entity.post_id,
         source_id=entity.source_id,
         source_title=entity.source_title,
         title=entity.title,

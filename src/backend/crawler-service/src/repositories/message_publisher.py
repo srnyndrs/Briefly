@@ -6,7 +6,6 @@ import pika
 from src.config.message_broker import create_channel
 from src.config.settings import settings
 from src.events.envelope import build_envelope
-from src.schemas.schemas import FeedRawFetchedPayload
 
 
 class RabbitMQEventPublisher:
@@ -25,25 +24,25 @@ class RabbitMQEventPublisher:
             ),
         )
 
-    def publish_feed_fetched(
+    def publish_source_fetched(
         self,
         *,
-        feed_id: uuid.UUID,
-        feed_url: str,
+        source_id: uuid.UUID,
+        source_url: str,
         correlation_id: str,
         source_title: str | None = None,
         raw_xml: str,
     ) -> None:
-        payload = FeedRawFetchedPayload(
-            feed_id=feed_id,
-            feed_url=feed_url,
-            source_title=source_title,
-            raw_xml=raw_xml,
-        )
+        payload = {
+            "source_id": str(source_id),
+            "source_url": source_url,
+            "source_title": source_title,
+            "raw_xml": raw_xml,
+        }
         envelope = build_envelope(
             event_type="feed.raw_fetched.v1",
-            partition_key=f"source:{feed_id}",
-            payload=payload.model_dump(),
+            partition_key=f"source:{source_id}",
+            payload=payload,
             correlation_id=correlation_id,
         )
         self._publish("feed.raw_fetched.v1", envelope)

@@ -4,7 +4,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from src.schemas.schemas import ExploreResult
+from src.schemas.schemas import SourceDiscoverResult
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ FEED_TYPES = {
 }
 
 
-class FeedDiscoveryAdapter:
-    def discover(self, url: str) -> list[ExploreResult]:
+class SourceDiscoveryAdapter:
+    def discover(self, url: str) -> list[SourceDiscoverResult]:
         if not url:
             logger.warning("URL is empty or None")
             return []
@@ -29,7 +29,7 @@ class FeedDiscoveryAdapter:
             soup = BeautifulSoup(response.text, "html.parser")
             base_url = response.url
 
-            feeds: list[ExploreResult] = []
+            sources: list[SourceDiscoverResult] = []
             feed_links = soup.find_all(
                 "link",
                 {
@@ -44,8 +44,8 @@ class FeedDiscoveryAdapter:
                 href = link.get("href")
                 if href:
                     feed_url = urljoin(base_url, href)
-                    feeds.append(
-                        ExploreResult(
+                    sources.append(
+                        SourceDiscoverResult(
                             url=feed_url,
                             title=link.get("title")
                             or self._extract_site_title(soup),
@@ -59,12 +59,12 @@ class FeedDiscoveryAdapter:
                         )
                     )
 
-            if not feeds:
-                feeds.extend(
+            if not sources:
+                sources.extend(
                     self._try_common_feed_paths(base_url, soup)
                 )
 
-            return feeds
+            return sources
         except requests.exceptions.Timeout:
             logger.error("Request timeout for URL: %s", url)
             return []
@@ -121,7 +121,7 @@ class FeedDiscoveryAdapter:
         self,
         base_url: str,
         soup: BeautifulSoup,
-    ) -> list[ExploreResult]:
+    ) -> list[SourceDiscoverResult]:
         common_paths = [
             "/feed",
             "/rss",
@@ -131,7 +131,7 @@ class FeedDiscoveryAdapter:
             "/feeds/all.atom.xml",
         ]
 
-        feeds: list[ExploreResult] = []
+        sources: list[SourceDiscoverResult] = []
         parsed = urlparse(base_url)
         domain = f"{parsed.scheme}://{parsed.netloc}"
 
@@ -142,8 +142,8 @@ class FeedDiscoveryAdapter:
                     feed_url, timeout=10, allow_redirects=True
                 )
                 if response.status_code == 200:
-                    feeds.append(
-                        ExploreResult(
+                    sources.append(
+                        SourceDiscoverResult(
                             url=feed_url,
                             title=self._extract_site_title(soup),
                             content_type="application/rss+xml",
@@ -158,4 +158,4 @@ class FeedDiscoveryAdapter:
             except requests.exceptions.RequestException:
                 continue
 
-        return feeds
+        return sources

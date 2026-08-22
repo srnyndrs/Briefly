@@ -14,25 +14,25 @@ def _session_factory_with(session):
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
 @patch("src.services.crawl_orchestrator.RedisCacheRepository")
-@patch("src.services.crawl_orchestrator.SqlAlchemyFeedRepository")
+@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
 def test_orchestrator_runs_crawl_and_updates_cache(
-    mock_feed_repo_cls,
+    mock_source_repo_cls,
     mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
-    feed = SimpleNamespace(
-        feed_id=uuid.uuid4(),
+    source = SimpleNamespace(
+        source_id=uuid.uuid4(),
         url="https://example.com/feed.xml",
-        title="Test Feed",
+        title="Test Source",
         etag=None,
         last_modified=None,
         consecutive_failures=1,
     )
 
-    feed_repository = MagicMock()
-    feed_repository.get_active_feeds.return_value = [feed]
-    mock_feed_repo_cls.return_value = feed_repository
+    source_repository = MagicMock()
+    source_repository.get_active_sources.return_value = [source]
+    mock_source_repo_cls.return_value = source_repository
 
     cache = MagicMock()
     cache.is_seen.return_value = False
@@ -58,42 +58,42 @@ def test_orchestrator_runs_crawl_and_updates_cache(
     orchestrator.run_crawl_cycle()
 
     http_client.fetch.assert_called_once()
-    event_publisher.publish_feed_fetched.assert_called_once()
-    feed_repository.save_crawl_success.assert_called_once()
+    event_publisher.publish_source_fetched.assert_called_once()
+    source_repository.save_crawl_success.assert_called_once()
 
     cache.set_etag.assert_called_once_with(
-        str(feed.feed_id), "fresh-etag"
+        str(source.source_id), "fresh-etag"
     )
     cache.set_last_modified.assert_called_once_with(
-        str(feed.feed_id),
+        str(source.source_id),
         "Mon, 01 Jan 2026 00:00:00 GMT",
     )
-    cache.mark_seen.assert_called_once_with(str(feed.feed_id))
+    cache.mark_seen.assert_called_once_with(str(source.source_id))
     event_publisher.close.assert_called_once()
 
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
 @patch("src.services.crawl_orchestrator.RedisCacheRepository")
-@patch("src.services.crawl_orchestrator.SqlAlchemyFeedRepository")
-def test_orchestrator_skips_seen_feed(
-    mock_feed_repo_cls,
+@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+def test_orchestrator_skips_seen_source(
+    mock_source_repo_cls,
     mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
-    feed = SimpleNamespace(
-        feed_id=uuid.uuid4(),
+    source = SimpleNamespace(
+        source_id=uuid.uuid4(),
         url="https://example.com/feed.xml",
-        title="Test Feed",
+        title="Test Source",
         etag=None,
         last_modified=None,
         consecutive_failures=0,
     )
 
-    feed_repository = MagicMock()
-    feed_repository.get_active_feeds.return_value = [feed]
-    mock_feed_repo_cls.return_value = feed_repository
+    source_repository = MagicMock()
+    source_repository.get_active_sources.return_value = [source]
+    mock_source_repo_cls.return_value = source_repository
 
     cache = MagicMock()
     cache.is_seen.return_value = True
@@ -117,33 +117,33 @@ def test_orchestrator_skips_seen_feed(
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
 @patch("src.services.crawl_orchestrator.RedisCacheRepository")
-@patch("src.services.crawl_orchestrator.SqlAlchemyFeedRepository")
+@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
 def test_orchestrator_shares_correlation_id_across_cycle(
-    mock_feed_repo_cls,
+    mock_source_repo_cls,
     mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
-    feed1 = SimpleNamespace(
-        feed_id=uuid.uuid4(),
-        url="https://example.com/f1.xml",
-        title="Feed 1",
+    source1 = SimpleNamespace(
+        source_id=uuid.uuid4(),
+        url="https://example.com/s1.xml",
+        title="Source 1",
         etag=None,
         last_modified=None,
         consecutive_failures=0,
     )
-    feed2 = SimpleNamespace(
-        feed_id=uuid.uuid4(),
-        url="https://example.com/f2.xml",
-        title="Feed 2",
+    source2 = SimpleNamespace(
+        source_id=uuid.uuid4(),
+        url="https://example.com/s2.xml",
+        title="Source 2",
         etag=None,
         last_modified=None,
         consecutive_failures=0,
     )
 
-    feed_repository = MagicMock()
-    feed_repository.get_active_feeds.return_value = [feed1, feed2]
-    mock_feed_repo_cls.return_value = feed_repository
+    source_repository = MagicMock()
+    source_repository.get_active_sources.return_value = [source1, source2]
+    mock_source_repo_cls.return_value = source_repository
 
     cache = MagicMock()
     cache.is_seen.return_value = False
@@ -168,9 +168,9 @@ def test_orchestrator_shares_correlation_id_across_cycle(
     )
     orchestrator.run_crawl_cycle()
 
-    assert event_publisher.publish_feed_fetched.call_count == 2
-    call1_kwargs = event_publisher.publish_feed_fetched.call_args_list[0].kwargs
-    call2_kwargs = event_publisher.publish_feed_fetched.call_args_list[1].kwargs
+    assert event_publisher.publish_source_fetched.call_count == 2
+    call1_kwargs = event_publisher.publish_source_fetched.call_args_list[0].kwargs
+    call2_kwargs = event_publisher.publish_source_fetched.call_args_list[1].kwargs
 
     assert call1_kwargs["correlation_id"] == call2_kwargs["correlation_id"]
     assert len(call1_kwargs["correlation_id"]) > 0

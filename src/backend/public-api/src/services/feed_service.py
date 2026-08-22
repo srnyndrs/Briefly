@@ -3,12 +3,12 @@ from datetime import datetime
 from uuid import UUID
 
 from src.repositories.feed_repository import (
-    ArticleRepository,
+    PostRepository,
     UserPreferencesRepository,
 )
-from src.services.feed_dtos import FeedItemDTO, UserPreferencesDTO
+from src.services.feed_dtos import PostDTO, UserPreferencesDTO
 from src.services.feed_mappers import (
-    entity_to_feed_item_dto,
+    entity_to_post_dto,
     user_preferences_dto_to_vo,
 )
 from src.services.feed_scoring import FeedScoringService
@@ -34,7 +34,7 @@ class ListFeedInput:
 
 @dataclass(frozen=True)
 class ListFeedOutput:
-    items: list[FeedItemDTO]
+    items: list[PostDTO]
     total: int
 
 
@@ -55,24 +55,24 @@ class SearchFeedInput:
 
 @dataclass(frozen=True)
 class SearchFeedOutput:
-    items: list[FeedItemDTO]
+    items: list[PostDTO]
     total: int
 
 
 @dataclass(frozen=True)
-class GetArticleInput:
-    article_id: UUID
+class GetPostInput:
+    post_id: UUID
 
 
 class FeedService:
     def __init__(
         self,
-        article_repository: ArticleRepository,
+        post_repository: PostRepository,
         preferences_repository: UserPreferencesRepository,
         scoring_service: FeedScoringService | None = None,
         merge_service: PersonalizationMergeService | None = None,
     ) -> None:
-        self._article_repository = article_repository
+        self._post_repository = post_repository
         self._preferences_repository = preferences_repository
         self._scoring_service = (
             scoring_service or FeedScoringService()
@@ -110,7 +110,7 @@ class FeedService:
             )
         )
         candidates, total = (
-            self._article_repository.list_feed_candidates(
+            self._post_repository.list_feed_candidates(
                 user_id=data.user_id,
                 languages=context.languages,
                 muted_keywords=context.muted_keywords,
@@ -133,8 +133,8 @@ class FeedService:
         )
         return ListFeedOutput(
             items=[
-                entity_to_feed_item_dto(article)
-                for article in ranked
+                entity_to_post_dto(post)
+                for post in ranked
             ],
             total=total,
         )
@@ -157,7 +157,7 @@ class FeedService:
                 sort=data.sort,
             ),
         )
-        items, total = self._article_repository.search_feed(
+        items, total = self._post_repository.search_feed(
             user_id=data.user_id,
             q=data.q,
             languages=context.languages,
@@ -175,18 +175,16 @@ class FeedService:
         )
         return SearchFeedOutput(
             items=[
-                entity_to_feed_item_dto(article)
-                for article in items
+                entity_to_post_dto(post)
+                for post in items
             ],
             total=total,
         )
 
-    def get_article(
-        self, data: GetArticleInput
-    ) -> FeedItemDTO | None:
-        entity = self._article_repository.get_article(
-            data.article_id
-        )
+    def get_post(
+        self, data: GetPostInput
+    ) -> PostDTO | None:
+        entity = self._post_repository.get_post(data.post_id)
         if entity is None:
             return None
-        return entity_to_feed_item_dto(entity)
+        return entity_to_post_dto(entity)

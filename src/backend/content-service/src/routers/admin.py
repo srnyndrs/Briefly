@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.config.database import get_db
 from src.config.message_broker import create_channel
 from src.config.settings import settings
-from src.models.article import Article
+from src.models.post import Post
 from src.services import event_publisher
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -22,50 +22,50 @@ def require_admin_token(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@router.post("/articles/replay", dependencies=[Depends(require_admin_token)])
-def replay_articles(
+@router.post("/posts/replay", dependencies=[Depends(require_admin_token)])
+def replay_posts(
     since: datetime | None = Query(None),
     limit: int = Query(500, ge=1, le=5000),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    stmt = select(Article)
+    stmt = select(Post)
     if since is not None:
-        stmt = stmt.where(Article.parsed_at >= since)
-    stmt = stmt.order_by(Article.parsed_at.asc()).limit(limit)
+        stmt = stmt.where(Post.parsed_at >= since)
+    stmt = stmt.order_by(Post.parsed_at.asc()).limit(limit)
 
-    articles = list(db.scalars(stmt).all())
-    if not articles:
+    posts = list(db.scalars(stmt).all())
+    if not posts:
         return {"replayed": 0}
 
     channel = create_channel()
     replayed_count = 0
     try:
-        for article in articles:
+        for post in posts:
             correlation_id = f"replay-{uuid.uuid4()}"
             keywords_val = (
-                article.keywords
-                if isinstance(article.keywords, list)
+                post.keywords
+                if isinstance(post.keywords, list)
                 else []
             )
-            event_publisher.publish_parsed_success(
+            event_publisher.publish_post_parsed_success(
                 channel,
-                article_id=str(article.id),
-                feed_id=str(article.feed_id),
-                item_guid=article.item_guid,
-                url=article.url,
-                title=article.title,
+                post_id=str(post.post_id),
+                source_id=str(post.source_id),
+                item_guid=post.item_guid,
+                url=post.url,
+                title=post.title,
                 correlation_id=correlation_id,
-                category=article.category,
-                content=article.content,
-                content_length=len(article.content or ""),
-                description=article.description,
-                published_at=article.published_at.isoformat()
-                if article.published_at
+                category=post.category,
+                content=post.content,
+                content_length=len(post.content or ""),
+                description=post.description,
+                published_at=post.published_at.isoformat()
+                if post.published_at
                 else None,
-                language=article.language,
+                language=post.language,
                 keywords=keywords_val,
                 source_title=None,
-                image_url=article.image_url,
+                image_url=post.image_url,
             )
             replayed_count += 1
     finally:

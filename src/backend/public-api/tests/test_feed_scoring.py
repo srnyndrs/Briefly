@@ -1,8 +1,9 @@
-import pytest
 from datetime import UTC, datetime
 
+import pytest
+
 from src.services.feed_scoring import FeedScoringService
-from src.services.feed_types import ArticleEntity, UserPreferencesVO
+from src.services.feed_types import PostEntity, UserPreferencesVO
 
 
 class TestFeedScoringService:
@@ -10,19 +11,19 @@ class TestFeedScoringService:
         service = FeedScoringService()
         prefs = UserPreferencesVO()
 
-        articles = [
-            ArticleEntity(
-                article_id="1",
+        posts = [
+            PostEntity(
+                post_id="1",
                 source_id="s1",
-                title="Article 1",
+                title="Post 1",
                 canonical_url="http://a1.com",
                 language="en",
                 keywords=["tech", "news"],
             ),
-            ArticleEntity(
-                article_id="2",
+            PostEntity(
+                post_id="2",
                 source_id="s2",
-                title="Article 2",
+                title="Post 2",
                 canonical_url="http://a2.com",
                 language="en",
                 keywords=["business"],
@@ -30,12 +31,12 @@ class TestFeedScoringService:
         ]
 
         ranked = service.rank(
-            articles=articles, preferences=prefs, limit=10
+            articles=posts, preferences=prefs, limit=10
         )
 
         assert len(ranked) == 2
-        assert ranked[0].article_id == "1"
-        assert ranked[1].article_id == "2"
+        assert ranked[0].post_id == "1"
+        assert ranked[1].post_id == "2"
 
     def test_rank_with_preferences_prioritizes_matching_categories(
         self,
@@ -46,21 +47,21 @@ class TestFeedScoringService:
         )
 
         now = datetime.now(UTC)
-        articles = [
-            ArticleEntity(
-                article_id="1",
+        posts = [
+            PostEntity(
+                post_id="1",
                 source_id="s1",
-                title="Business Article",
+                title="Business Post",
                 canonical_url="http://a1.com",
                 language="en",
                 category="business",
                 keywords=["business"],
                 published_at=now,
             ),
-            ArticleEntity(
-                article_id="2",
+            PostEntity(
+                post_id="2",
                 source_id="s2",
-                title="Tech Article",
+                title="Tech Post",
                 canonical_url="http://a2.com",
                 language="en",
                 category="tech",
@@ -70,24 +71,24 @@ class TestFeedScoringService:
         ]
 
         ranked = service.rank(
-            articles=articles, preferences=prefs, limit=10
+            articles=posts, preferences=prefs, limit=10
         )
 
         assert len(ranked) == 2
-        assert ranked[0].article_id == "2"  # Tech article first
+        assert ranked[0].post_id == "2"  # Tech post first
         assert (
-            ranked[1].article_id == "1"
-        )  # Business article second
+            ranked[1].post_id == "1"
+        )  # Business post second
 
     def test_rank_respects_limit(self):
         service = FeedScoringService()
         prefs = UserPreferencesVO()
 
-        articles = [
-            ArticleEntity(
-                article_id=str(i),
+        posts = [
+            PostEntity(
+                post_id=str(i),
                 source_id="s1",
-                title=f"Article {i}",
+                title=f"Post {i}",
                 canonical_url=f"http://a{i}.com",
                 language="en",
                 keywords=[],
@@ -96,7 +97,7 @@ class TestFeedScoringService:
         ]
 
         ranked = service.rank(
-            articles=articles, preferences=prefs, limit=5
+            articles=posts, preferences=prefs, limit=5
         )
 
         assert len(ranked) == 5
@@ -108,9 +109,9 @@ class TestFeedScoringService:
         )
 
         now = datetime.now(UTC)
-        articles = [
-            ArticleEntity(
-                article_id="1",
+        posts = [
+            PostEntity(
+                post_id="1",
                 source_id="s1",
                 title="Keyword Only Match",
                 canonical_url="http://a1.com",
@@ -119,8 +120,8 @@ class TestFeedScoringService:
                 keywords=["tech"],  # +0.5 keyword match
                 published_at=now,
             ),
-            ArticleEntity(
-                article_id="2",
+            PostEntity(
+                post_id="2",
                 source_id="s2",
                 title="Category Exact Match",
                 canonical_url="http://a2.com",
@@ -129,8 +130,8 @@ class TestFeedScoringService:
                 keywords=[],
                 published_at=now,
             ),
-            ArticleEntity(
-                article_id="3",
+            PostEntity(
+                post_id="3",
                 source_id="s3",
                 title="Category and Keyword Match",
                 canonical_url="http://a3.com",
@@ -142,18 +143,18 @@ class TestFeedScoringService:
         ]
 
         ranked = service.rank(
-            articles=articles, preferences=prefs, limit=10
+            articles=posts, preferences=prefs, limit=10
         )
 
-        assert ranked[0].article_id == "3"  # Score 2.5
-        assert ranked[1].article_id == "2"  # Score 2.0
-        assert ranked[2].article_id == "1"  # Score 0.5
+        assert ranked[0].post_id == "3"  # Score 2.5
+        assert ranked[1].post_id == "2"  # Score 2.0
+        assert ranked[2].post_id == "1"  # Score 0.5
 
 
-class TestArticleEntity:
+class TestPostEntity:
     def test_rank_published_at_returns_min_when_none(self):
-        article = ArticleEntity(
-            article_id="1",
+        post = PostEntity(
+            post_id="1",
             source_id="s1",
             title="No Pub Date",
             canonical_url="http://a.com",
@@ -162,13 +163,13 @@ class TestArticleEntity:
         )
 
         # Should not raise, should return min datetime
-        assert article.rank_published_at == datetime.min.replace(
+        assert post.rank_published_at == datetime.min.replace(
             tzinfo=UTC
         )
 
     def test_entity_is_frozen(self):
-        article = ArticleEntity(
-            article_id="1",
+        post = PostEntity(
+            post_id="1",
             source_id="s1",
             title="Test",
             canonical_url="http://a.com",
@@ -176,7 +177,7 @@ class TestArticleEntity:
         )
 
         with pytest.raises(Exception):  # FrozenInstanceError
-            article.title = "Modified"
+            post.title = "Modified"
 
 
 class TestUserPreferencesVO:
@@ -195,4 +196,3 @@ class TestUserPreferencesVO:
 
         with pytest.raises(Exception):  # FrozenInstanceError
             prefs.category_interests = ["business"]
-

@@ -29,10 +29,10 @@ class ProcessedEvent(Base):
     )
 
 
-class ArticleProjection(Base):
-    __tablename__ = "article_projections"
+class PostProjection(Base):
+    __tablename__ = "post_projections"
 
-    article_id: Mapped[str] = mapped_column(
+    post_id: Mapped[str] = mapped_column(
         String(64), primary_key=True
     )
     source_id: Mapped[str | None] = mapped_column(
@@ -77,30 +77,30 @@ class ArticleProjection(Base):
     __table_args__ = (
         UniqueConstraint(
             "canonical_url",
-            name="uq_article_projection_canonical_url",
+            name="uq_post_projection_canonical_url",
         ),
         Index(
-            "ix_article_projections_published_updated",
+            "ix_post_projections_published_updated",
             "published_at",
             "updated_at",
         ),
         Index(
-            "ix_article_projections_source_published",
+            "ix_post_projections_source_published",
             "source_id",
             "published_at",
         ),
         Index(
-            "ix_article_projections_lang_published",
+            "ix_post_projections_lang_published",
             "language",
             "published_at",
         ),
         Index(
-            "ix_article_projections_keywords_gin",
+            "ix_post_projections_keywords_gin",
             "keywords",
             postgresql_using="gin",
         ),
         Index(
-            "ix_article_projections_topics_gin",
+            "ix_post_projections_topics_gin",
             "topics",
             postgresql_using="gin",
         ),
@@ -131,7 +131,6 @@ class UserPreferencesProjection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-
 
 
 class UserSubscriptionProjection(Base):

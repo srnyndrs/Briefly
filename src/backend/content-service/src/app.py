@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from src.config.database import init_db
 from src.config.settings import settings
-from src.routers import admin, articles
+from src.routers import admin, posts
 from src.schemas.common import HealthResponse
 from src.services.consumer import FeedConsumer
 
@@ -55,7 +55,7 @@ app = FastAPI(
     title="Content Service",
     description=(
         "Consumes feed.raw_fetched.v1 events, "
-        "extracts articles, stores in PostgreSQL."
+        "extracts posts, stores in PostgreSQL."
     ),
     version="0.1.0",
     lifespan=lifespan,
@@ -67,7 +67,7 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok", service="content-service")
 
 
-app.include_router(articles.router)
+app.include_router(posts.router)
 app.include_router(admin.router)
 
 

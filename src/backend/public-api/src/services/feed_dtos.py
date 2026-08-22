@@ -3,8 +3,8 @@ from datetime import datetime
 
 
 @dataclass(frozen=True)
-class FeedItemDTO:
-    article_id: str
+class PostDTO:
+    post_id: str
     source_id: str | None
     source_title: str | None
     title: str
@@ -27,4 +27,3 @@ class UserPreferencesDTO:
     blocked_source_ids: list[str] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
     category_interests: list[str] = field(default_factory=list)
-

@@ -5,14 +5,16 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from src.config.database import init_db, SessionLocal
+from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
 from src.routers.auth import router as auth_router
 from src.routers.feed import (
-    admin_router,
-    articles_router,
-    feeds_router,
+    admin_router as feed_admin_router,
     router as feed_router,
+)
+from src.routers.posts import (
+    admin_router as posts_admin_router,
+    router as posts_router,
 )
 from src.routers.sources import router as sources_router
 from src.routers.user import router as user_router
@@ -82,9 +84,9 @@ def health() -> HealthResponse:
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(feed_router)
-app.include_router(feeds_router)
-app.include_router(articles_router)
-app.include_router(admin_router)
+app.include_router(posts_router)
+app.include_router(feed_admin_router)
+app.include_router(posts_admin_router)
 app.include_router(sources_router)
 
 

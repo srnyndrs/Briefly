@@ -2,14 +2,14 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from src.models.feed import Feed
-from src.schemas.schemas import ExploreResult
+from src.models.source import Source
+from src.schemas.schemas import SourceDiscoverResult
 
 
-def test_explore_feeds_success(client):
-    with patch("src.routers.feeds.discover_feeds") as mock_discover:
+def test_discover_sources_success(client):
+    with patch("src.routers.sources.discover_sources") as mock_discover:
         mock_discover.return_value = [
-            ExploreResult(
+            SourceDiscoverResult(
                 url="https://example.com/feed",
                 title="Example",
                 description="Desc",
@@ -18,7 +18,7 @@ def test_explore_feeds_success(client):
         ]
 
         response = client.post(
-            "/feeds/explore", json={"url": "https://example.com"}
+            "/sources/discover", json={"url": "https://example.com"}
         )
         assert response.status_code == 200
         assert len(response.json()) == 1
@@ -27,14 +27,14 @@ def test_explore_feeds_success(client):
         )
 
 
-@patch("src.routers.feeds.extract_website_url", return_value=None)
-@patch("src.routers.feeds.discover_feeds")
-@patch("src.routers.feeds.SqlAlchemyFeedRepository")
-def test_register_feed_success(
+@patch("src.routers.sources.extract_website_url", return_value=None)
+@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SqlAlchemySourceRepository")
+def test_register_source_success(
     mock_repo_cls, mock_discover, mock_extract, client
 ):
     mock_discover.return_value = [
-        ExploreResult(
+        SourceDiscoverResult(
             url="https://example.com/feed",
             title="Example",
             description="Desc",
@@ -44,13 +44,14 @@ def test_register_feed_success(
 
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
     repository = MagicMock()
-    repository.get_feed_by_url.return_value = None
-    repository.create_feed.return_value = Feed(
-        feed_id=uuid.uuid4(),
+    repository.get_source_by_url.return_value = None
+    repository.create_source.return_value = Source(
+        source_id=uuid.uuid4(),
         url="https://example.com/feed",
         title="Example",
         description="Desc",
         favicon="icon.ico",
+        enrich_with_ai=False,
         health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
@@ -62,36 +63,38 @@ def test_register_feed_success(
     mock_repo_cls.return_value = repository
 
     response = client.post(
-        "/feeds",
+        "/sources",
         json={"url": "https://example.com", "title": "My Title"},
     )
     assert response.status_code == 201
     assert response.json()["url"] == "https://example.com/feed"
     assert response.json()["title"] == "Example"
+    assert "source_id" in response.json()
 
 
-@patch("src.routers.feeds.discover_feeds")
-def test_register_feed_not_found(mock_discover, client):
+@patch("src.routers.sources.discover_sources")
+def test_register_source_not_found(mock_discover, client):
     mock_discover.return_value = []
 
     response = client.post(
-        "/feeds", json={"url": "https://example.com"}
+        "/sources", json={"url": "https://example.com"}
     )
     assert response.status_code == 400
     assert "No valid RSS/Atom feed found" in response.text
 
 
-@patch("src.routers.feeds.SqlAlchemyFeedRepository")
-def test_get_feed_success(mock_repo_cls, client):
+@patch("src.routers.sources.SqlAlchemySourceRepository")
+def test_get_source_success(mock_repo_cls, client):
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    feed_id = uuid.uuid4()
+    source_id = uuid.uuid4()
     repository = MagicMock()
-    repository.get_feed_by_id.return_value = Feed(
-        feed_id=feed_id,
+    repository.get_source_by_id.return_value = Source(
+        source_id=source_id,
         url="https://example.com/feed",
         title="Example",
         description="Desc",
         favicon="icon.ico",
+        enrich_with_ai=False,
         health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
@@ -102,21 +105,22 @@ def test_get_feed_success(mock_repo_cls, client):
     )
     mock_repo_cls.return_value = repository
 
-    response = client.get(f"/feeds/{feed_id}")
+    response = client.get(f"/sources/{source_id}")
     assert response.status_code == 200
-    assert response.json()["feed_id"] == str(feed_id)
+    assert response.json()["source_id"] == str(source_id)
 
 
-@patch("src.routers.feeds.SqlAlchemyFeedRepository")
-def test_patch_feed_success(mock_repo_cls, client):
+@patch("src.routers.sources.SqlAlchemySourceRepository")
+def test_patch_source_success(mock_repo_cls, client):
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    feed_id = uuid.uuid4()
-    existing = Feed(
-        feed_id=feed_id,
+    source_id = uuid.uuid4()
+    existing = Source(
+        source_id=source_id,
         url="https://example.com/feed",
         title="Example",
         description="Desc",
         favicon="icon.ico",
+        enrich_with_ai=False,
         health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
@@ -125,12 +129,13 @@ def test_patch_feed_success(mock_repo_cls, client):
         created_at=now_dt,
         updated_at=now_dt,
     )
-    updated = Feed(
-        feed_id=feed_id,
+    updated = Source(
+        source_id=source_id,
         url=existing.url,
         title="Updated Title",
         description=existing.description,
         favicon=existing.favicon,
+        enrich_with_ai=False,
         health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
@@ -140,30 +145,31 @@ def test_patch_feed_success(mock_repo_cls, client):
         updated_at=now_dt,
     )
     repository = MagicMock()
-    repository.get_feed_by_id.return_value = existing
-    repository.get_feed_by_url.return_value = None
-    repository.update_feed.return_value = updated
+    repository.get_source_by_id.return_value = existing
+    repository.get_source_by_url.return_value = None
+    repository.update_source.return_value = updated
     mock_repo_cls.return_value = repository
 
     response = client.patch(
-        f"/feeds/{feed_id}", json={"title": "Updated Title"}
+        f"/sources/{source_id}", json={"title": "Updated Title"}
     )
     assert response.status_code == 200
     assert response.json()["title"] == "Updated Title"
 
 
-@patch("src.routers.feeds.SqlAlchemyFeedRepository")
-def test_list_feeds_returns_all(mock_repo_cls, client):
-    feed_id = uuid.uuid4()
+@patch("src.routers.sources.SqlAlchemySourceRepository")
+def test_list_sources_returns_all(mock_repo_cls, client):
+    source_id = uuid.uuid4()
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
     repository = MagicMock()
-    repository.get_feeds.return_value = [
-        Feed(
-            feed_id=feed_id,
+    repository.get_sources.return_value = [
+        Source(
+            source_id=source_id,
             url="https://example.com/feed",
             title="Example",
             description="Desc",
             favicon="icon.ico",
+            enrich_with_ai=False,
             health_score=1.0,
             consecutive_failures=0,
             last_crawled_at=None,
@@ -175,6 +181,6 @@ def test_list_feeds_returns_all(mock_repo_cls, client):
     ]
     mock_repo_cls.return_value = repository
 
-    response = client.get("/feeds")
+    response = client.get("/sources")
     assert response.status_code == 200
     assert len(response.json()) == 1

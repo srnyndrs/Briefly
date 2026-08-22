@@ -25,7 +25,7 @@ SessionLocal = sessionmaker(
 
 
 def init_db() -> None:
-    from src.models import article  # noqa: F401
+    from src.models import post  # noqa: F401
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:

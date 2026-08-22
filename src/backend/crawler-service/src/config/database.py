@@ -27,7 +27,7 @@ class Base(DeclarativeBase):
 
 
 def init_db() -> None:
-    from src.models import feed  # noqa: F401
+    from src.models import source  # noqa: F401
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:

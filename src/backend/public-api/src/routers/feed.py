@@ -1,47 +1,38 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
 from src.repositories.feed_repository import (
-    ArticleRepository,
+    PostRepository,
     UserPreferencesRepository,
 )
 from src.repositories.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
-    content_articles_count,
-    content_get_article,
-    content_list_articles,
     map_service_error,
 )
 from src.schemas.api import (
-    AdminArticleResponse,
-    ArticleCountResponse,
-    ArticleResponse,
-    FeedItemResponse,
     FeedResponse,
+    PostResponse,
 )
 from src.services.auth import CurrentAdminUser, CurrentUser
-from src.services.feed_dtos import FeedItemDTO
+from src.services.feed_dtos import PostDTO
 from src.services.feed_service import (
     FeedService,
-    GetArticleInput,
     ListFeedInput,
     SearchFeedInput,
 )
 
-router = APIRouter(prefix="/feed", tags=["feed"])
-feeds_router = APIRouter(prefix="/feeds", tags=["feed"])
-articles_router = APIRouter(prefix="/articles", tags=["articles"])
+router = APIRouter(tags=["feed"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
-    return FeedItemResponse(
-        article_id=uuid.UUID(item.article_id),
+def _to_post_response(item: PostDTO) -> PostResponse:
+    return PostResponse(
+        post_id=uuid.UUID(item.post_id),
         source_id=uuid.UUID(item.source_id)
         if item.source_id
         else None,
@@ -54,13 +45,6 @@ def _to_feed_item_response(item: FeedItemDTO) -> FeedItemResponse:
         image_ref=item.image_ref,
         published_at=item.published_at,
         has_content=item.content is not None,
-    )
-
-
-def _to_article_response(item: FeedItemDTO) -> ArticleResponse:
-    feed_item = _to_feed_item_response(item)
-    return ArticleResponse(
-        **feed_item.model_dump(),
         content=item.content,
     )
 
@@ -69,12 +53,12 @@ def get_feed_service(
     db: Session = Depends(get_db),
 ) -> FeedService:
     return FeedService(
-        ArticleRepository(db),
+        PostRepository(db),
         UserPreferencesRepository(db),
     )
 
 
-@router.get("", response_model=FeedResponse)
+@router.get("/feed", response_model=FeedResponse)
 def get_feed(
     user: CurrentUser,
     service: FeedService = Depends(get_feed_service),
@@ -169,7 +153,6 @@ def get_feed(
             )
         )
 
-
     total_pages = (
         (output.total + resolved_size - 1) // resolved_size
         if output.total > 0
@@ -177,7 +160,7 @@ def get_feed(
     )
     return FeedResponse(
         items=[
-            _to_feed_item_response(item) for item in output.items
+            _to_post_response(item) for item in output.items
         ],
         total=output.total,
         page=resolved_page,
@@ -186,37 +169,7 @@ def get_feed(
     )
 
 
-feeds_router.add_api_route(
-    "",
-    get_feed,
-    response_model=FeedResponse,
-    methods=["GET"],
-)
-
-
-@articles_router.get(
-    "/{article_id}",
-    response_model=ArticleResponse,
-    tags=["articles"],
-)
-def get_article_by_id(
-    article_id: uuid.UUID,
-    user: CurrentUser,
-    service: FeedService = Depends(get_feed_service),
-) -> ArticleResponse:
-    _ = user
-    item = service.get_article(
-        GetArticleInput(article_id=article_id)
-    )
-    if item is None:
-        raise HTTPException(
-            status_code=404, detail="Article not found"
-        )
-    return _to_article_response(item)
-
-
 @admin_router.get("/feed", response_model=FeedResponse)
-@admin_router.get("/feeds", response_model=FeedResponse)
 def get_general_feed(
     admin_user: CurrentAdminUser,
     service: FeedService = Depends(get_feed_service),
@@ -255,81 +208,10 @@ def get_general_feed(
     )
     return FeedResponse(
         items=[
-            _to_feed_item_response(item) for item in output.items
+            _to_post_response(item) for item in output.items
         ],
         total=output.total,
         page=resolved_page,
         page_count=total_pages,
         page_size=resolved_size,
     )
-
-
-@admin_router.get(
-    "/articles/count", response_model=ArticleCountResponse
-)
-def admin_article_count(
-    admin_user: CurrentAdminUser,
-) -> ArticleCountResponse:
-    _ = admin_user
-    try:
-        return ArticleCountResponse(**content_articles_count())
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@admin_router.get(
-    "/articles", response_model=list[AdminArticleResponse]
-)
-def admin_list_articles(
-    admin_user: CurrentAdminUser,
-    limit: int = 20,
-    skip: int = 0,
-    source_id: str | None = None,
-    language: str | None = None,
-    category: str | None = None,
-    published_from: datetime | None = None,
-    published_to: datetime | None = None,
-    parsed_from: datetime | None = None,
-    parsed_to: datetime | None = None,
-) -> list[AdminArticleResponse]:
-    _ = admin_user
-    params: dict[str, str | int] = {
-        "limit": max(1, min(limit, 200)),
-        "skip": max(0, skip),
-    }
-    if source_id:
-        params["source_id"] = source_id
-    if language:
-        params["language"] = language
-    if category:
-        params["category"] = category
-    if published_from:
-        params["published_from"] = published_from.isoformat()
-    if published_to:
-        params["published_to"] = published_to.isoformat()
-    if parsed_from:
-        params["parsed_from"] = parsed_from.isoformat()
-    if parsed_to:
-        params["parsed_to"] = parsed_to.isoformat()
-
-    try:
-        rows = content_list_articles(params)
-        return [AdminArticleResponse(**row) for row in rows]
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@admin_router.get(
-    "/articles/{article_id}", response_model=AdminArticleResponse
-)
-def admin_get_article(
-    article_id: str,
-    admin_user: CurrentAdminUser,
-) -> AdminArticleResponse:
-    _ = admin_user
-    try:
-        return AdminArticleResponse(
-            **content_get_article(article_id)
-        )
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc

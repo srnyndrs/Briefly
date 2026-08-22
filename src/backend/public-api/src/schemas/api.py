@@ -117,7 +117,6 @@ class PreferencesResponse(BaseModel):
         return value.isoformat()
 
 
-
 class MeDetailsResponse(UserResponse):
     profile: ProfileResponse | None = None
     preferences: PreferencesResponse | None = None
@@ -130,11 +129,11 @@ class SourceCreateRequest(BaseModel):
     favicon: str | None = None
 
 
-class SourceExploreRequest(BaseModel):
+class SourceDiscoverRequest(BaseModel):
     url: str
 
 
-class SourceExploreResult(BaseModel):
+class SourceDiscoverResult(BaseModel):
     url: str
     title: str | None = None
     content_type: str | None = None
@@ -166,7 +165,7 @@ class SourcePatchRequest(BaseModel):
 
 
 class SourceResponse(BaseModel):
-    feed_id: UUID
+    source_id: UUID
     url: str
     title: str | None
     description: str | None
@@ -197,13 +196,13 @@ class SourceResponse(BaseModel):
         return value.isoformat()
 
 
-class ArticleCountResponse(BaseModel):
+class PostCountResponse(BaseModel):
     count: int
 
 
-class AdminArticleResponse(BaseModel):
-    id: str
-    feed_id: str
+class AdminPostResponse(BaseModel):
+    post_id: str
+    source_id: str
     item_guid: str
     url: str
     title: str
@@ -219,8 +218,8 @@ class AdminArticleResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
-class FeedItemResponse(BaseModel):
-    article_id: UUID
+class PostResponse(BaseModel):
+    post_id: UUID
     source_id: UUID | None = None
     title: str
     source_title: str | None = None
@@ -231,15 +230,20 @@ class FeedItemResponse(BaseModel):
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False
+    content: str | None = None
+
+    @field_serializer("published_at")
+    def serialize_published_at(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class FeedResponse(BaseModel):
-    items: list[FeedItemResponse]
+    items: list[PostResponse]
     total: int
     page: int = 1
     page_count: int = 1
     page_size: int = 20
-
-
-class ArticleResponse(FeedItemResponse):
-    content: str | None = None

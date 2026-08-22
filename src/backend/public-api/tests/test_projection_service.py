@@ -3,15 +3,15 @@ from datetime import UTC, datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.services.projection_use_cases import (
-    ProjectArticleInput,
-    ProjectArticleUseCase,
-)
 from src.config.database import Base
-from src.models.read_models import ArticleProjection
+from src.models.read_models import PostProjection
+from src.services.projection_use_cases import (
+    ProjectPostInput,
+    ProjectPostUseCase,
+)
 
 
-def test_project_article_use_case_persists_content() -> None:
+def test_project_post_use_case_persists_content() -> None:
     engine = create_engine(
         "sqlite:///:memory:",
         execution_options={"schema_translate_map": {"query": None}},
@@ -23,12 +23,12 @@ def test_project_article_use_case_persists_content() -> None:
 
     db = SessionLocal()
     try:
-        use_case = ProjectArticleUseCase(db)
+        use_case = ProjectPostUseCase(db)
         use_case.execute(
-            ProjectArticleInput(
-                article_id="a1",
+            ProjectPostInput(
+                post_id="a1",
                 payload={
-                    "article_id": "a1",
+                    "post_id": "a1",
                     "source_id": "s1",
                     "url": "https://example.com/a1",
                     "title": "Title",
@@ -41,11 +41,11 @@ def test_project_article_use_case_persists_content() -> None:
         )
         db.commit()
 
-        article = db.get(ArticleProjection, "a1")
-        assert article is not None
-        assert article.content == "Full body"
-        assert article.description == "Short description"
-        assert article.image_ref == "https://example.com/images/a1.png"
+        post = db.get(PostProjection, "a1")
+        assert post is not None
+        assert post.content == "Full body"
+        assert post.description == "Short description"
+        assert post.image_ref == "https://example.com/images/a1.png"
     finally:
         db.close()
 
@@ -94,4 +94,3 @@ def test_project_user_preferences_use_case() -> None:
         assert prefs.category_interests == ["tech", "science"]
     finally:
         db.close()
-

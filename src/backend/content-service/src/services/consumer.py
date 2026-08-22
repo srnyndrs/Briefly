@@ -8,7 +8,7 @@ import pika
 
 from src.config.database import SessionLocal
 from src.config.settings import settings
-from src.services.feed_processor import FeedProcessorService
+from src.services.source_processor import SourceProcessorService
 
 logger = logging.getLogger("content-service.consumer")
 
@@ -90,7 +90,7 @@ class FeedConsumer:
             event = json.loads(body)
             db = SessionLocal()
             try:
-                FeedProcessorService(db).process(ch, event)
+                SourceProcessorService(db).process(ch, event)
             finally:
                 db.close()
             ch.basic_ack(delivery_tag=method.delivery_tag)

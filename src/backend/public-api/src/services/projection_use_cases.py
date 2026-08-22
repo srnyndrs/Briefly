@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
-    ArticleProjection,
+    PostProjection,
     UserPreferencesProjection,
     UserSubscriptionProjection,
 )
@@ -15,41 +15,39 @@ logger = logging.getLogger("public-api.projections")
 
 
 @dataclass(frozen=True)
-class ProjectArticleInput:
-    article_id: str
+class ProjectPostInput:
+    post_id: str
     payload: dict[str, Any]
 
 
-class ProjectArticleUseCase:
-    """Project parsed article event into read model."""
+class ProjectPostUseCase:
+    """Project parsed post event into read model."""
 
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def execute(self, data: ProjectArticleInput) -> None:
-        payload = data.payload
-        article_id = payload.get("article_id") or data.article_id
-        if not article_id:
+    def execute(self, data: ProjectPostInput) -> None:
+        payload = data.payload or {}
+        post_id = payload.get("post_id") or data.post_id
+        if not post_id:
             return
 
-        source_id = payload.get("source_id") or payload.get(
-            "feed_id"
-        )
+        source_id = payload.get("source_id")
         published_at_raw = payload.get("published_at")
         parsed_at_raw = payload.get("parsed_at")
         published_at = parse_dt(published_at_raw or parsed_at_raw)
 
         logger.info(
-            "ProjectArticle: article_id=%s, published_at_raw=%s, parsed_at_raw=%s, final_published_at=%s",
-            article_id,
+            "ProjectPost: post_id=%s, published_at_raw=%s, parsed_at_raw=%s, final_published_at=%s",
+            post_id,
             published_at_raw,
             parsed_at_raw,
             published_at,
         )
 
-        existing = self._db.get(ArticleProjection, article_id)
+        existing = self._db.get(PostProjection, post_id)
         if existing is None:
-            existing = ArticleProjection(article_id=article_id)
+            existing = PostProjection(post_id=post_id)
             self._db.add(existing)
 
         existing.source_id = source_id
@@ -130,7 +128,6 @@ class ProjectUserPreferencesUseCase:
         prefs.updated_at = (
             parse_dt(payload.get("updated_at")) or prefs.updated_at
         )
-
 
 
 @dataclass(frozen=True)

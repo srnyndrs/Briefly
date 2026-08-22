@@ -6,7 +6,7 @@ from typing import Any
 import feedparser
 from sqlalchemy.orm import Session
 
-from src.repositories.article_repository import ArticleRepository
+from src.repositories.post_repository import PostRepository
 from src.services import content_extractor, event_publisher
 
 logger = logging.getLogger(__name__)
@@ -29,13 +29,13 @@ def _entry_published_at(entry: Any) -> datetime | None:
     return None
 
 
-def _build_article_data(
-    feed_id: str,
+def _build_post_data(
+    source_id: str,
     entry: Any,
     crawled_at: datetime | None,
     source_title: str | None = None,
 ) -> dict[str, Any]:
-    item_guid = entry.get("guid") or entry.get("link", "")
+    item_guid = entry.get("guid") or entry.get("id") or entry.get("link", "")
     url = entry.get("link", "")
     title = entry.get("title", "Untitled")
     author = entry.get("author", None)
@@ -59,7 +59,7 @@ def _build_article_data(
     language = extracted.get("language") or None
 
     return {
-        "feed_id": feed_id,
+        "source_id": source_id,
         "item_guid": item_guid,
         "url": url,
         "title": final_title,
@@ -77,14 +77,14 @@ def _build_article_data(
     }
 
 
-class FeedProcessorService:
+class SourceProcessorService:
     def __init__(self, db: Session) -> None:
-        self._repo = ArticleRepository(db)
+        self._repo = PostRepository(db)
 
     def process(self, channel: Any, event: dict[str, Any]) -> None:
         payload = event.get("payload", {})
         raw_xml = payload.get("raw_xml", "")
-        feed_id = payload.get("feed_id", "")
+        source_id = payload.get("source_id", "")
         crawled_at = _parse_dt(event.get("occurred_at"))
         correlation_id = event.get("correlation_id") or str(uuid.uuid4())
 
@@ -95,42 +95,42 @@ class FeedProcessorService:
             else None
         )
         for entry in feed.entries:
-            item_guid = entry.get("id") or entry.get("link", "")
+            item_guid = entry.get("id") or entry.get("guid") or entry.get("link", "")
             try:
-                article_data = _build_article_data(
-                    feed_id, entry, crawled_at, source_title
+                post_data = _build_post_data(
+                    source_id, entry, crawled_at, source_title
                 )
             except Exception as exc:
                 logger.error(
-                    "Failed to build article data for %s/%s: %s",
-                    feed_id,
+                    "Failed to build post data for %s/%s: %s",
+                    source_id,
                     item_guid,
                     exc,
                 )
                 continue
 
-            source_title_val = article_data.pop(
+            source_title_val = post_data.pop(
                 "source_title", None
             )
-            article_id = self._repo.save(article_data)
-            if article_id:
-                article_data["source_title"] = source_title_val
+            post_id = self._repo.save(post_data)
+            if post_id:
+                post_data["source_title"] = source_title_val
                 self._publish_success_events(
-                    channel, article_id, article_data, correlation_id
+                    channel, post_id, post_data, correlation_id
                 )
 
     def _publish_success_events(
         self,
         channel: Any,
-        article_id: str,
+        post_id: str,
         data: dict[str, Any],
         correlation_id: str,
     ) -> None:
-        feed_id = data["feed_id"]
-        event_publisher.publish_parsed_success(
+        source_id = data["source_id"]
+        event_publisher.publish_post_parsed_success(
             channel,
-            article_id=article_id,
-            feed_id=feed_id,
+            post_id=post_id,
+            source_id=source_id,
             item_guid=data["item_guid"],
             url=data["url"],
             title=data["title"],
@@ -147,4 +147,3 @@ class FeedProcessorService:
             source_title=data.get("source_title"),
             image_url=data.get("image_url"),
         )
-

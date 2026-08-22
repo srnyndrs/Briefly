@@ -7,7 +7,7 @@ from src.repositories.service_clients import (
     account_list_subscriptions,
     ingestion_create_source,
     ingestion_delete_source,
-    ingestion_explore_sources,
+    ingestion_discover_sources,
     ingestion_get_source,
     ingestion_list_sources,
     ingestion_patch_source,
@@ -15,8 +15,8 @@ from src.repositories.service_clients import (
 )
 from src.schemas.api import (
     SourceCreateRequest,
-    SourceExploreRequest,
-    SourceExploreResult,
+    SourceDiscoverRequest,
+    SourceDiscoverResult,
     SourcePatchRequest,
     SourceResponse,
 )
@@ -57,7 +57,8 @@ def list_sources(
 
         results = []
         for item in sources:
-            is_sub = str(item["feed_id"]) in subscribed_ids
+            source_id_val = str(item["source_id"])
+            is_sub = source_id_val in subscribed_ids
             if subscribed_only and not is_sub:
                 continue
 
@@ -85,19 +86,19 @@ def list_sources(
 
 
 @router.post(
-    "/explore",
-    response_model=list[SourceExploreResult],
+    "/discover",
+    response_model=list[SourceDiscoverResult],
 )
-def explore_sources(
-    body: SourceExploreRequest,
+def discover_sources(
+    body: SourceDiscoverRequest,
     user: CurrentUser,
-) -> list[SourceExploreResult]:
+) -> list[SourceDiscoverResult]:
     _ = user
     try:
-        results = ingestion_explore_sources(
+        results = ingestion_discover_sources(
             body.model_dump(mode="json")
         )
-        return [SourceExploreResult(**item) for item in results]
+        return [SourceDiscoverResult(**item) for item in results]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -120,8 +121,7 @@ def get_source(
 
         return SourceResponse(
             **source_data,
-            is_subscribed=str(source_data["feed_id"])
-            in subscribed_ids,
+            is_subscribed=str(source_data["source_id"]) in subscribed_ids,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -157,4 +157,3 @@ def delete_source(
         return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
-

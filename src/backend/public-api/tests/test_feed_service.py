@@ -4,11 +4,11 @@ from uuid import uuid4
 from src.services.feed_dtos import UserPreferencesDTO
 from src.services.feed_service import (
     FeedService,
-    GetArticleInput,
+    GetPostInput,
     ListFeedInput,
     SearchFeedInput,
 )
-from src.services.feed_types import ArticleEntity
+from src.services.feed_types import PostEntity
 
 
 class TestFeedServiceList:
@@ -18,18 +18,18 @@ class TestFeedServiceList:
         mock_prefs_reader = Mock()
         mock_scoring_service = Mock()
 
-        article = ArticleEntity(
-            article_id="a1",
+        post = PostEntity(
+            post_id="a1",
             source_id="s1",
             title="Test",
             canonical_url="http://test.com",
             language="en",
         )
-        mock_repo.list_feed_candidates.return_value = ([article], 1)
+        mock_repo.list_feed_candidates.return_value = ([post], 1)
         mock_prefs_reader.get_preferences.return_value = (
             UserPreferencesDTO(category_interests=["tech"])
         )
-        mock_scoring_service.rank.return_value = [article]
+        mock_scoring_service.rank.return_value = [post]
 
         use_case = FeedService(
             mock_repo, mock_prefs_reader, mock_scoring_service
@@ -146,14 +146,14 @@ class TestFeedServiceSearch:
         mock_repo = Mock()
         mock_prefs_reader = Mock()
 
-        article = ArticleEntity(
-            article_id="a1",
+        post = PostEntity(
+            post_id="a1",
             source_id="s1",
             title="Python Programming",
             canonical_url="http://test.com",
             language="en",
         )
-        mock_repo.search_feed.return_value = ([article], 1)
+        mock_repo.search_feed.return_value = ([post], 1)
         mock_prefs_reader.get_preferences.return_value = (
             UserPreferencesDTO()
         )
@@ -235,41 +235,40 @@ class TestFeedServiceSearch:
         assert call_kwargs["blocked_source_ids"] == []
 
 
-
-class TestFeedServiceGetArticle:
-    def test_execute_returns_article_when_found(self):
+class TestFeedServiceGetPost:
+    def test_execute_returns_post_when_found(self):
         # Arrange
         mock_repo = Mock()
-        article = ArticleEntity(
-            article_id="a1",
+        post = PostEntity(
+            post_id="a1",
             source_id="s1",
             title="Test",
             canonical_url="http://test.com",
             language="en",
         )
-        mock_repo.get_article.return_value = article
+        mock_repo.get_post.return_value = post
 
         use_case = FeedService(mock_repo, Mock())
 
         # Act
-        result = use_case.get_article(
-            GetArticleInput(article_id=uuid4())
+        result = use_case.get_post(
+            GetPostInput(post_id=uuid4())
         )
 
         # Assert
         assert result is not None
-        assert result.article_id == "a1"
+        assert result.post_id == "a1"
 
     def test_execute_returns_none_when_not_found(self):
         # Arrange
         mock_repo = Mock()
-        mock_repo.get_article.return_value = None
+        mock_repo.get_post.return_value = None
 
         use_case = FeedService(mock_repo, Mock())
 
         # Act
-        result = use_case.get_article(
-            GetArticleInput(article_id=uuid4())
+        result = use_case.get_post(
+            GetPostInput(post_id=uuid4())
         )
 
         # Assert

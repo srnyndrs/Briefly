@@ -8,15 +8,15 @@ from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import settings
 from src.repositories.cache_repository import RedisCacheRepository
-from src.repositories.feed_repository import (
-    SqlAlchemyFeedRepository,
-)
 from src.repositories.http_client import (
-    RequestsHttpClient,
     FetchHeaders,
+    RequestsHttpClient,
 )
 from src.repositories.message_publisher import (
     RabbitMQEventPublisher,
+)
+from src.repositories.source_repository import (
+    SqlAlchemySourceRepository,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,68 +32,68 @@ class CrawlCycleOrchestrator:
         event_publisher = RabbitMQEventPublisher()
         cycle_correlation_id = str(uuid.uuid4())
         with self._session_factory() as db:
-            feed_repository = SqlAlchemyFeedRepository(db)
+            source_repository = SqlAlchemySourceRepository(db)
             now = datetime.now(timezone.utc)
-            feeds = feed_repository.get_active_feeds(
+            sources = source_repository.get_active_sources(
                 now, settings.max_retries
             )
 
             logger.info(
-                "Crawl cycle started (correlation_id=%s) - %d feed(s) due.",
+                "Crawl cycle started (correlation_id=%s) - %d source(s) due.",
                 cycle_correlation_id,
-                len(feeds),
+                len(sources),
             )
 
             try:
-                for feed in feeds:
-                    feed_id_str = str(feed.feed_id)
-                    if self._cache.is_seen(feed_id_str):
+                for source in sources:
+                    source_id_str = str(source.source_id)
+                    if self._cache.is_seen(source_id_str):
                         logger.debug(
-                            "Feed %s already published this window, skipping.",
-                            feed_id_str,
+                            "Source %s already published this window, skipping.",
+                            source_id_str,
                         )
                         continue
 
                     current_etag = (
-                        self._cache.get_etag(feed_id_str)
-                        or feed.etag
+                        self._cache.get_etag(source_id_str)
+                        or source.etag
                     )
                     current_last_modified = (
-                        self._cache.get_last_modified(feed_id_str)
-                        or feed.last_modified
+                        self._cache.get_last_modified(source_id_str)
+                        or source.last_modified
                     )
 
-                    success, etag, last_modified = self._crawl_feed(
-                        feed_repository,
+                    success, etag, last_modified = self._crawl_source(
+                        source_repository,
                         event_publisher,
-                        feed.feed_id,
-                        feed.url,
-                        feed.title,
+                        source.source_id,
+                        source.url,
+                        source.title,
                         current_etag,
                         current_last_modified,
-                        feed.consecutive_failures,
+                        source.consecutive_failures,
                         cycle_correlation_id,
                     )
 
                     if success:
                         if etag:
-                            self._cache.set_etag(feed_id_str, etag)
+                            self._cache.set_etag(source_id_str, etag)
                         if last_modified:
                             self._cache.set_last_modified(
-                                feed_id_str, last_modified
+                                source_id_str, last_modified
                             )
-                        self._cache.mark_seen(feed_id_str)
+                        self._cache.mark_seen(source_id_str)
             finally:
                 event_publisher.close()
 
             logger.info("Crawl cycle complete.")
 
-    def _crawl_feed(
+    def _crawl_source(
         self,
-        feed_repository: SqlAlchemyFeedRepository,
+        source_repository: SqlAlchemySourceRepository,
         event_publisher: RabbitMQEventPublisher,
-        feed_id: UUID,
-        feed_url: str,
+        source_id: UUID,
+        source_url: str,
         source_title: str | None,
         etag: str | None,
         last_modified: str | None,
@@ -105,21 +105,21 @@ class CrawlCycleOrchestrator:
         )
 
         try:
-            result = self._http_client.fetch(feed_url, headers)
+            result = self._http_client.fetch(source_url, headers)
 
             if result.status_code == 304:
                 return True, etag, last_modified
 
-            event_publisher.publish_feed_fetched(
-                feed_id=feed_id,
-                feed_url=feed_url,
+            event_publisher.publish_source_fetched(
+                source_id=source_id,
+                source_url=source_url,
                 correlation_id=correlation_id,
                 source_title=source_title,
                 raw_xml=result.body,
             )
 
-            feed_repository.save_crawl_success(
-                feed_id=feed_id,
+            source_repository.save_crawl_success(
+                source_id=source_id,
                 item_count=0,
                 etag=result.etag,
                 last_modified=result.last_modified,
@@ -129,10 +129,10 @@ class CrawlCycleOrchestrator:
 
         except requests.exceptions.Timeout:
             self._handle_failure(
-                feed_repository,
+                source_repository,
                 event_publisher,
-                feed_id,
-                feed_url,
+                source_id,
+                source_url,
                 "TIMEOUT",
                 "Request timed out",
                 retry_count,
@@ -140,10 +140,10 @@ class CrawlCycleOrchestrator:
             return False, None, None
         except requests.exceptions.ConnectionError as exc:
             self._handle_failure(
-                feed_repository,
+                source_repository,
                 event_publisher,
-                feed_id,
-                feed_url,
+                source_id,
+                source_url,
                 "NETWORK_ERROR",
                 str(exc),
                 retry_count,
@@ -151,10 +151,10 @@ class CrawlCycleOrchestrator:
             return False, None, None
         except requests.exceptions.HTTPError as exc:
             self._handle_failure(
-                feed_repository,
+                source_repository,
                 event_publisher,
-                feed_id,
-                feed_url,
+                source_id,
+                source_url,
                 "HTTP_ERROR",
                 str(exc),
                 retry_count,
@@ -167,10 +167,10 @@ class CrawlCycleOrchestrator:
                 else "UNKNOWN_ERROR"
             )
             self._handle_failure(
-                feed_repository,
+                source_repository,
                 event_publisher,
-                feed_id,
-                feed_url,
+                source_id,
+                source_url,
                 code,
                 str(exc),
                 retry_count,
@@ -179,16 +179,16 @@ class CrawlCycleOrchestrator:
 
     def _handle_failure(
         self,
-        feed_repository: SqlAlchemyFeedRepository,
+        source_repository: SqlAlchemySourceRepository,
         event_publisher: RabbitMQEventPublisher,
-        feed_id: UUID,
-        feed_url: str,
+        source_id: UUID,
+        source_url: str,
         error_code: str,
         error_message: str,
         retry_count: int,
     ) -> None:
-        _ = (event_publisher, feed_url, error_code, retry_count)
-        feed_repository.save_crawl_failure(
-            feed_id=feed_id,
+        _ = (event_publisher, source_url, error_code, retry_count)
+        source_repository.save_crawl_failure(
+            source_id=source_id,
             error=error_message,
         )

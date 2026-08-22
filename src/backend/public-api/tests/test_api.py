@@ -9,8 +9,8 @@ from sqlalchemy.pool import StaticPool
 from src.app import app
 from src.config.database import get_db
 from src.models.read_models import (
-    ArticleProjection,
     Base,
+    PostProjection,
     UserPreferencesProjection,
 )
 from src.schemas.api import AuthContext
@@ -81,8 +81,8 @@ def test_feed_returns_items() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=source_id,
             canonical_url="https://example.com/1",
             title="Tech Story",
@@ -122,8 +122,8 @@ def test_feed_prioritizes_recency_with_preference_ties() -> None:
     )
 
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/older",
             title="Older Preferred",
@@ -135,8 +135,8 @@ def test_feed_prioritizes_recency_with_preference_ties() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/newer",
             title="Newer Preferred",
@@ -176,8 +176,8 @@ def test_feed_use_profile_false_ignores_profile_filters() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/en-story",
             title="English Story",
@@ -221,8 +221,8 @@ def test_feed_override_languages_replaces_profile_value() -> None:
     )
 
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/en",
             title="EN Story",
@@ -234,8 +234,8 @@ def test_feed_override_languages_replaces_profile_value() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/fr",
             title="FR Story",
@@ -400,12 +400,11 @@ def test_get_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
 
-    def fake_get_source(feed_id: str) -> dict:
+    def fake_get_source(sid: str) -> dict:
         now = datetime.now(UTC).isoformat()
-        assert feed_id == source_id
+        assert sid == source_id
         return {
-            "feed_id": feed_id,
-            "user_id": str(uuid4()),
+            "source_id": sid,
             "url": "https://example.com/feed.xml",
             "title": "Source",
             "description": "Desc",
@@ -433,7 +432,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
 
     response = client.get(f"/sources/{source_id}")
     assert response.status_code == 200
-    assert response.json()["feed_id"] == source_id
+    assert response.json()["source_id"] == source_id
 
 
 def test_list_sources_endpoint(monkeypatch) -> None:
@@ -443,8 +442,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
         now = datetime.now(UTC).isoformat()
         return [
             {
-                "feed_id": str(uuid4()),
-                "user_id": str(uuid4()),
+                "source_id": str(uuid4()),
                 "url": "https://example.com/feed.xml",
                 "title": "Source",
                 "description": "Desc",
@@ -479,10 +477,10 @@ def test_list_sources_endpoint(monkeypatch) -> None:
     assert payload[0]["title"] == "Source"
 
 
-def test_explore_sources_endpoint(monkeypatch) -> None:
+def test_discover_sources_endpoint(monkeypatch) -> None:
     client = _build_client()
 
-    def fake_explore_sources(body: dict) -> list[dict]:
+    def fake_discover_sources(body: dict) -> list[dict]:
         assert body["url"] == "https://example.com"
         return [
             {
@@ -495,12 +493,12 @@ def test_explore_sources_endpoint(monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_explore_sources",
-        fake_explore_sources,
+        "src.routers.sources.ingestion_discover_sources",
+        fake_discover_sources,
     )
 
     response = client.post(
-        "/sources/explore", json={"url": "https://example.com"}
+        "/sources/discover", json={"url": "https://example.com"}
     )
     assert response.status_code == 200
     payload = response.json()
@@ -514,8 +512,8 @@ def test_delete_source_endpoint(monkeypatch) -> None:
 
     called = {"value": False}
 
-    def fake_delete_source(feed_id: str) -> None:
-        assert feed_id == source_id
+    def fake_delete_source(sid: str) -> None:
+        assert sid == source_id
         called["value"] = True
 
     monkeypatch.setattr(
@@ -532,13 +530,12 @@ def test_patch_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
 
-    def fake_patch_source(feed_id: str, body: dict) -> dict:
+    def fake_patch_source(sid: str, body: dict) -> dict:
         now = datetime.now(UTC).isoformat()
-        assert feed_id == source_id
+        assert sid == source_id
         assert body == {"title": "Updated"}
         return {
-            "feed_id": feed_id,
-            "user_id": str(uuid4()),
+            "source_id": sid,
             "url": "https://example.com/feed.xml",
             "title": "Updated",
             "description": "Desc",
@@ -571,8 +568,8 @@ def test_admin_feed_returns_items() -> None:
     db = next(app.dependency_overrides[get_db]())
     now = datetime.now(UTC)
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/admin",
             title="General Story",
@@ -605,22 +602,22 @@ def test_admin_feed_requires_admin_scope() -> None:
     assert response.status_code == 403
 
 
-def test_admin_articles_count_endpoint(monkeypatch) -> None:
+def test_admin_posts_count_endpoint(monkeypatch) -> None:
     client = _build_client()
 
     def fake_count() -> dict:
         return {"count": 42}
 
     monkeypatch.setattr(
-        "src.routers.feed.content_articles_count", fake_count
+        "src.routers.posts.content_posts_count", fake_count
     )
 
-    response = client.get("/admin/articles/count")
+    response = client.get("/admin/posts/count")
     assert response.status_code == 200
     assert response.json()["count"] == 42
 
 
-def test_admin_articles_list_endpoint(monkeypatch) -> None:
+def test_admin_posts_list_endpoint(monkeypatch) -> None:
     client = _build_client()
 
     now = datetime.now(UTC).isoformat()
@@ -631,11 +628,11 @@ def test_admin_articles_list_endpoint(monkeypatch) -> None:
         assert params["source_id"] == "source-1"
         return [
             {
-                "id": str(uuid4()),
-                "feed_id": "source-1",
+                "post_id": str(uuid4()),
+                "source_id": "source-1",
                 "item_guid": "guid-1",
                 "url": "https://example.com/article",
-                "title": "Admin Article",
+                "title": "Admin Post",
                 "description": "desc",
                 "content": "body",
                 "author": "Author",
@@ -649,32 +646,32 @@ def test_admin_articles_list_endpoint(monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "src.routers.feed.content_list_articles", fake_list
+        "src.routers.posts.content_list_posts", fake_list
     )
 
     response = client.get(
-        "/admin/articles",
+        "/admin/posts",
         params={"limit": 25, "skip": 5, "source_id": "source-1"},
     )
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) == 1
-    assert payload[0]["title"] == "Admin Article"
+    assert payload[0]["title"] == "Admin Post"
 
 
-def test_admin_get_article_endpoint(monkeypatch) -> None:
+def test_admin_get_post_endpoint(monkeypatch) -> None:
     client = _build_client()
-    article_id = str(uuid4())
+    post_id = str(uuid4())
     now = datetime.now(UTC).isoformat()
 
     def fake_get(target_id: str) -> dict:
-        assert target_id == article_id
+        assert target_id == post_id
         return {
-            "id": target_id,
-            "feed_id": "source-1",
+            "post_id": target_id,
+            "source_id": "source-1",
             "item_guid": "guid-1",
             "url": "https://example.com/article",
-            "title": "Admin Article",
+            "title": "Admin Post",
             "description": "desc",
             "content": "body",
             "author": "Author",
@@ -687,12 +684,12 @@ def test_admin_get_article_endpoint(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "src.routers.feed.content_get_article", fake_get
+        "src.routers.posts.content_get_post", fake_get
     )
 
-    response = client.get(f"/admin/articles/{article_id}")
+    response = client.get(f"/admin/posts/{post_id}")
     assert response.status_code == 200
-    assert response.json()["id"] == article_id
+    assert response.json()["post_id"] == post_id
 
 
 def test_get_me_composite_response(monkeypatch) -> None:
@@ -759,10 +756,10 @@ def test_feed_search_query_parameter() -> None:
     db = next(app.dependency_overrides[get_db]())
     now = datetime.now(UTC)
 
-    art_id = str(uuid4())
+    post_id = str(uuid4())
     db.add(
-        ArticleProjection(
-            article_id=art_id,
+        PostProjection(
+            post_id=post_id,
             source_id=str(uuid4()),
             canonical_url="https://example.com/search-test",
             title="Antigravity Release Notes",
@@ -788,18 +785,18 @@ def test_feed_search_query_parameter() -> None:
     )
 
 
-def test_get_article_by_id_endpoint() -> None:
+def test_get_post_by_id_endpoint() -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     now = datetime.now(UTC)
 
-    art_id = str(uuid4())
+    post_id = str(uuid4())
     db.add(
-        ArticleProjection(
-            article_id=art_id,
+        PostProjection(
+            post_id=post_id,
             source_id=str(uuid4()),
             canonical_url="https://example.com/single-article",
-            title="Single Article",
+            title="Single Post",
             description="Detail",
             language="en",
             keywords=[],
@@ -811,27 +808,26 @@ def test_get_article_by_id_endpoint() -> None:
     )
     db.commit()
 
-    response = client.get(f"/articles/{art_id}")
+    response = client.get(f"/posts/{post_id}")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["article_id"] == art_id
-    assert payload["title"] == "Single Article"
+    assert payload["post_id"] == post_id
+    assert payload["title"] == "Single Post"
     assert payload["content"] == "Full body text"
 
 
 def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
     client = _build_client()
     now = datetime.now(UTC).isoformat()
-    feed_1 = str(uuid4())
-    feed_2 = str(uuid4())
+    source_1 = str(uuid4())
+    source_2 = str(uuid4())
 
     def fake_list_sources() -> list[dict]:
         return [
             {
-                "feed_id": feed_1,
-                "user_id": str(uuid4()),
+                "source_id": source_1,
                 "url": "https://example.com/1",
-                "title": "Subscribed Feed",
+                "title": "Subscribed Source",
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
@@ -844,10 +840,9 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "updated_at": now,
             },
             {
-                "feed_id": feed_2,
-                "user_id": str(uuid4()),
+                "source_id": source_2,
                 "url": "https://example.com/2",
-                "title": "Unsubscribed Feed",
+                "title": "Unsubscribed Source",
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
@@ -865,7 +860,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
         return [
             {
                 "user_id": user_id,
-                "source_id": feed_1,
+                "source_id": source_1,
                 "created_at": now,
             }
         ]
@@ -879,19 +874,17 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
         fake_list_subscriptions,
     )
 
-    # Without subscribed_only
     all_res = client.get("/sources")
     assert all_res.status_code == 200
     assert len(all_res.json()) == 2
 
-    # With subscribed_only=true
     sub_res = client.get(
         "/sources", params={"subscribed_only": "true"}
     )
     assert sub_res.status_code == 200
     sub_items = sub_res.json()
     assert len(sub_items) == 1
-    assert sub_items[0]["feed_id"] == feed_1
+    assert sub_items[0]["source_id"] == source_1
     assert sub_items[0]["is_subscribed"] is True
 
 
@@ -915,11 +908,11 @@ def test_feed_pagination_pages_and_counts() -> None:
 
     for i in range(5):
         db.add(
-            ArticleProjection(
-                article_id=str(uuid4()),
+            PostProjection(
+                post_id=str(uuid4()),
                 source_id=str(uuid4()),
                 canonical_url=f"https://example.com/{i}",
-                title=f"Article {i}",
+                title=f"Post {i}",
                 language="en",
                 keywords=[],
                 topics=[],
@@ -938,8 +931,8 @@ def test_feed_pagination_pages_and_counts() -> None:
     assert p1["page_count"] == 3
     assert p1["page_size"] == 2
     assert len(p1["items"]) == 2
-    assert p1["items"][0]["title"] == "Article 4"
-    assert p1["items"][1]["title"] == "Article 3"
+    assert p1["items"][0]["title"] == "Post 4"
+    assert p1["items"][1]["title"] == "Post 3"
 
     # Page 2 with page_size=2
     res_p2 = client.get("/feed", params={"page": 2, "page_size": 2})
@@ -948,8 +941,8 @@ def test_feed_pagination_pages_and_counts() -> None:
     assert p2["page"] == 2
     assert p2["page_count"] == 3
     assert len(p2["items"]) == 2
-    assert p2["items"][0]["title"] == "Article 2"
-    assert p2["items"][1]["title"] == "Article 1"
+    assert p2["items"][0]["title"] == "Post 2"
+    assert p2["items"][1]["title"] == "Post 1"
 
     # Page 3 (last page with remaining 1 item)
     res_p3 = client.get("/feed", params={"page": 3, "page_size": 2})
@@ -958,18 +951,7 @@ def test_feed_pagination_pages_and_counts() -> None:
     assert p3["page"] == 3
     assert p3["page_count"] == 3
     assert len(p3["items"]) == 1
-    assert p3["items"][0]["title"] == "Article 0"
-
-    # Alias /feeds works identically
-    res_feeds = client.get("/feeds", params={"page": 1, "page_size": 2})
-    assert res_feeds.status_code == 200
-    assert res_feeds.json()["page_count"] == 3
-    assert len(res_feeds.json()["items"]) == 2
-
-    # Alias page_count parameter for page size
-    res_pc = client.get("/feed", params={"page": 1, "page_count": 2})
-    assert res_pc.status_code == 200
-    assert res_pc.json()["page_size"] == 2
+    assert p3["items"][0]["title"] == "Post 0"
 
 
 def test_admin_feed_pagination() -> None:
@@ -979,11 +961,11 @@ def test_admin_feed_pagination() -> None:
 
     for i in range(3):
         db.add(
-            ArticleProjection(
-                article_id=str(uuid4()),
+            PostProjection(
+                post_id=str(uuid4()),
                 source_id=str(uuid4()),
                 canonical_url=f"https://example.com/admin/{i}",
-                title=f"Admin Article {i}",
+                title=f"Admin Post {i}",
                 language="en",
                 keywords=[],
                 topics=[],
@@ -1001,12 +983,6 @@ def test_admin_feed_pagination() -> None:
     assert data["page_count"] == 2
     assert data["page_size"] == 2
     assert len(data["items"]) == 2
-
-    res_alias = client.get("/admin/feeds", params={"page": 2, "page_size": 2})
-    assert res_alias.status_code == 200
-    data_alias = res_alias.json()
-    assert data_alias["page"] == 2
-    assert len(data_alias["items"]) == 1
 
 
 def test_get_my_subscriptions(monkeypatch) -> None:
@@ -1158,11 +1134,11 @@ def test_feed_filters_muted_keywords() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/clean-article",
-            title="Clean Article",
+            title="Clean Post",
             language="en",
             keywords=["technology", "ai"],
             topics=[],
@@ -1171,11 +1147,11 @@ def test_feed_filters_muted_keywords() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/crypto-article",
-            title="Crypto Article",
+            title="Crypto Post",
             language="en",
             keywords=["crypto", "bitcoin"],
             topics=[],
@@ -1189,7 +1165,7 @@ def test_feed_filters_muted_keywords() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Clean Article"
+    assert payload["items"][0]["title"] == "Clean Post"
 
 
 def test_feed_filters_muted_categories() -> None:
@@ -1210,11 +1186,11 @@ def test_feed_filters_muted_categories() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/tech",
-            title="Tech Article",
+            title="Tech Post",
             language="en",
             category="technology",
             keywords=[],
@@ -1224,11 +1200,11 @@ def test_feed_filters_muted_categories() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/sports",
-            title="Sports Article",
+            title="Sports Post",
             language="en",
             category="sports",
             keywords=[],
@@ -1243,7 +1219,7 @@ def test_feed_filters_muted_categories() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Tech Article"
+    assert payload["items"][0]["title"] == "Tech Post"
 
 
 def test_feed_filters_blocked_source_ids() -> None:
@@ -1266,11 +1242,11 @@ def test_feed_filters_blocked_source_ids() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=allowed_src,
             canonical_url="https://example.com/allowed",
-            title="Allowed Source Article",
+            title="Allowed Source Post",
             language="en",
             keywords=[],
             topics=[],
@@ -1279,11 +1255,11 @@ def test_feed_filters_blocked_source_ids() -> None:
         )
     )
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=blocked_src,
             canonical_url="https://example.com/blocked",
-            title="Blocked Source Article",
+            title="Blocked Source Post",
             language="en",
             keywords=[],
             topics=[],
@@ -1297,7 +1273,7 @@ def test_feed_filters_blocked_source_ids() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Allowed Source Article"
+    assert payload["items"][0]["title"] == "Allowed Source Post"
 
 
 def test_feed_ranks_by_category_interests() -> None:
@@ -1317,10 +1293,9 @@ def test_feed_ranks_by_category_interests() -> None:
             updated_at=now,
         )
     )
-    # Article 1: Published recently, but category is "general"
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/general",
             title="General Story",
@@ -1332,10 +1307,9 @@ def test_feed_ranks_by_category_interests() -> None:
             updated_at=now,
         )
     )
-    # Article 2: Published earlier, but category is "science" (affinity boost +2.0)
     db.add(
-        ArticleProjection(
-            article_id=str(uuid4()),
+        PostProjection(
+            post_id=str(uuid4()),
             source_id=str(uuid4()),
             canonical_url="https://example.com/science",
             title="Science Breakthrough",
@@ -1353,8 +1327,5 @@ def test_feed_ranks_by_category_interests() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 2
-    # Science Breakthrough ranked first despite being older due to category interest boost
     assert payload["items"][0]["title"] == "Science Breakthrough"
     assert payload["items"][1]["title"] == "General Story"
-
-
