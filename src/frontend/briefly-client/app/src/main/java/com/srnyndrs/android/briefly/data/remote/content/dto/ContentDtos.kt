@@ -19,7 +19,7 @@ data class FeedResultDto(
 @Serializable
 @OptIn(ExperimentalTime::class)
 data class FeedResultItemDto(
-    @SerialName("article_id")
+    @SerialName("post_id")
     val articleId: String,
     val title: String,
     @SerialName("source_title")
@@ -79,7 +79,7 @@ data class FeedSourceResultItemDto(
 @Serializable
 @OptIn(ExperimentalTime::class)
 data class ArticleDetailsDto (
-    @SerialName("article_id")
+    @SerialName("post_id")
     val articleId: String,
     @SerialName("source_id")
     val sourceId: String? = null,
@@ -102,11 +102,8 @@ data class ArticleDetailsDto (
 @Serializable
 @OptIn(ExperimentalTime::class)
 data class FeedSourceDto (
-    @SerialName("feed_id")
+    @SerialName("source_id")
     val feedId: String,
-
-    @SerialName("user_id")
-    val userId: String,
 
     val url: String,
     val title: String? = null,
@@ -145,11 +142,8 @@ data class FeedSourceDto (
 @OptIn(ExperimentalTime::class)
 @Serializable
 data class FeedSourceDetailsDto(
-    @SerialName("feed_id")
+    @SerialName("source_id")
     val feedId: String,
-
-    @SerialName("user_id")
-    val userId: String,
 
     val url: String,
     val title: String? = null,

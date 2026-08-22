@@ -21,7 +21,7 @@ class ArticlePagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ArticleItem> {
         val page = params.key ?: 1
         return try {
-            val response = contentApiService.getFeeds(
+            val response = contentApiService.getFeed(
                 page = page,
                 pageSize = params.loadSize,
                 sourceIds = sourceIds

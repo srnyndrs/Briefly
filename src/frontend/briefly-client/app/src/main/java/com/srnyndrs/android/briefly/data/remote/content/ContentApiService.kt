@@ -20,7 +20,7 @@ import io.ktor.http.HttpStatusCode
 class ContentApiService (
     private val client: HttpClient
 ) {
-    suspend fun getFeeds(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): FeedResultDto {
+    suspend fun getFeed(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): FeedResultDto {
         return client.get("feed") {
             parameter("page", page ?: 1)
             parameter("page_size", pageSize ?: 20)
@@ -33,7 +33,7 @@ class ContentApiService (
 
     suspend fun getFeedSources(query: String? = null): List<FeedSourceDto> {
         return client.get("sources") {
-            parameter("q", query ?: "")
+            parameter("query", query ?: "")
         }.body()
     }
 
@@ -53,19 +53,13 @@ class ContentApiService (
             .status
     }
 
-    suspend fun exploreFeedSource(request: FeedSourceExploreRequestDto): List<FeedSourceResultItemDto>{
-        return client.post("sources/explore") {
-            setBody(request)
-        }.body()
-    }
-
     suspend fun getFeedSourceDetails(sourceId: String): FeedSourceDetailsDto {
         return client.get("sources/${sourceId}")
             .body()
     }
 
-    suspend fun getArticleById(articleId: String): ArticleDetailsDto {
-        return client.get("articles/${articleId}")
+    suspend fun getPostById(postId: String): ArticleDetailsDto {
+        return client.get("posts/${postId}")
             .body()
     }
 

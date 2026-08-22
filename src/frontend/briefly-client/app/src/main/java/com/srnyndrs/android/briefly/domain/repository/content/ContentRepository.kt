@@ -17,6 +17,5 @@ interface ContentRepository {
     suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails>
     suspend fun subscribeFeedSource(sourceId: String): Result<FeedSubscription>
     suspend fun unsubscribeFeedSource(sourceId: String): Result<String>
-    suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>>
     suspend fun getArticleById(articleId: String): Result<ArticleDetails>
 }

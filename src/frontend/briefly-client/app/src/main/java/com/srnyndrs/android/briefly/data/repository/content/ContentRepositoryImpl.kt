@@ -45,7 +45,7 @@ class ContentRepositoryImpl @Inject constructor(
         sourceIds: List<String>?
     ): Result<ArticlePagingResult> {
         return try {
-            val response = contentApiService.getFeeds(page, pageSize, sourceIds)
+            val response = contentApiService.getFeed(page, pageSize, sourceIds)
             val items = response.items.map { it.toDomain() }
             val result = ArticlePagingResult(
                 page = response.page,
@@ -119,22 +119,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>> {
-        return try {
-            val response = contentApiService.exploreFeedSource(
-                FeedSourceExploreRequestDto(url = url)
-            )
-            val result = response.map { it.toDomain() }
-
-            Result.success(result)
-        } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
     override suspend fun getArticleById(articleId: String): Result<ArticleDetails> {
         return try {
-            val response = contentApiService.getArticleById(articleId)
+            val response = contentApiService.getPostById(articleId)
             val result = response.toDomain()
 
             Result.success(result)
