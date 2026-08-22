@@ -94,7 +94,6 @@ def get_feed(
     use_profile: bool = True,
     categories: list[str] | None = Query(default=None),
     languages: list[str] | None = Query(default=None),
-    exclude_languages: list[str] | None = Query(default=None),
     source_ids: list[str] | None = Query(default=None),
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
@@ -148,7 +147,6 @@ def get_feed(
                 use_profile=use_profile,
                 categories=categories,
                 languages=languages,
-                exclude_languages=exclude_languages,
                 source_ids=filtered_source_ids,
                 published_from=from_,
                 published_to=to_,
@@ -164,13 +162,13 @@ def get_feed(
                 use_profile=use_profile,
                 categories=categories,
                 languages=languages,
-                exclude_languages=exclude_languages,
                 source_ids=filtered_source_ids,
                 published_from=from_,
                 published_to=to_,
                 sort=sort,
             )
         )
+
 
     total_pages = (
         (output.total + resolved_size - 1) // resolved_size

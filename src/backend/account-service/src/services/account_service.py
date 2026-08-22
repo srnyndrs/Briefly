@@ -181,10 +181,11 @@ class AccountService:
         self,
         *,
         user_id: str,
-        preferred_categories: list[str],
-        preferred_languages: list[str],
-        excluded_languages: list[str],
+        muted_keywords: list[str],
+        muted_categories: list[str],
         blocked_source_ids: list[str],
+        languages: list[str],
+        category_interests: list[str],
         correlation_id: str,
         trace_id: str,
         span_id: str,
@@ -195,10 +196,11 @@ class AccountService:
 
         preferences = self._repo.upsert_preferences(
             user_id=user_id,
-            preferred_categories=preferred_categories,
-            preferred_languages=preferred_languages,
-            excluded_languages=excluded_languages,
+            muted_keywords=muted_keywords,
+            muted_categories=muted_categories,
             blocked_source_ids=blocked_source_ids,
+            languages=languages,
+            category_interests=category_interests,
             now=utc_now_naive(),
         )
         self._repo.update_user_timestamp(user_id, utc_now_naive())
@@ -213,10 +215,11 @@ class AccountService:
                 "user_id": user_id,
                 "updated_at": preferences.updated_at.isoformat()
                 + "Z",
-                "preferred_categories": preferences.preferred_categories,
-                "preferred_languages": preferences.preferred_languages,
-                "excluded_languages": preferences.excluded_languages,
+                "muted_keywords": preferences.muted_keywords,
+                "muted_categories": preferences.muted_categories,
                 "blocked_source_ids": preferences.blocked_source_ids,
+                "languages": preferences.languages,
+                "category_interests": preferences.category_interests,
             },
         )
 

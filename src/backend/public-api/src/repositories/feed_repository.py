@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
@@ -24,24 +24,17 @@ class ArticleRepository:
         self,
         query,
         *,
-        excluded_languages: Sequence[str],
-        blocked_source_ids: Sequence[str],
-        include_languages: Sequence[str] | None,
-        include_source_ids: Sequence[str] | None,
+        languages: Sequence[str] | None,
+        muted_keywords: Sequence[str] | None,
+        muted_categories: Sequence[str] | None,
+        blocked_source_ids: Sequence[str] | None,
+        include_languages: Sequence[str] | None = None,
+        include_source_ids: Sequence[str] | None = None,
         include_categories: Sequence[str] | None = None,
-        published_from: datetime | None,
-        published_to: datetime | None,
+        published_from: datetime | None = None,
+        published_to: datetime | None = None,
     ):
-        if excluded_languages:
-            query = query.where(
-                or_(
-                    ArticleProjection.language.is_(None),
-                    ArticleProjection.language.not_in(
-                        excluded_languages
-                    ),
-                )
-            )
-
+        # 1. Hard Block: Blocked Sources
         if blocked_source_ids:
             query = query.where(
                 or_(
@@ -52,11 +45,54 @@ class ArticleRepository:
                 )
             )
 
-        if include_languages:
+        # 2. Hard Block: Muted Categories
+        if muted_categories:
             query = query.where(
-                ArticleProjection.language.in_(include_languages)
+                or_(
+                    ArticleProjection.category.is_(None),
+                    ArticleProjection.category.not_in(
+                        muted_categories
+                    ),
+                )
             )
 
+        # 3. Hard Block: Muted Keywords
+        if muted_keywords:
+            normalized_muted = [
+                k.lower().strip()
+                for k in muted_keywords
+                if k.strip()
+            ]
+            if normalized_muted:
+                if (
+                    self._db.bind
+                    and self._db.bind.dialect.name == "sqlite"
+                ):
+                    for kw in normalized_muted:
+                        query = query.where(
+                            ~cast(
+                                ArticleProjection.keywords, String
+                            ).ilike(f"%{kw}%")
+                        )
+                else:
+                    query = query.where(
+                        ~ArticleProjection.keywords.op("&&")(
+                            normalized_muted
+                        )
+                    )
+
+        # 4. Strict Language Allowlist
+        effective_languages = (
+            include_languages
+            if include_languages is not None
+            else languages
+        )
+        if effective_languages:
+            query = query.where(
+                ArticleProjection.language.in_(effective_languages)
+            )
+
+        # 5. Ad-hoc query overrides
         if include_source_ids:
             query = query.where(
                 ArticleProjection.source_id.in_(include_source_ids)
@@ -70,7 +106,9 @@ class ArticleRepository:
                 query = query.where(
                     or_(
                         *[
-                            ArticleProjection.keywords.contains(c)
+                            cast(
+                                ArticleProjection.keywords, String
+                            ).ilike(f"%{c}%")
                             for c in include_categories
                         ]
                     )
@@ -82,6 +120,7 @@ class ArticleRepository:
                     )
                 )
 
+        # 6. Date Range Constraints
         if published_from is not None:
             query = query.where(
                 ArticleProjection.published_at >= published_from
@@ -112,8 +151,10 @@ class ArticleRepository:
         self,
         *,
         user_id: UUID,
-        excluded_languages: Sequence[str],
-        blocked_source_ids: Sequence[str],
+        languages: Sequence[str] | None,
+        muted_keywords: Sequence[str] | None,
+        muted_categories: Sequence[str] | None,
+        blocked_source_ids: Sequence[str] | None,
         include_languages: Sequence[str] | None,
         include_source_ids: Sequence[str] | None,
         include_categories: Sequence[str] | None,
@@ -127,7 +168,9 @@ class ArticleRepository:
         query = select(ArticleProjection)
         query = self._apply_common_filters(
             query,
-            excluded_languages=excluded_languages,
+            languages=languages,
+            muted_keywords=muted_keywords,
+            muted_categories=muted_categories,
             blocked_source_ids=blocked_source_ids,
             include_languages=include_languages,
             include_source_ids=include_source_ids,
@@ -156,8 +199,10 @@ class ArticleRepository:
         *,
         user_id: UUID,
         q: str,
-        excluded_languages: Sequence[str],
-        blocked_source_ids: Sequence[str],
+        languages: Sequence[str] | None,
+        muted_keywords: Sequence[str] | None,
+        muted_categories: Sequence[str] | None,
+        blocked_source_ids: Sequence[str] | None,
         include_languages: Sequence[str] | None,
         include_source_ids: Sequence[str] | None,
         include_categories: Sequence[str] | None,
@@ -177,7 +222,9 @@ class ArticleRepository:
 
         query = self._apply_common_filters(
             query,
-            excluded_languages=excluded_languages,
+            languages=languages,
+            muted_keywords=muted_keywords,
+            muted_categories=muted_categories,
             blocked_source_ids=blocked_source_ids,
             include_languages=include_languages,
             include_source_ids=include_source_ids,

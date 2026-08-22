@@ -129,10 +129,11 @@ class AccountRepository:
         self,
         *,
         user_id: str,
-        preferred_categories: list[str],
-        preferred_languages: list[str],
-        excluded_languages: list[str],
+        muted_keywords: list[str],
+        muted_categories: list[str],
         blocked_source_ids: list[str],
+        languages: list[str],
+        category_interests: list[str],
         now: datetime,
     ) -> UserPreferences:
         preferences = self.get_preferences(user_id)
@@ -140,10 +141,11 @@ class AccountRepository:
             preferences = UserPreferences(user_id=user_id)
             self._db.add(preferences)
 
-        preferences.preferred_categories = preferred_categories
-        preferences.preferred_languages = preferred_languages
-        preferences.excluded_languages = excluded_languages
+        preferences.muted_keywords = muted_keywords
+        preferences.muted_categories = muted_categories
         preferences.blocked_source_ids = blocked_source_ids
+        preferences.languages = languages
+        preferences.category_interests = category_interests
         preferences.updated_at = now
 
         user = self.get_user_by_id(user_id)

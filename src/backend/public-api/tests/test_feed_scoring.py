@@ -42,7 +42,7 @@ class TestFeedScoringService:
     ):
         service = FeedScoringService()
         prefs = UserPreferencesVO(
-            preferred_categories=["tech", "science"]
+            category_interests=["tech", "science"]
         )
 
         now = datetime.now(UTC)
@@ -53,6 +53,7 @@ class TestFeedScoringService:
                 title="Business Article",
                 canonical_url="http://a1.com",
                 language="en",
+                category="business",
                 keywords=["business"],
                 published_at=now,
             ),
@@ -62,6 +63,7 @@ class TestFeedScoringService:
                 title="Tech Article",
                 canonical_url="http://a2.com",
                 language="en",
+                category="tech",
                 keywords=["tech"],
                 published_at=now,
             ),
@@ -99,10 +101,10 @@ class TestFeedScoringService:
 
         assert len(ranked) == 5
 
-    def test_rank_with_partial_category_match(self):
+    def test_rank_with_category_and_keyword_boost(self):
         service = FeedScoringService()
         prefs = UserPreferencesVO(
-            preferred_categories=["tech", "science", "news"]
+            category_interests=["tech", "science"]
         )
 
         now = datetime.now(UTC)
@@ -110,19 +112,31 @@ class TestFeedScoringService:
             ArticleEntity(
                 article_id="1",
                 source_id="s1",
-                title="One Match",
+                title="Keyword Only Match",
                 canonical_url="http://a1.com",
                 language="en",
-                keywords=["tech"],
+                category="general",
+                keywords=["tech"],  # +0.5 keyword match
                 published_at=now,
             ),
             ArticleEntity(
                 article_id="2",
                 source_id="s2",
-                title="Two Matches",
+                title="Category Exact Match",
                 canonical_url="http://a2.com",
                 language="en",
-                keywords=["tech", "science"],
+                category="tech",  # +2.0 category match
+                keywords=[],
+                published_at=now,
+            ),
+            ArticleEntity(
+                article_id="3",
+                source_id="s3",
+                title="Category and Keyword Match",
+                canonical_url="http://a3.com",
+                language="en",
+                category="tech",  # +2.0
+                keywords=["science"],  # +0.5 -> total 2.5
                 published_at=now,
             ),
         ]
@@ -131,10 +145,9 @@ class TestFeedScoringService:
             articles=articles, preferences=prefs, limit=10
         )
 
-        assert (
-            ranked[0].article_id == "2"
-        )  # Two matches > one match
-        assert ranked[1].article_id == "1"
+        assert ranked[0].article_id == "3"  # Score 2.5
+        assert ranked[1].article_id == "2"  # Score 2.0
+        assert ranked[2].article_id == "1"  # Score 0.5
 
 
 class TestArticleEntity:
@@ -167,18 +180,19 @@ class TestArticleEntity:
 
 
 class TestUserPreferencesVO:
-    def test_empty_preferences_has_no_preferred_categories(self):
+    def test_empty_preferences_has_no_category_interests(self):
         prefs = UserPreferencesVO()
 
-        assert not prefs.has_preferred_categories
+        assert not prefs.has_category_interests
 
-    def test_preferences_with_categories_reports_true(self):
-        prefs = UserPreferencesVO(preferred_categories=["tech"])
+    def test_preferences_with_category_interests_reports_true(self):
+        prefs = UserPreferencesVO(category_interests=["tech"])
 
-        assert prefs.has_preferred_categories
+        assert prefs.has_category_interests
 
     def test_value_object_is_frozen(self):
-        prefs = UserPreferencesVO(preferred_categories=["tech"])
+        prefs = UserPreferencesVO(category_interests=["tech"])
 
         with pytest.raises(Exception):  # FrozenInstanceError
-            prefs.preferred_categories = ["business"]
+            prefs.category_interests = ["business"]
+

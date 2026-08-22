@@ -8,7 +8,6 @@ from src.services.feed_dtos import UserPreferencesDTO
 class PersonalizationQueryOverrides:
     include_categories: list[str] | None = None
     include_languages: list[str] | None = None
-    exclude_languages: list[str] | None = None
     include_source_ids: list[str] | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -17,10 +16,11 @@ class PersonalizationQueryOverrides:
 
 @dataclass(frozen=True)
 class EffectivePersonalizationContext:
-    preferred_categories: list[str] = field(default_factory=list)
-    preferred_languages: list[str] = field(default_factory=list)
-    excluded_languages: list[str] = field(default_factory=list)
+    muted_keywords: list[str] = field(default_factory=list)
+    muted_categories: list[str] = field(default_factory=list)
     blocked_source_ids: list[str] = field(default_factory=list)
+    languages: list[str] = field(default_factory=list)
+    category_interests: list[str] = field(default_factory=list)
     include_categories: list[str] | None = None
     include_languages: list[str] | None = None
     include_source_ids: list[str] | None = None
@@ -38,26 +38,24 @@ class PersonalizationMergeService:
         overrides: PersonalizationQueryOverrides,
     ) -> EffectivePersonalizationContext:
         if use_profile:
-            preferred_categories = list(
-                profile.preferred_categories
-            )
-            preferred_languages = list(profile.preferred_languages)
-            excluded_languages = list(profile.excluded_languages)
+            muted_keywords = list(profile.muted_keywords)
+            muted_categories = list(profile.muted_categories)
             blocked_source_ids = list(profile.blocked_source_ids)
+            languages = list(profile.languages)
+            category_interests = list(profile.category_interests)
         else:
-            preferred_categories = []
-            preferred_languages = []
-            excluded_languages = []
+            muted_keywords = []
+            muted_categories = []
             blocked_source_ids = []
-
-        if overrides.exclude_languages is not None:
-            excluded_languages = list(overrides.exclude_languages)
+            languages = []
+            category_interests = []
 
         return EffectivePersonalizationContext(
-            preferred_categories=preferred_categories,
-            preferred_languages=preferred_languages,
-            excluded_languages=excluded_languages,
+            muted_keywords=muted_keywords,
+            muted_categories=muted_categories,
             blocked_source_ids=blocked_source_ids,
+            languages=languages,
+            category_interests=category_interests,
             include_categories=overrides.include_categories,
             include_languages=overrides.include_languages,
             include_source_ids=overrides.include_source_ids,
@@ -65,3 +63,4 @@ class PersonalizationMergeService:
             published_to=overrides.published_to,
             sort=overrides.sort,
         )
+

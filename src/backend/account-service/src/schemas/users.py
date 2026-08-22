@@ -38,25 +38,28 @@ class ProfileResponse(BaseModel):
 
 
 class PreferencesUpdateRequest(BaseModel):
-    preferred_categories: list[str] = Field(default_factory=list)
-    preferred_languages: list[str] = Field(default_factory=list)
-    excluded_languages: list[str] = Field(default_factory=list)
+    muted_keywords: list[str] = Field(default_factory=list)
+    muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    category_interests: list[str] = Field(default_factory=list)
 
 
 class PreferencesPatchRequest(BaseModel):
-    preferred_categories: list[str] | None = None
-    preferred_languages: list[str] | None = None
-    excluded_languages: list[str] | None = None
+    muted_keywords: list[str] | None = None
+    muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
+    languages: list[str] | None = None
+    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
     user_id: UUID
-    preferred_categories: list[str]
-    preferred_languages: list[str]
-    excluded_languages: list[str]
+    muted_keywords: list[str]
+    muted_categories: list[str]
     blocked_source_ids: list[UUID]
+    languages: list[str]
+    category_interests: list[str]
     updated_at: datetime
 
     @field_serializer("updated_at")
@@ -64,6 +67,7 @@ class PreferencesResponse(BaseModel):
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
+
 
 
 class SubscriptionCreateRequest(BaseModel):

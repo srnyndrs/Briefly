@@ -26,7 +26,6 @@ class ListFeedInput:
     use_profile: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
-    exclude_languages: list[str] | None = None
     source_ids: list[str] | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -48,7 +47,6 @@ class SearchFeedInput:
     use_profile: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
-    exclude_languages: list[str] | None = None
     source_ids: list[str] | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -95,7 +93,6 @@ class FeedService:
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,
-                exclude_languages=data.exclude_languages,
                 include_source_ids=data.source_ids,
                 published_from=data.published_from,
                 published_to=data.published_to,
@@ -105,16 +102,19 @@ class FeedService:
 
         prefs_vo = user_preferences_dto_to_vo(
             UserPreferencesDTO(
-                preferred_categories=context.preferred_categories,
-                preferred_languages=context.preferred_languages,
-                excluded_languages=context.excluded_languages,
+                muted_keywords=context.muted_keywords,
+                muted_categories=context.muted_categories,
                 blocked_source_ids=context.blocked_source_ids,
+                languages=context.languages,
+                category_interests=context.category_interests,
             )
         )
         candidates, total = (
             self._article_repository.list_feed_candidates(
                 user_id=data.user_id,
-                excluded_languages=context.excluded_languages,
+                languages=context.languages,
+                muted_keywords=context.muted_keywords,
+                muted_categories=context.muted_categories,
                 blocked_source_ids=context.blocked_source_ids,
                 include_languages=context.include_languages,
                 include_source_ids=context.include_source_ids,
@@ -151,7 +151,6 @@ class FeedService:
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,
-                exclude_languages=data.exclude_languages,
                 include_source_ids=data.source_ids,
                 published_from=data.published_from,
                 published_to=data.published_to,
@@ -161,7 +160,9 @@ class FeedService:
         items, total = self._article_repository.search_feed(
             user_id=data.user_id,
             q=data.q,
-            excluded_languages=context.excluded_languages,
+            languages=context.languages,
+            muted_keywords=context.muted_keywords,
+            muted_categories=context.muted_categories,
             blocked_source_ids=context.blocked_source_ids,
             include_languages=context.include_languages,
             include_source_ids=context.include_source_ids,

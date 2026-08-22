@@ -112,21 +112,25 @@ class ProjectUserPreferencesUseCase:
             prefs = UserPreferencesProjection(user_id=user_id)
             self._db.add(prefs)
 
-        prefs.preferred_categories = (
-            payload.get("preferred_categories") or []
+        prefs.muted_keywords = (
+            payload.get("muted_keywords") or []
         )
-        prefs.preferred_languages = (
-            payload.get("preferred_languages") or []
-        )
-        prefs.excluded_languages = (
-            payload.get("excluded_languages") or []
+        prefs.muted_categories = (
+            payload.get("muted_categories") or []
         )
         prefs.blocked_source_ids = (
             payload.get("blocked_source_ids") or []
         )
+        prefs.languages = (
+            payload.get("languages") or []
+        )
+        prefs.category_interests = (
+            payload.get("category_interests") or []
+        )
         prefs.updated_at = (
             parse_dt(payload.get("updated_at")) or prefs.updated_at
         )
+
 
 
 @dataclass(frozen=True)

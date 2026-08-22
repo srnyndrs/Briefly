@@ -22,7 +22,9 @@ class FeedItemDTO:
 
 @dataclass(frozen=True)
 class UserPreferencesDTO:
-    preferred_categories: list[str] = field(default_factory=list)
-    preferred_languages: list[str] = field(default_factory=list)
-    excluded_languages: list[str] = field(default_factory=list)
+    muted_keywords: list[str] = field(default_factory=list)
+    muted_categories: list[str] = field(default_factory=list)
     blocked_source_ids: list[str] = field(default_factory=list)
+    languages: list[str] = field(default_factory=list)
+    category_interests: list[str] = field(default_factory=list)
+

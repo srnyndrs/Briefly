@@ -98,16 +98,19 @@ class UserPreferences(Base):
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         primary_key=True,
     )
-    preferred_categories: Mapped[list[str]] = mapped_column(
+    muted_keywords: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
-    preferred_languages: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
-    )
-    excluded_languages: Mapped[list[str]] = mapped_column(
+    muted_categories: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
+        _json_type(), default=list, nullable=False
+    )
+    languages: Mapped[list[str]] = mapped_column(
+        _json_type(), default=list, nullable=False
+    )
+    category_interests: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(

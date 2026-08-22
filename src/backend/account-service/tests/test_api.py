@@ -70,17 +70,22 @@ def test_preferences_and_subscription_flow(
     put_prefs = client.put(
         f"/users/{user_id}/preferences",
         json={
-            "preferred_categories": ["tech", "science"],
-            "preferred_languages": ["en"],
-            "excluded_languages": ["de"],
+            "muted_keywords": ["crypto", "gossip"],
+            "muted_categories": ["sports"],
             "blocked_source_ids": [source_id],
+            "languages": ["en", "hu"],
+            "category_interests": ["tech", "science"],
         },
     )
     assert put_prefs.status_code == 200
-    assert put_prefs.json()["preferred_categories"] == [
+    assert put_prefs.json()["category_interests"] == [
         "tech",
         "science",
     ]
+    assert put_prefs.json()["muted_keywords"] == ["crypto", "gossip"]
+    assert put_prefs.json()["muted_categories"] == ["sports"]
+    assert put_prefs.json()["languages"] == ["en", "hu"]
+    assert put_prefs.json()["blocked_source_ids"] == [source_id]
 
     create_sub = client.post(
         f"/users/{user_id}/subscriptions",
@@ -102,14 +107,15 @@ def test_preferences_and_subscription_flow(
 
     patch_prefs = client.patch(
         f"/users/{user_id}/preferences",
-        json={"excluded_languages": ["de", "fr"]},
+        json={"languages": ["en", "de"]},
     )
     assert patch_prefs.status_code == 200
-    assert patch_prefs.json()["preferred_categories"] == [
+    assert patch_prefs.json()["category_interests"] == [
         "tech",
         "science",
     ]
-    assert patch_prefs.json()["excluded_languages"] == ["de", "fr"]
+    assert patch_prefs.json()["languages"] == ["en", "de"]
+    assert patch_prefs.json()["muted_keywords"] == ["crypto", "gossip"]
 
     delete_sub = client.delete(
         f"/users/{user_id}/subscriptions/{source_id}"

@@ -113,21 +113,25 @@ class UserPreferencesProjection(Base):
     user_id: Mapped[str] = mapped_column(
         String(64), primary_key=True
     )
-    preferred_categories: Mapped[list[str]] = mapped_column(
+    muted_keywords: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
-    preferred_languages: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
-    )
-    excluded_languages: Mapped[list[str]] = mapped_column(
+    muted_categories: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
+    languages: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+    )
+    category_interests: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
 
 
 class UserSubscriptionProjection(Base):

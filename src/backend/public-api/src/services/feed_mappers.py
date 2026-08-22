@@ -53,10 +53,11 @@ def user_preferences_projection_to_dto(
     if model is None:
         return UserPreferencesDTO()
     return UserPreferencesDTO(
-        preferred_categories=model.preferred_categories or [],
-        preferred_languages=model.preferred_languages or [],
-        excluded_languages=model.excluded_languages or [],
+        muted_keywords=model.muted_keywords or [],
+        muted_categories=model.muted_categories or [],
         blocked_source_ids=model.blocked_source_ids or [],
+        languages=model.languages or [],
+        category_interests=model.category_interests or [],
     )
 
 
@@ -64,8 +65,9 @@ def user_preferences_dto_to_vo(
     dto: UserPreferencesDTO,
 ) -> UserPreferencesVO:
     return UserPreferencesVO(
-        preferred_categories=dto.preferred_categories,
-        preferred_languages=dto.preferred_languages,
-        excluded_languages=dto.excluded_languages,
+        muted_keywords=dto.muted_keywords,
+        muted_categories=dto.muted_categories,
         blocked_source_ids=dto.blocked_source_ids,
+        languages=dto.languages,
+        category_interests=dto.category_interests,
     )

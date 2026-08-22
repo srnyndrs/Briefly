@@ -72,10 +72,11 @@ def test_feed_returns_items() -> None:
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            preferred_categories=["technology"],
-            preferred_languages=["en"],
-            excluded_languages=[],
+            muted_keywords=[],
+            muted_categories=[],
             blocked_source_ids=[],
+            languages=["en"],
+            category_interests=["technology"],
             updated_at=datetime.now(UTC),
         )
     )
@@ -111,10 +112,11 @@ def test_feed_prioritizes_recency_with_preference_ties() -> None:
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            preferred_categories=["technology"],
-            preferred_languages=["en"],
-            excluded_languages=[],
+            muted_keywords=[],
+            muted_categories=[],
             blocked_source_ids=[],
+            languages=["en"],
+            category_interests=["technology"],
             updated_at=now,
         )
     )
@@ -165,10 +167,11 @@ def test_feed_use_profile_false_ignores_profile_filters() -> None:
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            preferred_categories=[],
-            preferred_languages=[],
-            excluded_languages=["en"],
+            muted_keywords=[],
+            muted_categories=[],
             blocked_source_ids=[],
+            languages=["hu"],
+            category_interests=[],
             updated_at=now,
         )
     )
@@ -198,9 +201,7 @@ def test_feed_use_profile_false_ignores_profile_filters() -> None:
     assert unprofiled.json()["total"] == 1
 
 
-def test_feed_override_exclude_languages_replaces_profile_value() -> (
-    None
-):
+def test_feed_override_languages_replaces_profile_value() -> None:
     client = _build_client()
 
     db = next(app.dependency_overrides[get_db]())
@@ -210,10 +211,11 @@ def test_feed_override_exclude_languages_replaces_profile_value() -> (
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            preferred_categories=[],
-            preferred_languages=[],
-            excluded_languages=["fr"],
+            muted_keywords=[],
+            muted_categories=[],
             blocked_source_ids=[],
+            languages=["hu"],
+            category_interests=[],
             updated_at=now,
         )
     )
@@ -247,7 +249,7 @@ def test_feed_override_exclude_languages_replaces_profile_value() -> (
     db.commit()
 
     response = client.get(
-        "/feed", params=[("exclude_languages", "en")]
+        "/feed", params=[("languages", "fr")]
     )
     assert response.status_code == 200
     payload = response.json()
@@ -369,14 +371,15 @@ def test_patch_preferences_endpoint(monkeypatch) -> None:
         user_id: str, body: dict, correlation_id: str | None
     ) -> dict:
         assert user_id == str(user.user_id)
-        assert body == {"excluded_languages": ["fr"]}
+        assert body == {"languages": ["en", "hu"]}
         assert correlation_id is not None
         return {
             "user_id": user_id,
-            "preferred_categories": ["technology"],
-            "preferred_languages": ["en"],
-            "excluded_languages": ["fr"],
+            "muted_keywords": ["crypto"],
+            "muted_categories": ["sports"],
             "blocked_source_ids": [],
+            "languages": ["en", "hu"],
+            "category_interests": ["tech"],
             "updated_at": datetime.now(UTC).isoformat(),
         }
 
@@ -386,10 +389,11 @@ def test_patch_preferences_endpoint(monkeypatch) -> None:
     )
 
     response = client.patch(
-        "/me/preferences", json={"excluded_languages": ["fr"]}
+        "/me/preferences", json={"languages": ["en", "hu"]}
     )
     assert response.status_code == 200
-    assert response.json()["excluded_languages"] == ["fr"]
+    assert response.json()["languages"] == ["en", "hu"]
+    assert response.json()["muted_keywords"] == ["crypto"]
 
 
 def test_get_source_endpoint(monkeypatch) -> None:
@@ -719,10 +723,11 @@ def test_get_me_composite_response(monkeypatch) -> None:
         assert u_id == str(user.user_id)
         return {
             "user_id": u_id,
-            "preferred_categories": ["tech"],
-            "preferred_languages": ["en"],
-            "excluded_languages": [],
+            "muted_keywords": ["crypto"],
+            "muted_categories": ["sports"],
             "blocked_source_ids": [],
+            "languages": ["en"],
+            "category_interests": ["tech"],
             "updated_at": now,
         }
 
@@ -743,9 +748,10 @@ def test_get_me_composite_response(monkeypatch) -> None:
     assert payload["user_id"] == str(user.user_id)
     assert payload["email"] == "test@example.com"
     assert payload["profile"]["display_name"] == "Test User"
-    assert payload["preferences"]["preferred_categories"] == [
+    assert payload["preferences"]["category_interests"] == [
         "tech"
     ]
+    assert payload["preferences"]["muted_keywords"] == ["crypto"]
 
 
 def test_feed_search_query_parameter() -> None:
@@ -898,10 +904,11 @@ def test_feed_pagination_pages_and_counts() -> None:
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            preferred_categories=[],
-            preferred_languages=[],
-            excluded_languages=[],
+            muted_keywords=[],
+            muted_categories=[],
             blocked_source_ids=[],
+            languages=[],
+            category_interests=[],
             updated_at=now,
         )
     )
@@ -1131,4 +1138,223 @@ def test_old_sources_subscription_endpoints_removed() -> None:
 
     res_delete = client.delete(f"/sources/{src_id}/subscription")
     assert res_delete.status_code == 404
+
+
+def test_feed_filters_muted_keywords() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=["crypto", "spoilers"],
+            muted_categories=[],
+            blocked_source_ids=[],
+            languages=["en"],
+            category_interests=[],
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/clean-article",
+            title="Clean Article",
+            language="en",
+            keywords=["technology", "ai"],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/crypto-article",
+            title="Crypto Article",
+            language="en",
+            keywords=["crypto", "bitcoin"],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    response = client.get("/feed")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["title"] == "Clean Article"
+
+
+def test_feed_filters_muted_categories() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=[],
+            muted_categories=["sports", "politics"],
+            blocked_source_ids=[],
+            languages=["en"],
+            category_interests=[],
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/tech",
+            title="Tech Article",
+            language="en",
+            category="technology",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/sports",
+            title="Sports Article",
+            language="en",
+            category="sports",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    response = client.get("/feed")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["title"] == "Tech Article"
+
+
+def test_feed_filters_blocked_source_ids() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+    blocked_src = str(uuid4())
+    allowed_src = str(uuid4())
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=[],
+            muted_categories=[],
+            blocked_source_ids=[blocked_src],
+            languages=["en"],
+            category_interests=[],
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=allowed_src,
+            canonical_url="https://example.com/allowed",
+            title="Allowed Source Article",
+            language="en",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=blocked_src,
+            canonical_url="https://example.com/blocked",
+            title="Blocked Source Article",
+            language="en",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    response = client.get("/feed")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["title"] == "Allowed Source Article"
+
+
+def test_feed_ranks_by_category_interests() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=[],
+            muted_categories=[],
+            blocked_source_ids=[],
+            languages=["en"],
+            category_interests=["science"],
+            updated_at=now,
+        )
+    )
+    # Article 1: Published recently, but category is "general"
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/general",
+            title="General Story",
+            language="en",
+            category="general",
+            keywords=["daily"],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    # Article 2: Published earlier, but category is "science" (affinity boost +2.0)
+    db.add(
+        ArticleProjection(
+            article_id=str(uuid4()),
+            source_id=str(uuid4()),
+            canonical_url="https://example.com/science",
+            title="Science Breakthrough",
+            language="en",
+            category="science",
+            keywords=["discovery"],
+            topics=[],
+            published_at=now.replace(year=now.year - 1),
+            updated_at=now.replace(year=now.year - 1),
+        )
+    )
+    db.commit()
+
+    response = client.get("/feed")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    # Science Breakthrough ranked first despite being older due to category interest boost
+    assert payload["items"][0]["title"] == "Science Breakthrough"
+    assert payload["items"][1]["title"] == "General Story"
+
 

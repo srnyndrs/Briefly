@@ -161,13 +161,14 @@ def get_preferences(
         ) from exc
     return PreferencesResponse(
         user_id=user_id,
-        preferred_categories=preferences.preferred_categories,
-        preferred_languages=preferences.preferred_languages,
-        excluded_languages=preferences.excluded_languages,
+        muted_keywords=preferences.muted_keywords,
+        muted_categories=preferences.muted_categories,
         blocked_source_ids=[
             uuid.UUID(value)
             for value in preferences.blocked_source_ids
         ],
+        languages=preferences.languages,
+        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 
@@ -186,12 +187,13 @@ def update_preferences(
     try:
         preferences = service.update_preferences(
             user_id=str(user_id),
-            preferred_categories=body.preferred_categories,
-            preferred_languages=body.preferred_languages,
-            excluded_languages=body.excluded_languages,
+            muted_keywords=body.muted_keywords,
+            muted_categories=body.muted_categories,
             blocked_source_ids=[
                 str(value) for value in body.blocked_source_ids
             ],
+            languages=body.languages,
+            category_interests=body.category_interests,
             correlation_id=request_id,
             trace_id=trace_id,
             span_id=span_id,
@@ -203,13 +205,14 @@ def update_preferences(
 
     return PreferencesResponse(
         user_id=user_id,
-        preferred_categories=preferences.preferred_categories,
-        preferred_languages=preferences.preferred_languages,
-        excluded_languages=preferences.excluded_languages,
+        muted_keywords=preferences.muted_keywords,
+        muted_categories=preferences.muted_categories,
         blocked_source_ids=[
             uuid.UUID(value)
             for value in preferences.blocked_source_ids
         ],
+        languages=preferences.languages,
+        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 
@@ -232,17 +235,13 @@ def patch_preferences(
         trace_id, span_id = trace_ids(request_id)
         preferences = service.update_preferences(
             user_id=str(user_id),
-            preferred_categories=patch_data.get(
-                "preferred_categories",
-                existing.preferred_categories,
+            muted_keywords=patch_data.get(
+                "muted_keywords",
+                existing.muted_keywords,
             ),
-            preferred_languages=patch_data.get(
-                "preferred_languages",
-                existing.preferred_languages,
-            ),
-            excluded_languages=patch_data.get(
-                "excluded_languages",
-                existing.excluded_languages,
+            muted_categories=patch_data.get(
+                "muted_categories",
+                existing.muted_categories,
             ),
             blocked_source_ids=[
                 str(value)
@@ -251,6 +250,14 @@ def patch_preferences(
                     existing.blocked_source_ids,
                 )
             ],
+            languages=patch_data.get(
+                "languages",
+                existing.languages,
+            ),
+            category_interests=patch_data.get(
+                "category_interests",
+                existing.category_interests,
+            ),
             correlation_id=request_id,
             trace_id=trace_id,
             span_id=span_id,
@@ -262,13 +269,14 @@ def patch_preferences(
 
     return PreferencesResponse(
         user_id=user_id,
-        preferred_categories=preferences.preferred_categories,
-        preferred_languages=preferences.preferred_languages,
-        excluded_languages=preferences.excluded_languages,
+        muted_keywords=preferences.muted_keywords,
+        muted_categories=preferences.muted_categories,
         blocked_source_ids=[
             uuid.UUID(value)
             for value in preferences.blocked_source_ids
         ],
+        languages=preferences.languages,
+        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 

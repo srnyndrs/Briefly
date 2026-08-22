@@ -31,11 +31,13 @@ class ArticleEntity:
 
 @dataclass(frozen=True)
 class UserPreferencesVO:
-    preferred_categories: list[str] = field(default_factory=list)
-    preferred_languages: list[str] = field(default_factory=list)
-    excluded_languages: list[str] = field(default_factory=list)
+    muted_keywords: list[str] = field(default_factory=list)
+    muted_categories: list[str] = field(default_factory=list)
     blocked_source_ids: list[str] = field(default_factory=list)
+    languages: list[str] = field(default_factory=list)
+    category_interests: list[str] = field(default_factory=list)
 
     @property
-    def has_preferred_categories(self) -> bool:
-        return bool(self.preferred_categories)
+    def has_category_interests(self) -> bool:
+        return bool(self.category_interests)
+

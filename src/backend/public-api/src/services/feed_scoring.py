@@ -9,22 +9,40 @@ class FeedScoringService:
         preferences: UserPreferencesVO,
         limit: int,
     ) -> list[ArticleEntity]:
-        if not preferences.has_preferred_categories:
+        if not preferences.has_category_interests:
             return articles[:limit]
 
-        preferred = {
-            cat.lower() for cat in preferences.preferred_categories
+        interests = {
+            cat.lower(): 1.0
+            for cat in preferences.category_interests
         }
 
         def _score(
             article: ArticleEntity,
-        ) -> tuple[int, object, object]:
-            categories = {cat.lower() for cat in article.keywords}
-            overlap = len(categories.intersection(preferred))
+        ) -> tuple[float, object, object]:
+            score = 0.0
+
+            # Direct category affinity boost
+            if (
+                article.category
+                and article.category.lower() in interests
+            ):
+                score += interests[article.category.lower()] * 2.0
+
+            # Keyword / Topic affinity boost
+            article_keywords = {
+                k.lower() for k in (article.keywords or [])
+            }
+            keyword_matches = len(
+                article_keywords.intersection(interests.keys())
+            )
+            score += keyword_matches * 0.5
+
             return (
-                overlap,
+                score,
                 article.rank_published_at,
                 article.rank_updated_at,
             )
 
         return sorted(articles, key=_score, reverse=True)[:limit]
+

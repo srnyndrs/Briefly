@@ -27,7 +27,7 @@ class TestFeedServiceList:
         )
         mock_repo.list_feed_candidates.return_value = ([article], 1)
         mock_prefs_reader.get_preferences.return_value = (
-            UserPreferencesDTO(preferred_categories=["tech"])
+            UserPreferencesDTO(category_interests=["tech"])
         )
         mock_scoring_service.rank.return_value = [article]
 
@@ -82,8 +82,10 @@ class TestFeedServiceList:
         mock_repo.list_feed_candidates.return_value = ([], 0)
         mock_prefs_reader.get_preferences.return_value = (
             UserPreferencesDTO(
-                excluded_languages=["en"],
+                languages=["en"],
                 blocked_source_ids=["blocked"],
+                muted_keywords=["crypto"],
+                muted_categories=["sports"],
             )
         )
         mock_scoring_service.rank.return_value = []
@@ -101,10 +103,12 @@ class TestFeedServiceList:
         )
 
         call_kwargs = mock_repo.list_feed_candidates.call_args[1]
-        assert call_kwargs["excluded_languages"] == []
+        assert call_kwargs["languages"] == []
         assert call_kwargs["blocked_source_ids"] == []
+        assert call_kwargs["muted_keywords"] == []
+        assert call_kwargs["muted_categories"] == []
 
-    def test_execute_applies_query_override_for_excluded_languages(
+    def test_execute_applies_query_override_for_languages(
         self,
     ):
         mock_repo = Mock()
@@ -114,7 +118,7 @@ class TestFeedServiceList:
         mock_repo.list_feed_candidates.return_value = ([], 0)
         mock_prefs_reader.get_preferences.return_value = (
             UserPreferencesDTO(
-                excluded_languages=["fr"],
+                languages=["fr"],
             )
         )
         mock_scoring_service.rank.return_value = []
@@ -127,12 +131,13 @@ class TestFeedServiceList:
                 user_id=uuid4(),
                 limit=20,
                 offset=0,
-                exclude_languages=["en"],
+                languages=["en"],
             )
         )
 
         call_kwargs = mock_repo.list_feed_candidates.call_args[1]
-        assert call_kwargs["excluded_languages"] == ["en"]
+        assert call_kwargs["include_languages"] == ["en"]
+        assert call_kwargs["languages"] == ["fr"]
 
 
 class TestFeedServiceSearch:
@@ -176,8 +181,10 @@ class TestFeedServiceSearch:
 
         mock_repo.search_feed.return_value = ([], 0)
         prefs = UserPreferencesDTO(
-            excluded_languages=["fr"],
+            languages=["fr"],
             blocked_source_ids=["blocked_source"],
+            muted_keywords=["crypto"],
+            muted_categories=["sports"],
         )
         mock_prefs_reader.get_preferences.return_value = prefs
 
@@ -193,10 +200,12 @@ class TestFeedServiceSearch:
         # Assert
         mock_repo.search_feed.assert_called_once()
         call_kwargs = mock_repo.search_feed.call_args[1]
-        assert call_kwargs["excluded_languages"] == ["fr"]
+        assert call_kwargs["languages"] == ["fr"]
         assert call_kwargs["blocked_source_ids"] == [
             "blocked_source"
         ]
+        assert call_kwargs["muted_keywords"] == ["crypto"]
+        assert call_kwargs["muted_categories"] == ["sports"]
 
     def test_execute_ignores_profile_when_use_profile_false(self):
         mock_repo = Mock()
@@ -205,7 +214,7 @@ class TestFeedServiceSearch:
         mock_repo.search_feed.return_value = ([], 0)
         mock_prefs_reader.get_preferences.return_value = (
             UserPreferencesDTO(
-                excluded_languages=["fr"],
+                languages=["fr"],
                 blocked_source_ids=["blocked_source"],
             )
         )
@@ -222,8 +231,9 @@ class TestFeedServiceSearch:
         )
 
         call_kwargs = mock_repo.search_feed.call_args[1]
-        assert call_kwargs["excluded_languages"] == []
+        assert call_kwargs["languages"] == []
         assert call_kwargs["blocked_source_ids"] == []
+
 
 
 class TestFeedServiceGetArticle:
