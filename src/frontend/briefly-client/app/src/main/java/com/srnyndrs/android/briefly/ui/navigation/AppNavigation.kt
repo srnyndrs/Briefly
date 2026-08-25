@@ -1,11 +1,8 @@
 package com.srnyndrs.android.briefly.ui.navigation
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,6 +15,7 @@ import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthViewModel
 import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentScreen
 import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentViewModel
+import com.srnyndrs.android.briefly.ui.screen.profile.screen.ProfileScreen
 
 @Composable
 fun AppNavigation(
@@ -83,15 +81,9 @@ fun NavGraphBuilder.profileGraph(navController: NavHostController) {
         startDestination = Screen.Profile
     ) {
         composable<Screen.Profile> {
-            // TODO: implement ProfileScreen
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Profile Screen"
-                )
-            }
+            ProfileScreen(
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
