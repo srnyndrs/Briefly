@@ -1,6 +1,7 @@
 import logging
 from urllib.parse import urljoin, urlparse
 
+import feedparser
 import requests
 from bs4 import BeautifulSoup
 
@@ -18,6 +19,15 @@ FEED_TYPES = {
 
 
 class SourceDiscoveryAdapter:
+    def extract_website_url(self, source_url: str) -> str | None:
+        try:
+            response = requests.get(source_url, timeout=10)
+            response.raise_for_status()
+            feed = feedparser.parse(response.content)
+            return getattr(feed.feed, "link", None) or None
+        except Exception:  # noqa: BLE001
+            return None
+
     def discover(self, url: str) -> list[SourceDiscoverResult]:
         if not url:
             logger.warning("URL is empty or None")

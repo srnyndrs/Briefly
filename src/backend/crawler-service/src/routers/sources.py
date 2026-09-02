@@ -2,8 +2,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import List
 
-import feedparser
-import requests
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -27,18 +25,6 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 def discover_sources(url: str) -> List[SourceDiscoverResult]:
     discovery = SourceDiscoveryAdapter()
     return discovery.discover(url)
-
-
-def extract_website_url(source_url: str) -> str | None:
-    try:
-        response = requests.get(source_url, timeout=10)
-        response.raise_for_status()
-        feed = feedparser.parse(response.content)
-        if hasattr(feed, "feed") and hasattr(feed.feed, "link"):
-            return feed.feed.link or None
-        return None
-    except Exception:
-        return None
 
 
 @router.get("", response_model=List[SourceResponse])
@@ -86,7 +72,9 @@ def register_source(
             status_code=409, detail="Source URL already registered."
         )
 
-    website_url = extract_website_url(final_url)
+    website_url = SourceDiscoveryAdapter().extract_website_url(
+        final_url
+    )
 
     source = repository.create_source(
         url=final_url,

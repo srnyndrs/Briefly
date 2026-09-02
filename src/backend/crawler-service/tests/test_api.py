@@ -25,7 +25,10 @@ def test_discover_sources_success(client):
         assert response.json()[0]["url"] == "https://example.com/feed"
 
 
-@patch("src.routers.sources.extract_website_url", return_value=None)
+@patch(
+    "src.routers.sources.SourceDiscoveryAdapter.extract_website_url",
+    return_value=None,
+)
 @patch("src.routers.sources.discover_sources")
 @patch("src.routers.sources.SqlAlchemySourceRepository")
 def test_register_source_success(
@@ -67,6 +70,7 @@ def test_register_source_success(
     assert response.json()["url"] == "https://example.com/feed"
     assert response.json()["title"] == "Example"
     assert "source_id" in response.json()
+    mock_extract.assert_called_once_with("https://example.com/feed")
 
 
 @patch("src.routers.sources.discover_sources")

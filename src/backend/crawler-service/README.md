@@ -1,7 +1,7 @@
 # Crawler Service (Feed Ingestion)
 
 ## Purpose
-`crawler-service` manages global feed discovery, feed registration, ETag/Last-Modified caching, and periodic scheduled feed crawling via APScheduler. Sources/feeds are global resources.
+`crawler-service` manages global feed discovery, feed registration, and periodic scheduled feed crawling via APScheduler. PostgreSQL's `crawler.sources` table is the durable source of truth for crawl scheduling and ETag/Last-Modified validators. Sources/feeds are global resources.
 
 ## Port
 `8001`
