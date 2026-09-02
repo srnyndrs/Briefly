@@ -22,9 +22,7 @@ def test_discover_sources_success(client):
         )
         assert response.status_code == 200
         assert len(response.json()) == 1
-        assert (
-            response.json()[0]["url"] == "https://example.com/feed"
-        )
+        assert response.json()[0]["url"] == "https://example.com/feed"
 
 
 @patch("src.routers.sources.extract_website_url", return_value=None)

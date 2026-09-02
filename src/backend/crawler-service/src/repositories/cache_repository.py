@@ -31,9 +31,7 @@ class RedisCacheRepository:
             ex=settings.etag_ttl_seconds,
         )
 
-    def mark_seen(
-        self, source_id: str, ttl: int | None = None
-    ) -> None:
+    def mark_seen(self, source_id: str, ttl: int | None = None) -> None:
         item_ttl = ttl or settings.crawl_interval_seconds
         self._client.set(f"source:{source_id}:seen", "1", ex=item_ttl)
 

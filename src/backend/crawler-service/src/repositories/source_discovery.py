@@ -34,8 +34,7 @@ class SourceDiscoveryAdapter:
                 "link",
                 {
                     "type": lambda t: (
-                        t
-                        and any(ft in t for ft in FEED_TYPES.keys())
+                        t and any(ft in t for ft in FEED_TYPES.keys())
                     )
                 },
             )
@@ -53,9 +52,7 @@ class SourceDiscoveryAdapter:
                             favicon=self._extract_favicon(
                                 soup, base_url
                             ),
-                            description=self._extract_description(
-                                soup
-                            ),
+                            description=self._extract_description(soup),
                         )
                     )
 
@@ -69,9 +66,7 @@ class SourceDiscoveryAdapter:
             logger.error("Request timeout for URL: %s", url)
             return []
         except requests.exceptions.RequestException as exc:
-            logger.error(
-                "Failed to fetch URL %s: %s", url, str(exc)
-            )
+            logger.error("Failed to fetch URL %s: %s", url, str(exc))
             return []
         except Exception as exc:  # noqa: BLE001
             logger.error(
@@ -81,9 +76,7 @@ class SourceDiscoveryAdapter:
             )
             return []
 
-    def _extract_site_title(
-        self, soup: BeautifulSoup
-    ) -> str | None:
+    def _extract_site_title(self, soup: BeautifulSoup) -> str | None:
         title_tag = soup.find("title")
         if title_tag:
             return title_tag.get_text(strip=True)
@@ -104,15 +97,11 @@ class SourceDiscoveryAdapter:
                 return urljoin(base_url, href)
         return None
 
-    def _extract_description(
-        self, soup: BeautifulSoup
-    ) -> str | None:
+    def _extract_description(self, soup: BeautifulSoup) -> str | None:
         meta_desc = soup.find("meta", {"name": "description"})
         if meta_desc:
             return meta_desc.get("content")
-        meta_og_desc = soup.find(
-            "meta", {"property": "og:description"}
-        )
+        meta_og_desc = soup.find("meta", {"property": "og:description"})
         if meta_og_desc:
             return meta_og_desc.get("content")
         return None
@@ -150,9 +139,7 @@ class SourceDiscoveryAdapter:
                             favicon=self._extract_favicon(
                                 soup, base_url
                             ),
-                            description=self._extract_description(
-                                soup
-                            ),
+                            description=self._extract_description(soup),
                         )
                     )
             except requests.exceptions.RequestException:

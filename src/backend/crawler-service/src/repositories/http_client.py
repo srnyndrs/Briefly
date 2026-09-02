@@ -19,18 +19,14 @@ class HttpFetchResult:
 
 
 class RequestsHttpClient:
-    def fetch(
-        self, url: str, headers: FetchHeaders
-    ) -> HttpFetchResult:
+    def fetch(self, url: str, headers: FetchHeaders) -> HttpFetchResult:
         request_headers: dict[str, str] = {
             "User-Agent": "briefly-crawler/1.0"
         }
         if headers.etag:
             request_headers["If-None-Match"] = headers.etag
         if headers.last_modified:
-            request_headers["If-Modified-Since"] = (
-                headers.last_modified
-            )
+            request_headers["If-Modified-Since"] = headers.last_modified
 
         response = requests.get(
             url,

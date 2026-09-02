@@ -106,9 +106,7 @@ def delete_source(
     repository = SqlAlchemySourceRepository(db)
     deleted = repository.delete_source(source_id)
     if not deleted:
-        raise HTTPException(
-            status_code=404, detail="Source not found."
-        )
+        raise HTTPException(status_code=404, detail="Source not found.")
 
 
 @router.get("/{source_id}", response_model=SourceResponse)
@@ -118,9 +116,7 @@ def get_source(
     repository = SqlAlchemySourceRepository(db)
     source = repository.get_source_by_id(source_id)
     if source is None:
-        raise HTTPException(
-            status_code=404, detail="Source not found."
-        )
+        raise HTTPException(status_code=404, detail="Source not found.")
     return source
 
 
@@ -133,15 +129,11 @@ def patch_source(
     repository = SqlAlchemySourceRepository(db)
     current = repository.get_source_by_id(source_id)
     if current is None:
-        raise HTTPException(
-            status_code=404, detail="Source not found."
-        )
+        raise HTTPException(status_code=404, detail="Source not found.")
 
     patch_data = body.model_dump(exclude_unset=True)
     resolved_url = (
-        str(patch_data["url"])
-        if "url" in patch_data
-        else current.url
+        str(patch_data["url"]) if "url" in patch_data else current.url
     )
 
     existing = repository.get_source_by_url(resolved_url)
@@ -154,17 +146,13 @@ def patch_source(
         source_id=source_id,
         url=resolved_url,
         title=patch_data.get("title", current.title),
-        description=patch_data.get(
-            "description", current.description
-        ),
+        description=patch_data.get("description", current.description),
         favicon=patch_data.get("favicon", current.favicon),
         enrich_with_ai=patch_data.get(
             "enrich_with_ai", current.enrich_with_ai
         ),
     )
     if updated is None:
-        raise HTTPException(
-            status_code=404, detail="Source not found."
-        )
+        raise HTTPException(status_code=404, detail="Source not found.")
 
     return updated

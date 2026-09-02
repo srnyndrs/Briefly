@@ -61,9 +61,7 @@ class SourceResponse(BaseModel):
         "created_at",
         "updated_at",
     )
-    def serialize_datetimes(
-        self, value: datetime | None
-    ) -> str | None:
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:

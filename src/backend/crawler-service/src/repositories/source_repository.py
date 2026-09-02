@@ -174,6 +174,4 @@ class SqlAlchemySourceRepository:
             interval = min(backoff * base, 24 * HOURS)
         else:
             interval = base
-        return datetime.now(timezone.utc) + timedelta(
-            seconds=interval
-        )
+        return datetime.now(timezone.utc) + timedelta(seconds=interval)

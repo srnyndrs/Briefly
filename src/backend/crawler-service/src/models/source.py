@@ -31,9 +31,7 @@ class Source(Base):
     title: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
-    description: Mapped[str | None] = mapped_column(
-        Text, nullable=True
-    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     favicon: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
@@ -59,9 +57,7 @@ class Source(Base):
         Float, nullable=False, default=1.0
     )
 
-    etag: Mapped[str | None] = mapped_column(
-        String(512), nullable=True
-    )
+    etag: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_modified: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )

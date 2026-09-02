@@ -181,17 +181,13 @@ def inspect_feed(
         return
 
     print("[2] PARSER & FORMAT DETECTION")
-    print(
-        f"  * Feed Version:    {parsed.get('version', 'Unknown')}"
-    )
+    print(f"  * Feed Version:    {parsed.get('version', 'Unknown')}")
     print(
         f"  * Bozo Bit:        {parsed.get('bozo', 0)} "
         "(1 if XML was malformed or non-standard)"
     )
     if parsed.get("bozo"):
-        print(
-            f"  * Bozo Exception:  {parsed.get('bozo_exception')}"
-        )
+        print(f"  * Bozo Exception:  {parsed.get('bozo_exception')}")
     print(
         f"  * Namespaces:      {list(parsed.get('namespaces', {}).keys())}"
     )
@@ -217,22 +213,16 @@ def inspect_feed(
     print()
 
     print("[4] CMS, GENERATOR & FREQUENCY SIGNALS")
-    generator = feed.get("generator_detail") or feed.get(
-        "generator"
-    )
+    generator = feed.get("generator_detail") or feed.get("generator")
     if isinstance(generator, dict):
         print(
             f"  * Generator:       {generator.get('name')} "
             f"(v{generator.get('version')}) - {generator.get('href')}"
         )
     else:
-        print(
-            f"  * Generator:       {generator or 'None detected'}"
-        )
+        print(f"  * Generator:       {generator or 'None detected'}")
 
-    sy_period = feed.get("sy_updateperiod") or feed.get(
-        "updateperiod"
-    )
+    sy_period = feed.get("sy_updateperiod") or feed.get("updateperiod")
     sy_freq = feed.get("sy_updatefrequency") or feed.get(
         "updatefrequency"
     )
@@ -321,9 +311,7 @@ def inspect_feed(
 
         for idx, entry in enumerate(parsed.entries[:shown], 1):
             print(f"\n[Entry #{idx}]")
-            print(
-                f"  * Title:        {entry.get('title', 'Untitled')}"
-            )
+            print(f"  * Title:        {entry.get('title', 'Untitled')}")
             print(f"  * Link:         {entry.get('link', 'N/A')}")
             print(
                 f"  * ID / GUID:    {entry.get('id') or entry.get('guid', 'N/A')}"
@@ -378,9 +366,7 @@ def inspect_feed(
             print(f"    {sorted(list(entry.keys()))}")
 
         if entries_count > shown:
-            print(
-                f"\n... and {entries_count - shown} more entries."
-            )
+            print(f"\n... and {entries_count - shown} more entries.")
 
     print(f"\n{'=' * 80}")
     print(">> Inspection Complete.")
