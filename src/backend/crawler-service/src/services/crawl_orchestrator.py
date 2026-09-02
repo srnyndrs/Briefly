@@ -100,14 +100,18 @@ class CrawlCycleOrchestrator:
         retry_count: int,
         correlation_id: str,
     ) -> tuple[bool, str | None, str | None]:
-        headers = FetchHeaders(
-            etag=etag, last_modified=last_modified
-        )
+        headers = FetchHeaders(etag=etag, last_modified=last_modified)
 
         try:
             result = self._http_client.fetch(source_url, headers)
 
             if result.status_code == 304:
+                source_repository.save_crawl_success(
+                    source_id=source_id,
+                    item_count=0,
+                    etag=etag,
+                    last_modified=last_modified,
+                )
                 return True, etag, last_modified
 
             event_publisher.publish_source_fetched(
