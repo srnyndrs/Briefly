@@ -119,7 +119,6 @@ class SqlAlchemySourceRepository:
         self,
         *,
         source_id: UUID,
-        item_count: int,
         etag: str | None,
         last_modified: str | None,
     ) -> None:

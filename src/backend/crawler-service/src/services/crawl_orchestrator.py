@@ -108,7 +108,6 @@ class CrawlCycleOrchestrator:
             if result.status_code == 304:
                 source_repository.save_crawl_success(
                     source_id=source_id,
-                    item_count=0,
                     etag=etag,
                     last_modified=last_modified,
                 )
@@ -124,7 +123,6 @@ class CrawlCycleOrchestrator:
 
             source_repository.save_crawl_success(
                 source_id=source_id,
-                item_count=0,
                 etag=result.etag,
                 last_modified=result.last_modified,
             )

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -237,7 +238,6 @@ def test_orchestrator_handles_304_not_modified(
     event_publisher.publish_source_fetched.assert_not_called()
     source_repository.save_crawl_success.assert_called_once_with(
         source_id=source.source_id,
-        item_count=0,
         etag="existing-etag",
         last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
     )
@@ -302,8 +302,60 @@ def test_orchestrator_recovers_after_prior_failures(
     )
     source_repository.save_crawl_success.assert_called_once_with(
         source_id=source.source_id,
-        item_count=0,
         etag="recovered-etag",
         last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
     )
     event_publisher.close.assert_called_once()
+
+
+def test_save_crawl_success_reschedules_and_resets_failures(db_session):
+    from src.repositories.source_repository import (
+        SqlAlchemySourceRepository,
+    )
+
+    repo = SqlAlchemySourceRepository(db_session)
+    source = repo.create_source(
+        url="https://example.com/feed-304.xml",
+        title="Test Feed",
+    )
+
+    # Set prior failures and past next_crawl_scheduled_at
+    past = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    source.consecutive_failures = 2
+    source.next_crawl_scheduled_at = past
+    db_session.commit()
+
+    # Verify it is due initially
+    due = repo.get_active_sources(
+        datetime.now(timezone.utc), max_retries=5
+    )
+    assert any(s.source_id == source.source_id for s in due)
+
+    # Record 304 crawl success with existing validators
+    repo.save_crawl_success(
+        source_id=source.source_id,
+        etag="etag-1",
+        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
+    )
+
+    # Reload source and assert state transitions
+    updated = repo.get_source_by_id(source.source_id)
+    assert updated is not None
+    assert updated.consecutive_failures == 0
+    assert updated.last_crawl_succeeded is True
+    assert updated.etag == "etag-1"
+    assert updated.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
+    assert updated.last_crawled_at is not None
+
+    next_scheduled = updated.next_crawl_scheduled_at
+    if next_scheduled.tzinfo is None:
+        next_scheduled = next_scheduled.replace(tzinfo=timezone.utc)
+    assert next_scheduled > datetime.now(timezone.utc)
+
+    # Subsequent scheduler run does not select the source before that time
+    subsequent_due = repo.get_active_sources(
+        datetime.now(timezone.utc), max_retries=5
+    )
+    assert not any(
+        s.source_id == source.source_id for s in subsequent_due
+    )
