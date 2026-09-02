@@ -14,11 +14,9 @@ def _session_factory_with(session):
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.RedisCacheRepository")
 @patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
-def test_orchestrator_runs_crawl_and_updates_cache(
+def test_orchestrator_runs_crawl_and_updates_state(
     mock_source_repo_cls,
-    mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
@@ -26,8 +24,8 @@ def test_orchestrator_runs_crawl_and_updates_cache(
         source_id=uuid.uuid4(),
         url="https://example.com/feed.xml",
         title="Test Source",
-        etag=None,
-        last_modified=None,
+        etag="old-etag",
+        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
         consecutive_failures=1,
     )
 
@@ -35,18 +33,12 @@ def test_orchestrator_runs_crawl_and_updates_cache(
     source_repository.get_active_sources.return_value = [source]
     mock_source_repo_cls.return_value = source_repository
 
-    cache = MagicMock()
-    cache.is_seen.return_value = False
-    cache.get_etag.return_value = None
-    cache.get_last_modified.return_value = None
-    mock_cache_cls.return_value = cache
-
     http_client = MagicMock()
     http_client.fetch.return_value = SimpleNamespace(
         status_code=200,
         body="<xml>",
         etag="fresh-etag",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
+        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
     )
     mock_http_client_cls.return_value = http_client
 
@@ -59,69 +51,50 @@ def test_orchestrator_runs_crawl_and_updates_cache(
     orchestrator.run_crawl_cycle()
 
     http_client.fetch.assert_called_once()
-    event_publisher.publish_source_fetched.assert_called_once()
-    source_repository.save_crawl_success.assert_called_once()
+    fetch_headers = http_client.fetch.call_args[0][1]
+    assert fetch_headers.etag == "old-etag"
+    assert (
+        fetch_headers.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
+    )
 
-    cache.set_etag.assert_called_once_with(
-        str(source.source_id), "fresh-etag"
+    event_publisher.publish_source_fetched.assert_called_once()
+    source_repository.save_crawl_success.assert_called_once_with(
+        source_id=source.source_id,
+        etag="fresh-etag",
+        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
     )
-    cache.set_last_modified.assert_called_once_with(
-        str(source.source_id),
-        "Mon, 01 Jan 2026 00:00:00 GMT",
-    )
-    cache.mark_seen.assert_called_once_with(str(source.source_id))
     event_publisher.close.assert_called_once()
 
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.RedisCacheRepository")
 @patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
-def test_orchestrator_skips_seen_source(
+def test_orchestrator_idle_cycle_does_not_initialize_rabbitmq(
     mock_source_repo_cls,
-    mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
-    source = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/feed.xml",
-        title="Test Source",
-        etag=None,
-        last_modified=None,
-        consecutive_failures=0,
-    )
-
     source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = [source]
+    source_repository.get_active_sources.return_value = []
     mock_source_repo_cls.return_value = source_repository
-
-    cache = MagicMock()
-    cache.is_seen.return_value = True
-    mock_cache_cls.return_value = cache
 
     http_client = MagicMock()
     mock_http_client_cls.return_value = http_client
-
-    event_publisher = MagicMock()
-    mock_event_pub_cls.return_value = event_publisher
 
     orchestrator = CrawlCycleOrchestrator(
         session_factory=_session_factory_with(MagicMock())
     )
     orchestrator.run_crawl_cycle()
 
+    mock_event_pub_cls.assert_not_called()
     http_client.fetch.assert_not_called()
-    event_publisher.close.assert_called_once()
 
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.RedisCacheRepository")
 @patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
 def test_orchestrator_shares_correlation_id_across_cycle(
     mock_source_repo_cls,
-    mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
@@ -148,12 +121,6 @@ def test_orchestrator_shares_correlation_id_across_cycle(
         source2,
     ]
     mock_source_repo_cls.return_value = source_repository
-
-    cache = MagicMock()
-    cache.is_seen.return_value = False
-    cache.get_etag.return_value = None
-    cache.get_last_modified.return_value = None
-    mock_cache_cls.return_value = cache
 
     http_client = MagicMock()
     http_client.fetch.return_value = SimpleNamespace(
@@ -188,11 +155,9 @@ def test_orchestrator_shares_correlation_id_across_cycle(
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.RedisCacheRepository")
 @patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
 def test_orchestrator_handles_304_not_modified(
     mock_source_repo_cls,
-    mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
@@ -208,14 +173,6 @@ def test_orchestrator_handles_304_not_modified(
     source_repository = MagicMock()
     source_repository.get_active_sources.return_value = [source]
     mock_source_repo_cls.return_value = source_repository
-
-    cache = MagicMock()
-    cache.is_seen.return_value = False
-    cache.get_etag.return_value = "existing-etag"
-    cache.get_last_modified.return_value = (
-        "Mon, 01 Jan 2026 00:00:00 GMT"
-    )
-    mock_cache_cls.return_value = cache
 
     http_client = MagicMock()
     http_client.fetch.return_value = SimpleNamespace(
@@ -235,6 +192,12 @@ def test_orchestrator_handles_304_not_modified(
     orchestrator.run_crawl_cycle()
 
     http_client.fetch.assert_called_once()
+    fetch_headers = http_client.fetch.call_args[0][1]
+    assert fetch_headers.etag == "existing-etag"
+    assert (
+        fetch_headers.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
+    )
+
     event_publisher.publish_source_fetched.assert_not_called()
     source_repository.save_crawl_success.assert_called_once_with(
         source_id=source.source_id,
@@ -246,11 +209,9 @@ def test_orchestrator_handles_304_not_modified(
 
 @patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.RedisCacheRepository")
 @patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
 def test_orchestrator_recovers_after_prior_failures(
     mock_source_repo_cls,
-    mock_cache_cls,
     mock_http_client_cls,
     mock_event_pub_cls,
 ):
@@ -266,12 +227,6 @@ def test_orchestrator_recovers_after_prior_failures(
     source_repository = MagicMock()
     source_repository.get_active_sources.return_value = [source]
     mock_source_repo_cls.return_value = source_repository
-
-    cache = MagicMock()
-    cache.is_seen.return_value = False
-    cache.get_etag.return_value = None
-    cache.get_last_modified.return_value = None
-    mock_cache_cls.return_value = cache
 
     http_client = MagicMock()
     http_client.fetch.return_value = SimpleNamespace(

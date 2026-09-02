@@ -7,7 +7,6 @@ import requests
 from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import settings
-from src.repositories.cache_repository import RedisCacheRepository
 from src.repositories.http_client import (
     FetchHeaders,
     RequestsHttpClient,
@@ -25,11 +24,9 @@ logger = logging.getLogger(__name__)
 class CrawlCycleOrchestrator:
     def __init__(self, session_factory: sessionmaker):
         self._session_factory = session_factory
-        self._cache = RedisCacheRepository()
         self._http_client = RequestsHttpClient()
 
     def run_crawl_cycle(self) -> None:
-        event_publisher = RabbitMQEventPublisher()
         cycle_correlation_id = str(uuid.uuid4())
         with self._session_factory() as db:
             source_repository = SqlAlchemySourceRepository(db)
@@ -44,45 +41,24 @@ class CrawlCycleOrchestrator:
                 len(sources),
             )
 
+            if not sources:
+                logger.info("Crawl cycle complete.")
+                return
+
+            event_publisher = RabbitMQEventPublisher()
             try:
                 for source in sources:
-                    source_id_str = str(source.source_id)
-                    if self._cache.is_seen(source_id_str):
-                        logger.debug(
-                            "Source %s already published this window, skipping.",
-                            source_id_str,
-                        )
-                        continue
-
-                    current_etag = (
-                        self._cache.get_etag(source_id_str)
-                        or source.etag
-                    )
-                    current_last_modified = (
-                        self._cache.get_last_modified(source_id_str)
-                        or source.last_modified
-                    )
-
-                    success, etag, last_modified = self._crawl_source(
+                    self._crawl_source(
                         source_repository,
                         event_publisher,
                         source.source_id,
                         source.url,
                         source.title,
-                        current_etag,
-                        current_last_modified,
+                        source.etag,
+                        source.last_modified,
                         source.consecutive_failures,
                         cycle_correlation_id,
                     )
-
-                    if success:
-                        if etag:
-                            self._cache.set_etag(source_id_str, etag)
-                        if last_modified:
-                            self._cache.set_last_modified(
-                                source_id_str, last_modified
-                            )
-                        self._cache.mark_seen(source_id_str)
             finally:
                 event_publisher.close()
 
