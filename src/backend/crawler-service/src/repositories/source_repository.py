@@ -137,7 +137,7 @@ class SqlAlchemySourceRepository:
         source.etag = etag
         source.last_modified = last_modified
         source.next_crawl_scheduled_at = self._calculate_next_crawl(
-            source
+            source, now
         )
         source.updated_at = now
         self._db.commit()
@@ -157,20 +157,19 @@ class SqlAlchemySourceRepository:
         source.last_crawled_at = now
         source.last_crawl_succeeded = False
         source.consecutive_failures += 1
-        source.health_score = max(
-            0.0, 0.95**source.consecutive_failures
-        )
         source.next_crawl_scheduled_at = self._calculate_next_crawl(
-            source
+            source, now
         )
         source.updated_at = now
         self._db.commit()
 
-    def _calculate_next_crawl(self, source: Source) -> datetime:
+    def _calculate_next_crawl(
+        self, source: Source, now: datetime
+    ) -> datetime:
         base = settings.base_crawl_interval_seconds
-        if source.health_score < 0.5:
+        if source.consecutive_failures > 0:
             backoff = 2**source.consecutive_failures
             interval = min(backoff * base, 24 * HOURS)
         else:
             interval = base
-        return datetime.now(timezone.utc) + timedelta(seconds=interval)
+        return now + timedelta(seconds=interval)

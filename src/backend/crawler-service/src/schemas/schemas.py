@@ -48,7 +48,6 @@ class SourceResponse(BaseModel):
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool = False
     consecutive_failures: int = 0
-    health_score: float = 1.0
     enrich_with_ai: bool = False
     created_at: datetime
     updated_at: datetime

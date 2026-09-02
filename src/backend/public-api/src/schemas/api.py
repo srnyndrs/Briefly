@@ -175,7 +175,6 @@ class SourceResponse(BaseModel):
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool
     consecutive_failures: int
-    health_score: float
     created_at: datetime
     updated_at: datetime
     is_subscribed: bool = False
@@ -233,7 +232,9 @@ class PostResponse(BaseModel):
     content: str | None = None
 
     @field_serializer("published_at")
-    def serialize_published_at(self, value: datetime | None) -> str | None:
+    def serialize_published_at(
+        self, value: datetime | None
+    ) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:

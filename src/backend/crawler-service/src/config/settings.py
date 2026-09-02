@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     fetch_timeout_seconds: int = 30
     # Maximum consecutive failures before a feed is suspended
     max_retries: int = 5
-    # Base crawl interval in seconds (used by health-score scheduler)
+    # Base crawl interval in seconds (used by retry-backoff scheduler)
     base_crawl_interval_seconds: int = 300
 
 

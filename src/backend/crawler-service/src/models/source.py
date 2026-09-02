@@ -4,7 +4,6 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Float,
     Index,
     Integer,
     String,
@@ -53,9 +52,6 @@ class Source(Base):
     consecutive_failures: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
-    health_score: Mapped[float] = mapped_column(
-        Float, nullable=False, default=1.0
-    )
 
     etag: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_modified: Mapped[str | None] = mapped_column(
@@ -82,7 +78,6 @@ class Source(Base):
             "ix_sources_next_crawl_scheduled_at",
             "next_crawl_scheduled_at",
         ),
-        Index("ix_sources_health_score", "health_score"),
     )
 
     def __repr__(self) -> str:

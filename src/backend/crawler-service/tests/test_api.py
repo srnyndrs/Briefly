@@ -50,7 +50,6 @@ def test_register_source_success(
         description="Desc",
         favicon="icon.ico",
         enrich_with_ai=False,
-        health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
         next_crawl_scheduled_at=now_dt,
@@ -93,7 +92,6 @@ def test_get_source_success(mock_repo_cls, client):
         description="Desc",
         favicon="icon.ico",
         enrich_with_ai=False,
-        health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
         next_crawl_scheduled_at=now_dt,
@@ -105,7 +103,11 @@ def test_get_source_success(mock_repo_cls, client):
 
     response = client.get(f"/sources/{source_id}")
     assert response.status_code == 200
-    assert response.json()["source_id"] == str(source_id)
+    data = response.json()
+    assert data["source_id"] == str(source_id)
+    assert "consecutive_failures" in data
+    assert "next_crawl_scheduled_at" in data
+    assert "health_score" not in data
 
 
 @patch("src.routers.sources.SqlAlchemySourceRepository")
@@ -119,7 +121,6 @@ def test_patch_source_success(mock_repo_cls, client):
         description="Desc",
         favicon="icon.ico",
         enrich_with_ai=False,
-        health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
         next_crawl_scheduled_at=now_dt,
@@ -134,7 +135,6 @@ def test_patch_source_success(mock_repo_cls, client):
         description=existing.description,
         favicon=existing.favicon,
         enrich_with_ai=False,
-        health_score=1.0,
         consecutive_failures=0,
         last_crawled_at=None,
         next_crawl_scheduled_at=now_dt,
@@ -168,7 +168,6 @@ def test_list_sources_returns_all(mock_repo_cls, client):
             description="Desc",
             favicon="icon.ico",
             enrich_with_ai=False,
-            health_score=1.0,
             consecutive_failures=0,
             last_crawled_at=None,
             next_crawl_scheduled_at=now_dt,

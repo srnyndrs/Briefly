@@ -9,7 +9,7 @@
 ## Database Schema & Tables
 - **Schema:** `crawler`
 - **Tables:**
-  - `feeds`: Registered RSS/Atom feed metadata, scheduled crawl times, failure counters, health scores.
+  - `crawler.sources`: Registered RSS/Atom feed metadata, scheduled crawl times, failure counters, retry backoff state.
 
 ## Events Produced
 - `feed.raw_fetched.v1` (Exchange: `feed.content`)

@@ -248,9 +248,7 @@ def test_feed_override_languages_replaces_profile_value() -> None:
     )
     db.commit()
 
-    response = client.get(
-        "/feed", params=[("languages", "fr")]
-    )
+    response = client.get("/feed", params=[("languages", "fr")])
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
@@ -414,7 +412,6 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,
             "consecutive_failures": 0,
-            "health_score": 1.0,
             "created_at": now,
             "updated_at": now,
         }
@@ -432,7 +429,11 @@ def test_get_source_endpoint(monkeypatch) -> None:
 
     response = client.get(f"/sources/{source_id}")
     assert response.status_code == 200
-    assert response.json()["source_id"] == source_id
+    data = response.json()
+    assert data["source_id"] == source_id
+    assert "consecutive_failures" in data
+    assert "next_crawl_scheduled_at" in data
+    assert "health_score" not in data
 
 
 def test_list_sources_endpoint(monkeypatch) -> None:
@@ -452,7 +453,6 @@ def test_list_sources_endpoint(monkeypatch) -> None:
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
                 "consecutive_failures": 0,
-                "health_score": 1.0,
                 "created_at": now,
                 "updated_at": now,
             }
@@ -545,7 +545,6 @@ def test_patch_source_endpoint(monkeypatch) -> None:
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,
             "consecutive_failures": 0,
-            "health_score": 1.0,
             "created_at": now,
             "updated_at": now,
         }
@@ -745,9 +744,7 @@ def test_get_me_composite_response(monkeypatch) -> None:
     assert payload["user_id"] == str(user.user_id)
     assert payload["email"] == "test@example.com"
     assert payload["profile"]["display_name"] == "Test User"
-    assert payload["preferences"]["category_interests"] == [
-        "tech"
-    ]
+    assert payload["preferences"]["category_interests"] == ["tech"]
     assert payload["preferences"]["muted_keywords"] == ["crypto"]
 
 
@@ -835,7 +832,6 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
                 "consecutive_failures": 0,
-                "health_score": 1.0,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -850,7 +846,6 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
                 "consecutive_failures": 0,
-                "health_score": 1.0,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -916,7 +911,9 @@ def test_feed_pagination_pages_and_counts() -> None:
                 language="en",
                 keywords=[],
                 topics=[],
-                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
+                published_at=datetime.fromtimestamp(
+                    1700000000 + i * 100, tz=UTC
+                ),
                 updated_at=now,
             )
         )
@@ -969,13 +966,17 @@ def test_admin_feed_pagination() -> None:
                 language="en",
                 keywords=[],
                 topics=[],
-                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
+                published_at=datetime.fromtimestamp(
+                    1700000000 + i * 100, tz=UTC
+                ),
                 updated_at=now,
             )
         )
     db.commit()
 
-    res = client.get("/admin/feed", params={"page": 1, "page_size": 2})
+    res = client.get(
+        "/admin/feed", params={"page": 1, "page_size": 2}
+    )
     assert res.status_code == 200
     data = res.json()
     assert data["total"] == 3
@@ -1109,7 +1110,9 @@ def test_old_sources_subscription_endpoints_removed() -> None:
     client = _build_client()
     src_id = str(uuid4())
 
-    res_post = client.post(f"/sources/{src_id}/subscription", json={})
+    res_post = client.post(
+        f"/sources/{src_id}/subscription", json={}
+    )
     assert res_post.status_code == 404
 
     res_delete = client.delete(f"/sources/{src_id}/subscription")
