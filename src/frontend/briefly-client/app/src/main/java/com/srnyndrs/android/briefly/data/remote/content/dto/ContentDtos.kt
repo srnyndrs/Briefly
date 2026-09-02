@@ -124,9 +124,6 @@ data class FeedSourceDto (
     @SerialName("consecutive_failures")
     val consecutiveFailures: Long,
 
-    @SerialName("health_score")
-    val healthScore: Double,
-
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("created_at")
     val createdAt: Instant,
@@ -166,9 +163,6 @@ data class FeedSourceDetailsDto(
 
     @SerialName("consecutive_failures")
     val consecutiveFailures: Long,
-
-    @SerialName("health_score")
-    val healthScore: Float,
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("created_at")
