@@ -68,33 +68,6 @@ class SourceResponse(BaseModel):
         return value.isoformat()
 
 
-class EventTrace(BaseModel):
-    trace_id: str
-    span_id: str
-
-
-class EventEnvelope(BaseModel):
-    event_id: uuid.UUID
-    event_type: str
-    schema_version: int = 1
-    occurred_at: datetime
-    producer: str
-    correlation_id: uuid.UUID
-    partition_key: str
-    trace: EventTrace
-
-
-class SourceRawFetchedPayload(BaseModel):
-    source_id: uuid.UUID
-    source_url: str
-    source_title: str | None = None
-    raw_xml: str
-
-
-class SourceRawFetchedEvent(EventEnvelope):
-    payload: SourceRawFetchedPayload
-
-
 class HealthResponse(BaseModel):
     status: str
     service: str

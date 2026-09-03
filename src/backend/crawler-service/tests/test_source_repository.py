@@ -86,9 +86,7 @@ def test_save_crawl_failure_increments_failures_and_delays_retry(
     )
     assert source.consecutive_failures == 0
 
-    repo.save_crawl_failure(
-        source_id=source.source_id, error="HTTP 500"
-    )
+    repo.save_crawl_failure(source_id=source.source_id)
 
     updated = repo.get_source_by_id(source.source_id)
     assert updated is not None

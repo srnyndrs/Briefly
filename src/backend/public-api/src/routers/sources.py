@@ -31,7 +31,7 @@ def create_source(
 ) -> dict:
     _ = user
     try:
-        return ingestion_create_source(body.model_dump())
+        return ingestion_create_source(body.model_dump(mode="json"))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

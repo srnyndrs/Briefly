@@ -25,6 +25,62 @@ def test_discover_sources_success(client):
         assert response.json()[0]["url"] == "https://example.com/feed"
 
 
+def test_discover_sources_accepts_direct_feed_url():
+    from src.repositories.source_discovery import SourceDiscoveryAdapter
+
+    response = MagicMock()
+    response.url = "https://example.com/feed.xml"
+    response.content = (
+        b"<?xml version='1.0'?><rss version='2.0'><channel>"
+        b"<title>Example</title><description>News</description>"
+        b"</channel></rss>"
+    )
+    response.text = response.content.decode()
+    response.headers = {
+        "Content-Type": "application/rss+xml; charset=utf-8"
+    }
+
+    with patch(
+        "src.repositories.source_discovery.requests.get",
+        return_value=response,
+    ):
+        result = SourceDiscoveryAdapter().discover(
+            "https://example.com/feed.xml"
+        )
+
+    assert len(result) == 1
+    assert result[0].url == "https://example.com/feed.xml"
+    assert result[0].content_type == "application/rss+xml"
+    assert result[0].title == "Example"
+
+
+def test_discover_sources_does_not_guess_unverified_feed_paths():
+    from src.repositories.source_discovery import SourceDiscoveryAdapter
+
+    response = MagicMock()
+    response.url = "https://example.com/"
+    response.content = (
+        b"<html><head><title>Example</title></head></html>"
+    )
+    response.text = response.content.decode()
+
+    with (
+        patch(
+            "src.repositories.source_discovery.requests.get",
+            return_value=response,
+        ),
+        patch(
+            "src.repositories.source_discovery.requests.head"
+        ) as mock_head,
+    ):
+        result = SourceDiscoveryAdapter().discover(
+            "https://example.com/"
+        )
+
+    assert result == []
+    mock_head.assert_not_called()
+
+
 @patch(
     "src.routers.sources.SourceDiscoveryAdapter.extract_website_url",
     return_value=None,

@@ -3,10 +3,10 @@ import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
-import requests
 from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import settings
+from src.models.source import Source
 from src.repositories.http_client import (
     FetchHeaders,
     RequestsHttpClient,
@@ -51,12 +51,7 @@ class CrawlCycleOrchestrator:
                     self._crawl_source(
                         source_repository,
                         event_publisher,
-                        source.source_id,
-                        source.url,
-                        source.title,
-                        source.etag,
-                        source.last_modified,
-                        source.consecutive_failures,
+                        source,
                         cycle_correlation_id,
                     )
             finally:
@@ -68,105 +63,59 @@ class CrawlCycleOrchestrator:
         self,
         source_repository: SqlAlchemySourceRepository,
         event_publisher: RabbitMQEventPublisher,
-        source_id: UUID,
-        source_url: str,
-        source_title: str | None,
-        etag: str | None,
-        last_modified: str | None,
-        retry_count: int,
+        source: Source,
         correlation_id: str,
-    ) -> tuple[bool, str | None, str | None]:
-        headers = FetchHeaders(etag=etag, last_modified=last_modified)
+    ) -> None:
+        headers = FetchHeaders(
+            etag=source.etag,
+            last_modified=source.last_modified,
+        )
 
         try:
-            result = self._http_client.fetch(source_url, headers)
+            result = self._http_client.fetch(source.url, headers)
 
             if result.status_code == 304:
                 source_repository.save_crawl_success(
-                    source_id=source_id,
-                    etag=etag,
-                    last_modified=last_modified,
+                    source_id=source.source_id,
+                    etag=source.etag,
+                    last_modified=source.last_modified,
                 )
-                return True, etag, last_modified
+                return
 
             event_publisher.publish_source_fetched(
-                source_id=source_id,
-                source_url=source_url,
+                source_id=source.source_id,
+                source_url=source.url,
                 correlation_id=correlation_id,
-                source_title=source_title,
+                source_title=source.title,
                 raw_xml=result.body,
             )
 
             source_repository.save_crawl_success(
-                source_id=source_id,
+                source_id=source.source_id,
                 etag=result.etag,
                 last_modified=result.last_modified,
             )
-
-            return True, result.etag, result.last_modified
-
-        except requests.exceptions.Timeout:
-            self._handle_failure(
-                source_repository,
-                event_publisher,
-                source_id,
-                source_url,
-                "TIMEOUT",
-                "Request timed out",
-                retry_count,
-            )
-            return False, None, None
-        except requests.exceptions.ConnectionError as exc:
-            self._handle_failure(
-                source_repository,
-                event_publisher,
-                source_id,
-                source_url,
-                "NETWORK_ERROR",
-                str(exc),
-                retry_count,
-            )
-            return False, None, None
-        except requests.exceptions.HTTPError as exc:
-            self._handle_failure(
-                source_repository,
-                event_publisher,
-                source_id,
-                source_url,
-                "HTTP_ERROR",
-                str(exc),
-                retry_count,
-            )
-            return False, None, None
         except Exception as exc:  # noqa: BLE001
-            code = (
-                "INVALID_XML"
-                if "xml" in str(exc).lower()
-                else "UNKNOWN_ERROR"
-            )
             self._handle_failure(
                 source_repository,
-                event_publisher,
-                source_id,
-                source_url,
-                code,
+                source.source_id,
+                source.url,
                 str(exc),
-                retry_count,
             )
-            return False, None, None
 
     def _handle_failure(
         self,
         source_repository: SqlAlchemySourceRepository,
-        event_publisher: RabbitMQEventPublisher,
         source_id: UUID,
         source_url: str,
-        error_code: str,
         error_message: str,
-        retry_count: int,
     ) -> None:
-        _ = (event_publisher, source_url, error_code, retry_count)
+        logger.warning(
+            "Crawl failed for source %s (%s): %s",
+            source_id,
+            source_url,
+            error_message,
+        )
         source_repository.save_crawl_failure(
             source_id=source_id,
-            error=error_message,
         )

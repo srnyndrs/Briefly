@@ -506,6 +506,52 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     assert payload[0]["title"] == "Discovered"
 
 
+def test_create_source_endpoint_forwards_json_payload(monkeypatch) -> None:
+    client = _build_client()
+    captured: dict = {}
+
+    def fake_create_source(body: dict) -> dict:
+        captured.update(body)
+        now = datetime.now(UTC).isoformat()
+        return {
+            "source_id": str(uuid4()),
+            "url": "https://example.com/feed.xml",
+            "title": body["title"],
+            "description": body["description"],
+            "favicon": body["favicon"],
+            "website_url": "https://example.com",
+            "last_crawled_at": None,
+            "next_crawl_scheduled_at": now,
+            "last_crawl_succeeded": False,
+            "consecutive_failures": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    monkeypatch.setattr(
+        "src.routers.sources.ingestion_create_source",
+        fake_create_source,
+    )
+
+    response = client.post(
+        "/sources",
+        json={
+            "url": "https://example.com",
+            "title": "Example",
+            "description": "Feed description",
+            "favicon": "https://example.com/favicon.ico",
+        },
+    )
+
+    assert response.status_code == 201
+    assert captured == {
+        "url": "https://example.com",
+        "title": "Example",
+        "description": "Feed description",
+        "favicon": "https://example.com/favicon.ico",
+    }
+
+
 def test_delete_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())

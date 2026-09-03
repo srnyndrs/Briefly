@@ -17,19 +17,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   rabbitmq:
     # 'management' variant ships with the web UI at http://localhost:15672
     # Default credentials: guest / guest
@@ -62,7 +49,6 @@ services:
       ENV: production
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
-      REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
       CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
@@ -70,8 +56,6 @@ services:
       MAX_RETRIES: 5
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -194,5 +178,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   rabbitmq_data:

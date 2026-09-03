@@ -1,5 +1,5 @@
 import logging
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import feedparser
 import requests
@@ -36,8 +36,13 @@ class SourceDiscoveryAdapter:
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
             base_url = response.url
+
+            direct_feed = self._direct_feed_result(response)
+            if direct_feed is not None:
+                return [direct_feed]
+
+            soup = BeautifulSoup(response.text, "html.parser")
 
             sources: list[SourceDiscoverResult] = []
             feed_links = soup.find_all(
@@ -66,15 +71,11 @@ class SourceDiscoveryAdapter:
                         )
                     )
 
-            if not sources:
-                sources.extend(
-                    self._try_common_feed_paths(base_url, soup)
-                )
-
             return sources
         except requests.exceptions.Timeout:
             logger.error("Request timeout for URL: %s", url)
             return []
+
         except requests.exceptions.RequestException as exc:
             logger.error("Failed to fetch URL %s: %s", url, str(exc))
             return []
@@ -85,6 +86,24 @@ class SourceDiscoveryAdapter:
                 str(exc),
             )
             return []
+
+    def _direct_feed_result(
+        self, response: requests.Response
+    ) -> SourceDiscoverResult | None:
+        parsed = feedparser.parse(response.content)
+        if not parsed.version:
+            return None
+
+        feed = parsed.feed
+        content_type = response.headers.get("Content-Type", "")
+        content_type = content_type.split(";", 1)[0].strip() or None
+        return SourceDiscoverResult(
+            url=response.url,
+            title=getattr(feed, "title", None),
+            content_type=content_type,
+            favicon=getattr(getattr(feed, "image", None), "href", None),
+            description=getattr(feed, "subtitle", None),
+        )
 
     def _extract_site_title(self, soup: BeautifulSoup) -> str | None:
         title_tag = soup.find("title")
@@ -115,44 +134,3 @@ class SourceDiscoveryAdapter:
         if meta_og_desc:
             return meta_og_desc.get("content")
         return None
-
-    def _try_common_feed_paths(
-        self,
-        base_url: str,
-        soup: BeautifulSoup,
-    ) -> list[SourceDiscoverResult]:
-        common_paths = [
-            "/feed",
-            "/rss",
-            "/feed.xml",
-            "/rss.xml",
-            "/atom.xml",
-            "/feeds/all.atom.xml",
-        ]
-
-        sources: list[SourceDiscoverResult] = []
-        parsed = urlparse(base_url)
-        domain = f"{parsed.scheme}://{parsed.netloc}"
-
-        for path in common_paths:
-            feed_url = domain + path
-            try:
-                response = requests.head(
-                    feed_url, timeout=10, allow_redirects=True
-                )
-                if response.status_code == 200:
-                    sources.append(
-                        SourceDiscoverResult(
-                            url=feed_url,
-                            title=self._extract_site_title(soup),
-                            content_type="application/rss+xml",
-                            favicon=self._extract_favicon(
-                                soup, base_url
-                            ),
-                            description=self._extract_description(soup),
-                        )
-                    )
-            except requests.exceptions.RequestException:
-                continue
-
-        return sources

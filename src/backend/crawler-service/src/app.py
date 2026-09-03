@@ -19,9 +19,8 @@ logger = logging.getLogger("crawler-service")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler = None
-    if not getattr(app.state, "testing", False):
+async def lifespan(application: FastAPI):
+    if not getattr(application.state, "testing", False):
         # 1. Initialise database schema
         init_db()
 
@@ -38,7 +37,7 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
         scheduler.start()
-        app.state.scheduler = scheduler
+        application.state.scheduler = scheduler
 
         logger.info(
             "Crawler Service started crawl interval=%ds, port=%d",
@@ -49,7 +48,7 @@ async def lifespan(app: FastAPI):
     yield
 
     scheduler: BackgroundScheduler | None = getattr(
-        app.state, "scheduler", None
+        application.state, "scheduler", None
     )
     if scheduler and scheduler.running:
         scheduler.shutdown(wait=True)

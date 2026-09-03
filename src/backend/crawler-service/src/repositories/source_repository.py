@@ -142,9 +142,7 @@ class SqlAlchemySourceRepository:
         source.updated_at = now
         self._db.commit()
 
-    def save_crawl_failure(
-        self, *, source_id: UUID, error: str
-    ) -> None:
+    def save_crawl_failure(self, *, source_id: UUID) -> None:
         source = (
             self._db.query(Source)
             .filter(Source.source_id == source_id)
