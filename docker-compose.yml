@@ -51,6 +51,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
+      BASE_CRAWL_INTERVAL_SECONDS: 300
       CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
       FETCH_TIMEOUT_SECONDS: 30
       MAX_RETRIES: 5

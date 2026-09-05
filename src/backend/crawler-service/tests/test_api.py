@@ -20,9 +20,13 @@ def test_discover_sources_success(client):
         response = client.post(
             "/sources/discover", json={"url": "https://example.com"}
         )
+
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["url"] == "https://example.com/feed"
+        assert response.json()[0]["title"] == "Example"
+        assert response.json()[0]["description"] == "Desc"
+        assert response.json()[0]["favicon"] == "icon.ico"
 
 
 def test_discover_sources_accepts_direct_feed_url():
