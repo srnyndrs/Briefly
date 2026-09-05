@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
 from src.routers import sources
-from src.schemas.schemas import HealthResponse
+from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
 logging.basicConfig(
@@ -21,10 +21,7 @@ logger = logging.getLogger("crawler-service")
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     if not getattr(application.state, "testing", False):
-        # 1. Initialise database schema
         init_db()
-
-        # 2. Schedule periodic crawl cycle
         orchestrator = CrawlCycleOrchestrator(
             session_factory=SessionLocal
         )
@@ -38,7 +35,6 @@ async def lifespan(application: FastAPI):
         )
         scheduler.start()
         application.state.scheduler = scheduler
-
         logger.info(
             "Crawler Service started crawl interval=%ds, port=%d",
             settings.crawl_interval_seconds,
@@ -67,15 +63,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(sources.router)
-
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health_check() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        service="crawler-service",
-    )
+    return HealthResponse(status="ok", service="crawler-service")
+
+
+app.include_router(sources.router)
 
 
 if __name__ == "__main__":

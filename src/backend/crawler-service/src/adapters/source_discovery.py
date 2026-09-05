@@ -5,7 +5,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
-from src.schemas.schemas import SourceDiscoverResult
+from src.schemas.sources import SourceDiscoverResult
 
 logger = logging.getLogger(__name__)
 

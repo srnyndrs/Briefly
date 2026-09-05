@@ -24,9 +24,7 @@ def engine():
 
 @pytest.fixture(scope="session")
 def _session_factory(engine):
-    return sessionmaker(
-        bind=engine, autocommit=False, autoflush=False
-    )
+    return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 @pytest.fixture()

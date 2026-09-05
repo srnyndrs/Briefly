@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 
 from src.config.database import get_db
 from src.config.settings import settings
-from src.repositories.source_discovery import SourceDiscoveryAdapter
+from src.adapters.source_discovery import SourceDiscoveryAdapter
 from src.repositories.source_repository import (
-    SqlAlchemySourceRepository,
+    SourceRepository,
 )
-from src.schemas.schemas import (
+from src.schemas.sources import (
     SourceCreate,
     SourceDiscoverRequest,
     SourceDiscoverResult,
@@ -32,7 +32,7 @@ def list_sources(
     active_only: bool = False,
     db: Session = Depends(get_db),
 ) -> List[SourceResponse]:
-    repository = SqlAlchemySourceRepository(db)
+    repository = SourceRepository(db)
     if active_only:
         sources = repository.get_active_sources(
             now=datetime.now(timezone.utc),
@@ -65,7 +65,7 @@ def register_source(
     first_source = discovered[0]
     final_url = first_source.url
 
-    repository = SqlAlchemySourceRepository(db)
+    repository = SourceRepository(db)
     existing = repository.get_source_by_url(final_url)
     if existing:
         raise HTTPException(
@@ -91,7 +91,7 @@ def register_source(
 def delete_source(
     source_id: uuid.UUID, db: Session = Depends(get_db)
 ) -> None:
-    repository = SqlAlchemySourceRepository(db)
+    repository = SourceRepository(db)
     deleted = repository.delete_source(source_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Source not found.")
@@ -101,7 +101,7 @@ def delete_source(
 def get_source(
     source_id: uuid.UUID, db: Session = Depends(get_db)
 ) -> SourceResponse:
-    repository = SqlAlchemySourceRepository(db)
+    repository = SourceRepository(db)
     source = repository.get_source_by_id(source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
@@ -114,7 +114,7 @@ def patch_source(
     body: SourcePatchRequest,
     db: Session = Depends(get_db),
 ) -> SourceResponse:
-    repository = SqlAlchemySourceRepository(db)
+    repository = SourceRepository(db)
     current = repository.get_source_by_id(source_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Source not found.")

@@ -65,6 +65,11 @@ class FeedConsumer:
             exchange_type="topic",
             durable=True,
         )
+        self._channel.exchange_declare(
+            exchange=settings.parsed_exchange,
+            exchange_type="topic",
+            durable=True,
+        )
         self._channel.queue_declare(
             queue=settings.feed_queue, durable=True
         )

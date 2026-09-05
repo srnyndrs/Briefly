@@ -66,8 +66,3 @@ class SourceResponse(BaseModel):
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
-
-
-class HealthResponse(BaseModel):
-    status: str
-    service: str

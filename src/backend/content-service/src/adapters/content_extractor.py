@@ -46,7 +46,5 @@ def extract_article(url: str) -> dict[str, Any]:
             "publish_date": article.publish_date or None,
         }
     except Exception as exc:
-        logger.warning(
-            "Content extraction failed for %s: %s", url, exc
-        )
+        logger.warning("Content extraction failed for %s: %s", url, exc)
         return {"error": str(exc), "content": "", "title": ""}

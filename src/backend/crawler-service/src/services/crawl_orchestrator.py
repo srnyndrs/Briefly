@@ -7,16 +7,9 @@ from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import settings
 from src.models.source import Source
-from src.repositories.http_client import (
-    FetchHeaders,
-    RequestsHttpClient,
-)
-from src.repositories.message_publisher import (
-    RabbitMQEventPublisher,
-)
-from src.repositories.source_repository import (
-    SqlAlchemySourceRepository,
-)
+from src.adapters.http_client import FetchHeaders, RequestsHttpClient
+from src.adapters.feed_publisher import FeedPublisher
+from src.repositories.source_repository import SourceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +22,7 @@ class CrawlCycleOrchestrator:
     def run_crawl_cycle(self) -> None:
         cycle_correlation_id = str(uuid.uuid4())
         with self._session_factory() as db:
-            source_repository = SqlAlchemySourceRepository(db)
+            source_repository = SourceRepository(db)
             now = datetime.now(timezone.utc)
             sources = source_repository.get_active_sources(
                 now, settings.max_retries
@@ -45,7 +38,7 @@ class CrawlCycleOrchestrator:
                 logger.info("Crawl cycle complete.")
                 return
 
-            event_publisher = RabbitMQEventPublisher()
+            event_publisher = FeedPublisher()
             try:
                 for source in sources:
                     self._crawl_source(
@@ -61,8 +54,8 @@ class CrawlCycleOrchestrator:
 
     def _crawl_source(
         self,
-        source_repository: SqlAlchemySourceRepository,
-        event_publisher: RabbitMQEventPublisher,
+        source_repository: SourceRepository,
+        event_publisher: FeedPublisher,
         source: Source,
         correlation_id: str,
     ) -> None:
@@ -105,7 +98,7 @@ class CrawlCycleOrchestrator:
 
     def _handle_failure(
         self,
-        source_repository: SqlAlchemySourceRepository,
+        source_repository: SourceRepository,
         source_id: UUID,
         source_url: str,
         error_message: str,

@@ -10,8 +10,8 @@ from src.models.source import Source
 HOURS = 3600
 
 
-class SqlAlchemySourceRepository:
-    def __init__(self, db: Session):
+class SourceRepository:
+    def __init__(self, db: Session) -> None:
         self._db = db
 
     def get_sources(self) -> list[Source]:

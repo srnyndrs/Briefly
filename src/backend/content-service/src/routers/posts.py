@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.config.database import get_db
+from src.models.post import Post
 from src.repositories.post_repository import PostRepository
-from src.services.post_service import PostService
+from src.schemas.posts import PostCountResponse, PostResponse
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -16,20 +17,14 @@ def get_post_repository(
     return PostRepository(db)
 
 
-def get_post_service(
-    repo: PostRepository = Depends(get_post_repository),
-) -> PostService:
-    return PostService(repo)
-
-
-@router.get("/count")
+@router.get("/count", response_model=PostCountResponse)
 def post_count(
-    service: PostService = Depends(get_post_service),
-) -> dict:
-    return {"count": service.get_count()}
+    repo: PostRepository = Depends(get_post_repository),
+) -> PostCountResponse:
+    return PostCountResponse(count=repo.count())
 
 
-@router.get("")
+@router.get("", response_model=list[PostResponse])
 def list_posts(
     limit: int = 20,
     skip: int = 0,
@@ -40,9 +35,9 @@ def list_posts(
     published_to: datetime | None = None,
     parsed_from: datetime | None = None,
     parsed_to: datetime | None = None,
-    service: PostService = Depends(get_post_service),
-) -> list[dict]:
-    return service.list_posts(
+    repo: PostRepository = Depends(get_post_repository),
+) -> list[Post]:
+    return repo.list(
         limit=max(1, min(limit, 200)),
         skip=max(0, skip),
         source_id=source_id,
@@ -55,14 +50,12 @@ def list_posts(
     )
 
 
-@router.get("/{post_id}")
+@router.get("/{post_id}", response_model=PostResponse)
 def get_post(
     post_id: str,
-    service: PostService = Depends(get_post_service),
-) -> dict:
-    post = service.get_by_id(post_id)
+    repo: PostRepository = Depends(get_post_repository),
+) -> Post:
+    post = repo.get_by_id(post_id)
     if post is None:
-        raise HTTPException(
-            status_code=404, detail="Post not found"
-        )
+        raise HTTPException(status_code=404, detail="Post not found")
     return post

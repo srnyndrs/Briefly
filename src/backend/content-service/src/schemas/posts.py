@@ -8,6 +8,7 @@ class PostResponse(BaseModel):
     source_id: str
     item_guid: str
     url: str
+    source_title: str | None = None
     title: str
     description: str | None = None
     category: str | None = None
@@ -23,9 +24,7 @@ class PostResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("published_at", "crawled_at", "parsed_at")
-    def serialize_datetime(
-        self, value: datetime | None
-    ) -> str | None:
+    def serialize_datetime(self, value: datetime | None) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:

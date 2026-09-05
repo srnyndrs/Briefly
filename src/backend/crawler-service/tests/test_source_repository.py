@@ -1,13 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
 from src.config.settings import settings
-from src.repositories.source_repository import (
-    SqlAlchemySourceRepository,
-)
+from src.repositories.source_repository import SourceRepository
 
 
 def test_calculate_next_crawl_success_and_failures(db_session):
-    repo = SqlAlchemySourceRepository(db_session)
+    repo = SourceRepository(db_session)
     source = repo.create_source(
         url="https://example.com/feed-retry.xml",
         title="Retry Test Feed",
@@ -38,7 +36,7 @@ def test_calculate_next_crawl_success_and_failures(db_session):
 
 
 def test_get_active_sources_respects_max_retries(db_session):
-    repo = SqlAlchemySourceRepository(db_session)
+    repo = SourceRepository(db_session)
     now = datetime.now(timezone.utc)
     past = now - timedelta(minutes=10)
 
@@ -79,7 +77,7 @@ def test_get_active_sources_respects_max_retries(db_session):
 def test_save_crawl_failure_increments_failures_and_delays_retry(
     db_session,
 ):
-    repo = SqlAlchemySourceRepository(db_session)
+    repo = SourceRepository(db_session)
     source = repo.create_source(
         url="https://example.com/failure-test.xml",
         title="Failure Test Feed",

@@ -8,7 +8,7 @@ from src.config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-def create_channel() -> (
+def create_feed_publisher_channel() -> (
     pika.adapters.blocking_connection.BlockingChannel
 ):
     params = pika.URLParameters(settings.rabbitmq_url)
@@ -22,7 +22,7 @@ def create_channel() -> (
     )
 
     logger.info(
-        "RabbitMQ channel ready — exchange='%s'",
+        "RabbitMQ channel ready - exchange='%s'",
         settings.feed_exchange,
     )
     return channel

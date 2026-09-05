@@ -12,9 +12,9 @@ def _session_factory_with(session):
     return session_factory
 
 
-@patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
+@patch("src.services.crawl_orchestrator.FeedPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+@patch("src.services.crawl_orchestrator.SourceRepository")
 def test_orchestrator_runs_crawl_and_updates_state(
     mock_source_repo_cls,
     mock_http_client_cls,
@@ -66,9 +66,9 @@ def test_orchestrator_runs_crawl_and_updates_state(
     event_publisher.close.assert_called_once()
 
 
-@patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
+@patch("src.services.crawl_orchestrator.FeedPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+@patch("src.services.crawl_orchestrator.SourceRepository")
 def test_orchestrator_idle_cycle_does_not_initialize_rabbitmq(
     mock_source_repo_cls,
     mock_http_client_cls,
@@ -90,9 +90,9 @@ def test_orchestrator_idle_cycle_does_not_initialize_rabbitmq(
     http_client.fetch.assert_not_called()
 
 
-@patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
+@patch("src.services.crawl_orchestrator.FeedPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+@patch("src.services.crawl_orchestrator.SourceRepository")
 def test_orchestrator_shares_correlation_id_across_cycle(
     mock_source_repo_cls,
     mock_http_client_cls,
@@ -153,9 +153,9 @@ def test_orchestrator_shares_correlation_id_across_cycle(
     assert len(call1_kwargs["correlation_id"]) > 0
 
 
-@patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
+@patch("src.services.crawl_orchestrator.FeedPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+@patch("src.services.crawl_orchestrator.SourceRepository")
 def test_orchestrator_handles_304_not_modified(
     mock_source_repo_cls,
     mock_http_client_cls,
@@ -207,9 +207,9 @@ def test_orchestrator_handles_304_not_modified(
     event_publisher.close.assert_called_once()
 
 
-@patch("src.services.crawl_orchestrator.RabbitMQEventPublisher")
+@patch("src.services.crawl_orchestrator.FeedPublisher")
 @patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SqlAlchemySourceRepository")
+@patch("src.services.crawl_orchestrator.SourceRepository")
 def test_orchestrator_recovers_after_prior_failures(
     mock_source_repo_cls,
     mock_http_client_cls,
@@ -264,11 +264,9 @@ def test_orchestrator_recovers_after_prior_failures(
 
 
 def test_save_crawl_success_reschedules_and_resets_failures(db_session):
-    from src.repositories.source_repository import (
-        SqlAlchemySourceRepository,
-    )
+    from src.repositories.source_repository import SourceRepository
 
-    repo = SqlAlchemySourceRepository(db_session)
+    repo = SourceRepository(db_session)
     source = repo.create_source(
         url="https://example.com/feed-304.xml",
         title="Test Feed",

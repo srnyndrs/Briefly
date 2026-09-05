@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from src.models.source import Source
-from src.schemas.schemas import SourceDiscoverResult
+from src.schemas.sources import SourceDiscoverResult
 
 
 def test_discover_sources_success(client):
@@ -30,7 +30,7 @@ def test_discover_sources_success(client):
 
 
 def test_discover_sources_accepts_direct_feed_url():
-    from src.repositories.source_discovery import SourceDiscoveryAdapter
+    from src.adapters.source_discovery import SourceDiscoveryAdapter
 
     response = MagicMock()
     response.url = "https://example.com/feed.xml"
@@ -45,7 +45,7 @@ def test_discover_sources_accepts_direct_feed_url():
     }
 
     with patch(
-        "src.repositories.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.get",
         return_value=response,
     ):
         result = SourceDiscoveryAdapter().discover(
@@ -59,7 +59,7 @@ def test_discover_sources_accepts_direct_feed_url():
 
 
 def test_discover_sources_does_not_guess_unverified_feed_paths():
-    from src.repositories.source_discovery import SourceDiscoveryAdapter
+    from src.adapters.source_discovery import SourceDiscoveryAdapter
 
     response = MagicMock()
     response.url = "https://example.com/"
@@ -70,11 +70,11 @@ def test_discover_sources_does_not_guess_unverified_feed_paths():
 
     with (
         patch(
-            "src.repositories.source_discovery.requests.get",
+            "src.adapters.source_discovery.requests.get",
             return_value=response,
         ),
         patch(
-            "src.repositories.source_discovery.requests.head"
+            "src.adapters.source_discovery.requests.head"
         ) as mock_head,
     ):
         result = SourceDiscoveryAdapter().discover(
@@ -90,7 +90,7 @@ def test_discover_sources_does_not_guess_unverified_feed_paths():
     return_value=None,
 )
 @patch("src.routers.sources.discover_sources")
-@patch("src.routers.sources.SqlAlchemySourceRepository")
+@patch("src.routers.sources.SourceRepository")
 def test_register_source_success(
     mock_repo_cls, mock_discover, mock_extract, client
 ):
@@ -144,7 +144,7 @@ def test_register_source_not_found(mock_discover, client):
     assert "No valid RSS/Atom feed found" in response.text
 
 
-@patch("src.routers.sources.SqlAlchemySourceRepository")
+@patch("src.routers.sources.SourceRepository")
 def test_get_source_success(mock_repo_cls, client):
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
     source_id = uuid.uuid4()
@@ -174,7 +174,7 @@ def test_get_source_success(mock_repo_cls, client):
     assert "health_score" not in data
 
 
-@patch("src.routers.sources.SqlAlchemySourceRepository")
+@patch("src.routers.sources.SourceRepository")
 def test_patch_source_success(mock_repo_cls, client):
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
     source_id = uuid.uuid4()
@@ -219,7 +219,7 @@ def test_patch_source_success(mock_repo_cls, client):
     assert response.json()["title"] == "Updated Title"
 
 
-@patch("src.routers.sources.SqlAlchemySourceRepository")
+@patch("src.routers.sources.SourceRepository")
 def test_list_sources_returns_all(mock_repo_cls, client):
     source_id = uuid.uuid4()
     now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)

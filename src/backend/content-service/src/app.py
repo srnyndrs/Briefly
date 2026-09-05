@@ -9,7 +9,7 @@ from src.config.database import init_db
 from src.config.settings import settings
 from src.routers import admin, posts
 from src.schemas.common import HealthResponse
-from src.services.consumer import FeedConsumer
+from src.adapters.feed_consumer import FeedConsumer
 
 logging.basicConfig(
     level=settings.log_level,
@@ -19,12 +19,9 @@ logger = logging.getLogger("content-service")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    if not getattr(app.state, "testing", False):
+async def lifespan(application: FastAPI):
+    if not getattr(application.state, "testing", False):
         init_db()
-        logger.info(
-            "Content Service started on port=%d", settings.app_port
-        )
         consumer = FeedConsumer()
         thread = threading.Thread(
             target=consumer.run,
@@ -32,23 +29,27 @@ async def lifespan(app: FastAPI):
             name="rabbitmq-consumer",
         )
         thread.start()
-        app.state.consumer = consumer
-        app.state.consumer_thread = thread
+        application.state.consumer = consumer
+        application.state.consumer_thread = thread
+        logger.info(
+            "Content Service started on port=%d",
+            settings.app_port,
+        )
 
     yield
 
     consumer: FeedConsumer | None = getattr(
-        app.state, "consumer", None
+        application.state, "consumer", None
     )
     if consumer:
         consumer.stop()
     thread: threading.Thread | None = getattr(
-        app.state, "consumer_thread", None
+        application.state, "consumer_thread", None
     )
     if thread:
         thread.join(timeout=5)
 
-    logger.info("Content Service stopped")
+    logger.info("Content Service stopped.")
 
 
 app = FastAPI(

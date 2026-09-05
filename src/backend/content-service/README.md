@@ -1,27 +1,40 @@
 # Content Service
 
-## Purpose
-`content-service` consumes raw fetched feed events (`feed.raw_fetched.v1`), parses RSS/Atom XML payloads, extracts article content, stores articles in PostgreSQL, and emits parsed article events. It also provides an admin replay endpoint for backfilling projections via event streams.
+`content-service` consumes fetched RSS/Atom feeds, turns their entries into
+posts, stores them in PostgreSQL, and publishes parsed-post events for the
+public API projection.
 
-## Port
-`8002`
+## Runtime
 
-## Database Schema & Tables
-- **Schema:** `content`
-- **Tables:**
-  - `articles`: Stored articles with extracted full text, metadata, keywords, categories, and timestamps.
+- **Port:** `8002`
+- **PostgreSQL table:** `content.posts`
+- **Consumes:** `feed.raw_fetched.v1` from `feed.content` through the durable
+  `feed.raw_fetched.v1.parser` queue
+- **Publishes:** `post.parsed.v1` to `content.parsed`
 
-## Events Consumed
-- `feed.raw_fetched.v1` (Queue: `feed.raw_fetched.v1.parser`)
+The service persists `source_title` with each post. Its one post identity is
+`(source_id, item_guid)`; a later feed item with the same identity updates the
+stored URL and metadata.
 
-## Events Produced
-- `article.parsed.v1` (Exchange: `content.parsed`)
+## HTTP API
 
-## Admin Endpoints
-- `POST /admin/articles/replay`: Streams replayed `article.parsed.v1` events with correlation ID `replay-<uuid>` to re-derive projections. Protected by optional `x-admin-token` header.
+- `GET /health`
+- `GET /posts/count`
+- `GET /posts`
+- `GET /posts/{post_id}`
+- `POST /admin/posts/replay`
 
-## Testing
-Run unit tests using Poetry:
+When `ADMIN_TOKEN` is configured, replay requires the matching
+`x-admin-token` header. Replay republishes stored `post.parsed.v1` events for
+rebuilding the public API projection.
+
+## Development
+
 ```bash
-poetry run pytest
+poetry install
+poetry run python -m pytest -p no:cacheprovider -q
+poetry run ruff check --no-cache src tests
 ```
+
+Read [DESIGN.md](DESIGN.md) for the architecture, event contracts, and a
+recommended code-reading order.

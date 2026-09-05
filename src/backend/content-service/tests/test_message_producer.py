@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock
 
-from src.services import event_publisher
+from src.adapters import post_publisher
 
 
 def _extract_publish_args(channel: MagicMock) -> tuple[str, bytes]:
@@ -12,7 +12,7 @@ def _extract_publish_args(channel: MagicMock) -> tuple[str, bytes]:
 def test_publish_post_parsed_success_emits_content_body() -> None:
     channel = MagicMock()
 
-    event_publisher.publish_post_parsed_success(
+    post_publisher.publish_post_parsed_success(
         channel,
         post_id="a1",
         source_id="s1",
@@ -34,9 +34,7 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
     assert envelope["correlation_id"] == "corr-123"
     assert envelope["payload"]["content"] == "Full body"
     assert envelope["payload"]["content_length"] == 9
-    assert (
-        envelope["payload"]["description"] == "A short description"
-    )
+    assert envelope["payload"]["description"] == "A short description"
     assert (
         envelope["payload"]["image_url"]
         == "https://example.com/images/a1.png"

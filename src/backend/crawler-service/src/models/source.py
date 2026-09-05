@@ -53,7 +53,9 @@ class Source(Base):
         Integer, nullable=False, default=0
     )
 
-    etag: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    etag: Mapped[str | None] = mapped_column(
+        String(512), nullable=True
+    )
     last_modified: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )
@@ -79,6 +81,3 @@ class Source(Base):
             "next_crawl_scheduled_at",
         ),
     )
-
-    def __repr__(self) -> str:
-        return f"<Source source_id={self.source_id} url={self.url!r}>"

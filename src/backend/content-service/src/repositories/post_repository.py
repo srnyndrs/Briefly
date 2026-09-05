@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
@@ -16,6 +16,8 @@ class PostRepository:
         stmt = insert(Post).values(**post_data)
         update_fields = {
             "item_guid": stmt.excluded.item_guid,
+            "url": stmt.excluded.url,
+            "source_title": stmt.excluded.source_title,
             "title": stmt.excluded.title,
             "description": stmt.excluded.description,
             "category": stmt.excluded.category,
@@ -29,24 +31,12 @@ class PostRepository:
             "keywords": stmt.excluded.keywords,
         }
         stmt = stmt.on_conflict_do_update(
-            index_elements=["source_id", "url"],
+            index_elements=["source_id", "item_guid"],
             set_=update_fields,
         ).returning(Post.post_id)
-        try:
-            inserted_id = self._db.scalar(stmt)
-            self._db.commit()
-            return str(inserted_id) if inserted_id else None
-        except IntegrityError:
-            self._db.rollback()
-            existing_id = (
-                self._db.query(Post.post_id)
-                .filter(
-                    Post.source_id == post_data["source_id"],
-                    Post.item_guid == post_data["item_guid"],
-                )
-                .scalar()
-            )
-            return str(existing_id) if existing_id else None
+        inserted_id = self._db.scalar(stmt)
+        self._db.commit()
+        return str(inserted_id) if inserted_id else None
 
     def get_by_id(self, post_id: str) -> Post | None:
         return (
@@ -77,32 +67,19 @@ class PostRepository:
             query = query.filter(Post.source_id == source_id)
         if language:
             query = query.filter(Post.language == language)
+        if category:
+            query = query.filter(
+                func.lower(Post.category) == category.lower()
+            )
         if published_from:
-            query = query.filter(
-                Post.published_at >= published_from
-            )
+            query = query.filter(Post.published_at >= published_from)
         if published_to:
-            query = query.filter(
-                Post.published_at <= published_to
-            )
+            query = query.filter(Post.published_at <= published_to)
         if parsed_from:
             query = query.filter(Post.parsed_at >= parsed_from)
         if parsed_to:
             query = query.filter(Post.parsed_at <= parsed_to)
 
         query = query.order_by(Post.parsed_at.desc())
-
-        if category:
-            category_lower = category.lower()
-            all_docs = query.all()
-            filtered = [
-                doc
-                for doc in all_docs
-                if any(
-                    c.lower() == category_lower
-                    for c in (doc.keywords or [])
-                )
-            ]
-            return filtered[skip : skip + limit]
 
         return query.offset(skip).limit(limit).all()

@@ -3,14 +3,14 @@ import uuid
 
 import pika
 
-from src.config.message_broker import create_channel
+from src.config.message_broker import create_feed_publisher_channel
 from src.config.settings import settings
 from src.events.envelope import build_envelope
 
 
-class RabbitMQEventPublisher:
+class FeedPublisher:
     def __init__(self) -> None:
-        self._channel = create_channel()
+        self._channel = create_feed_publisher_channel()
 
     def _publish(self, routing_key: str, payload: dict) -> None:
         body = json.dumps(payload, default=str).encode("utf-8")

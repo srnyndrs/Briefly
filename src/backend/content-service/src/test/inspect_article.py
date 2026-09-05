@@ -69,16 +69,20 @@ def _sanitize_filename(name: str) -> str:
     return cleaned or "article_export"
 
 
-def _generate_export_filename(url: str, title: str | None = None) -> str:
+def _generate_export_filename(
+    url: str, title: str | None = None
+) -> str:
     """Generate a readable, unique JSON export filename."""
     parsed = urlparse(url)
     domain = parsed.netloc.replace(":", "_") or "article"
-    
+
     slug = ""
     if title:
         slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", title).strip("_")[:40]
     elif parsed.path:
-        slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", Path(parsed.path).stem).strip("_")[:40]
+        slug = re.sub(
+            r"[^a-zA-Z0-9_-]+", "_", Path(parsed.path).stem
+        ).strip("_")[:40]
 
     url_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()[:8]
     if slug:
@@ -122,12 +126,17 @@ def inspect_article(
         sys.exit(1)
 
     if not getattr(article, "is_downloaded", False):
-        err_msg = getattr(article, "download_exception_msg", None) or "Unknown download error"
+        err_msg = (
+            getattr(article, "download_exception_msg", None)
+            or "Unknown download error"
+        )
         download_state = getattr(article, "download_state", "FAILED")
-        print(f"[!] Download Failed:")
+        print("[!] Download Failed:")
         print(f"  * Error: {err_msg}")
         print(f"  * State: {download_state}")
-        print("  * Note: The website may be blocking automated scrapers with HTTP 403/WAF/Paywall.")
+        print(
+            "  * Note: The website may be blocking automated scrapers with HTTP 403/WAF/Paywall."
+        )
         sys.exit(1)
 
     # 2. Parse
@@ -151,25 +160,37 @@ def inspect_article(
 
     # Prepare extracted data dictionary
     raw_html = article.html or ""
-    text_content = getattr(article, "text_cleaned", None) or article.text or ""
+    text_content = (
+        getattr(article, "text_cleaned", None) or article.text or ""
+    )
     word_count = len(text_content.split())
-    reading_time_mins = max(1, round(word_count / 200)) if word_count else 0
+    reading_time_mins = (
+        max(1, round(word_count / 200)) if word_count else 0
+    )
 
     tags = list(getattr(article, "tags", None) or [])
     meta_keywords = list(getattr(article, "meta_keywords", None) or [])
-    nlp_keywords = list(getattr(article, "keywords", None) or []) if run_nlp else []
+    nlp_keywords = (
+        list(getattr(article, "keywords", None) or [])
+        if run_nlp
+        else []
+    )
     images = list(getattr(article, "images", None) or [])
     movies = list(getattr(article, "movies", None) or [])
 
     structured_data = {
         "source_url": url,
         "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "newspaper_version": getattr(newspaper, "__version__", "unknown"),
+        "newspaper_version": getattr(
+            newspaper, "__version__", "unknown"
+        ),
         "timings_seconds": {
             "download": round(download_duration, 4),
             "parse": round(parse_duration, 4),
             "nlp": round(nlp_duration, 4) if run_nlp else None,
-            "total": round(download_duration + parse_duration + nlp_duration, 4),
+            "total": round(
+                download_duration + parse_duration + nlp_duration, 4
+            ),
         },
         "metadata": {
             "title": article.title,
@@ -179,16 +200,21 @@ def inspect_article(
             "meta_site_name": getattr(article, "meta_site_name", None),
             "meta_favicon": getattr(article, "meta_favicon", None),
             "meta_lang": getattr(article, "meta_lang", None),
-            "meta_description": getattr(article, "meta_description", None),
+            "meta_description": getattr(
+                article, "meta_description", None
+            ),
             "meta_img": getattr(article, "meta_img", None),
-            "top_image": getattr(article, "top_image", None) or getattr(article, "top_img", None),
+            "top_image": getattr(article, "top_image", None)
+            or getattr(article, "top_img", None),
         },
         "content": {
             "text": text_content,
             "word_count": word_count,
             "character_count": len(text_content),
             "estimated_reading_time_minutes": reading_time_mins,
-            "summary": getattr(article, "summary", "") if run_nlp else None,
+            "summary": getattr(article, "summary", "")
+            if run_nlp
+            else None,
         },
         "taxonomy": {
             "tags": sorted(tags),
@@ -196,7 +222,8 @@ def inspect_article(
             "nlp_keywords": nlp_keywords,
         },
         "media": {
-            "top_image": getattr(article, "top_image", None) or getattr(article, "top_img", None),
+            "top_image": getattr(article, "top_image", None)
+            or getattr(article, "top_img", None),
             "images_count": len(images),
             "images": sorted(images),
             "movies_count": len(movies),
@@ -214,15 +241,21 @@ def inspect_article(
         export_path = test_dir / filename
         with open(export_path, "w", encoding="utf-8") as f:
             json.dump(structured_data, f, indent=2, ensure_ascii=False)
-        print(f"[+] Exported structured article data: {export_path.name} ({export_path.stat().st_size:,} bytes)")
+        print(
+            f"[+] Exported structured article data: {export_path.name} ({export_path.stat().st_size:,} bytes)"
+        )
         print(f"    Location: {export_path}\n")
 
     if export_html:
-        base_name = _generate_export_filename(url, article.title).replace(".json", ".html")
+        base_name = _generate_export_filename(
+            url, article.title
+        ).replace(".json", ".html")
         html_path = test_dir / base_name
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(raw_html)
-        print(f"[+] Exported raw HTML: {html_path.name} ({html_path.stat().st_size:,} bytes)")
+        print(
+            f"[+] Exported raw HTML: {html_path.name} ({html_path.stat().st_size:,} bytes)"
+        )
         print(f"    Location: {html_path}\n")
 
     # Handle --json output
@@ -232,30 +265,48 @@ def inspect_article(
 
     # Formatted terminal display
     print("[1] DOWNLOAD & PARSER METRICS")
-    print(f"  * newspaper4k version: {structured_data['newspaper_version']}")
+    print(
+        f"  * newspaper4k version: {structured_data['newspaper_version']}"
+    )
     print(f"  * Download time:       {download_duration:.3f}s")
     print(f"  * Parse time:          {parse_duration:.3f}s")
     if run_nlp:
         print(f"  * NLP processing time: {nlp_duration:.3f}s")
-    print(f"  * Raw HTML payload:    {len(raw_html.encode('utf-8')):,} bytes")
+    print(
+        f"  * Raw HTML payload:    {len(raw_html.encode('utf-8')):,} bytes"
+    )
     print()
 
     print("[2] CORE ARTICLE METADATA")
     print(f"  * Title:           {article.title or '(None)'}")
-    print(f"  * Authors:         {', '.join(article.authors) if article.authors else '(None detected)'}")
+    print(
+        f"  * Authors:         {', '.join(article.authors) if article.authors else '(None detected)'}"
+    )
     pub_date_str = _safe_serialize(article.publish_date)
     print(f"  * Publish Date:    {pub_date_str or '(None detected)'}")
-    print(f"  * Language:        {getattr(article, 'meta_lang', None) or '(Not specified)'}")
-    print(f"  * Canonical URL:   {getattr(article, 'canonical_link', None) or '(None)'}")
-    print(f"  * Site Name:       {getattr(article, 'meta_site_name', None) or '(None)'}")
-    print(f"  * Favicon:         {getattr(article, 'meta_favicon', None) or '(None)'}")
-    print(f"  * Meta Desc:       {getattr(article, 'meta_description', None) or '(None)'}")
+    print(
+        f"  * Language:        {getattr(article, 'meta_lang', None) or '(Not specified)'}"
+    )
+    print(
+        f"  * Canonical URL:   {getattr(article, 'canonical_link', None) or '(None)'}"
+    )
+    print(
+        f"  * Site Name:       {getattr(article, 'meta_site_name', None) or '(None)'}"
+    )
+    print(
+        f"  * Favicon:         {getattr(article, 'meta_favicon', None) or '(None)'}"
+    )
+    print(
+        f"  * Meta Desc:       {getattr(article, 'meta_description', None) or '(None)'}"
+    )
     print()
 
     print("[3] ARTICLE CONTENT & METRICS")
-    print(f"  * Word Count:      {word_count:,} words (~{reading_time_mins} min read)")
+    print(
+        f"  * Word Count:      {word_count:,} words (~{reading_time_mins} min read)"
+    )
     print(f"  * Character Count: {len(text_content):,} chars")
-    
+
     if text_content:
         if show_full_text:
             print("\n  --- FULL ARTICLE TEXT ---")
@@ -265,12 +316,16 @@ def inspect_article(
             print("  --- END FULL TEXT ---\n")
         else:
             preview = text_content[:500].strip()
-            print("\n  --- TEXT PREVIEW (First 500 chars, use --full-text to see all) ---")
+            print(
+                "\n  --- TEXT PREVIEW (First 500 chars, use --full-text to see all) ---"
+            )
             for paragraph in preview.splitlines():
                 if paragraph.strip():
                     print(f"  {paragraph}")
             if len(text_content) > 500:
-                print(f"  ... [+{len(text_content) - 500:,} more characters]")
+                print(
+                    f"  ... [+{len(text_content) - 500:,} more characters]"
+                )
             print("  --- END PREVIEW ---\n")
     else:
         print("  * Text:            (No text extracted)")
@@ -286,11 +341,15 @@ def inspect_article(
             print("  (No NLP summary generated)")
         print()
     else:
-        print("  * Tip: Run with --nlp to generate automatic summary and NLP keywords.")
+        print(
+            "  * Tip: Run with --nlp to generate automatic summary and NLP keywords."
+        )
         print()
 
     print("[4] MEDIA & MULTIMEDIA ASSETS")
-    top_img = getattr(article, "top_image", None) or getattr(article, "top_img", None)
+    top_img = getattr(article, "top_image", None) or getattr(
+        article, "top_img", None
+    )
     meta_img = getattr(article, "meta_img", None)
 
     print(f"  * Top Image:       {top_img or '(None)'}")
@@ -308,18 +367,36 @@ def inspect_article(
     print()
 
     print("[5] TAXONOMY, TAGS & KEYWORDS")
-    print(f"  * Tags:            {', '.join(tags) if tags else '(None)'}")
-    print(f"  * Meta Keywords:   {', '.join(meta_keywords) if meta_keywords else '(None)'}")
+    print(
+        f"  * Tags:            {', '.join(tags) if tags else '(None)'}"
+    )
+    print(
+        f"  * Meta Keywords:   {', '.join(meta_keywords) if meta_keywords else '(None)'}"
+    )
     if run_nlp:
-        print(f"  * NLP Keywords:    {', '.join(nlp_keywords) if nlp_keywords else '(None)'}")
+        print(
+            f"  * NLP Keywords:    {', '.join(nlp_keywords) if nlp_keywords else '(None)'}"
+        )
     print()
 
     print("[6] RAW META DATA / OPENGRAPH / TWITTER")
     meta_data = getattr(article, "meta_data", {})
     if meta_data:
-        og_items = {k: v for k, v in meta_data.items() if k.startswith("og:") or k.startswith("og_")}
-        twitter_items = {k: v for k, v in meta_data.items() if k.startswith("twitter:") or k.startswith("twitter_")}
-        other_items = {k: v for k, v in meta_data.items() if k not in og_items and k not in twitter_items}
+        og_items = {
+            k: v
+            for k, v in meta_data.items()
+            if k.startswith("og:") or k.startswith("og_")
+        }
+        twitter_items = {
+            k: v
+            for k, v in meta_data.items()
+            if k.startswith("twitter:") or k.startswith("twitter_")
+        }
+        other_items = {
+            k: v
+            for k, v in meta_data.items()
+            if k not in og_items and k not in twitter_items
+        }
 
         if og_items:
             print("  * OpenGraph (og:*):")
@@ -334,7 +411,9 @@ def inspect_article(
             for k in sorted(other_items.keys())[:10]:
                 print(f"      {k}: {other_items[k]}")
             if len(other_items) > 10:
-                print(f"      ... and {len(other_items) - 10} more meta keys")
+                print(
+                    f"      ... and {len(other_items) - 10} more meta keys"
+                )
     else:
         print("  * (No meta_data dictionary found)")
     print()
@@ -352,7 +431,9 @@ def inspect_article(
             # Property raised exception on access (e.g. lazy uninitialized doc parser)
             public_attrs.append(f"{a} (uninitialized)")
 
-    print(f"[7] ALL ARTICLE ATTRIBUTES ({len(public_attrs)} public properties)")
+    print(
+        f"[7] ALL ARTICLE ATTRIBUTES ({len(public_attrs)} public properties)"
+    )
     print(f"  {sorted(public_attrs)}")
     print()
 
