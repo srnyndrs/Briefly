@@ -1,17 +1,17 @@
 import json
 import logging
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 import pika
 
 from src.config.settings import settings
+from src.events.envelope import build_envelope
 
 logger = logging.getLogger("account-service.events")
 
 
-class EventPublisher:
+class AccountEventPublisher:
     def publish(
         self,
         *,
@@ -19,23 +19,13 @@ class EventPublisher:
         payload: dict[str, Any],
         correlation_id: str,
         partition_key: str,
-        trace_id: str | None = None,
-        span_id: str | None = None,
     ) -> None:
-        envelope = {
-            "event_id": str(uuid.uuid4()),
-            "event_type": event_type,
-            "schema_version": 1,
-            "occurred_at": datetime.now(UTC).isoformat(),
-            "producer": "account-service",
-            "correlation_id": correlation_id,
-            "partition_key": partition_key,
-            "trace": {
-                "trace_id": trace_id,
-                "span_id": span_id,
-            },
-            "payload": payload,
-        }
+        envelope = build_envelope(
+            event_type=event_type,
+            partition_key=partition_key,
+            payload=payload,
+            correlation_id=correlation_id,
+        )
 
         message = json.dumps(envelope).encode("utf-8")
         properties = pika.BasicProperties(

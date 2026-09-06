@@ -336,12 +336,9 @@ def test_patch_profile_endpoint(monkeypatch) -> None:
     client = _build_client()
     user = app.dependency_overrides[get_current_user]()
 
-    def fake_patch_profile(
-        user_id: str, body: dict, correlation_id: str | None
-    ) -> dict:
+    def fake_patch_profile(user_id: str, body: dict) -> dict:
         assert user_id == str(user.user_id)
         assert body == {"display_name": "New Name"}
-        assert correlation_id is not None
         return {
             "user_id": user_id,
             "display_name": "New Name",

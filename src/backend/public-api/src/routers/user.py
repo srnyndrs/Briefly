@@ -65,13 +65,11 @@ def get_me(user: CurrentUser) -> MeDetailsResponse:
 def patch_my_profile(
     body: ProfilePatchRequest,
     user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
 ) -> ProfileResponse:
     try:
         updated = account_patch_profile(
             str(user.user_id),
             body.model_dump(mode="json", exclude_unset=True),
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
         return ProfileResponse(**updated)
     except ServiceClientError as exc:

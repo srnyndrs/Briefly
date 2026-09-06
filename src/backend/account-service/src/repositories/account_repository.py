@@ -49,23 +49,6 @@ class AccountRepository:
         self._db.add(user)
         return user
 
-    def update_user_timestamp(
-        self, user_id: str, now: datetime
-    ) -> None:
-        user = self.get_user_by_id(user_id)
-        if user is None:
-            return
-        user.updated_at = now
-        self._db.commit()
-
-    def increment_user_token_version(self, user_id: str) -> int:
-        user = self.get_user_by_id(user_id)
-        if user is None:
-            raise ValueError("User not found")
-        user.token_version += 1
-        self._db.commit()
-        return user.token_version
-
     def create_default_profile(self, user_id: str) -> None:
         self._db.add(UserProfile(user_id=user_id))
 
@@ -84,21 +67,11 @@ class AccountRepository:
         bio: str | None,
         avatar_url: str | None,
         now: datetime,
-    ) -> tuple[UserProfile, list[str]]:
+    ) -> UserProfile:
         profile = self.get_profile(user_id)
         if profile is None:
             profile = UserProfile(user_id=user_id)
             self._db.add(profile)
-            changed_fields = ["display_name", "bio", "avatar_url"]
-        else:
-            changed_fields = _diff_profile_fields(
-                current_display_name=profile.display_name,
-                current_bio=profile.bio,
-                current_avatar_url=profile.avatar_url,
-                new_display_name=display_name,
-                new_bio=bio,
-                new_avatar_url=avatar_url,
-            )
 
         profile.display_name = display_name
         profile.bio = bio
@@ -110,11 +83,10 @@ class AccountRepository:
             user.updated_at = now
 
         self._db.commit()
-        return profile, changed_fields
+        return profile
 
     def create_default_preferences(self, user_id: str) -> None:
         self._db.add(UserPreferences(user_id=user_id))
-        self._db.commit()
 
     def get_preferences(
         self, user_id: str
@@ -234,22 +206,3 @@ class AccountRepository:
 
     def commit(self) -> None:
         self._db.commit()
-
-
-def _diff_profile_fields(
-    *,
-    current_display_name: str | None,
-    current_bio: str | None,
-    current_avatar_url: str | None,
-    new_display_name: str | None,
-    new_bio: str | None,
-    new_avatar_url: str | None,
-) -> list[str]:
-    changed_fields: list[str] = []
-    if current_display_name != new_display_name:
-        changed_fields.append("display_name")
-    if current_bio != new_bio:
-        changed_fields.append("bio")
-    if current_avatar_url != new_avatar_url:
-        changed_fields.append("avatar_url")
-    return changed_fields

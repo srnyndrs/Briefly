@@ -12,17 +12,15 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.app import app
 from src.config.database import Base, get_db
+from src.routers.deps import get_event_publisher
 
 
-class NoopPublisher:
-    def connect(self) -> None:
-        return
-
-    def close(self) -> None:
-        return
+class RecordingPublisher:
+    def __init__(self) -> None:
+        self.events: list[dict] = []
 
     def publish(self, **kwargs) -> None:
-        return
+        self.events.append(kwargs)
 
 
 @pytest.fixture(scope="session")
@@ -46,7 +44,7 @@ def create_tables(engine) -> Generator[None, None, None]:
 def db_session(engine) -> Generator[Session, None, None]:
     connection = engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, autoflush=False)
+    session = Session(bind=connection, autoflush=True)
     session.begin_nested()
 
     @event.listens_for(session, "after_transaction_end")
@@ -63,12 +61,19 @@ def db_session(engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
-def client(db_session) -> Generator[TestClient, None, None]:
+def publisher() -> RecordingPublisher:
+    return RecordingPublisher()
+
+
+@pytest.fixture()
+def client(
+    db_session, publisher
+) -> Generator[TestClient, None, None]:
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.state.publisher = NoopPublisher()
+    app.dependency_overrides[get_event_publisher] = lambda: publisher
     app.state.testing = True
     with TestClient(app) as test_client:
         yield test_client

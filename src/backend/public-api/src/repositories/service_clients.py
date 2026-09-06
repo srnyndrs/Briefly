@@ -163,27 +163,21 @@ def account_update_preferences(
     )
 
 
-def account_update_profile(
-    user_id: str, body: dict, correlation_id: str | None
-) -> dict:
+def account_update_profile(user_id: str, body: dict) -> dict:
     return _forward(
         "PUT",
         settings.account_service_url,
         f"/users/{user_id}/profile",
         json=body,
-        correlation_id=correlation_id,
     )
 
 
-def account_patch_profile(
-    user_id: str, body: dict, correlation_id: str | None
-) -> dict:
+def account_patch_profile(user_id: str, body: dict) -> dict:
     return _forward(
         "PATCH",
         settings.account_service_url,
         f"/users/{user_id}/profile",
         json=body,
-        correlation_id=correlation_id,
     )
 
 

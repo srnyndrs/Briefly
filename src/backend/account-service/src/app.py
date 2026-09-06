@@ -6,7 +6,6 @@ from fastapi import FastAPI
 
 from src.config.database import init_db
 from src.config.settings import settings
-from src.repositories.event_publisher import EventPublisher
 from src.routers import auth, users
 from src.schemas.common import HealthResponse
 
@@ -21,7 +20,6 @@ logger = logging.getLogger("account-service")
 async def lifespan(app: FastAPI):
     if not getattr(app.state, "testing", False):
         init_db()
-        app.state.publisher = EventPublisher()
         logger.info(
             "Account Service started on port=%d", settings.app_port
         )
