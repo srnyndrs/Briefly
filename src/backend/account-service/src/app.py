@@ -17,8 +17,8 @@ logger = logging.getLogger("account-service")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    if not getattr(app.state, "testing", False):
+async def lifespan(application: FastAPI):
+    if not getattr(application.state, "testing", False):
         init_db()
         logger.info(
             "Account Service started on port=%d", settings.app_port
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    if not getattr(app.state, "testing", False):
+    if not getattr(application.state, "testing", False):
         logger.info("Account Service stopped")
 
 
