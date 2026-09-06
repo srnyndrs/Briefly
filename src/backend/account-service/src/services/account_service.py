@@ -232,7 +232,6 @@ class AccountService:
         *,
         user_id: str,
         source_id: str,
-        correlation_id: str,
     ):
         user = self._repo.get_user_by_id(user_id)
         if user is None:
@@ -242,22 +241,11 @@ class AccountService:
         ):
             raise ConflictError("Subscription already exists")
 
-        created = self._repo.create_subscription(
+        return self._repo.create_subscription(
             user_id=user_id,
             source_id=source_id,
             now=utc_now_naive(),
         )
-        self._publisher.publish(
-            event_type="subscription.created.v1",
-            correlation_id=correlation_id,
-            partition_key=f"user:{user_id}",
-            payload={
-                "user_id": user_id,
-                "source_id": source_id,
-                "created_at": created.created_at.isoformat() + "Z",
-            },
-        )
-        return created
 
     def list_subscriptions(self, user_id: str):
         user = self._repo.get_user_by_id(user_id)
@@ -271,24 +259,12 @@ class AccountService:
         *,
         user_id: str,
         source_id: str,
-        correlation_id: str,
     ) -> None:
         deleted = self._repo.delete_subscription(
             user_id=user_id, source_id=source_id
         )
         if not deleted:
             raise NotFoundError("Subscription not found")
-
-        self._publisher.publish(
-            event_type="subscription.deleted.v1",
-            correlation_id=correlation_id,
-            partition_key=f"user:{user_id}",
-            payload={
-                "user_id": user_id,
-                "source_id": source_id,
-                "deleted_at": datetime.now(UTC).isoformat(),
-            },
-        )
 
 
 def utc_now_naive() -> datetime:

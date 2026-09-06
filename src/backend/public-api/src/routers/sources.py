@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Query, Response
 
-from src.repositories.service_clients import (
+from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
     ingestion_create_source,
@@ -121,7 +121,8 @@ def get_source(
 
         return SourceResponse(
             **source_data,
-            is_subscribed=str(source_data["source_id"]) in subscribed_ids,
+            is_subscribed=str(source_data["source_id"])
+            in subscribed_ids,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

@@ -2,24 +2,18 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
-from src.config.database import get_db
-from src.repositories.feed_repository import (
-    PostRepository,
-    UserPreferencesRepository,
-)
-from src.repositories.service_clients import (
+from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
     map_service_error,
 )
-from src.schemas.api import (
-    FeedResponse,
-    PostResponse,
+from src.routers.feed_common import (
+    get_feed_service,
+    to_post_response,
 )
+from src.schemas.api import FeedResponse
 from src.services.auth import CurrentAdminUser, CurrentUser
-from src.services.feed_dtos import PostDTO
 from src.services.feed_service import (
     FeedService,
     ListFeedInput,
@@ -30,34 +24,6 @@ router = APIRouter(tags=["feed"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def _to_post_response(item: PostDTO) -> PostResponse:
-    return PostResponse(
-        post_id=uuid.UUID(item.post_id),
-        source_id=uuid.UUID(item.source_id)
-        if item.source_id
-        else None,
-        title=item.title,
-        source_title=item.source_title,
-        description=item.description,
-        canonical_url=item.canonical_url,
-        language=item.language,
-        category=item.category,
-        image_ref=item.image_ref,
-        published_at=item.published_at,
-        has_content=item.content is not None,
-        content=item.content,
-    )
-
-
-def get_feed_service(
-    db: Session = Depends(get_db),
-) -> FeedService:
-    return FeedService(
-        PostRepository(db),
-        UserPreferencesRepository(db),
-    )
-
-
 @router.get("/feed", response_model=FeedResponse)
 def get_feed(
     user: CurrentUser,
@@ -65,15 +31,25 @@ def get_feed(
     query: str | None = Query(
         default=None, description="Optional search query text"
     ),
-    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page: int = Query(
+        default=1, ge=1, description="Page number (1-based)"
+    ),
     page_size: int = Query(
         default=20, ge=1, le=100, description="Items per page"
     ),
     page_count: int | None = Query(
-        default=None, ge=1, le=100, alias="page_count", description="Alias for page_size"
+        default=None,
+        ge=1,
+        le=100,
+        alias="page_count",
+        description="Alias for page_size",
     ),
     pageCount: int | None = Query(
-        default=None, ge=1, le=100, alias="pageCount", description="Alias for page_size"
+        default=None,
+        ge=1,
+        le=100,
+        alias="pageCount",
+        description="Alias for page_size",
     ),
     use_profile: bool = True,
     categories: list[str] | None = Query(default=None),
@@ -159,9 +135,7 @@ def get_feed(
         else 0
     )
     return FeedResponse(
-        items=[
-            _to_post_response(item) for item in output.items
-        ],
+        items=[to_post_response(item) for item in output.items],
         total=output.total,
         page=resolved_page,
         page_count=total_pages,
@@ -173,15 +147,25 @@ def get_feed(
 def get_general_feed(
     admin_user: CurrentAdminUser,
     service: FeedService = Depends(get_feed_service),
-    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page: int = Query(
+        default=1, ge=1, description="Page number (1-based)"
+    ),
     page_size: int = Query(
         default=20, ge=1, le=100, description="Items per page"
     ),
     page_count: int | None = Query(
-        default=None, ge=1, le=100, alias="page_count", description="Alias for page_size"
+        default=None,
+        ge=1,
+        le=100,
+        alias="page_count",
+        description="Alias for page_size",
     ),
     pageCount: int | None = Query(
-        default=None, ge=1, le=100, alias="pageCount", description="Alias for page_size"
+        default=None,
+        ge=1,
+        le=100,
+        alias="pageCount",
+        description="Alias for page_size",
     ),
 ) -> FeedResponse:
     _ = admin_user
@@ -207,9 +191,7 @@ def get_general_feed(
         else 0
     )
     return FeedResponse(
-        items=[
-            _to_post_response(item) for item in output.items
-        ],
+        items=[to_post_response(item) for item in output.items],
         total=output.total,
         page=resolved_page,
         page_count=total_pages,

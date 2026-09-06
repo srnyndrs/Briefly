@@ -17,8 +17,6 @@
 
 ## Events Produced
 - `preferences.updated.v1` (Exchange: `account.events`)
-- `subscription.created.v1` (Exchange: `account.events`)
-- `subscription.deleted.v1` (Exchange: `account.events`)
 
 ## Testing
 Run unit tests using Poetry:

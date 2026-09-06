@@ -240,14 +240,11 @@ def create_subscription(
     user_id: uuid.UUID,
     body: SubscriptionCreateRequest,
     service: AccountService = Depends(get_account_service),
-    x_correlation_id: str | None = Header(default=None),
 ) -> SubscriptionResponse:
-    request_id = correlation_id(x_correlation_id)
     try:
         subscription = service.create_subscription(
             user_id=str(user_id),
             source_id=str(body.source_id),
-            correlation_id=request_id,
         )
     except NotFoundError as exc:
         raise HTTPException(
@@ -298,14 +295,11 @@ def delete_subscription(
     user_id: uuid.UUID,
     source_id: uuid.UUID,
     service: AccountService = Depends(get_account_service),
-    x_correlation_id: str | None = Header(default=None),
 ) -> Response:
-    request_id = correlation_id(x_correlation_id)
     try:
         service.delete_subscription(
             user_id=str(user_id),
             source_id=str(source_id),
-            correlation_id=request_id,
         )
     except NotFoundError as exc:
         raise HTTPException(

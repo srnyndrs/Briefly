@@ -503,7 +503,9 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     assert payload[0]["title"] == "Discovered"
 
 
-def test_create_source_endpoint_forwards_json_payload(monkeypatch) -> None:
+def test_create_source_endpoint_forwards_json_payload(
+    monkeypatch,
+) -> None:
     client = _build_client()
     captured: dict = {}
 
@@ -1086,7 +1088,7 @@ def test_create_my_subscription_success(monkeypatch) -> None:
 
 
 def test_create_my_subscription_conflict(monkeypatch) -> None:
-    from src.repositories.service_clients import ServiceClientError
+    from src.adapters.service_clients import ServiceClientError
 
     client = _build_client()
     src_id = str(uuid4())
@@ -1129,7 +1131,7 @@ def test_delete_my_subscription_success(monkeypatch) -> None:
 
 
 def test_delete_my_subscription_not_found(monkeypatch) -> None:
-    from src.repositories.service_clients import ServiceClientError
+    from src.adapters.service_clients import ServiceClientError
 
     client = _build_client()
     src_id = str(uuid4())
@@ -1375,3 +1377,124 @@ def test_feed_ranks_by_category_interests() -> None:
     assert payload["total"] == 2
     assert payload["items"][0]["title"] == "Science Breakthrough"
     assert payload["items"][1]["title"] == "General Story"
+
+
+def test_feed_subscribed_only_filter(monkeypatch) -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
+    now = datetime.now(UTC)
+
+    sub_source_id = str(uuid4())
+    unsub_source_id = str(uuid4())
+
+    db.add(
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=[],
+            muted_categories=[],
+            blocked_source_ids=[],
+            languages=["en"],
+            category_interests=[],
+            updated_at=now,
+        )
+    )
+    db.add(
+        PostProjection(
+            post_id=str(uuid4()),
+            source_id=sub_source_id,
+            canonical_url="https://example.com/sub",
+            title="Subscribed Post",
+            language="en",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(
+        PostProjection(
+            post_id=str(uuid4()),
+            source_id=unsub_source_id,
+            canonical_url="https://example.com/unsub",
+            title="Unsubscribed Post",
+            language="en",
+            keywords=[],
+            topics=[],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    subscriptions = [
+        {"user_id": str(user.user_id), "source_id": sub_source_id}
+    ]
+
+    def fake_list_subscriptions(user_id: str) -> list[dict]:
+        return subscriptions if user_id == str(user.user_id) else []
+
+    monkeypatch.setattr(
+        "src.routers.feed.account_list_subscriptions",
+        fake_list_subscriptions,
+    )
+
+    all_res = client.get("/feed")
+    assert all_res.status_code == 200
+    assert all_res.json()["total"] == 2
+
+    sub_res = client.get(
+        "/feed", params={"subscribed_only": "true"}
+    )
+    assert sub_res.status_code == 200
+    assert sub_res.json()["total"] == 1
+    assert sub_res.json()["items"][0]["title"] == "Subscribed Post"
+
+    subscriptions.clear()
+    empty_sub_res = client.get(
+        "/feed", params={"subscribed_only": "true"}
+    )
+    assert empty_sub_res.status_code == 200
+    assert empty_sub_res.json()["total"] == 0
+
+
+def test_upstream_request_error_returns_502(monkeypatch) -> None:
+    import httpx
+
+    client = _build_client()
+    orig_request = httpx.Client.request
+
+    def fake_request(self, *args, **kwargs):
+        if isinstance(self, TestClient):
+            return orig_request(self, *args, **kwargs)
+        raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx.Client, "request", fake_request)
+
+    response = client.get("/sources")
+    assert response.status_code == 502
+    assert (
+        response.json()["detail"] == "Upstream service unavailable"
+    )
+
+
+def test_forward_maps_httpx_request_error_to_service_client_error(
+    monkeypatch,
+) -> None:
+    import httpx
+    import pytest
+    from src.adapters.service_clients import (
+        ServiceClientError,
+        _forward,
+    )
+
+    def fake_request(self, *args, **kwargs):
+        raise httpx.ReadTimeout("Read timed out")
+
+    monkeypatch.setattr(httpx.Client, "request", fake_request)
+
+    with pytest.raises(ServiceClientError) as exc_info:
+        _forward("GET", "http://fake-upstream", "/endpoint")
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Upstream service unavailable"

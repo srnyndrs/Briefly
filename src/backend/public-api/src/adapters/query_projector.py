@@ -10,18 +10,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.config.settings import settings
 from src.models.read_models import ProcessedEvent
-from src.services.projection_use_cases import (
-    CreateSubscriptionInput,
-    CreateSubscriptionUseCase,
-    DeleteSubscriptionInput,
-    DeleteSubscriptionUseCase,
-    ProjectPostInput,
-    ProjectPostUseCase,
-    ProjectUserPreferencesInput,
-    ProjectUserPreferencesUseCase,
+from src.services.projection_handlers import (
+    project_post,
+    project_user_preferences,
 )
 
-logger = logging.getLogger("public-api.projector")
+logger = logging.getLogger("public-api.query-projector")
 
 
 class QueryProjector:
@@ -87,11 +81,7 @@ class QueryProjector:
             queue=settings.query_queue, durable=True
         )
 
-        for key in (
-            "preferences.updated.v1",
-            "subscription.created.v1",
-            "subscription.deleted.v1",
-        ):
+        for key in ("preferences.updated.v1",):
             self._channel.queue_bind(
                 queue=settings.query_queue,
                 exchange=settings.account_exchange,
@@ -185,43 +175,11 @@ class QueryProjector:
     def _apply_event(
         self, db: Session, event_type: str, payload: dict[str, Any]
     ) -> None:
-        """Route event to appropriate use-case."""
+        """Route event to appropriate projection handler."""
         if event_type == "post.parsed.v1":
-            post_id = payload.get("post_id")
-            if post_id:
-                ProjectPostUseCase(db).execute(
-                    ProjectPostInput(
-                        post_id=post_id, payload=payload
-                    )
-                )
+            project_post(db, payload)
         elif event_type == "preferences.updated.v1":
-            user_id = payload.get("user_id")
-            if user_id:
-                ProjectUserPreferencesUseCase(db).execute(
-                    ProjectUserPreferencesInput(
-                        user_id=user_id, payload=payload
-                    )
-                )
-        elif event_type == "subscription.created.v1":
-            user_id = payload.get("user_id")
-            source_id = payload.get("source_id")
-            if user_id and source_id:
-                CreateSubscriptionUseCase(db).execute(
-                    CreateSubscriptionInput(
-                        user_id=user_id,
-                        source_id=source_id,
-                        payload=payload,
-                    )
-                )
-        elif event_type == "subscription.deleted.v1":
-            user_id = payload.get("user_id")
-            source_id = payload.get("source_id")
-            if user_id and source_id:
-                DeleteSubscriptionUseCase(db).execute(
-                    DeleteSubscriptionInput(
-                        user_id=user_id, source_id=source_id
-                    )
-                )
+            project_user_preferences(db, payload)
 
     @staticmethod
     def _decode_message(body: bytes) -> dict[str, Any] | None:

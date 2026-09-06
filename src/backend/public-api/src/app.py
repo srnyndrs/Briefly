@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from src.adapters.query_projector import QueryProjector
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
 from src.routers.auth import router as auth_router
@@ -19,7 +20,6 @@ from src.routers.posts import (
 from src.routers.sources import router as sources_router
 from src.routers.user import router as user_router
 from src.schemas.api import HealthResponse
-from src.services.projector import QueryProjector
 
 logging.basicConfig(
     level=settings.log_level,
@@ -29,12 +29,12 @@ logger = logging.getLogger("public-api")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    if not getattr(app.state, "testing", False):
+async def lifespan(application: FastAPI):
+    if not getattr(application.state, "testing", False):
         init_db()
 
-        app.state.projector = None
-        app.state.projector_thread = None
+        application.state.projector = None
+        application.state.projector_thread = None
         if settings.query_consumer_enabled:
             projector = QueryProjector(SessionLocal)
             thread = threading.Thread(
@@ -43,8 +43,8 @@ async def lifespan(app: FastAPI):
                 name="rabbitmq-projector",
             )
             thread.start()
-            app.state.projector = projector
-            app.state.projector_thread = thread
+            application.state.projector = projector
+            application.state.projector_thread = thread
 
         logger.info(
             "Public API started on port=%d", settings.app_port
@@ -53,13 +53,13 @@ async def lifespan(app: FastAPI):
     yield
 
     projector: QueryProjector | None = getattr(
-        app.state, "projector", None
+        application.state, "projector", None
     )
     if projector:
         projector.stop()
 
     thread: threading.Thread | None = getattr(
-        app.state, "projector_thread", None
+        application.state, "projector_thread", None
     )
     if thread:
         thread.join(timeout=5)

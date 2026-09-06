@@ -1,7 +1,11 @@
+import logging
+
 import httpx
 from fastapi import HTTPException, status
 
 from src.config.settings import settings
+
+logger = logging.getLogger("public-api.service-clients")
 
 
 class ServiceClientError(Exception):
@@ -25,16 +29,23 @@ def _forward(
         headers["x-correlation-id"] = correlation_id
 
     url = f"{base_url}{path}"
-    with httpx.Client(
-        timeout=settings.request_timeout_seconds
-    ) as client:
-        response = client.request(
-            method=method,
-            url=url,
-            json=json,
-            params=params,
-            headers=headers,
-        )
+    try:
+        with httpx.Client(
+            timeout=settings.request_timeout_seconds
+        ) as client:
+            response = client.request(
+                method=method,
+                url=url,
+                json=json,
+                params=params,
+                headers=headers,
+            )
+    except httpx.RequestError as exc:
+        logger.warning("Upstream request failed: %s", exc)
+        raise ServiceClientError(
+            status.HTTP_502_BAD_GATEWAY,
+            "Upstream service unavailable",
+        ) from exc
 
     if response.status_code >= status.HTTP_400_BAD_REQUEST:
         detail = "Upstream service error"
@@ -151,27 +162,6 @@ def account_list_subscriptions(user_id: str) -> list[dict]:
     return []
 
 
-def account_update_preferences(
-    user_id: str, body: dict, correlation_id: str | None
-) -> dict:
-    return _forward(
-        "PUT",
-        settings.account_service_url,
-        f"/users/{user_id}/preferences",
-        json=body,
-        correlation_id=correlation_id,
-    )
-
-
-def account_update_profile(user_id: str, body: dict) -> dict:
-    return _forward(
-        "PUT",
-        settings.account_service_url,
-        f"/users/{user_id}/profile",
-        json=body,
-    )
-
-
 def account_patch_profile(user_id: str, body: dict) -> dict:
     return _forward(
         "PATCH",
@@ -193,32 +183,31 @@ def account_patch_preferences(
     )
 
 
-def account_create_subscription(
-    user_id: str, body: dict, correlation_id: str | None
-) -> dict:
+def account_create_subscription(user_id: str, body: dict) -> dict:
     return _forward(
         "POST",
         settings.account_service_url,
         f"/users/{user_id}/subscriptions",
         json=body,
-        correlation_id=correlation_id,
     )
 
 
 def account_delete_subscription(
-    user_id: str, source_id: str, correlation_id: str | None
+    user_id: str, source_id: str
 ) -> None:
     _forward(
         "DELETE",
         settings.account_service_url,
         f"/users/{user_id}/subscriptions/{source_id}",
-        correlation_id=correlation_id,
     )
 
 
 def ingestion_create_source(body: dict) -> dict:
     return _forward(
-        "POST", settings.ingestion_service_url, "/sources", json=body
+        "POST",
+        settings.ingestion_service_url,
+        "/sources",
+        json=body,
     )
 
 
@@ -245,7 +234,9 @@ def ingestion_discover_sources(body: dict) -> list[dict]:
 
 def ingestion_get_source(source_id: str) -> dict:
     return _forward(
-        "GET", settings.ingestion_service_url, f"/sources/{source_id}"
+        "GET",
+        settings.ingestion_service_url,
+        f"/sources/{source_id}",
     )
 
 

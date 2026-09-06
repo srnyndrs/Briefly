@@ -9,9 +9,10 @@ from src.models.read_models import (
     PostProjection,
     UserPreferencesProjection,
 )
-from src.services.feed_dtos import UserPreferencesDTO
-from src.services.feed_mappers import (
-    post_projection_to_entity,
+from src.services.feed_models import (
+    PostDTO,
+    UserPreferencesDTO,
+    post_projection_to_dto,
     user_preferences_projection_to_dto,
 )
 
@@ -163,7 +164,7 @@ class PostRepository:
         sort: str | None,
         limit: int,
         offset: int,
-    ):
+    ) -> tuple[list[PostDTO], int]:
         _ = user_id
         query = select(PostProjection)
         query = self._apply_common_filters(
@@ -190,9 +191,7 @@ class PostRepository:
             ordered.offset(offset).limit(limit)
         ).all()
 
-        return [
-            post_projection_to_entity(row) for row in rows
-        ], total
+        return [post_projection_to_dto(row) for row in rows], total
 
     def search_feed(
         self,
@@ -211,7 +210,7 @@ class PostRepository:
         sort: str | None,
         limit: int,
         offset: int,
-    ):
+    ) -> tuple[list[PostDTO], int]:
         _ = user_id
         query = select(PostProjection).where(
             or_(
@@ -244,15 +243,13 @@ class PostRepository:
             ordered.offset(offset).limit(limit)
         ).all()
 
-        return [
-            post_projection_to_entity(row) for row in rows
-        ], total
+        return [post_projection_to_dto(row) for row in rows], total
 
-    def get_post(self, post_id: UUID):
+    def get_post(self, post_id: UUID) -> PostDTO | None:
         model = self._db.get(PostProjection, str(post_id))
         if model is None:
             return None
-        return post_projection_to_entity(model)
+        return post_projection_to_dto(model)
 
 
 class UserPreferencesRepository:

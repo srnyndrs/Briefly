@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Response
 
-from src.repositories.service_clients import (
+from src.adapters.service_clients import (
     ServiceClientError,
     account_create_subscription,
     account_delete_subscription,
@@ -111,8 +111,12 @@ def get_my_subscriptions(
     user: CurrentUser,
 ) -> list[SubscriptionResponse]:
     try:
-        subscriptions = account_list_subscriptions(str(user.user_id))
-        return [SubscriptionResponse(**item) for item in subscriptions]
+        subscriptions = account_list_subscriptions(
+            str(user.user_id)
+        )
+        return [
+            SubscriptionResponse(**item) for item in subscriptions
+        ]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -125,13 +129,11 @@ def get_my_subscriptions(
 def create_my_subscription(
     body: SubscriptionCreateRequest,
     user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
 ) -> SubscriptionResponse:
     try:
         created = account_create_subscription(
             str(user.user_id),
             {"source_id": str(body.source_id)},
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
         return SubscriptionResponse(**created)
     except ServiceClientError as exc:
@@ -145,15 +147,12 @@ def create_my_subscription(
 def delete_my_subscription(
     source_id: uuid.UUID,
     user: CurrentUser,
-    x_correlation_id: Annotated[str | None, Header()] = None,
 ) -> Response:
     try:
         account_delete_subscription(
             str(user.user_id),
             str(source_id),
-            correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
         return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
-

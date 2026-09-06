@@ -2,17 +2,17 @@ from datetime import UTC, datetime
 
 import pytest
 
+from src.services.feed_models import PostDTO, UserPreferencesDTO
 from src.services.feed_scoring import FeedScoringService
-from src.services.feed_types import PostEntity, UserPreferencesVO
 
 
 class TestFeedScoringService:
     def test_rank_with_no_preferences_returns_in_order(self):
         service = FeedScoringService()
-        prefs = UserPreferencesVO()
+        prefs = UserPreferencesDTO()
 
         posts = [
-            PostEntity(
+            PostDTO(
                 post_id="1",
                 source_id="s1",
                 title="Post 1",
@@ -20,7 +20,7 @@ class TestFeedScoringService:
                 language="en",
                 keywords=["tech", "news"],
             ),
-            PostEntity(
+            PostDTO(
                 post_id="2",
                 source_id="s2",
                 title="Post 2",
@@ -42,13 +42,13 @@ class TestFeedScoringService:
         self,
     ):
         service = FeedScoringService()
-        prefs = UserPreferencesVO(
+        prefs = UserPreferencesDTO(
             category_interests=["tech", "science"]
         )
 
         now = datetime.now(UTC)
         posts = [
-            PostEntity(
+            PostDTO(
                 post_id="1",
                 source_id="s1",
                 title="Business Post",
@@ -58,7 +58,7 @@ class TestFeedScoringService:
                 keywords=["business"],
                 published_at=now,
             ),
-            PostEntity(
+            PostDTO(
                 post_id="2",
                 source_id="s2",
                 title="Tech Post",
@@ -76,16 +76,14 @@ class TestFeedScoringService:
 
         assert len(ranked) == 2
         assert ranked[0].post_id == "2"  # Tech post first
-        assert (
-            ranked[1].post_id == "1"
-        )  # Business post second
+        assert ranked[1].post_id == "1"  # Business post second
 
     def test_rank_respects_limit(self):
         service = FeedScoringService()
-        prefs = UserPreferencesVO()
+        prefs = UserPreferencesDTO()
 
         posts = [
-            PostEntity(
+            PostDTO(
                 post_id=str(i),
                 source_id="s1",
                 title=f"Post {i}",
@@ -104,13 +102,13 @@ class TestFeedScoringService:
 
     def test_rank_with_category_and_keyword_boost(self):
         service = FeedScoringService()
-        prefs = UserPreferencesVO(
+        prefs = UserPreferencesDTO(
             category_interests=["tech", "science"]
         )
 
         now = datetime.now(UTC)
         posts = [
-            PostEntity(
+            PostDTO(
                 post_id="1",
                 source_id="s1",
                 title="Keyword Only Match",
@@ -120,7 +118,7 @@ class TestFeedScoringService:
                 keywords=["tech"],  # +0.5 keyword match
                 published_at=now,
             ),
-            PostEntity(
+            PostDTO(
                 post_id="2",
                 source_id="s2",
                 title="Category Exact Match",
@@ -130,7 +128,7 @@ class TestFeedScoringService:
                 keywords=[],
                 published_at=now,
             ),
-            PostEntity(
+            PostDTO(
                 post_id="3",
                 source_id="s3",
                 title="Category and Keyword Match",
@@ -151,9 +149,9 @@ class TestFeedScoringService:
         assert ranked[2].post_id == "1"  # Score 0.5
 
 
-class TestPostEntity:
+class TestPostDTO:
     def test_rank_published_at_returns_min_when_none(self):
-        post = PostEntity(
+        post = PostDTO(
             post_id="1",
             source_id="s1",
             title="No Pub Date",
@@ -168,7 +166,7 @@ class TestPostEntity:
         )
 
     def test_entity_is_frozen(self):
-        post = PostEntity(
+        post = PostDTO(
             post_id="1",
             source_id="s1",
             title="Test",
@@ -180,19 +178,19 @@ class TestPostEntity:
             post.title = "Modified"
 
 
-class TestUserPreferencesVO:
+class TestUserPreferencesDTO:
     def test_empty_preferences_has_no_category_interests(self):
-        prefs = UserPreferencesVO()
+        prefs = UserPreferencesDTO()
 
         assert not prefs.has_category_interests
 
     def test_preferences_with_category_interests_reports_true(self):
-        prefs = UserPreferencesVO(category_interests=["tech"])
+        prefs = UserPreferencesDTO(category_interests=["tech"])
 
         assert prefs.has_category_interests
 
     def test_value_object_is_frozen(self):
-        prefs = UserPreferencesVO(category_interests=["tech"])
+        prefs = UserPreferencesDTO(category_interests=["tech"])
 
         with pytest.raises(Exception):  # FrozenInstanceError
             prefs.category_interests = ["business"]

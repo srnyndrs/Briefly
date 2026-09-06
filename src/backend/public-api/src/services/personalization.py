@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from src.services.feed_dtos import UserPreferencesDTO
+from src.services.feed_models import UserPreferencesDTO
 
 
 @dataclass(frozen=True)
@@ -63,4 +63,3 @@ class PersonalizationMergeService:
             published_to=overrides.published_to,
             sort=overrides.sort,
         )
-

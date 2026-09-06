@@ -194,7 +194,6 @@ def test_preferences_and_subscription_flow(
     )
     assert [event["event_type"] for event in publisher.events] == [
         "preferences.updated.v1",
-        "subscription.created.v1",
     ]
     profile_updated_at = db_session.execute(
         text(
@@ -225,9 +224,7 @@ def test_preferences_and_subscription_flow(
     assert delete_sub.status_code == 204
     assert [event["event_type"] for event in publisher.events] == [
         "preferences.updated.v1",
-        "subscription.created.v1",
         "preferences.updated.v1",
-        "subscription.deleted.v1",
     ]
 
 

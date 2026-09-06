@@ -1,14 +1,14 @@
-from src.services.feed_types import PostEntity, UserPreferencesVO
+from src.services.feed_models import PostDTO, UserPreferencesDTO
 
 
 class FeedScoringService:
     def rank(
         self,
         *,
-        articles: list[PostEntity],
-        preferences: UserPreferencesVO,
+        articles: list[PostDTO],
+        preferences: UserPreferencesDTO,
         limit: int,
-    ) -> list[PostEntity]:
+    ) -> list[PostDTO]:
         if not preferences.has_category_interests:
             return articles[:limit]
 
@@ -18,15 +18,12 @@ class FeedScoringService:
         }
 
         def _score(
-            post: PostEntity,
+            post: PostDTO,
         ) -> tuple[float, object, object]:
             score = 0.0
 
             # Direct category affinity boost
-            if (
-                post.category
-                and post.category.lower() in interests
-            ):
+            if post.category and post.category.lower() in interests:
                 score += interests[post.category.lower()] * 2.0
 
             # Keyword / Topic affinity boost

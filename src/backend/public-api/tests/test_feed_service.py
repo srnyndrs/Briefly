@@ -1,14 +1,13 @@
 from unittest.mock import Mock
 from uuid import uuid4
 
-from src.services.feed_dtos import UserPreferencesDTO
+from src.services.feed_models import PostDTO, UserPreferencesDTO
 from src.services.feed_service import (
     FeedService,
     GetPostInput,
     ListFeedInput,
     SearchFeedInput,
 )
-from src.services.feed_types import PostEntity
 
 
 class TestFeedServiceList:
@@ -18,7 +17,7 @@ class TestFeedServiceList:
         mock_prefs_reader = Mock()
         mock_scoring_service = Mock()
 
-        post = PostEntity(
+        post = PostDTO(
             post_id="a1",
             source_id="s1",
             title="Test",
@@ -146,7 +145,7 @@ class TestFeedServiceSearch:
         mock_repo = Mock()
         mock_prefs_reader = Mock()
 
-        post = PostEntity(
+        post = PostDTO(
             post_id="a1",
             source_id="s1",
             title="Python Programming",
@@ -239,7 +238,7 @@ class TestFeedServiceGetPost:
     def test_execute_returns_post_when_found(self):
         # Arrange
         mock_repo = Mock()
-        post = PostEntity(
+        post = PostDTO(
             post_id="a1",
             source_id="s1",
             title="Test",
@@ -251,9 +250,7 @@ class TestFeedServiceGetPost:
         use_case = FeedService(mock_repo, Mock())
 
         # Act
-        result = use_case.get_post(
-            GetPostInput(post_id=uuid4())
-        )
+        result = use_case.get_post(GetPostInput(post_id=uuid4()))
 
         # Assert
         assert result is not None
@@ -267,9 +264,7 @@ class TestFeedServiceGetPost:
         use_case = FeedService(mock_repo, Mock())
 
         # Act
-        result = use_case.get_post(
-            GetPostInput(post_id=uuid4())
-        )
+        result = use_case.get_post(GetPostInput(post_id=uuid4()))
 
         # Assert
         assert result is None

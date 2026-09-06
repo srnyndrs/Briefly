@@ -5,7 +5,6 @@ from sqlalchemy import (
     JSON,
     DateTime,
     Index,
-    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -130,25 +129,4 @@ class UserPreferencesProjection(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
-    )
-
-
-class UserSubscriptionProjection(Base):
-    __tablename__ = "user_subscription_projections"
-
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
-    )
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
-    source_id: Mapped[str] = mapped_column(String(64), index=True)
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "user_id",
-            "source_id",
-            name="uq_user_subscription_user_source",
-        ),
     )

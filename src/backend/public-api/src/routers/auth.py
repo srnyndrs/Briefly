@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Response
 
-from src.repositories.service_clients import (
+from src.adapters.service_clients import (
     ServiceClientError,
     account_login,
     account_logout,

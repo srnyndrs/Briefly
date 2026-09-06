@@ -6,11 +6,7 @@ from src.repositories.feed_repository import (
     PostRepository,
     UserPreferencesRepository,
 )
-from src.services.feed_dtos import PostDTO, UserPreferencesDTO
-from src.services.feed_mappers import (
-    entity_to_post_dto,
-    user_preferences_dto_to_vo,
-)
+from src.services.feed_models import PostDTO, UserPreferencesDTO
 from src.services.feed_scoring import FeedScoringService
 from src.services.personalization import (
     PersonalizationMergeService,
@@ -100,15 +96,6 @@ class FeedService:
             ),
         )
 
-        prefs_vo = user_preferences_dto_to_vo(
-            UserPreferencesDTO(
-                muted_keywords=context.muted_keywords,
-                muted_categories=context.muted_categories,
-                blocked_source_ids=context.blocked_source_ids,
-                languages=context.languages,
-                category_interests=context.category_interests,
-            )
-        )
         candidates, total = (
             self._post_repository.list_feed_candidates(
                 user_id=data.user_id,
@@ -128,14 +115,11 @@ class FeedService:
         )
         ranked = self._scoring_service.rank(
             articles=candidates,
-            preferences=prefs_vo,
+            preferences=prefs_dto,
             limit=data.limit,
         )
         return ListFeedOutput(
-            items=[
-                entity_to_post_dto(post)
-                for post in ranked
-            ],
+            items=ranked,
             total=total,
         )
 
@@ -174,17 +158,9 @@ class FeedService:
             offset=data.offset,
         )
         return SearchFeedOutput(
-            items=[
-                entity_to_post_dto(post)
-                for post in items
-            ],
+            items=items,
             total=total,
         )
 
-    def get_post(
-        self, data: GetPostInput
-    ) -> PostDTO | None:
-        entity = self._post_repository.get_post(data.post_id)
-        if entity is None:
-            return None
-        return entity_to_post_dto(entity)
+    def get_post(self, data: GetPostInput) -> PostDTO | None:
+        return self._post_repository.get_post(data.post_id)
