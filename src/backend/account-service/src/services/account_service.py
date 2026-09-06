@@ -49,16 +49,10 @@ class AccountService:
         )
         self._repo.create_default_profile(user.user_id)
         self._repo.create_default_preferences(user.user_id)
-        return self._auth_service.issue_token_pair(
-            user_id=user.user_id
-        )
+        return self._auth_service.issue_token_pair(user_id=user.user_id)
 
-    def login(
-        self, *, email: str, password: str
-    ) -> tuple[str, str]:
-        return self._auth_service.login(
-            email=email, password=password
-        )
+    def login(self, *, email: str, password: str) -> tuple[str, str]:
+        return self._auth_service.login(email=email, password=password)
 
     def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         return self._auth_service.refresh_tokens(refresh_token)
@@ -118,9 +112,7 @@ class AccountService:
 
         return profile
 
-    def patch_profile(
-        self, *, user_id: str, fields: dict[str, Any]
-    ):
+    def patch_profile(self, *, user_id: str, fields: dict[str, Any]):
         profile = self._repo.get_profile(user_id)
         if profile is None:
             raise NotFoundError("User profile not found")
@@ -177,8 +169,7 @@ class AccountService:
             partition_key=f"user:{user_id}",
             payload={
                 "user_id": user_id,
-                "updated_at": preferences.updated_at.isoformat()
-                + "Z",
+                "updated_at": preferences.updated_at.isoformat() + "Z",
                 "muted_keywords": preferences.muted_keywords,
                 "muted_categories": preferences.muted_categories,
                 "blocked_source_ids": preferences.blocked_source_ids,

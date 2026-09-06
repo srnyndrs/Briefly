@@ -177,9 +177,7 @@ def get_general_feed(
 
     output = service.list_feed(
         ListFeedInput(
-            user_id=uuid.UUID(
-                "00000000-0000-0000-0000-000000000000"
-            ),
+            user_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
             limit=limit,
             offset=offset,
             use_profile=False,

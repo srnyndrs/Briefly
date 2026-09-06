@@ -111,12 +111,8 @@ def get_my_subscriptions(
     user: CurrentUser,
 ) -> list[SubscriptionResponse]:
     try:
-        subscriptions = account_list_subscriptions(
-            str(user.user_id)
-        )
-        return [
-            SubscriptionResponse(**item) for item in subscriptions
-        ]
+        subscriptions = account_list_subscriptions(str(user.user_id))
+        return [SubscriptionResponse(**item) for item in subscriptions]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

@@ -25,17 +25,11 @@ class AuthService:
     def hash_password(self, password: str) -> str:
         return self._pwd_context.hash(password)
 
-    def login(
-        self, *, email: str, password: str
-    ) -> tuple[str, str]:
-        user = self._authenticate_user(
-            email=email, password=password
-        )
+    def login(self, *, email: str, password: str) -> tuple[str, str]:
+        user = self._authenticate_user(email=email, password=password)
         return self.issue_token_pair(user_id=user.user_id)
 
-    def _authenticate_user(
-        self, *, email: str, password: str
-    ) -> User:
+    def _authenticate_user(self, *, email: str, password: str) -> User:
         user = self._repo.get_user_by_email(email)
         if user is None or not self._pwd_context.verify(
             password, user.password_hash
@@ -229,9 +223,9 @@ class AuthService:
     @staticmethod
     def _encode_token(claims: dict[str, Any]) -> str:
         header = {"alg": "HS256", "typ": "JWT"}
-        return jwt.encode(
-            header, claims, settings.jwt_secret
-        ).decode("utf-8")
+        return jwt.encode(header, claims, settings.jwt_secret).decode(
+            "utf-8"
+        )
 
     @staticmethod
     def _decode_token(token: str) -> dict[str, Any]:

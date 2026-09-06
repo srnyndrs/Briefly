@@ -29,9 +29,7 @@ def engine():
         "sqlite+pysqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
-        execution_options={
-            "schema_translate_map": {"account": None}
-        },
+        execution_options={"schema_translate_map": {"account": None}},
     )
 
 
@@ -68,16 +66,12 @@ def publisher() -> RecordingPublisher:
 
 
 @pytest.fixture()
-def client(
-    db_session, publisher
-) -> Generator[TestClient, None, None]:
+def client(db_session, publisher) -> Generator[TestClient, None, None]:
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_event_publisher] = lambda: (
-        publisher
-    )
+    app.dependency_overrides[get_event_publisher] = lambda: publisher
     app.state.testing = True
     with TestClient(app) as test_client:
         yield test_client

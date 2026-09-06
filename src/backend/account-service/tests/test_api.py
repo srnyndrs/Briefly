@@ -113,9 +113,7 @@ def test_preferences_and_subscription_flow(
 
     source_id = str(uuid.uuid4())
     original_updated_at = db_session.execute(
-        text(
-            "SELECT updated_at FROM accounts WHERE user_id=:user_id"
-        ),
+        text("SELECT updated_at FROM accounts WHERE user_id=:user_id"),
         {"user_id": user_id},
     ).scalar_one()
     put_prefs = client.put(
@@ -141,9 +139,7 @@ def test_preferences_and_subscription_flow(
     assert put_prefs.json()["languages"] == ["en", "hu"]
     assert put_prefs.json()["blocked_source_ids"] == [source_id]
     preferences_updated_at = db_session.execute(
-        text(
-            "SELECT updated_at FROM accounts WHERE user_id=:user_id"
-        ),
+        text("SELECT updated_at FROM accounts WHERE user_id=:user_id"),
         {"user_id": user_id},
     ).scalar_one()
     assert preferences_updated_at > original_updated_at
@@ -178,9 +174,7 @@ def test_preferences_and_subscription_flow(
     assert profile_data["user_id"] == user_id
     assert profile_data["display_name"] == "Alice"
     assert profile_data["bio"] == "About Bob"
-    assert (
-        profile_data["avatar_url"] == "https://example.com/bob.png"
-    )
+    assert profile_data["avatar_url"] == "https://example.com/bob.png"
 
     clear_bio = client.patch(
         f"/users/{user_id}/profile", json={"bio": None}
@@ -189,16 +183,13 @@ def test_preferences_and_subscription_flow(
     assert clear_bio.json()["display_name"] == "Alice"
     assert clear_bio.json()["bio"] is None
     assert (
-        clear_bio.json()["avatar_url"]
-        == "https://example.com/bob.png"
+        clear_bio.json()["avatar_url"] == "https://example.com/bob.png"
     )
     assert [event["event_type"] for event in publisher.events] == [
         "preferences.updated.v1",
     ]
     profile_updated_at = db_session.execute(
-        text(
-            "SELECT updated_at FROM accounts WHERE user_id=:user_id"
-        ),
+        text("SELECT updated_at FROM accounts WHERE user_id=:user_id"),
         {"user_id": user_id},
     ).scalar_one()
     assert profile_updated_at > preferences_updated_at

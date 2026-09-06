@@ -38,9 +38,7 @@ def get_post_by_id(
     _ = user
     item = service.get_post(GetPostInput(post_id=post_id))
     if item is None:
-        raise HTTPException(
-            status_code=404, detail="Post not found"
-        )
+        raise HTTPException(status_code=404, detail="Post not found")
     return to_post_response(item)
 
 
@@ -95,9 +93,7 @@ def admin_list_posts(
         raise map_service_error(exc) from exc
 
 
-@admin_router.get(
-    "/posts/{post_id}", response_model=AdminPostResponse
-)
+@admin_router.get("/posts/{post_id}", response_model=AdminPostResponse)
 def admin_get_post(
     post_id: str,
     admin_user: CurrentAdminUser,

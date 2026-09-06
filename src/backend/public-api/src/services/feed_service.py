@@ -70,18 +70,14 @@ class FeedService:
     ) -> None:
         self._post_repository = post_repository
         self._preferences_repository = preferences_repository
-        self._scoring_service = (
-            scoring_service or FeedScoringService()
-        )
+        self._scoring_service = scoring_service or FeedScoringService()
         self._merge_service = (
             merge_service or PersonalizationMergeService()
         )
 
     def list_feed(self, data: ListFeedInput) -> ListFeedOutput:
         prefs_dto: UserPreferencesDTO = (
-            self._preferences_repository.get_preferences(
-                data.user_id
-            )
+            self._preferences_repository.get_preferences(data.user_id)
         )
         context = self._merge_service.merge(
             profile=prefs_dto,
@@ -96,22 +92,20 @@ class FeedService:
             ),
         )
 
-        candidates, total = (
-            self._post_repository.list_feed_candidates(
-                user_id=data.user_id,
-                languages=context.languages,
-                muted_keywords=context.muted_keywords,
-                muted_categories=context.muted_categories,
-                blocked_source_ids=context.blocked_source_ids,
-                include_languages=context.include_languages,
-                include_source_ids=context.include_source_ids,
-                include_categories=context.include_categories,
-                published_from=context.published_from,
-                published_to=context.published_to,
-                sort=context.sort,
-                limit=data.limit,
-                offset=data.offset,
-            )
+        candidates, total = self._post_repository.list_feed_candidates(
+            user_id=data.user_id,
+            languages=context.languages,
+            muted_keywords=context.muted_keywords,
+            muted_categories=context.muted_categories,
+            blocked_source_ids=context.blocked_source_ids,
+            include_languages=context.include_languages,
+            include_source_ids=context.include_source_ids,
+            include_categories=context.include_categories,
+            published_from=context.published_from,
+            published_to=context.published_to,
+            sort=context.sort,
+            limit=data.limit,
+            offset=data.offset,
         )
         ranked = self._scoring_service.rank(
             articles=candidates,
@@ -123,9 +117,7 @@ class FeedService:
             total=total,
         )
 
-    def search_feed(
-        self, data: SearchFeedInput
-    ) -> SearchFeedOutput:
+    def search_feed(self, data: SearchFeedInput) -> SearchFeedOutput:
         prefs = self._preferences_repository.get_preferences(
             data.user_id
         )

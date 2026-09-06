@@ -72,9 +72,9 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
     if not existing.published_at and published_at:
         existing.published_at = published_at
     if "image_url" in payload or "image_ref" in payload:
-        existing.image_ref = payload.get(
-            "image_url"
-        ) or payload.get("image_ref")
+        existing.image_ref = payload.get("image_url") or payload.get(
+            "image_ref"
+        )
 
 
 def project_user_preferences(
@@ -93,13 +93,9 @@ def project_user_preferences(
 
     prefs.muted_keywords = payload.get("muted_keywords") or []
     prefs.muted_categories = payload.get("muted_categories") or []
-    prefs.blocked_source_ids = (
-        payload.get("blocked_source_ids") or []
-    )
+    prefs.blocked_source_ids = payload.get("blocked_source_ids") or []
     prefs.languages = payload.get("languages") or []
-    prefs.category_interests = (
-        payload.get("category_interests") or []
-    )
+    prefs.category_interests = payload.get("category_interests") or []
     prefs.updated_at = (
         _parse_dt(payload.get("updated_at")) or prefs.updated_at
     )

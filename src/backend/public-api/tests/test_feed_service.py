@@ -200,9 +200,7 @@ class TestFeedServiceSearch:
         mock_repo.search_feed.assert_called_once()
         call_kwargs = mock_repo.search_feed.call_args[1]
         assert call_kwargs["languages"] == ["fr"]
-        assert call_kwargs["blocked_source_ids"] == [
-            "blocked_source"
-        ]
+        assert call_kwargs["blocked_source_ids"] == ["blocked_source"]
         assert call_kwargs["muted_keywords"] == ["crypto"]
         assert call_kwargs["muted_categories"] == ["sports"]
 

@@ -17,9 +17,7 @@ from src.config.database import Base
 class ProcessedEvent(Base):
     __tablename__ = "processed_events"
 
-    event_id: Mapped[str] = mapped_column(
-        String(64), primary_key=True
-    )
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     consumer_name: Mapped[str] = mapped_column(
         String(100), primary_key=True
     )
@@ -31,9 +29,7 @@ class ProcessedEvent(Base):
 class PostProjection(Base):
     __tablename__ = "post_projections"
 
-    post_id: Mapped[str] = mapped_column(
-        String(64), primary_key=True
-    )
+    post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     source_id: Mapped[str | None] = mapped_column(
         String(64), index=True
     )
@@ -44,9 +40,7 @@ class PostProjection(Base):
         String(2048), nullable=True
     )
     title: Mapped[str] = mapped_column(String(1024), default="")
-    description: Mapped[str | None] = mapped_column(
-        Text, nullable=True
-    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )
@@ -109,9 +103,7 @@ class PostProjection(Base):
 class UserPreferencesProjection(Base):
     __tablename__ = "user_preferences_projections"
 
-    user_id: Mapped[str] = mapped_column(
-        String(64), primary_key=True
-    )
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     muted_keywords: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )

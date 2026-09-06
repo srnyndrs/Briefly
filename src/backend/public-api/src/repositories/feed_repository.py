@@ -40,9 +40,7 @@ class PostRepository:
             query = query.where(
                 or_(
                     PostProjection.source_id.is_(None),
-                    PostProjection.source_id.not_in(
-                        blocked_source_ids
-                    ),
+                    PostProjection.source_id.not_in(blocked_source_ids),
                 )
             )
 
@@ -51,18 +49,14 @@ class PostRepository:
             query = query.where(
                 or_(
                     PostProjection.category.is_(None),
-                    PostProjection.category.not_in(
-                        muted_categories
-                    ),
+                    PostProjection.category.not_in(muted_categories),
                 )
             )
 
         # 3. Hard Block: Muted Keywords
         if muted_keywords:
             normalized_muted = [
-                k.lower().strip()
-                for k in muted_keywords
-                if k.strip()
+                k.lower().strip() for k in muted_keywords if k.strip()
             ]
             if normalized_muted:
                 if (
@@ -100,16 +94,13 @@ class PostRepository:
             )
 
         if include_categories:
-            if (
-                self._db.bind
-                and self._db.bind.dialect.name == "sqlite"
-            ):
+            if self._db.bind and self._db.bind.dialect.name == "sqlite":
                 query = query.where(
                     or_(
                         *[
-                            cast(
-                                PostProjection.keywords, String
-                            ).ilike(f"%{c}%")
+                            cast(PostProjection.keywords, String).ilike(
+                                f"%{c}%"
+                            )
                             for c in include_categories
                         ]
                     )

@@ -124,9 +124,7 @@ class QueryProjector:
             payload = event.get("payload") or {}
 
             if not event_id or not event_type:
-                logger.warning(
-                    "Dropping event with missing id/type"
-                )
+                logger.warning("Dropping event with missing id/type")
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
 

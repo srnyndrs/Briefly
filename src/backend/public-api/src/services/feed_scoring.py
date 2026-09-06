@@ -13,8 +13,7 @@ class FeedScoringService:
             return articles[:limit]
 
         interests = {
-            cat.lower(): 1.0
-            for cat in preferences.category_interests
+            cat.lower(): 1.0 for cat in preferences.category_interests
         }
 
         def _score(
@@ -27,9 +26,7 @@ class FeedScoringService:
                 score += interests[post.category.lower()] * 2.0
 
             # Keyword / Topic affinity boost
-            post_keywords = {
-                k.lower() for k in (post.keywords or [])
-            }
+            post_keywords = {k.lower() for k in (post.keywords or [])}
             keyword_matches = len(
                 post_keywords.intersection(interests.keys())
             )

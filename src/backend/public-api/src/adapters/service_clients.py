@@ -67,9 +67,7 @@ def _forward(
 
 
 def map_service_error(exc: ServiceClientError) -> HTTPException:
-    return HTTPException(
-        status_code=exc.status_code, detail=exc.detail
-    )
+    return HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 def account_get_user(user_id: str) -> dict:
@@ -192,9 +190,7 @@ def account_create_subscription(user_id: str, body: dict) -> dict:
     )
 
 
-def account_delete_subscription(
-    user_id: str, source_id: str
-) -> None:
+def account_delete_subscription(user_id: str, source_id: str) -> None:
     _forward(
         "DELETE",
         settings.account_service_url,
@@ -212,9 +208,7 @@ def ingestion_create_source(body: dict) -> dict:
 
 
 def ingestion_list_sources() -> list[dict]:
-    result = _forward(
-        "GET", settings.ingestion_service_url, "/sources"
-    )
+    result = _forward("GET", settings.ingestion_service_url, "/sources")
     if isinstance(result, list):
         return result
     return []
@@ -278,6 +272,4 @@ def content_list_posts(params: dict) -> list[dict]:
 
 
 def content_posts_count() -> dict:
-    return _forward(
-        "GET", settings.content_service_url, "/posts/count"
-    )
+    return _forward("GET", settings.content_service_url, "/posts/count")

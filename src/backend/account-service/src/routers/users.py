@@ -105,9 +105,7 @@ def patch_profile(
     service: AccountService = Depends(get_account_service),
 ) -> ProfileResponse:
     try:
-        patch_data = body.model_dump(
-            mode="json", exclude_unset=True
-        )
+        patch_data = body.model_dump(mode="json", exclude_unset=True)
         profile = service.patch_profile(
             user_id=str(user_id), fields=patch_data
         )
@@ -143,8 +141,7 @@ def get_preferences(
         muted_keywords=preferences.muted_keywords,
         muted_categories=preferences.muted_categories,
         blocked_source_ids=[
-            uuid.UUID(value)
-            for value in preferences.blocked_source_ids
+            uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
         category_interests=preferences.category_interests,
@@ -184,8 +181,7 @@ def update_preferences(
         muted_keywords=preferences.muted_keywords,
         muted_categories=preferences.muted_categories,
         blocked_source_ids=[
-            uuid.UUID(value)
-            for value in preferences.blocked_source_ids
+            uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
         category_interests=preferences.category_interests,
@@ -203,9 +199,7 @@ def patch_preferences(
     x_correlation_id: str | None = Header(default=None),
 ) -> PreferencesResponse:
     try:
-        patch_data = body.model_dump(
-            mode="json", exclude_unset=True
-        )
+        patch_data = body.model_dump(mode="json", exclude_unset=True)
         request_id = correlation_id(x_correlation_id)
         preferences = service.patch_preferences(
             user_id=str(user_id),
@@ -222,8 +216,7 @@ def patch_preferences(
         muted_keywords=preferences.muted_keywords,
         muted_categories=preferences.muted_categories,
         blocked_source_ids=[
-            uuid.UUID(value)
-            for value in preferences.blocked_source_ids
+            uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
         category_interests=preferences.category_interests,

@@ -46,9 +46,7 @@ async def lifespan(application: FastAPI):
             application.state.projector = projector
             application.state.projector_thread = thread
 
-        logger.info(
-            "Public API started on port=%d", settings.app_port
-        )
+        logger.info("Public API started on port=%d", settings.app_port)
 
     yield
 

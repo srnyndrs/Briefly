@@ -77,9 +77,7 @@ def password_reset_request(
         raise map_service_error(exc) from exc
 
 
-@router.post(
-    "/password-reset/confirm", response_model=StatusResponse
-)
+@router.post("/password-reset/confirm", response_model=StatusResponse)
 def password_reset_confirm(
     body: PasswordResetConfirmRequest,
 ) -> StatusResponse:

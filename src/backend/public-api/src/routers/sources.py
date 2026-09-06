@@ -26,9 +26,7 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 
 
 @router.post("", status_code=201)
-def create_source(
-    body: SourceCreateRequest, user: CurrentUser
-) -> dict:
+def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
     _ = user
     try:
         return ingestion_create_source(body.model_dump(mode="json"))
@@ -48,12 +46,8 @@ def list_sources(
 ) -> list[SourceResponse]:
     try:
         sources = ingestion_list_sources()
-        subscriptions = account_list_subscriptions(
-            str(user.user_id)
-        )
-        subscribed_ids = {
-            str(s["source_id"]) for s in subscriptions
-        }
+        subscriptions = account_list_subscriptions(str(user.user_id))
+        subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
         results = []
         for item in sources:
@@ -112,12 +106,8 @@ def get_source(
 ) -> SourceResponse:
     try:
         source_data = ingestion_get_source(str(source_id))
-        subscriptions = account_list_subscriptions(
-            str(user.user_id)
-        )
-        subscribed_ids = {
-            str(s["source_id"]) for s in subscriptions
-        }
+        subscriptions = account_list_subscriptions(str(user.user_id))
+        subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
         return SourceResponse(
             **source_data,
@@ -149,9 +139,7 @@ def patch_source(
 
 
 @router.delete("/{source_id}", status_code=204)
-def delete_source(
-    source_id: uuid.UUID, user: CurrentUser
-) -> Response:
+def delete_source(source_id: uuid.UUID, user: CurrentUser) -> Response:
     _ = user
     try:
         ingestion_delete_source(str(source_id))

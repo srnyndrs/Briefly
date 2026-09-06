@@ -52,9 +52,7 @@ class AccountRepository:
 
     def get_profile(self, user_id: str) -> UserProfile | None:
         return self._db.execute(
-            select(UserProfile).where(
-                UserProfile.user_id == user_id
-            )
+            select(UserProfile).where(UserProfile.user_id == user_id)
         ).scalar_one_or_none()
 
     def upsert_profile(
@@ -86,9 +84,7 @@ class AccountRepository:
     def create_default_preferences(self, user_id: str) -> None:
         self._db.add(UserPreferences(user_id=user_id))
 
-    def get_preferences(
-        self, user_id: str
-    ) -> UserPreferences | None:
+    def get_preferences(self, user_id: str) -> UserPreferences | None:
         return self._db.execute(
             select(UserPreferences).where(
                 UserPreferences.user_id == user_id
@@ -149,9 +145,7 @@ class AccountRepository:
             .all()
         )
 
-    def has_subscription(
-        self, *, user_id: str, source_id: str
-    ) -> bool:
+    def has_subscription(self, *, user_id: str, source_id: str) -> bool:
         subscription = self._db.execute(
             select(UserSubscription).where(
                 UserSubscription.user_id == user_id,
@@ -175,18 +169,14 @@ class AccountRepository:
         self._db.commit()
         return True
 
-    def get_refresh_token(
-        self, token_id: str
-    ) -> RefreshToken | None:
+    def get_refresh_token(self, token_id: str) -> RefreshToken | None:
         return self._db.execute(
             select(RefreshToken).where(
                 RefreshToken.token_id == token_id
             )
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(
-        self, user_id: str
-    ) -> Sequence[Any]:
+    def list_active_refresh_tokens(self, user_id: str) -> Sequence[Any]:
         return (
             self._db.execute(
                 select(RefreshToken).where(

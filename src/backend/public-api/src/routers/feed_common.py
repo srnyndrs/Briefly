@@ -16,9 +16,7 @@ from src.services.feed_service import FeedService
 def to_post_response(item: PostDTO) -> PostResponse:
     return PostResponse(
         post_id=uuid.UUID(item.post_id),
-        source_id=uuid.UUID(item.source_id)
-        if item.source_id
-        else None,
+        source_id=uuid.UUID(item.source_id) if item.source_id else None,
         title=item.title,
         source_title=item.source_title,
         description=item.description,

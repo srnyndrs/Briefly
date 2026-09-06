@@ -194,9 +194,7 @@ def test_feed_use_profile_false_ignores_profile_filters() -> None:
     assert profiled.status_code == 200
     assert profiled.json()["total"] == 0
 
-    unprofiled = client.get(
-        "/feed", params={"use_profile": "false"}
-    )
+    unprofiled = client.get("/feed", params={"use_profile": "false"})
     assert unprofiled.status_code == 200
     assert unprofiled.json()["total"] == 1
 
@@ -266,9 +264,7 @@ def test_auth_login_endpoint(monkeypatch) -> None:
             "token_type": "Bearer",
         }
 
-    monkeypatch.setattr(
-        "src.routers.auth.account_login", fake_login
-    )
+    monkeypatch.setattr("src.routers.auth.account_login", fake_login)
 
     response = client.post(
         "/auth/login",
@@ -727,9 +723,7 @@ def test_admin_get_post_endpoint(monkeypatch) -> None:
             "keywords": ["technology"],
         }
 
-    monkeypatch.setattr(
-        "src.routers.posts.content_get_post", fake_get
-    )
+    monkeypatch.setattr("src.routers.posts.content_get_post", fake_get)
 
     response = client.get(f"/admin/posts/{post_id}")
     assert response.status_code == 200
@@ -822,9 +816,7 @@ def test_feed_search_query_parameter() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] >= 1
-    assert (
-        payload["items"][0]["title"] == "Antigravity Release Notes"
-    )
+    assert payload["items"][0]["title"] == "Antigravity Release Notes"
 
 
 def test_get_post_by_id_endpoint() -> None:
@@ -918,9 +910,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
     assert all_res.status_code == 200
     assert len(all_res.json()) == 2
 
-    sub_res = client.get(
-        "/sources", params={"subscribed_only": "true"}
-    )
+    sub_res = client.get("/sources", params={"subscribed_only": "true"})
     assert sub_res.status_code == 200
     sub_items = sub_res.json()
     assert len(sub_items) == 1
@@ -1019,9 +1009,7 @@ def test_admin_feed_pagination() -> None:
         )
     db.commit()
 
-    res = client.get(
-        "/admin/feed", params={"page": 1, "page_size": 2}
-    )
+    res = client.get("/admin/feed", params={"page": 1, "page_size": 2})
     assert res.status_code == 200
     data = res.json()
     assert data["total"] == 3
@@ -1155,9 +1143,7 @@ def test_old_sources_subscription_endpoints_removed() -> None:
     client = _build_client()
     src_id = str(uuid4())
 
-    res_post = client.post(
-        f"/sources/{src_id}/subscription", json={}
-    )
+    res_post = client.post(f"/sources/{src_id}/subscription", json={})
     assert res_post.status_code == 404
 
     res_delete = client.delete(f"/sources/{src_id}/subscription")
@@ -1443,9 +1429,7 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
     assert all_res.status_code == 200
     assert all_res.json()["total"] == 2
 
-    sub_res = client.get(
-        "/feed", params={"subscribed_only": "true"}
-    )
+    sub_res = client.get("/feed", params={"subscribed_only": "true"})
     assert sub_res.status_code == 200
     assert sub_res.json()["total"] == 1
     assert sub_res.json()["items"][0]["title"] == "Subscribed Post"
@@ -1473,9 +1457,7 @@ def test_upstream_request_error_returns_502(monkeypatch) -> None:
 
     response = client.get("/sources")
     assert response.status_code == 502
-    assert (
-        response.json()["detail"] == "Upstream service unavailable"
-    )
+    assert response.json()["detail"] == "Upstream service unavailable"
 
 
 def test_forward_maps_httpx_request_error_to_service_client_error(

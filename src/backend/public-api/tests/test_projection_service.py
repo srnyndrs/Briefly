@@ -50,9 +50,7 @@ def test_project_post_persists_content() -> None:
         db.close()
 
 
-def test_project_post_preserves_immutable_fields_on_update() -> (
-    None
-):
+def test_project_post_preserves_immutable_fields_on_update() -> None:
     engine = create_engine(
         "sqlite:///:memory:",
         execution_options={"schema_translate_map": {"query": None}},
@@ -64,9 +62,7 @@ def test_project_post_preserves_immutable_fields_on_update() -> (
 
     db = SessionLocal()
     try:
-        initial_published_at = datetime(
-            2026, 1, 1, 12, 0, tzinfo=UTC
-        )
+        initial_published_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
         project_post(
             db,
             payload={

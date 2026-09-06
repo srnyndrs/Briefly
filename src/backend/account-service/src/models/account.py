@@ -22,9 +22,7 @@ def _json_type():
 class User(Base):
     __tablename__ = "accounts"
 
-    user_id: Mapped[str] = mapped_column(
-        String(36), primary_key=True
-    )
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )
@@ -123,9 +121,7 @@ class UserPreferences(Base):
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "source_id", name="uq_user_source"
-        ),
+        UniqueConstraint("user_id", "source_id", name="uq_user_source"),
     )
 
     id: Mapped[int] = mapped_column(
@@ -136,34 +132,26 @@ class UserSubscription(Base):
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    source_id: Mapped[str] = mapped_column(
-        String(36), nullable=False
-    )
+    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
         nullable=False,
     )
 
-    user: Mapped[User] = relationship(
-        back_populates="subscriptions"
-    )
+    user: Mapped[User] = relationship(back_populates="subscriptions")
 
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    token_id: Mapped[str] = mapped_column(
-        String(36), primary_key=True
-    )
+    token_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    token_hash: Mapped[str] = mapped_column(
-        String(128), nullable=False
-    )
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False
     )
