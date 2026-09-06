@@ -25,8 +25,12 @@ class AuthService:
     def hash_password(self, password: str) -> str:
         return self._pwd_context.hash(password)
 
-    def login(self, *, email: str, password: str) -> tuple[str, str]:
-        user = self._authenticate_user(email=email, password=password)
+    def login(
+        self, *, email: str, password: str
+    ) -> tuple[str, str]:
+        user = self._authenticate_user(
+            email=email, password=password
+        )
         return self.issue_token_pair(user_id=user.user_id)
 
     def _authenticate_user(

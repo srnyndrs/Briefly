@@ -2,7 +2,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from src.adapters.account_event_publisher import AccountEventPublisher
+from src.adapters.account_event_publisher import (
+    AccountEventPublisher,
+)
 from src.repositories.account_repository import AccountRepository
 from src.services.auth_service import AuthService
 
@@ -52,12 +54,16 @@ class AccountService:
         )
         self._repo.create_default_profile(user.user_id)
         self._repo.create_default_preferences(user.user_id)
-        return self._auth_service.issue_token_pair(user_id=user.user_id)
+        return self._auth_service.issue_token_pair(
+            user_id=user.user_id
+        )
 
     def login(
         self, *, email: str, password: str
     ) -> tuple[str, str]:
-        return self._auth_service.login(email=email, password=password)
+        return self._auth_service.login(
+            email=email, password=password
+        )
 
     def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         return self._auth_service.refresh_tokens(refresh_token)
@@ -212,7 +218,8 @@ class AccountService:
             blocked_source_ids=[
                 str(value)
                 for value in fields.get(
-                    "blocked_source_ids", preferences.blocked_source_ids
+                    "blocked_source_ids",
+                    preferences.blocked_source_ids,
                 )
                 or []
             ],

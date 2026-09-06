@@ -23,7 +23,9 @@ def test_build_envelope_generates_trace_fields() -> None:
     assert len(envelope["trace"]["span_id"]) == 16
 
 
-def test_publish_declares_account_exchange_and_sends_envelope(monkeypatch):
+def test_publish_declares_account_exchange_and_sends_envelope(
+    monkeypatch,
+):
     params = Mock()
     channel = Mock()
     connection = Mock()
@@ -31,7 +33,9 @@ def test_publish_declares_account_exchange_and_sends_envelope(monkeypatch):
     connection.is_open = True
 
     monkeypatch.setattr(
-        account_event_publisher.pika, "URLParameters", lambda url: params
+        account_event_publisher.pika,
+        "URLParameters",
+        lambda url: params,
     )
     monkeypatch.setattr(
         account_event_publisher.pika,

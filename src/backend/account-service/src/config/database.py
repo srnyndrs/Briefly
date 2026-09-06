@@ -26,7 +26,9 @@ def init_db() -> None:
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
-            conn.execute(text("CREATE SCHEMA IF NOT EXISTS account;"))
+            conn.execute(
+                text("CREATE SCHEMA IF NOT EXISTS account;")
+            )
     Base.metadata.create_all(bind=engine)
 
 

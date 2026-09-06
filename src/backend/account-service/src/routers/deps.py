@@ -3,7 +3,9 @@ import uuid
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from src.adapters.account_event_publisher import AccountEventPublisher
+from src.adapters.account_event_publisher import (
+    AccountEventPublisher,
+)
 from src.config.database import get_db
 from src.repositories.account_repository import AccountRepository
 from src.services.account_service import AccountService

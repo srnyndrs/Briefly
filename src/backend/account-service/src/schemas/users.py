@@ -69,7 +69,6 @@ class PreferencesResponse(BaseModel):
         return value.isoformat()
 
 
-
 class SubscriptionCreateRequest(BaseModel):
     source_id: UUID
 

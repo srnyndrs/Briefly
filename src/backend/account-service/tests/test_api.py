@@ -47,9 +47,12 @@ def test_register_login_and_get_user(client, db_session) -> None:
     assert failed_register.status_code == 409
     assert "access_token" not in failed_register.json()
     assert "refresh_token" not in failed_register.json()
-    assert db_session.execute(
-        text("SELECT COUNT(*) FROM refresh_tokens")
-    ).scalar_one() == 1
+    assert (
+        db_session.execute(
+            text("SELECT COUNT(*) FROM refresh_tokens")
+        ).scalar_one()
+        == 1
+    )
 
     login = client.post(
         "/auth/login",
@@ -130,7 +133,10 @@ def test_preferences_and_subscription_flow(
         "tech",
         "science",
     ]
-    assert put_prefs.json()["muted_keywords"] == ["crypto", "gossip"]
+    assert put_prefs.json()["muted_keywords"] == [
+        "crypto",
+        "gossip",
+    ]
     assert put_prefs.json()["muted_categories"] == ["sports"]
     assert put_prefs.json()["languages"] == ["en", "hu"]
     assert put_prefs.json()["blocked_source_ids"] == [source_id]
@@ -172,7 +178,9 @@ def test_preferences_and_subscription_flow(
     assert profile_data["user_id"] == user_id
     assert profile_data["display_name"] == "Alice"
     assert profile_data["bio"] == "About Bob"
-    assert profile_data["avatar_url"] == "https://example.com/bob.png"
+    assert (
+        profile_data["avatar_url"] == "https://example.com/bob.png"
+    )
 
     clear_bio = client.patch(
         f"/users/{user_id}/profile", json={"bio": None}
@@ -180,7 +188,10 @@ def test_preferences_and_subscription_flow(
     assert clear_bio.status_code == 200
     assert clear_bio.json()["display_name"] == "Alice"
     assert clear_bio.json()["bio"] is None
-    assert clear_bio.json()["avatar_url"] == "https://example.com/bob.png"
+    assert (
+        clear_bio.json()["avatar_url"]
+        == "https://example.com/bob.png"
+    )
     assert [event["event_type"] for event in publisher.events] == [
         "preferences.updated.v1",
         "subscription.created.v1",
@@ -203,7 +214,10 @@ def test_preferences_and_subscription_flow(
         "science",
     ]
     assert patch_prefs.json()["languages"] == ["en", "de"]
-    assert patch_prefs.json()["muted_keywords"] == ["crypto", "gossip"]
+    assert patch_prefs.json()["muted_keywords"] == [
+        "crypto",
+        "gossip",
+    ]
 
     delete_sub = client.delete(
         f"/users/{user_id}/subscriptions/{source_id}"
