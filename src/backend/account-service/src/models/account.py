@@ -25,9 +25,6 @@ class User(Base):
     user_id: Mapped[str] = mapped_column(
         String(36), primary_key=True
     )
-    username: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False
-    )
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )

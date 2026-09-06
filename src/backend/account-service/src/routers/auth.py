@@ -36,7 +36,6 @@ def register(
 ) -> TokenPairResponse:
     try:
         access_token, refresh_token = service.register_user(
-            username=body.username,
             email=body.email,
             password=body.password,
         )

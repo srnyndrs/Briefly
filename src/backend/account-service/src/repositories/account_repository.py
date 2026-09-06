@@ -31,14 +31,12 @@ class AccountRepository:
         self,
         *,
         user_id: str,
-        username: str,
         email: str,
         password_hash: str,
         now: datetime,
     ) -> User:
         user = User(
             user_id=user_id,
-            username=username,
             email=email,
             password_hash=password_hash,
             status="active",
