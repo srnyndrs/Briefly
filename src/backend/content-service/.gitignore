@@ -140,6 +140,3 @@ cython_debug/
 
 # Ruff
 .ruff_cache/
-
-# Test
-src/test/*.json
