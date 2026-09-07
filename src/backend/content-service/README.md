@@ -1,40 +1,55 @@
 # Content Service
 
-`content-service` consumes fetched RSS/Atom feeds, turns their entries into
-posts, stores them in PostgreSQL, and publishes parsed-post events for the
-public API projection.
+## Role
 
-## Runtime
+The content service turns fetched feed data into readable, stored posts for
+Briefly. It enriches feed entries when article pages are available and makes
+processed posts available to downstream services and internal API consumers.
 
-- **Port:** `8002`
-- **PostgreSQL table:** `content.posts`
-- **Consumes:** `feed.raw_fetched.v1` from `feed.content` through the durable
-  `feed.raw_fetched.v1.parser` queue
-- **Publishes:** `post.parsed.v1` to `content.parsed`
+## Responsibilities
 
-The service persists `source_title` with each post. Its one post identity is
-`(source_id, item_guid)`; a later feed item with the same identity updates the
-stored URL and metadata.
+- Consume fetched feed content.
+- Parse feed entries into normalized posts.
+- Enrich posts from linked article pages when possible.
+- Store processed posts.
+- Publish processed post content for downstream services.
+- Provide internal post reads and replay operations.
 
-## HTTP API
+## Does not own
 
-- `GET /health`
-- `GET /posts/count`
-- `GET /posts`
-- `GET /posts/{post_id}`
-- `POST /admin/posts/replay`
+- Feed discovery or scheduled feed fetching.
+- Feed source registration.
+- User accounts or authentication.
+- Personalized feed ranking or recommendations.
 
-When `ADMIN_TOKEN` is configured, replay requires the matching
-`x-admin-token` header. Replay republishes stored `post.parsed.v1` events for
-rebuilding the public API projection.
+## Integration
+
+The service receives fetched feed content from the crawler service. It uses
+PostgreSQL to store posts, accesses publisher websites for optional content
+extraction, and sends processed posts to the public API's read model.
+
+The service also exposes HTTP endpoints for health checks, internal post reads,
+and replay operations. When it is running, use `/docs` for the current API
+documentation.
 
 ## Development
 
+Install dependencies:
+
 ```bash
 poetry install
-poetry run python -m pytest -p no:cacheprovider -q
-poetry run ruff check --no-cache src tests
 ```
 
-Read [DESIGN.md](DESIGN.md) for the architecture, event contracts, and a
-recommended code-reading order.
+Run the service locally:
+
+```bash
+poetry run uvicorn src.app:app --reload
+```
+
+Run tests and lint checks:
+
+```bash
+poetry run python -m pytest -p no:cacheprovider -q
+poetry run ruff check --no-cache src tests
+poetry run ruff format --check src tests
+```

@@ -1,21 +1,52 @@
-# Crawler Service (Feed Ingestion)
+# Crawler Service
 
-## Purpose
-`crawler-service` manages global feed discovery, feed registration, and periodic scheduled feed crawling via APScheduler. PostgreSQL's `crawler.sources` table is the durable source of truth for crawl scheduling and ETag/Last-Modified validators. Sources/feeds are global resources.
+## Role
 
-## Port
-`8001`
+The crawler service keeps Briefly's catalog of feed sources current and
+delivers fresh feed content to downstream services. This lets Briefly collect
+news from external publishers without coupling feed fetching to post
+processing.
 
-## Database Schema & Tables
-- **Schema:** `crawler`
-- **Tables:**
-  - `crawler.sources`: Registered RSS/Atom feed metadata, scheduled crawl times, failure counters, retry backoff state.
+## Responsibilities
 
-## Events Produced
-- `feed.raw_fetched.v1` (Exchange: `feed.content`)
+- Discover feed URLs from websites.
+- Register and manage feed sources.
+- Fetch registered feeds on a schedule.
+- Hand fetched content to the content service for processing.
 
-## Testing
-Run unit tests using Poetry:
+## Does not own
+
+- Article parsing or post storage.
+- User accounts or authentication.
+- Personalized feeds or recommendations.
+
+## Integration
+
+The service receives website and feed URLs through its HTTP API. It uses
+PostgreSQL for source state and RabbitMQ to deliver fetched feed content to
+the content service.
+
+The service exposes endpoints for source discovery, source management, and
+health checks. When it is running, use `/docs` for the current API
+documentation.
+
+## Development
+
+Install dependencies:
+
 ```bash
-poetry run pytest
+poetry install
+```
+
+Run the service locally:
+
+```bash
+poetry run uvicorn src.app:app --reload
+```
+
+Run tests and lint checks:
+
+```bash
+poetry run pytest -p no:cacheprovider -q
+poetry run ruff check --no-cache src tests
 ```

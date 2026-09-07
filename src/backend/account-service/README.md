@@ -1,25 +1,57 @@
 # Account Service
 
-## Purpose
-`account-service` is the identity, profile, preferences, subscription, and authentication authority for Briefly. It handles user registration, Argon2 password hashing, JWT issuance/refresh, profile management, subscription tracking, and user preference storage.
+## Role
 
-## Port
-`8003`
+The account service is Briefly's authority for user identity and account data.
+It helps users create accounts, sign in securely, manage their profiles and
+preferences, and follow feed sources.
 
-## Database Schema & Tables
-- **Schema:** `account`
-- **Tables:**
-  - `accounts`: User authentication credentials and status.
-  - `profiles`: Display name, bio, avatar URL.
-  - `user_preferences`: Preferred categories/languages, excluded languages, blocked source IDs.
-  - `subscriptions`: User-to-source subscription mappings.
-  - `refresh_tokens`: Token versioning and refresh token tracking.
+## Responsibilities
 
-## Events Produced
-- `preferences.updated.v1` (Exchange: `account.events`)
+- Register and authenticate users.
+- Protect passwords and manage token lifecycle.
+- Manage user profiles.
+- Manage reading preferences and source subscriptions.
+- Publish selected account changes for downstream services.
 
-## Testing
-Run unit tests using Poetry:
+## Does not own
+
+- News sources, fetched feeds, or stored posts.
+- Personalized feed queries or recommendations.
+- The client-facing API gateway.
+
+The public API handles client-facing authorization and forwards account
+operations to this service. Account-service remains the authoritative writer
+for account data.
+
+## Integration
+
+The service receives account operations from the public API. It stores account
+data in PostgreSQL and publishes selected changes through RabbitMQ so other
+services can update their read models.
+
+It exposes HTTP endpoints for authentication, account data, profiles,
+preferences, subscriptions, and health checks. When it is running, use `/docs`
+for the current API documentation.
+
+## Development
+
+Install dependencies:
+
 ```bash
-poetry run pytest
+poetry install
+```
+
+Run the service locally:
+
+```bash
+poetry run uvicorn src.app:app --reload
+```
+
+Run tests and lint checks:
+
+```bash
+poetry run pytest -p no:cacheprovider -q
+poetry run ruff check --no-cache src tests
+poetry run ruff format --check src tests
 ```
