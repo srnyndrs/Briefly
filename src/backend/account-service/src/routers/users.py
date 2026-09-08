@@ -46,7 +46,6 @@ def get_user(
     return UserResponse(
         user_id=uuid.UUID(user.user_id),
         email=user.email,
-        status=user.status,
         created_at=user.created_at,
     )
 

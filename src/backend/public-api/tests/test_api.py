@@ -36,7 +36,6 @@ def _build_client() -> TestClient:
     fixed_user = AuthContext(
         user_id=uuid4(),
         token_type="access",
-        token_version=1,
         scopes=["admin"],
     )
 
@@ -284,10 +283,7 @@ def test_password_reset_request_endpoint(monkeypatch) -> None:
 
     def fake_password_reset_request(body: dict) -> dict:
         assert body["email"] == "user@example.com"
-        return {
-            "status": "accepted",
-            "reset_token": "reset-token-123",
-        }
+        return {"status": "accepted"}
 
     monkeypatch.setattr(
         "src.routers.auth.account_password_reset_request",
@@ -298,10 +294,9 @@ def test_password_reset_request_endpoint(monkeypatch) -> None:
         "/auth/password-reset/request",
         json={"email": "user@example.com"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.json()
-    assert payload["status"] == "accepted"
-    assert payload["reset_token"] == "reset-token-123"
+    assert payload == {"status": "accepted"}
 
 
 def test_password_reset_confirm_endpoint(monkeypatch) -> None:
@@ -633,9 +628,7 @@ def test_admin_feed_requires_admin_scope() -> None:
     client = _build_client()
 
     def non_admin_user() -> AuthContext:
-        return AuthContext(
-            user_id=uuid4(), token_type="access", token_version=1
-        )
+        return AuthContext(user_id=uuid4(), token_type="access")
 
     app.dependency_overrides[get_current_user] = non_admin_user
     response = client.get("/admin/feed")
@@ -740,7 +733,6 @@ def test_get_me_composite_response(monkeypatch) -> None:
         return {
             "user_id": u_id,
             "email": "test@example.com",
-            "status": "active",
             "created_at": now,
         }
 

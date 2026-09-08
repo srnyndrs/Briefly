@@ -37,4 +37,3 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class PasswordResetRequestResponse(BaseModel):
     status: str = "accepted"
-    reset_token: str | None = None

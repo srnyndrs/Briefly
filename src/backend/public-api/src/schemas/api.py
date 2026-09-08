@@ -12,7 +12,6 @@ class HealthResponse(BaseModel):
 class AuthContext(BaseModel):
     user_id: UUID
     token_type: str
-    token_version: int
     scopes: list[str] = Field(default_factory=list)
 
 
@@ -52,7 +51,6 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class PasswordResetRequestResponse(BaseModel):
     status: str = "accepted"
-    reset_token: str | None = None
 
 
 class StatusResponse(BaseModel):
@@ -62,7 +60,6 @@ class StatusResponse(BaseModel):
 class UserResponse(BaseModel):
     user_id: UUID
     email: EmailStr
-    status: str
     created_at: datetime
 
     @field_serializer("created_at")

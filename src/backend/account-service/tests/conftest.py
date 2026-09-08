@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from src.app import app
+from src.routers.deps import get_password_reset_mailer
 from src.config.database import Base, get_db
 from src.routers.deps import get_event_publisher
 
@@ -21,6 +22,16 @@ class RecordingPublisher:
 
     def publish(self, **kwargs) -> None:
         self.events.append(kwargs)
+
+
+class RecordingPasswordResetMailer:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, str]] = []
+
+    def send(self, *, email: str, reset_token: str) -> None:
+        self.messages.append(
+            {"email": email, "reset_token": reset_token}
+        )
 
 
 @pytest.fixture(scope="session")
@@ -72,7 +83,10 @@ def client(db_session, publisher) -> Generator[TestClient, None, None]:
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_event_publisher] = lambda: publisher
+    mailer = RecordingPasswordResetMailer()
+    app.dependency_overrides[get_password_reset_mailer] = lambda: mailer
     app.state.testing = True
     with TestClient(app) as test_client:
+        test_client.app.state.password_reset_mailer = mailer
         yield test_client
     app.dependency_overrides.clear()

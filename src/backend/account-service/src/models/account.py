@@ -27,12 +27,6 @@ class User(Base):
         String(255), unique=True, nullable=False
     )
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), default="active", nullable=False
-    )
-    token_version: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
@@ -162,4 +156,23 @@ class RefreshToken(Base):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False), nullable=True
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("accounts.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
     )

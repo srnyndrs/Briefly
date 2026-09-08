@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.adapters.account_event_publisher import (
     AccountEventPublisher,
 )
+from src.adapters.password_reset_mailer import PasswordResetMailer
 from src.config.database import get_db
 from src.repositories.account_repository import AccountRepository
 from src.services.account_service import AccountService
@@ -28,12 +29,17 @@ def get_event_publisher() -> AccountEventPublisher:
     return AccountEventPublisher()
 
 
+def get_password_reset_mailer() -> PasswordResetMailer:
+    return PasswordResetMailer()
+
+
 def get_account_service(
     repo: AccountRepository = Depends(get_account_repository),
     auth_service: AuthService = Depends(get_auth_service),
     publisher: AccountEventPublisher = Depends(get_event_publisher),
+    mailer: PasswordResetMailer = Depends(get_password_reset_mailer),
 ) -> AccountService:
-    return AccountService(repo, auth_service, publisher)
+    return AccountService(repo, auth_service, publisher, mailer)
 
 
 def correlation_id(value: str | None) -> str:

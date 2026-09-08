@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -5,8 +6,14 @@ from typing import Any
 from src.adapters.account_event_publisher import (
     AccountEventPublisher,
 )
+from src.adapters.password_reset_mailer import (
+    PasswordResetDeliveryError,
+    PasswordResetMailer,
+)
 from src.repositories.account_repository import AccountRepository
 from src.services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 
 class ConflictError(Exception):
@@ -23,10 +30,12 @@ class AccountService:
         repo: AccountRepository,
         auth_service: AuthService,
         publisher: AccountEventPublisher,
+        mailer: PasswordResetMailer,
     ) -> None:
         self._repo = repo
         self._auth_service = auth_service
         self._publisher = publisher
+        self._mailer = mailer
 
     def register_user(
         self,
@@ -57,10 +66,19 @@ class AccountService:
     def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         return self._auth_service.refresh_tokens(refresh_token)
 
-    def password_reset_request(self, email: str) -> str | None:
-        return self._auth_service.generate_password_reset_token(
-            email=email
-        )
+    def password_reset_request(self, email: str) -> None:
+        reset = self._auth_service.create_password_reset(email=email)
+        if reset is None:
+            return
+
+        user_email, reset_token = reset
+        try:
+            self._mailer.send(email=user_email, reset_token=reset_token)
+        except PasswordResetDeliveryError:
+            logger.exception(
+                "Password reset delivery failed",
+                extra={"email": user_email},
+            )
 
     def password_reset_confirm(
         self, *, reset_token: str, new_password: str

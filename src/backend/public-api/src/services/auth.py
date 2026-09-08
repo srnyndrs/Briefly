@@ -67,7 +67,6 @@ def get_current_user(
         return AuthContext(
             user_id=UUID(claims["sub"]),
             token_type=claims["type"],
-            token_version=int(claims.get("tv", 0)),
             scopes=scopes,
         )
     except (KeyError, ValueError) as exc:

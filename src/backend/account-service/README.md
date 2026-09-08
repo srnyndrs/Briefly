@@ -24,6 +24,16 @@ The public API handles client-facing authorization and forwards account
 operations to this service. Account-service remains the authoritative writer
 for account data.
 
+Password-reset requests always return `202 {"status":"accepted"}` without a
+secret, whether or not the email exists. The service stores only a SHA-256
+digest of one expiring reset secret per user and sends the raw secret through
+the configured SMTP adapter. A successful reset revokes every refresh session;
+access tokens remain valid until their normal 15-minute expiry.
+
+Root Compose sends local reset emails to Mailpit at `http://localhost:8025`.
+Non-local deployments must set an SMTP host, sender address, reset URL, and
+TLS setting through environment variables.
+
 ## Integration
 
 The service receives account operations from the public API. It stores account

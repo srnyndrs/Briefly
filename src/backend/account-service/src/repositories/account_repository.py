@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.models.account import (
+    PasswordResetToken,
     RefreshToken,
     User,
     UserPreferences,
@@ -39,8 +40,6 @@ class AccountRepository:
             user_id=user_id,
             email=email,
             password_hash=password_hash,
-            status="active",
-            token_version=0,
             created_at=now,
             updated_at=now,
         )
@@ -191,6 +190,50 @@ class AccountRepository:
     def add_refresh_token(self, token: RefreshToken) -> None:
         self._db.add(token)
         self._db.commit()
+
+    def replace_password_reset_token(
+        self,
+        *,
+        user_id: str,
+        token_hash: str,
+        expires_at: datetime,
+        created_at: datetime,
+    ) -> PasswordResetToken:
+        token = self._db.get(PasswordResetToken, user_id)
+        if token is None:
+            token = PasswordResetToken(user_id=user_id)
+            self._db.add(token)
+
+        token.token_hash = token_hash
+        token.expires_at = expires_at
+        token.created_at = created_at
+        self._db.commit()
+        return token
+
+    def get_password_reset_token(
+        self, token_hash: str, *, lock: bool = False
+    ) -> PasswordResetToken | None:
+        query = select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash
+        )
+        if lock:
+            query = query.with_for_update()
+        return self._db.execute(query).scalar_one_or_none()
+
+    def delete_password_reset_token(self, user_id: str) -> bool:
+        token = self._db.get(PasswordResetToken, user_id)
+        if token is None:
+            return False
+        self._db.delete(token)
+        return True
+
+    def revoke_active_refresh_tokens(
+        self, user_id: str, now: datetime
+    ) -> int:
+        tokens = self.list_active_refresh_tokens(user_id)
+        for token in tokens:
+            token.revoked_at = now
+        return len(tokens)
 
     def commit(self) -> None:
         self._db.commit()

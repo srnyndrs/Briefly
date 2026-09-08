@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Response, status
 
 from src.adapters.service_clients import (
     ServiceClientError,
@@ -63,6 +63,7 @@ def refresh(body: RefreshRequest) -> TokenPairResponse:
 @router.post(
     "/password-reset/request",
     response_model=PasswordResetRequestResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def password_reset_request(
     body: PasswordResetRequest,

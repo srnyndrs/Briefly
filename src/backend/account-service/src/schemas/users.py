@@ -7,7 +7,6 @@ from pydantic import BaseModel, EmailStr, Field, field_serializer
 class UserResponse(BaseModel):
     user_id: UUID
     email: EmailStr
-    status: str
     created_at: datetime
 
     @field_serializer("created_at")

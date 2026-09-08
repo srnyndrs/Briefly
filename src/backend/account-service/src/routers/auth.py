@@ -93,15 +93,14 @@ def refresh(
 @router.post(
     "/password-reset/request",
     response_model=PasswordResetRequestResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def password_reset_request(
     body: PasswordResetRequest,
     service: AccountService = Depends(get_account_service),
 ) -> PasswordResetRequestResponse:
-    token = service.password_reset_request(body.email)
-    return PasswordResetRequestResponse(
-        status="accepted", reset_token=token
-    )
+    service.password_reset_request(body.email)
+    return PasswordResetRequestResponse(status="accepted")
 
 
 @router.post(
