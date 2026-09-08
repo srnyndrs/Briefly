@@ -20,6 +20,7 @@ def engine():
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        execution_options={"schema_translate_map": {"crawler": None}},
     )
     Base.metadata.create_all(bind=engine)
     return engine

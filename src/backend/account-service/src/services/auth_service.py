@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -25,25 +26,22 @@ class AuthService:
     def hash_password(self, password: str) -> str:
         return self._pwd_context.hash(password)
 
-    def authenticate_user(
-        self, *, email: str, password: str
-    ) -> tuple[str, int]:
+    def login(self, *, email: str, password: str) -> tuple[str, str]:
+        user = self._authenticate_user(email=email, password=password)
+        return self.issue_token_pair(user_id=user.user_id)
+
+    def _authenticate_user(self, *, email: str, password: str) -> User:
         user = self._repo.get_user_by_email(email)
         if user is None or not self._pwd_context.verify(
             password, user.password_hash
         ):
             raise AuthError("Invalid credentials")
-        if user.status != "active":
-            raise AuthError("User account is not active")
-        return user.user_id, user.token_version
+        return user
 
-    def issue_token_pair(
-        self, *, user_id: str, token_version: int
-    ) -> tuple[str, str]:
+    def issue_token_pair(self, *, user_id: str) -> tuple[str, str]:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("User not found")
-        user.token_version = token_version
         scopes = self._scopes_for_user(user)
 
         refresh_id = str(uuid.uuid4())
@@ -51,14 +49,12 @@ class AuthService:
             user_id=user.user_id,
             token_type="access",
             ttl_seconds=settings.access_token_ttl_seconds,
-            token_version=user.token_version,
             scopes=scopes,
         )
         refresh_claims = self._build_claims(
             user_id=user.user_id,
             token_type="refresh",
             ttl_seconds=settings.refresh_token_ttl_seconds,
-            token_version=user.token_version,
             token_id=refresh_id,
             scopes=scopes,
         )
@@ -78,16 +74,13 @@ class AuthService:
         )
         return access_token, refresh_token
 
-    def refresh_tokens(
-        self, refresh_token: str
-    ) -> tuple[str, int, tuple[str, str]]:
+    def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         claims = self._decode_token(refresh_token)
         if claims.get("type") != "refresh":
             raise AuthError("Invalid refresh token")
 
         token_id = claims.get("jti")
         user_id = claims.get("sub")
-        token_version = claims.get("tv")
         if not token_id or not user_id:
             raise AuthError("Invalid refresh token")
 
@@ -104,19 +97,11 @@ class AuthService:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("User not found")
-        if user.token_version != token_version:
-            raise AuthError("Refresh token token-version mismatch")
-
         stored.revoked_at = self._utc_now().replace(tzinfo=None)
         self._repo.commit()
-        token_pair = self.issue_token_pair(
-            user_id=user.user_id, token_version=user.token_version
-        )
-        return user.user_id, user.token_version, token_pair
+        return self.issue_token_pair(user_id=user.user_id)
 
-    def revoke_refresh_token(
-        self, refresh_token: str
-    ) -> tuple[str, int]:
+    def revoke_refresh_token(self, refresh_token: str) -> None:
         claims = self._decode_token(refresh_token)
         if claims.get("type") != "refresh":
             raise AuthError("Invalid refresh token")
@@ -133,59 +118,48 @@ class AuthService:
             raise AuthError("Refresh token mismatch")
 
         stored.revoked_at = self._utc_now().replace(tzinfo=None)
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise AuthError("User not found")
-
-        user.token_version += 1
         self._repo.commit()
-        return user.user_id, user.token_version
 
-    def generate_password_reset_token(
+    def create_password_reset(
         self, *, email: str
-    ) -> str | None:
+    ) -> tuple[str, str] | None:
         user = self._repo.get_user_by_email(email)
-        if user is None or user.status != "active":
+        if user is None:
             return None
 
-        claims = self._build_claims(
+        reset_token = secrets.token_urlsafe(32)
+        now = self._utc_now().replace(tzinfo=None)
+        self._repo.replace_password_reset_token(
             user_id=user.user_id,
-            token_type="password_reset",
-            ttl_seconds=settings.password_reset_token_ttl_seconds,
-            token_version=user.token_version,
-            token_id=str(uuid.uuid4()),
+            token_hash=self._token_hash(reset_token),
+            expires_at=now
+            + timedelta(
+                seconds=settings.password_reset_token_ttl_seconds
+            ),
+            created_at=now,
         )
-        return self._encode_token(claims)
+        return user.email, reset_token
 
     def reset_password(
         self, *, reset_token: str, new_password: str
-    ) -> str:
-        claims = self._decode_token(reset_token)
-        if claims.get("type") != "password_reset":
+    ) -> None:
+        stored = self._repo.get_password_reset_token(
+            self._token_hash(reset_token), lock=True
+        )
+        if stored is None:
             raise AuthError("Invalid password reset token")
-
-        user_id = claims.get("sub")
-        if not user_id:
-            raise AuthError("Invalid password reset token")
-
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise AuthError("User not found")
-        if user.status != "active":
-            raise AuthError("User account is not active")
 
         now = self._utc_now().replace(tzinfo=None)
+        if stored.expires_at <= now:
+            raise AuthError("Invalid password reset token")
+
+        user = self._repo.get_user_by_id(stored.user_id)
+        if user is None:
+            raise AuthError("Invalid password reset token")
         user.password_hash = self.hash_password(new_password)
-        user.token_version += 1
-
-        active_tokens = self._repo.list_active_refresh_tokens(
-            user_id=user.user_id
-        )
-        for token in active_tokens:
-            token.revoked_at = now
-
+        self._repo.revoke_active_refresh_tokens(user.user_id, now)
+        self._repo.delete_password_reset_token(user.user_id)
         self._repo.commit()
-        return user.user_id
 
     @staticmethod
     def _utc_now() -> datetime:
@@ -197,7 +171,6 @@ class AuthService:
         user_id: str,
         token_type: str,
         ttl_seconds: int,
-        token_version: int,
         token_id: str | None = None,
         scopes: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -211,7 +184,6 @@ class AuthService:
                 (now + timedelta(seconds=ttl_seconds)).timestamp()
             ),
             "type": token_type,
-            "tv": token_version,
         }
         if token_id:
             claims["jti"] = token_id
@@ -233,9 +205,9 @@ class AuthService:
     @staticmethod
     def _encode_token(claims: dict[str, Any]) -> str:
         header = {"alg": "HS256", "typ": "JWT"}
-        return jwt.encode(
-            header, claims, settings.jwt_secret
-        ).decode("utf-8")
+        return jwt.encode(header, claims, settings.jwt_secret).decode(
+            "utf-8"
+        )
 
     @staticmethod
     def _decode_token(token: str) -> dict[str, Any]:

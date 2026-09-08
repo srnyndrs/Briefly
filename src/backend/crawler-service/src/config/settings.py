@@ -17,10 +17,6 @@ class Settings(BaseSettings):
         "postgresql://postgres:postgres@localhost:5432/briefly"
     )
 
-    redis_url: str = "redis://localhost:6379/0"
-    # TTL for ETag / Last-Modified cache entries (7 days)
-    etag_ttl_seconds: int = 7 * 24 * 3600
-
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     feed_exchange: str = "feed.content"
 
@@ -30,7 +26,7 @@ class Settings(BaseSettings):
     fetch_timeout_seconds: int = 30
     # Maximum consecutive failures before a feed is suspended
     max_retries: int = 5
-    # Base crawl interval in seconds (used by health-score scheduler)
+    # Base crawl interval in seconds (used by retry-backoff scheduler)
     base_crawl_interval_seconds: int = 300
 
 

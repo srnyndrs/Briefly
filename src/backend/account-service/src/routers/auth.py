@@ -1,17 +1,12 @@
 from fastapi import (
     APIRouter,
     Depends,
-    Header,
     HTTPException,
     Response,
     status,
 )
 
-from src.routers.deps import (
-    correlation_id,
-    get_account_service,
-    trace_ids,
-)
+from src.routers.deps import get_account_service
 from src.schemas.auth import (
     LoginRequest,
     LogoutRequest,
@@ -38,18 +33,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(
     body: RegisterRequest,
     service: AccountService = Depends(get_account_service),
-    x_correlation_id: str | None = Header(default=None),
 ) -> TokenPairResponse:
-    request_id = correlation_id(x_correlation_id)
-    trace_id, span_id = trace_ids(request_id)
     try:
         access_token, refresh_token = service.register_user(
-            username=body.username,
             email=body.email,
             password=body.password,
-            correlation_id=request_id,
-            trace_id=trace_id,
-            span_id=span_id,
         )
     except ConflictError as exc:
         raise HTTPException(
@@ -105,15 +93,14 @@ def refresh(
 @router.post(
     "/password-reset/request",
     response_model=PasswordResetRequestResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def password_reset_request(
     body: PasswordResetRequest,
     service: AccountService = Depends(get_account_service),
 ) -> PasswordResetRequestResponse:
-    token = service.password_reset_request(body.email)
-    return PasswordResetRequestResponse(
-        status="accepted", reset_token=token
-    )
+    service.password_reset_request(body.email)
+    return PasswordResetRequestResponse(status="accepted")
 
 
 @router.post(
@@ -141,17 +128,11 @@ def password_reset_confirm(
 def logout(
     body: LogoutRequest,
     service: AccountService = Depends(get_account_service),
-    x_correlation_id: str | None = Header(default=None),
 ) -> Response:
-    request_id = correlation_id(x_correlation_id)
-    trace_id, span_id = trace_ids(request_id)
     try:
         service.logout(
             refresh_token=body.refresh_token,
             reason=body.reason,
-            correlation_id=request_id,
-            trace_id=trace_id,
-            span_id=span_id,
         )
     except AuthError as exc:
         raise HTTPException(

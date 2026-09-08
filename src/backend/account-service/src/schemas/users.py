@@ -1,13 +1,19 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_serializer
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_serializer,
+    field_validator,
+)
 
 
 class UserResponse(BaseModel):
     user_id: UUID
     email: EmailStr
-    status: str
+    display_name: str | None
     created_at: datetime
 
     @field_serializer("created_at")
@@ -17,46 +23,47 @@ class UserResponse(BaseModel):
         return value.isoformat()
 
 
-class ProfileUpdateRequest(BaseModel):
+class AccountPatchRequest(BaseModel):
     display_name: str | None = None
-    bio: str | None = None
-    avatar_url: str | None = None
 
-
-class ProfileResponse(BaseModel):
-    user_id: UUID
-    display_name: str | None
-    bio: str | None
-    avatar_url: str | None
-    updated_at: datetime
-
-    @field_serializer("updated_at")
-    def serialize_updated_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.isoformat()
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("display_name must not be blank")
+        if len(trimmed) > 80:
+            raise ValueError(
+                "display_name must be at most 80 characters"
+            )
+        return trimmed
 
 
 class PreferencesUpdateRequest(BaseModel):
-    preferred_categories: list[str] = Field(default_factory=list)
-    preferred_languages: list[str] = Field(default_factory=list)
-    excluded_languages: list[str] = Field(default_factory=list)
+    muted_keywords: list[str] = Field(default_factory=list)
+    muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    category_interests: list[str] = Field(default_factory=list)
 
 
 class PreferencesPatchRequest(BaseModel):
-    preferred_categories: list[str] | None = None
-    preferred_languages: list[str] | None = None
-    excluded_languages: list[str] | None = None
+    muted_keywords: list[str] | None = None
+    muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
+    languages: list[str] | None = None
+    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
     user_id: UUID
-    preferred_categories: list[str]
-    preferred_languages: list[str]
-    excluded_languages: list[str]
+    muted_keywords: list[str]
+    muted_categories: list[str]
     blocked_source_ids: list[UUID]
+    languages: list[str]
+    category_interests: list[str]
     updated_at: datetime
 
     @field_serializer("updated_at")

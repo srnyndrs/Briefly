@@ -58,9 +58,7 @@ def get_current_user(
     try:
         raw_scopes = claims.get("scopes", [])
         if isinstance(raw_scopes, str):
-            scopes = [
-                scope for scope in raw_scopes.split(" ") if scope
-            ]
+            scopes = [scope for scope in raw_scopes.split(" ") if scope]
         elif isinstance(raw_scopes, list):
             scopes = [str(scope) for scope in raw_scopes]
         else:
@@ -69,7 +67,6 @@ def get_current_user(
         return AuthContext(
             user_id=UUID(claims["sub"]),
             token_type=claims["type"],
-            token_version=int(claims.get("tv", 0)),
             scopes=scopes,
         )
     except (KeyError, ValueError) as exc:
@@ -91,6 +88,4 @@ def require_admin_user(user: CurrentUser) -> AuthContext:
     return user
 
 
-CurrentAdminUser = Annotated[
-    AuthContext, Depends(require_admin_user)
-]
+CurrentAdminUser = Annotated[AuthContext, Depends(require_admin_user)]

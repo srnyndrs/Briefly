@@ -6,23 +6,54 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeR
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
 import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
+import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
 import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
 import io.ktor.http.HttpStatusCode
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class ContentRepositoryImpl @Inject constructor(
     private val contentApiService: ContentApiService
 ): ContentRepository {
 
-    override suspend fun fetchArticles(limit: Long?, offset: Long?, sourceIds: List<String>?): Result<List<ArticleItem>> {
-        return try {
-            val response = contentApiService.getFeeds(limit, offset, sourceIds)
-            val items = response.items.map { it.toDomain() }
+    companion object {
+        const val PAGE_SIZE = 20
+    }
 
-            Result.success(items)
+    override fun getArticlePagingFlow(sourceIds: List<String>?): Flow<PagingData<ArticleItem>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                initialLoadSize = PAGE_SIZE,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                ArticlePagingSource(contentApiService, sourceIds)
+            }
+        ).flow
+    }
+
+    override suspend fun fetchArticles(
+        page: Int?,
+        pageSize: Int?,
+        sourceIds: List<String>?
+    ): Result<ArticlePagingResult> {
+        return try {
+            val response = contentApiService.getFeed(page, pageSize, sourceIds)
+            val items = response.items.map { it.toDomain() }
+            val result = ArticlePagingResult(
+                page = response.page,
+                count = response.pageCount,
+                items = items,
+            )
+
+            Result.success(result)
         } catch (exception: Exception) {
             Result.failure(exception)
         }
@@ -88,22 +119,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun exploreFeedSources(url: String): Result<List<FeedSourceResultItem>> {
-        return try {
-            val response = contentApiService.exploreFeedSource(
-                FeedSourceExploreRequestDto(url = url)
-            )
-            val result = response.map { it.toDomain() }
-
-            Result.success(result)
-        } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
     override suspend fun getArticleById(articleId: String): Result<ArticleDetails> {
         return try {
-            val response = contentApiService.getArticleById(articleId)
+            val response = contentApiService.getPostById(articleId)
             val result = response.toDomain()
 
             Result.success(result)

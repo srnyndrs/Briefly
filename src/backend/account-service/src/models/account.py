@@ -22,22 +22,11 @@ def _json_type():
 class User(Base):
     __tablename__ = "accounts"
 
-    user_id: Mapped[str] = mapped_column(
-        String(36), primary_key=True
-    )
-    username: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False
-    )
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), default="active", nullable=False
-    )
-    token_version: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
@@ -50,10 +39,8 @@ class User(Base):
         nullable=False,
     )
 
-    profile: Mapped["UserProfile"] = relationship(
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan",
+    display_name: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
     )
     preferences: Mapped["UserPreferences"] = relationship(
         back_populates="user",
@@ -65,31 +52,6 @@ class User(Base):
     )
 
 
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    user_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("accounts.user_id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    display_name: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
-    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    avatar_url: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
-        nullable=False,
-    )
-
-    user: Mapped[User] = relationship(back_populates="profile")
-
-
 class UserPreferences(Base):
     __tablename__ = "user_preferences"
 
@@ -98,16 +60,19 @@ class UserPreferences(Base):
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         primary_key=True,
     )
-    preferred_categories: Mapped[list[str]] = mapped_column(
+    muted_keywords: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
-    preferred_languages: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
-    )
-    excluded_languages: Mapped[list[str]] = mapped_column(
+    muted_categories: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
+        _json_type(), default=list, nullable=False
+    )
+    languages: Mapped[list[str]] = mapped_column(
+        _json_type(), default=list, nullable=False
+    )
+    category_interests: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
@@ -123,9 +88,7 @@ class UserPreferences(Base):
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "source_id", name="uq_user_source"
-        ),
+        UniqueConstraint("user_id", "source_id", name="uq_user_source"),
     )
 
     id: Mapped[int] = mapped_column(
@@ -136,34 +99,26 @@ class UserSubscription(Base):
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    source_id: Mapped[str] = mapped_column(
-        String(36), nullable=False
-    )
+    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
         nullable=False,
     )
 
-    user: Mapped[User] = relationship(
-        back_populates="subscriptions"
-    )
+    user: Mapped[User] = relationship(back_populates="subscriptions")
 
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    token_id: Mapped[str] = mapped_column(
-        String(36), primary_key=True
-    )
+    token_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    token_hash: Mapped[str] = mapped_column(
-        String(128), nullable=False
-    )
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False
     )
@@ -174,4 +129,23 @@ class RefreshToken(Base):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False), nullable=True
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("accounts.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
     )

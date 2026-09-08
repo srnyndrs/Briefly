@@ -12,12 +12,10 @@ class HealthResponse(BaseModel):
 class AuthContext(BaseModel):
     user_id: UUID
     token_type: str
-    token_version: int
     scopes: list[str] = Field(default_factory=list)
 
 
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=2, max_length=100)
     email: EmailStr
     password: str = Field(min_length=8, max_length=256)
 
@@ -53,7 +51,6 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class PasswordResetRequestResponse(BaseModel):
     status: str = "accepted"
-    reset_token: str | None = None
 
 
 class StatusResponse(BaseModel):
@@ -63,7 +60,7 @@ class StatusResponse(BaseModel):
 class UserResponse(BaseModel):
     user_id: UUID
     email: EmailStr
-    status: str
+    display_name: str | None
     created_at: datetime
 
     @field_serializer("created_at")
@@ -73,38 +70,25 @@ class UserResponse(BaseModel):
         return value.isoformat()
 
 
-class ProfileUpdateRequest(BaseModel):
+class AccountPatchRequest(BaseModel):
     display_name: str | None = None
-    bio: str | None = None
-    avatar_url: str | None = None
 
 
-class ProfilePatchRequest(BaseModel):
-    display_name: str | None = None
-    bio: str | None = None
-    avatar_url: str | None = None
-
-
-class ProfileResponse(BaseModel):
-    user_id: UUID
-    display_name: str | None
-    bio: str | None
-    avatar_url: str | None
-    updated_at: datetime
-
-    @field_serializer("updated_at")
-    def serialize_updated_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.isoformat()
+class PreferencesPatchRequest(BaseModel):
+    muted_keywords: list[str] | None = None
+    muted_categories: list[str] | None = None
+    blocked_source_ids: list[UUID] | None = None
+    languages: list[str] | None = None
+    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
     user_id: UUID
-    preferred_categories: list[str] = Field(default_factory=list)
-    preferred_languages: list[str] = Field(default_factory=list)
-    excluded_languages: list[str] = Field(default_factory=list)
+    muted_keywords: list[str] = Field(default_factory=list)
+    muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    category_interests: list[str] = Field(default_factory=list)
     updated_at: datetime
 
     @field_serializer("updated_at")
@@ -114,18 +98,8 @@ class PreferencesResponse(BaseModel):
         return value.isoformat()
 
 
-class PreferencesUpdateRequest(BaseModel):
-    preferred_categories: list[str] = Field(default_factory=list)
-    preferred_languages: list[str] = Field(default_factory=list)
-    excluded_languages: list[str] = Field(default_factory=list)
-    blocked_source_ids: list[UUID] = Field(default_factory=list)
-
-
-class PreferencesPatchRequest(BaseModel):
-    preferred_categories: list[str] | None = None
-    preferred_languages: list[str] | None = None
-    excluded_languages: list[str] | None = None
-    blocked_source_ids: list[UUID] | None = None
+class MeDetailsResponse(UserResponse):
+    preferences: PreferencesResponse | None = None
 
 
 class SourceCreateRequest(BaseModel):
@@ -135,11 +109,11 @@ class SourceCreateRequest(BaseModel):
     favicon: str | None = None
 
 
-class SourceExploreRequest(BaseModel):
+class SourceDiscoverRequest(BaseModel):
     url: str
 
 
-class SourceExploreResult(BaseModel):
+class SourceDiscoverResult(BaseModel):
     url: str
     title: str | None = None
     content_type: str | None = None
@@ -171,8 +145,7 @@ class SourcePatchRequest(BaseModel):
 
 
 class SourceResponse(BaseModel):
-    feed_id: UUID
-    user_id: UUID
+    source_id: UUID
     url: str
     title: str | None
     description: str | None
@@ -182,7 +155,6 @@ class SourceResponse(BaseModel):
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool
     consecutive_failures: int
-    health_score: float
     created_at: datetime
     updated_at: datetime
     is_subscribed: bool = False
@@ -193,9 +165,7 @@ class SourceResponse(BaseModel):
         "created_at",
         "updated_at",
     )
-    def serialize_datetimes(
-        self, value: datetime | None
-    ) -> str | None:
+    def serialize_datetimes(self, value: datetime | None) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:
@@ -203,13 +173,13 @@ class SourceResponse(BaseModel):
         return value.isoformat()
 
 
-class ArticleCountResponse(BaseModel):
+class PostCountResponse(BaseModel):
     count: int
 
 
-class AdminArticleResponse(BaseModel):
-    id: str
-    feed_id: str
+class AdminPostResponse(BaseModel):
+    post_id: str
+    source_id: str
     item_guid: str
     url: str
     title: str
@@ -225,8 +195,8 @@ class AdminArticleResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
-class FeedItemResponse(BaseModel):
-    article_id: UUID
+class PostResponse(BaseModel):
+    post_id: UUID
     source_id: UUID | None = None
     title: str
     source_title: str | None = None
@@ -237,12 +207,22 @@ class FeedItemResponse(BaseModel):
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False
+    content: str | None = None
+
+    @field_serializer("published_at")
+    def serialize_published_at(
+        self, value: datetime | None
+    ) -> str | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat()
 
 
 class FeedResponse(BaseModel):
-    items: list[FeedItemResponse]
+    items: list[PostResponse]
     total: int
-
-
-class ArticleResponse(FeedItemResponse):
-    content: str | None = None
+    page: int = 1
+    page_count: int = 1
+    page_size: int = 20

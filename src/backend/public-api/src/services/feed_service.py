@@ -3,14 +3,10 @@ from datetime import datetime
 from uuid import UUID
 
 from src.repositories.feed_repository import (
-    ArticleRepository,
+    PostRepository,
     UserPreferencesRepository,
 )
-from src.services.feed_dtos import FeedItemDTO, UserPreferencesDTO
-from src.services.feed_mappers import (
-    entity_to_feed_item_dto,
-    user_preferences_dto_to_vo,
-)
+from src.services.feed_models import PostDTO, UserPreferencesDTO
 from src.services.feed_scoring import FeedScoringService
 from src.services.personalization import (
     PersonalizationMergeService,
@@ -23,10 +19,9 @@ class ListFeedInput:
     user_id: UUID
     limit: int
     offset: int
-    use_profile: bool = True
+    use_preferences: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
-    exclude_languages: list[str] | None = None
     source_ids: list[str] | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -35,7 +30,7 @@ class ListFeedInput:
 
 @dataclass(frozen=True)
 class ListFeedOutput:
-    items: list[FeedItemDTO]
+    items: list[PostDTO]
     total: int
 
 
@@ -45,10 +40,9 @@ class SearchFeedInput:
     q: str
     limit: int
     offset: int
-    use_profile: bool = True
+    use_preferences: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
-    exclude_languages: list[str] | None = None
     source_ids: list[str] | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -57,45 +51,40 @@ class SearchFeedInput:
 
 @dataclass(frozen=True)
 class SearchFeedOutput:
-    items: list[FeedItemDTO]
+    items: list[PostDTO]
     total: int
 
 
 @dataclass(frozen=True)
-class GetArticleInput:
-    article_id: UUID
+class GetPostInput:
+    post_id: UUID
 
 
 class FeedService:
     def __init__(
         self,
-        article_repository: ArticleRepository,
+        post_repository: PostRepository,
         preferences_repository: UserPreferencesRepository,
         scoring_service: FeedScoringService | None = None,
         merge_service: PersonalizationMergeService | None = None,
     ) -> None:
-        self._article_repository = article_repository
+        self._post_repository = post_repository
         self._preferences_repository = preferences_repository
-        self._scoring_service = (
-            scoring_service or FeedScoringService()
-        )
+        self._scoring_service = scoring_service or FeedScoringService()
         self._merge_service = (
             merge_service or PersonalizationMergeService()
         )
 
     def list_feed(self, data: ListFeedInput) -> ListFeedOutput:
         prefs_dto: UserPreferencesDTO = (
-            self._preferences_repository.get_preferences(
-                data.user_id
-            )
+            self._preferences_repository.get_preferences(data.user_id)
         )
         context = self._merge_service.merge(
-            profile=prefs_dto,
-            use_profile=data.use_profile,
+            preferences=prefs_dto,
+            use_preferences=data.use_preferences,
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,
-                exclude_languages=data.exclude_languages,
                 include_source_ids=data.source_ids,
                 published_from=data.published_from,
                 published_to=data.published_to,
@@ -103,66 +92,53 @@ class FeedService:
             ),
         )
 
-        prefs_vo = user_preferences_dto_to_vo(
-            UserPreferencesDTO(
-                preferred_categories=context.preferred_categories,
-                preferred_languages=context.preferred_languages,
-                excluded_languages=context.excluded_languages,
-                blocked_source_ids=context.blocked_source_ids,
-            )
-        )
-        candidates, total = (
-            self._article_repository.list_feed_candidates(
-                user_id=data.user_id,
-                excluded_languages=context.excluded_languages,
-                blocked_source_ids=context.blocked_source_ids,
-                include_languages=context.include_languages,
-                include_source_ids=context.include_source_ids,
-                include_categories=context.include_categories,
-                published_from=context.published_from,
-                published_to=context.published_to,
-                sort=context.sort,
-                limit=data.limit,
-                offset=data.offset,
-                expand_limit=prefs_vo.has_preferred_categories,
-            )
+        candidates, total = self._post_repository.list_feed_candidates(
+            user_id=data.user_id,
+            languages=context.languages,
+            muted_keywords=context.muted_keywords,
+            muted_categories=context.muted_categories,
+            blocked_source_ids=context.blocked_source_ids,
+            include_languages=context.include_languages,
+            include_source_ids=context.include_source_ids,
+            include_categories=context.include_categories,
+            published_from=context.published_from,
+            published_to=context.published_to,
+            sort=context.sort,
+            limit=data.limit,
+            offset=data.offset,
         )
         ranked = self._scoring_service.rank(
             articles=candidates,
-            preferences=prefs_vo,
+            preferences=prefs_dto,
             limit=data.limit,
         )
         return ListFeedOutput(
-            items=[
-                entity_to_feed_item_dto(article)
-                for article in ranked
-            ],
+            items=ranked,
             total=total,
         )
 
-    def search_feed(
-        self, data: SearchFeedInput
-    ) -> SearchFeedOutput:
+    def search_feed(self, data: SearchFeedInput) -> SearchFeedOutput:
         prefs = self._preferences_repository.get_preferences(
             data.user_id
         )
         context = self._merge_service.merge(
-            profile=prefs,
-            use_profile=data.use_profile,
+            preferences=prefs,
+            use_preferences=data.use_preferences,
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,
-                exclude_languages=data.exclude_languages,
                 include_source_ids=data.source_ids,
                 published_from=data.published_from,
                 published_to=data.published_to,
                 sort=data.sort,
             ),
         )
-        items, total = self._article_repository.search_feed(
+        items, total = self._post_repository.search_feed(
             user_id=data.user_id,
             q=data.q,
-            excluded_languages=context.excluded_languages,
+            languages=context.languages,
+            muted_keywords=context.muted_keywords,
+            muted_categories=context.muted_categories,
             blocked_source_ids=context.blocked_source_ids,
             include_languages=context.include_languages,
             include_source_ids=context.include_source_ids,
@@ -174,19 +150,9 @@ class FeedService:
             offset=data.offset,
         )
         return SearchFeedOutput(
-            items=[
-                entity_to_feed_item_dto(article)
-                for article in items
-            ],
+            items=items,
             total=total,
         )
 
-    def get_article(
-        self, data: GetArticleInput
-    ) -> FeedItemDTO | None:
-        entity = self._article_repository.get_article(
-            data.article_id
-        )
-        if entity is None:
-            return None
-        return entity_to_feed_item_dto(entity)
+    def get_post(self, data: GetPostInput) -> PostDTO | None:
+        return self._post_repository.get_post(data.post_id)

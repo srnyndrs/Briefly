@@ -5,10 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.models.account import (
+    PasswordResetToken,
     RefreshToken,
     User,
     UserPreferences,
-    UserProfile,
     UserSubscription,
 )
 
@@ -31,94 +31,36 @@ class AccountRepository:
         self,
         *,
         user_id: str,
-        username: str,
         email: str,
         password_hash: str,
         now: datetime,
     ) -> User:
         user = User(
             user_id=user_id,
-            username=username,
             email=email,
             password_hash=password_hash,
-            status="active",
-            token_version=0,
             created_at=now,
             updated_at=now,
         )
         self._db.add(user)
         return user
 
-    def update_user_timestamp(
-        self, user_id: str, now: datetime
-    ) -> None:
+    def update_display_name(
+        self, *, user_id: str, display_name: str | None, now: datetime
+    ) -> User | None:
         user = self.get_user_by_id(user_id)
         if user is None:
-            return
+            return None
+
+        user.display_name = display_name
         user.updated_at = now
         self._db.commit()
-
-    def increment_user_token_version(self, user_id: str) -> int:
-        user = self.get_user_by_id(user_id)
-        if user is None:
-            raise ValueError("User not found")
-        user.token_version += 1
-        self._db.commit()
-        return user.token_version
-
-    def create_default_profile(self, user_id: str) -> None:
-        self._db.add(UserProfile(user_id=user_id))
-
-    def get_profile(self, user_id: str) -> UserProfile | None:
-        return self._db.execute(
-            select(UserProfile).where(
-                UserProfile.user_id == user_id
-            )
-        ).scalar_one_or_none()
-
-    def upsert_profile(
-        self,
-        *,
-        user_id: str,
-        display_name: str | None,
-        bio: str | None,
-        avatar_url: str | None,
-        now: datetime,
-    ) -> tuple[UserProfile, list[str]]:
-        profile = self.get_profile(user_id)
-        if profile is None:
-            profile = UserProfile(user_id=user_id)
-            self._db.add(profile)
-            changed_fields = ["display_name", "bio", "avatar_url"]
-        else:
-            changed_fields = _diff_profile_fields(
-                current_display_name=profile.display_name,
-                current_bio=profile.bio,
-                current_avatar_url=profile.avatar_url,
-                new_display_name=display_name,
-                new_bio=bio,
-                new_avatar_url=avatar_url,
-            )
-
-        profile.display_name = display_name
-        profile.bio = bio
-        profile.avatar_url = avatar_url
-        profile.updated_at = now
-
-        user = self.get_user_by_id(user_id)
-        if user is not None:
-            user.updated_at = now
-
-        self._db.commit()
-        return profile, changed_fields
+        return user
 
     def create_default_preferences(self, user_id: str) -> None:
         self._db.add(UserPreferences(user_id=user_id))
-        self._db.commit()
 
-    def get_preferences(
-        self, user_id: str
-    ) -> UserPreferences | None:
+    def get_preferences(self, user_id: str) -> UserPreferences | None:
         return self._db.execute(
             select(UserPreferences).where(
                 UserPreferences.user_id == user_id
@@ -129,10 +71,11 @@ class AccountRepository:
         self,
         *,
         user_id: str,
-        preferred_categories: list[str],
-        preferred_languages: list[str],
-        excluded_languages: list[str],
+        muted_keywords: list[str],
+        muted_categories: list[str],
         blocked_source_ids: list[str],
+        languages: list[str],
+        category_interests: list[str],
         now: datetime,
     ) -> UserPreferences:
         preferences = self.get_preferences(user_id)
@@ -140,10 +83,11 @@ class AccountRepository:
             preferences = UserPreferences(user_id=user_id)
             self._db.add(preferences)
 
-        preferences.preferred_categories = preferred_categories
-        preferences.preferred_languages = preferred_languages
-        preferences.excluded_languages = excluded_languages
+        preferences.muted_keywords = muted_keywords
+        preferences.muted_categories = muted_categories
         preferences.blocked_source_ids = blocked_source_ids
+        preferences.languages = languages
+        preferences.category_interests = category_interests
         preferences.updated_at = now
 
         user = self.get_user_by_id(user_id)
@@ -177,9 +121,7 @@ class AccountRepository:
             .all()
         )
 
-    def has_subscription(
-        self, *, user_id: str, source_id: str
-    ) -> bool:
+    def has_subscription(self, *, user_id: str, source_id: str) -> bool:
         subscription = self._db.execute(
             select(UserSubscription).where(
                 UserSubscription.user_id == user_id,
@@ -203,18 +145,14 @@ class AccountRepository:
         self._db.commit()
         return True
 
-    def get_refresh_token(
-        self, token_id: str
-    ) -> RefreshToken | None:
+    def get_refresh_token(self, token_id: str) -> RefreshToken | None:
         return self._db.execute(
             select(RefreshToken).where(
                 RefreshToken.token_id == token_id
             )
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(
-        self, user_id: str
-    ) -> Sequence[Any]:
+    def list_active_refresh_tokens(self, user_id: str) -> Sequence[Any]:
         return (
             self._db.execute(
                 select(RefreshToken).where(
@@ -230,24 +168,49 @@ class AccountRepository:
         self._db.add(token)
         self._db.commit()
 
+    def replace_password_reset_token(
+        self,
+        *,
+        user_id: str,
+        token_hash: str,
+        expires_at: datetime,
+        created_at: datetime,
+    ) -> PasswordResetToken:
+        token = self._db.get(PasswordResetToken, user_id)
+        if token is None:
+            token = PasswordResetToken(user_id=user_id)
+            self._db.add(token)
+
+        token.token_hash = token_hash
+        token.expires_at = expires_at
+        token.created_at = created_at
+        self._db.commit()
+        return token
+
+    def get_password_reset_token(
+        self, token_hash: str, *, lock: bool = False
+    ) -> PasswordResetToken | None:
+        query = select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash
+        )
+        if lock:
+            query = query.with_for_update()
+        return self._db.execute(query).scalar_one_or_none()
+
+    def delete_password_reset_token(self, user_id: str) -> bool:
+        token = self._db.get(PasswordResetToken, user_id)
+        if token is None:
+            return False
+        self._db.delete(token)
+        return True
+
+    def revoke_active_refresh_tokens(
+        self, user_id: str, now: datetime
+    ) -> int:
+        tokens = self.list_active_refresh_tokens(user_id)
+        for token in tokens:
+            token.revoked_at = now
+        return len(tokens)
+
     def commit(self) -> None:
         self._db.commit()
-
-
-def _diff_profile_fields(
-    *,
-    current_display_name: str | None,
-    current_bio: str | None,
-    current_avatar_url: str | None,
-    new_display_name: str | None,
-    new_bio: str | None,
-    new_avatar_url: str | None,
-) -> list[str]:
-    changed_fields: list[str] = []
-    if current_display_name != new_display_name:
-        changed_fields.append("display_name")
-    if current_bio != new_bio:
-        changed_fields.append("bio")
-    if current_avatar_url != new_avatar_url:
-        changed_fields.append("avatar_url")
-    return changed_fields

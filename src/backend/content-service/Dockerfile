@@ -31,7 +31,7 @@ COPY --from=deps /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 
 COPY . .
 
-RUN useradd --no-create-home --shell /bin/false appuser
+RUN useradd --create-home --shell /bin/false appuser
 USER appuser
 
 EXPOSE 8002

@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     jwt_audience: str = "briefly-public-api"
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 2_592_000
-    password_reset_token_ttl_seconds: int = 3600
+    password_reset_token_ttl_seconds: int = 900
+    password_reset_url: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_use_tls: bool = True
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
     admin_emails_csv: str = "alice@example.com"
 
 

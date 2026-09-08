@@ -16,6 +16,7 @@ def engine():
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        execution_options={"schema_translate_map": {"content": None}},
     )
     Base.metadata.create_all(bind=eng)
     return eng
@@ -23,9 +24,7 @@ def engine():
 
 @pytest.fixture(scope="session")
 def _session_factory(engine):
-    return sessionmaker(
-        bind=engine, autocommit=False, autoflush=False
-    )
+    return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 @pytest.fixture()

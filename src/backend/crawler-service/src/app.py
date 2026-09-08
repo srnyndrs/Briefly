@@ -7,8 +7,8 @@ from fastapi import FastAPI
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
-from src.routers import feeds
-from src.schemas.schemas import HealthResponse
+from src.routers import sources
+from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
 logging.basicConfig(
@@ -19,13 +19,9 @@ logger = logging.getLogger("crawler-service")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler = None
-    if not getattr(app.state, "testing", False):
-        # 1. Initialise database schema
+async def lifespan(application: FastAPI):
+    if not getattr(application.state, "testing", False):
         init_db()
-
-        # 2. Schedule periodic crawl cycle
         orchestrator = CrawlCycleOrchestrator(
             session_factory=SessionLocal
         )
@@ -38,7 +34,7 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
         scheduler.start()
-
+        application.state.scheduler = scheduler
         logger.info(
             "Crawler Service started crawl interval=%ds, port=%d",
             settings.crawl_interval_seconds,
@@ -47,8 +43,11 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    scheduler: BackgroundScheduler | None = getattr(
+        application.state, "scheduler", None
+    )
     if scheduler and scheduler.running:
-        scheduler.shutdown(wait=False)
+        scheduler.shutdown(wait=True)
         logger.info("Scheduler stopped.")
 
     logger.info("Crawler Service stopped.")
@@ -57,22 +56,20 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Crawler Service",
     description=(
-        "Periodically crawls RSS/Atom feeds and publishes events to RabbitMQ. "
+        "Periodically crawls RSS/Atom sources and publishes events to RabbitMQ. "
         "Part of the Briefly news aggregator platform."
     ),
     version="0.1.0",
     lifespan=lifespan,
 )
 
-app.include_router(feeds.router)
-
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health_check() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        service="crawler-service",
-    )
+    return HealthResponse(status="ok", service="crawler-service")
+
+
+app.include_router(sources.router)
 
 
 if __name__ == "__main__":

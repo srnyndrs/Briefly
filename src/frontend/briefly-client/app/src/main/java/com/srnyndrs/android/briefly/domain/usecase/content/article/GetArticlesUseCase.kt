@@ -8,24 +8,10 @@ class GetArticlesUseCase @Inject constructor(
     private val repository: ContentRepository
 ) {
     suspend operator fun invoke(
-        limit: Long? = null,
-        offset: Long? = null,
+        page: Int? = 1,
+        pageSize: Int? = 20,
         sourceIds: List<String>? = null
     ): Result<ArticlePagingResult> {
-        repository.fetchArticles(limit, offset, sourceIds).fold(
-            onSuccess = { items ->
-                // TODO: use paging result
-                val result =  ArticlePagingResult(
-                    page = 1,
-                    count = 5,
-                    items = items
-                )
-
-                return Result.success(result)
-            },
-            onFailure = { exception ->
-                return Result.failure(exception)
-            }
-        )
+        return repository.fetchArticles(page, pageSize, sourceIds)
     }
 }

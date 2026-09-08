@@ -10,23 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres/01-init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d briefly"]
       interval: 5s
       timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
       retries: 10
 
   rabbitmq:
@@ -48,6 +36,13 @@ services:
       timeout: 10s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   crawler-service:
     build:
       context: ./src/backend/crawler-service
@@ -61,16 +56,14 @@ services:
       ENV: production
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
-      REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
+      BASE_CRAWL_INTERVAL_SECONDS: 300
       CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
       FETCH_TIMEOUT_SECONDS: 30
       MAX_RETRIES: 5
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -138,11 +131,18 @@ services:
       JWT_AUDIENCE: briefly-public-api
       ACCESS_TOKEN_TTL_SECONDS: 900
       REFRESH_TOKEN_TTL_SECONDS: 2592000
+      PASSWORD_RESET_URL: http://localhost:3000/reset-password
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_USE_TLS: "false"
+      SMTP_FROM: no-reply@briefly.local
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8003/health')\""]
       interval: 15s
@@ -193,5 +193,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   rabbitmq_data:

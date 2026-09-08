@@ -1,13 +1,13 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config.settings import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema="account")
 
 
 engine = create_engine(
@@ -17,13 +17,16 @@ engine = create_engine(
     max_overflow=10,
 )
 SessionLocal = sessionmaker(
-    bind=engine, autocommit=False, autoflush=False, class_=Session
+    bind=engine, autocommit=False, autoflush=True, class_=Session
 )
 
 
 def init_db() -> None:
     from src.models import account  # noqa: F401
 
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS account;"))
     Base.metadata.create_all(bind=engine)
 
 
