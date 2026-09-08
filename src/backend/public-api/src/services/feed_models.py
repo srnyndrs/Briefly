@@ -20,8 +20,6 @@ class PostDTO:
     keywords: list[str] = field(default_factory=list)
     content: str | None = None
     image_ref: str | None = None
-    sentiment: str | None = None
-    topics: list[str] = field(default_factory=list)
     published_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -60,8 +58,6 @@ def post_projection_to_dto(model: PostProjection) -> PostDTO:
         keywords=model.keywords or [],
         content=model.content,
         image_ref=model.image_ref,
-        sentiment=model.sentiment,
-        topics=model.topics or [],
         published_at=model.published_at,
         updated_at=model.updated_at,
     )

@@ -130,13 +130,7 @@ class QueryProjector:
 
             db = self._session_factory()
             try:
-                already = db.get(
-                    ProcessedEvent,
-                    {
-                        "event_id": event_id,
-                        "consumer_name": "public-api.query-projector",
-                    },
-                )
+                already = db.get(ProcessedEvent, event_id)
                 if already is not None:
                     ch.basic_ack(delivery_tag=method.delivery_tag)
                     return
@@ -145,7 +139,6 @@ class QueryProjector:
                 db.add(
                     ProcessedEvent(
                         event_id=event_id,
-                        consumer_name="public-api.query-projector",
                         processed_at=datetime.now(UTC),
                     )
                 )

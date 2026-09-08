@@ -87,7 +87,6 @@ def test_feed_returns_items() -> None:
             title="Tech Story",
             language="en",
             keywords=["technology"],
-            topics=[],
             published_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -128,7 +127,6 @@ def test_feed_prioritizes_recency_with_preference_ties() -> None:
             title="Older Preferred",
             language="en",
             keywords=["technology"],
-            topics=[],
             published_at=now.replace(year=now.year - 1),
             updated_at=now.replace(year=now.year - 1),
         )
@@ -141,7 +139,6 @@ def test_feed_prioritizes_recency_with_preference_ties() -> None:
             title="Newer Preferred",
             language="en",
             keywords=["technology"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -182,7 +179,6 @@ def test_feed_use_profile_false_ignores_profile_filters() -> None:
             title="English Story",
             language="en",
             keywords=["technology"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -225,7 +221,6 @@ def test_feed_override_languages_replaces_profile_value() -> None:
             title="EN Story",
             language="en",
             keywords=["technology"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -238,7 +233,6 @@ def test_feed_override_languages_replaces_profile_value() -> None:
             title="FR Story",
             language="fr",
             keywords=["technology"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -623,7 +617,6 @@ def test_admin_feed_returns_items() -> None:
             title="General Story",
             language="en",
             keywords=["general"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -795,7 +788,6 @@ def test_feed_search_query_parameter() -> None:
             description="Antigravity agent tooling",
             language="en",
             keywords=["tech"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -827,7 +819,6 @@ def test_get_post_by_id_endpoint() -> None:
             description="Detail",
             language="en",
             keywords=[],
-            topics=[],
             content="Full body text",
             published_at=now,
             updated_at=now,
@@ -938,7 +929,6 @@ def test_feed_pagination_pages_and_counts() -> None:
                 title=f"Post {i}",
                 language="en",
                 keywords=[],
-                topics=[],
                 published_at=datetime.fromtimestamp(
                     1700000000 + i * 100, tz=UTC
                 ),
@@ -993,7 +983,6 @@ def test_admin_feed_pagination() -> None:
                 title=f"Admin Post {i}",
                 language="en",
                 keywords=[],
-                topics=[],
                 published_at=datetime.fromtimestamp(
                     1700000000 + i * 100, tz=UTC
                 ),
@@ -1168,7 +1157,6 @@ def test_feed_filters_muted_keywords() -> None:
             title="Clean Post",
             language="en",
             keywords=["technology", "ai"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1181,7 +1169,6 @@ def test_feed_filters_muted_keywords() -> None:
             title="Crypto Post",
             language="en",
             keywords=["crypto", "bitcoin"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1221,7 +1208,6 @@ def test_feed_filters_muted_categories() -> None:
             language="en",
             category="technology",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1235,7 +1221,6 @@ def test_feed_filters_muted_categories() -> None:
             language="en",
             category="sports",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1276,7 +1261,6 @@ def test_feed_filters_blocked_source_ids() -> None:
             title="Allowed Source Post",
             language="en",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1289,7 +1273,6 @@ def test_feed_filters_blocked_source_ids() -> None:
             title="Blocked Source Post",
             language="en",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1329,7 +1312,6 @@ def test_feed_ranks_by_category_interests() -> None:
             language="en",
             category="general",
             keywords=["daily"],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1343,7 +1325,6 @@ def test_feed_ranks_by_category_interests() -> None:
             language="en",
             category="science",
             keywords=["discovery"],
-            topics=[],
             published_at=now.replace(year=now.year - 1),
             updated_at=now.replace(year=now.year - 1),
         )
@@ -1386,7 +1367,6 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
             title="Subscribed Post",
             language="en",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )
@@ -1399,7 +1379,6 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
             title="Unsubscribed Post",
             language="en",
             keywords=[],
-            topics=[],
             published_at=now,
             updated_at=now,
         )

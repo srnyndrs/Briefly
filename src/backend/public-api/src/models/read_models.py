@@ -18,9 +18,6 @@ class ProcessedEvent(Base):
     __tablename__ = "processed_events"
 
     event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    consumer_name: Mapped[str] = mapped_column(
-        String(100), primary_key=True
-    )
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -54,12 +51,6 @@ class PostProjection(Base):
     image_ref: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
-    sentiment: Mapped[str | None] = mapped_column(
-        String(32), nullable=True
-    )
-    topics: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
-    )
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -90,11 +81,6 @@ class PostProjection(Base):
         Index(
             "ix_post_projections_keywords_gin",
             "keywords",
-            postgresql_using="gin",
-        ),
-        Index(
-            "ix_post_projections_topics_gin",
-            "topics",
             postgresql_using="gin",
         ),
     )
