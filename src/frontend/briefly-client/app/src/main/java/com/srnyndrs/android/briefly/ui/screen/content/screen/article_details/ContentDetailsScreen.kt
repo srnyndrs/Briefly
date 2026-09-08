@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.ArrowTopRightOnSquare
 import com.composables.icons.heroicons.outline.ChevronLeft
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.UiStateContainer
@@ -57,7 +57,7 @@ import kotlin.time.ExperimentalTime
 fun ContentDetailsScreen(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
-    article: ArticleDetails?,
+    article: PostDetails?,
     onNavigationEvent: (ContentNavigationEvent) -> Unit
 ) {
 
@@ -184,7 +184,7 @@ fun ContentDetailsScreen(
                                     enabled = article?.sourceId != null
                                 ) {
                                     article?.sourceId?.let {
-                                        onNavigationEvent(ContentNavigationEvent.ShowFeedDetails(it))
+                                        onNavigationEvent(ContentNavigationEvent.ShowSourceDetails(it))
                                     }
                                 }
                         ) {

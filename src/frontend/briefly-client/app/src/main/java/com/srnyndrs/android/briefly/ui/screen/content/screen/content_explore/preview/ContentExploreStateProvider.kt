@@ -1,8 +1,8 @@
 package com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
+import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.content_explore.ContentExploreState
 
@@ -13,11 +13,11 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
         ),
         ContentExploreState(
             result = UiState.Success(
-                ArticlePagingResult(
+                PostPagingResult(
                     page = 1,
                     count = 3,
                     items = listOf(
-                        ArticleItem(
+                        Post(
                             id = "1",
                             title = "Itthon és Európában is duplázna a kínai óriás, amely Magyarországon már előzi a Teslát",
                             description = "This is really important",
@@ -25,7 +25,7 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
                             category = "Külföld",
                             source = "24.hu"
                         ),
-                        ArticleItem(
+                        Post(
                             id = "2",
                             title = "Bérfizetési probléma: egy hévízi háromcsillagos szálloda dolgozói nem kapták meg fizetésüket",
                             description = "This is really important",
@@ -33,7 +33,7 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
                             category = "Belföld",
                             source = "Telex"
                         ),
-                        ArticleItem(
+                        Post(
                             id = "3",
                             title = "Elárulta az ETO edzője, hol folytatja a pályafutását",
                             description = "This is really important",
@@ -41,7 +41,7 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
                             category = "Foci",
                             source = "24.hu"
                         ),
-                        ArticleItem(
+                        Post(
                             id = "4",
                             title = "\"Biztos, hogy nem\" – Havasi Bertalan karrierjének emlékére",
                             description = "This is really important",
@@ -49,7 +49,7 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
                             category = "Belföld",
                             source = "24.hu"
                         ),
-                        ArticleItem(
+                        Post(
                             id = "5",
                             title = "Tragikus balesetben halt meg az első magyar királynő",
                             description = "This is really important",
@@ -57,7 +57,7 @@ class ContentExploreStateProvider: PreviewParameterProvider<ContentExploreState>
                             category = "Történelem",
                             source = "Telex"
                         ),
-                        ArticleItem(
+                        Post(
                             id = "6",
                             title = "\"Íme néhány emlékeztető a luxusról, amit ön tegnap letagadott a közleményben\" – Magyar Péter fotókkal üzent a Kúria elnökének",
                             description = "This is really important",

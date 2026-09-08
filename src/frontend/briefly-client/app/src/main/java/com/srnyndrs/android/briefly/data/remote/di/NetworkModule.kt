@@ -3,7 +3,7 @@ package com.srnyndrs.android.briefly.data.remote.di
 import com.srnyndrs.android.briefly.data.local.auth.TokenManager
 import com.srnyndrs.android.briefly.data.remote.auth.AuthApiService
 import com.srnyndrs.android.briefly.data.remote.auth.dto.RefreshRequestDto
-import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairDto
+import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.repository.auth.AuthRepositoryImpl
 import com.srnyndrs.android.briefly.data.repository.content.ContentRepositoryImpl
@@ -72,7 +72,7 @@ object NetworkModule {
                         val response = client.post("auth/refresh") {
                             markAsRefreshTokenRequest()
                             setBody(RefreshRequestDto(refreshToken))
-                        }.body<TokenPairDto>()
+                        }.body<TokenPairResponseDto>()
                         
                         tokenManager.saveAccessToken(response.accessToken)
                         tokenManager.saveRefreshToken(response.refreshToken)

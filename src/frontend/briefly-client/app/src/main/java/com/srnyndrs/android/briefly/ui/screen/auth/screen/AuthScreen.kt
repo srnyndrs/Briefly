@@ -29,11 +29,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Newspaper
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.model.UiState
+import com.srnyndrs.android.briefly.ui.navigation.NavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.login.LoginScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.register.RegisterScreen
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -45,7 +48,7 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
     state: UiState<Unit> = UiState.Idle,
     onSuccess: () -> Unit,
-    onEvent: (AuthEvent) -> Unit
+    onAuthEvent: (AuthEvent) -> Unit
 ) {
 
     val scope = rememberCoroutineScope()
@@ -65,7 +68,7 @@ fun AuthScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = Modifier.then(modifier),
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
         }
@@ -86,11 +89,7 @@ fun AuthScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            /*.background(
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(0.2f)
-                            ),*/,
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -107,7 +106,7 @@ fun AuthScreen(
                                 modifier = Modifier.requiredHeight(20.dp)
                             )
                             Text(
-                                text = "Briefly",
+                                text = stringResource(R.string.app_name),
                                 style = MaterialTheme.typography.headlineLarge,
                                 color =MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -138,7 +137,7 @@ fun AuthScreen(
                                     }
                                 }
                             ) { email, password ->
-                                onEvent(AuthEvent.LoginWithEmail(email, password))
+                                onAuthEvent(AuthEvent.LoginWithEmail(email, password))
                             }
                         }
                         1 -> {
@@ -152,7 +151,7 @@ fun AuthScreen(
                                     }
                                 }
                             ) { email, password ->
-                                onEvent(AuthEvent.RegisterWithEmail(email, password))
+                                onAuthEvent(AuthEvent.RegisterWithEmail(email, password))
                             }
                         }
                     }
@@ -160,21 +159,16 @@ fun AuthScreen(
             }
 
             if (state is UiState.Loading) {
-                LoadingOverlay()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun LoadingOverlay() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator()
     }
 }
 
@@ -186,10 +180,8 @@ fun AuthScreenPreview() {
             AuthScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = UiState.Idle,
-                onSuccess = {}
-            ) {
-
-            }
+                onSuccess = {},
+            ) {}
         }
     }
 }

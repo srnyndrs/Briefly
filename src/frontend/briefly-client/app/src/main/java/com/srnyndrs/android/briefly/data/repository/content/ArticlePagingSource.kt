@@ -4,21 +4,21 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
+import com.srnyndrs.android.briefly.domain.model.content.Post
 
 class ArticlePagingSource(
     private val contentApiService: ContentApiService,
     private val sourceIds: List<String>? = null,
-) : PagingSource<Int, ArticleItem>() {
+) : PagingSource<Int, Post>() {
 
-    override fun getRefreshKey(state: PagingState<Int, ArticleItem>): Int? {
+    override fun getRefreshKey(state: PagingState<Int, Post>): Int? {
         return state.anchorPosition?.let { anchorPosition ->
             val anchorPage = state.closestPageToPosition(anchorPosition)
             anchorPage?.prevKey?.plus(1) ?: anchorPage?.nextKey?.minus(1)
         }
     }
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ArticleItem> {
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Post> {
         val page = params.key ?: 1
         return try {
             val response = contentApiService.getFeed(

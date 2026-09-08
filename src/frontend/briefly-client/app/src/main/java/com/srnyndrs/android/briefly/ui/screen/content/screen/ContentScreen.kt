@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ContentScreen(
+    modifier: Modifier = Modifier,
     onLogout: () -> Unit,
     onNavigateProfile: () -> Unit
 ) {
@@ -42,7 +43,7 @@ fun ContentScreen(
     val interactDrawer = {
         scope.launch {
             drawerState.apply {
-                if (isClosed) open() else close()
+                if(isClosed) open() else close()
             }
         }
     }
@@ -66,12 +67,13 @@ fun ContentScreen(
 
     LaunchedEffect(currentRoute) {
         isTopBarShow = currentRoute !in listOf(
-            ContentScreens.ArticleDetails.route,
-            ContentScreens.FeedSourceDetails.route,
+            ContentScreens.PostDetails.route,
+            ContentScreens.SourceDetails.route,
         )
     }
 
     ModalNavigationDrawer(
+        modifier = Modifier.then(modifier),
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
@@ -133,6 +135,7 @@ fun ContentScreen(
 fun ContentScreenPreview() {
     BrieflyTheme {
         ContentScreen(
+            modifier = Modifier.fillMaxSize(),
             onLogout = {},
             onNavigateProfile = { }
         )

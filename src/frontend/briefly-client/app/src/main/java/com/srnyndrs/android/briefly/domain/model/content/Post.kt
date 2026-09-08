@@ -1,6 +1,6 @@
 package com.srnyndrs.android.briefly.domain.model.content
 
-data class ArticleItem(
+data class Post(
     val id: String,
     val title: String,
     val url: String? = null,

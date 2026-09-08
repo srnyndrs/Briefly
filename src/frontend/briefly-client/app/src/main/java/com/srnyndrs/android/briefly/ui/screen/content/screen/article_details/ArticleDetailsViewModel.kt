@@ -2,7 +2,7 @@ package com.srnyndrs.android.briefly.ui.screen.content.screen.article_details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticleByIdUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
@@ -19,18 +19,18 @@ import kotlinx.coroutines.launch
 @HiltViewModel(assistedFactory = ArticleDetailsViewModel.Factory::class)
 class ArticleDetailsViewModel @AssistedInject constructor(
     private val getArticleByIdUseCase: GetArticleByIdUseCase,
-    @Assisted private val articleId: String
+    @Assisted private val postId: String
 ): ViewModel() {
 
     @AssistedFactory
     interface Factory {
-        fun create(articleId: String): ArticleDetailsViewModel
+        fun create(postId: String): ArticleDetailsViewModel
     }
 
-    private val _state = MutableStateFlow<UiState<ArticleDetails>>(UiState.Idle)
+    private val _state = MutableStateFlow<UiState<PostDetails>>(UiState.Idle)
     val state = _state.asStateFlow()
         .onStart {
-            getArticle(articleId)
+            getArticle(postId)
         }
         .stateIn(
             viewModelScope,
@@ -38,9 +38,9 @@ class ArticleDetailsViewModel @AssistedInject constructor(
             UiState.Loading
         )
 
-    private fun getArticle(articleId: String) = viewModelScope.launch {
+    private fun getArticle(postId: String) = viewModelScope.launch {
         _state.value = UiState.Loading
-        getArticleByIdUseCase(articleId).fold(
+        getArticleByIdUseCase(postId).fold(
             onSuccess = { article ->
                 _state.value = UiState.Success(data = article)
             },

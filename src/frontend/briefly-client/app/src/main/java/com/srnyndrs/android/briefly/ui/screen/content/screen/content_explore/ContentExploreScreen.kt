@@ -48,7 +48,7 @@ import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
+import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.ui.common.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.common.ShimmerItem
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
@@ -60,7 +60,7 @@ import kotlinx.coroutines.flow.flowOf
 @Composable
 fun ContentExploreScreen(
     modifier: Modifier = Modifier,
-    articles: LazyPagingItems<ArticleItem>,
+    articles: LazyPagingItems<Post>,
     onNavigationEvent: (ContentNavigationEvent) -> Unit,
 ) {
     var selectedCategoryIndex by rememberSaveable {
@@ -112,7 +112,7 @@ fun ContentExploreScreen(
                                     article = article,
                                     onClick = {
                                         onNavigationEvent(
-                                            ContentNavigationEvent.ShowArticleDetails(article.id)
+                                            ContentNavigationEvent.ShowPostDetails(article.id)
                                         )
                                     }
                                 )
@@ -172,7 +172,7 @@ fun ContentExploreScreen(
                             ) {
                                 if (article.hasContent) {
                                     onNavigationEvent(
-                                        ContentNavigationEvent.ShowArticleDetails(article.id)
+                                        ContentNavigationEvent.ShowPostDetails(article.id)
                                     )
                                 } else {
                                     onNavigationEvent(
@@ -240,7 +240,7 @@ fun ContentExploreScreen(
 @Composable
 private fun HeadlineCard(
     modifier: Modifier = Modifier,
-    article: ArticleItem,
+    article: Post,
     onClick: () -> Unit
 ) {
     Column(
@@ -539,7 +539,7 @@ private fun ContentExploreEmptyState(
 @Composable
 fun ContentExplorePreview() {
     val sampleArticles = listOf(
-        ArticleItem(
+        Post(
             id = "1",
             title = "Itthon és Európában is duplázna a kínai óriás, amely Magyarországon már előzi a Teslát",
             description = "This is really important",
@@ -547,7 +547,7 @@ fun ContentExplorePreview() {
             category = "Külföld",
             source = "24.hu"
         ),
-        ArticleItem(
+        Post(
             id = "2",
             title = "Bérfizetési probléma: egy hévízi háromcsillagos szálloda dolgozói nem kapták meg fizetésüket",
             description = "This is really important",
@@ -555,7 +555,7 @@ fun ContentExplorePreview() {
             category = "Belföld",
             source = "Telex"
         ),
-        ArticleItem(
+        Post(
             id = "3",
             title = "Elárulta az ETO edzője, hol folytatja a pályafutását",
             description = "This is really important",
@@ -563,7 +563,7 @@ fun ContentExplorePreview() {
             category = "Foci",
             source = "24.hu"
         ),
-        ArticleItem(
+        Post(
             id = "4",
             title = "\"Biztos, hogy nem\" – Havasi Bertalan karrierjének emlékére",
             description = "This is really important",

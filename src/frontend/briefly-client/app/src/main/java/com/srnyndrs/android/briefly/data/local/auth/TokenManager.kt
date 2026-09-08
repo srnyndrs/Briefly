@@ -14,6 +14,7 @@ class TokenManager @Inject constructor(
 ) {
 
     companion object {
+        private const val PREFERENCES_FILE_NAME = "auth_prefs"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
     }
@@ -24,7 +25,7 @@ class TokenManager @Inject constructor(
 
     private val sharedPreferences = EncryptedSharedPreferences.create(
         context,
-        "auth_prefs",
+        PREFERENCES_FILE_NAME,
         masterKey,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
@@ -49,7 +50,7 @@ class TokenManager @Inject constructor(
     fun clearTokens() {
         sharedPreferences.edit {
             remove(KEY_ACCESS_TOKEN)
-                .remove(KEY_REFRESH_TOKEN)
+            remove(KEY_REFRESH_TOKEN)
         }
     }
 }

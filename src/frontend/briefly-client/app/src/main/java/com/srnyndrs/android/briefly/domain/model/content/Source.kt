@@ -1,6 +1,6 @@
 package com.srnyndrs.android.briefly.domain.model.content
 
-data class FeedSourceResultItem(
+data class Source(
     val id: String,
     val url: String,
     val title: String,

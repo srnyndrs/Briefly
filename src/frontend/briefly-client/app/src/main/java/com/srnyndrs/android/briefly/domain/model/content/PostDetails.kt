@@ -4,7 +4,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-data class ArticleDetails(
+data class PostDetails(
     val id: String,
     val title: String,
     val sourceId: String? = null,

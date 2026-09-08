@@ -1,7 +1,7 @@
 package com.srnyndrs.android.briefly.domain.model.content
 
-data class ArticlePagingResult(
+data class PostPagingResult(
     val page: Int,
     val count: Int,
-    val items: List<ArticleItem>,
+    val items: List<Post>,
 )

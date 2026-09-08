@@ -1,7 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.content.screen.article_details.ArticleDetailsState
 import kotlin.time.ExperimentalTime
@@ -16,7 +16,7 @@ class ArticleDetailsStateProvider: PreviewParameterProvider<ArticleDetailsState>
             ),
             ArticleDetailsState(
                 details = UiState.Success(
-                    data = ArticleDetails(
+                    data = PostDetails(
                         id = "1",
                         title = "Bejelentette az ÁKK: csökken a két legnépszerűbb állampapír kamata",
                         source = "Telex",

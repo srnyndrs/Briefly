@@ -6,16 +6,16 @@ sealed class ContentScreens(
 ) {
 
     companion object {
-        const val ARTICLE_ID_ARG = "articleId"
+        const val ARTICLE_ID_ARG = "postId"
         const val FEED_SOURCE_ID_ARG = "sourceId"
     }
 
     object Explore: ContentScreens("content_explore")
     object FeedSearch: ContentScreens("feed_search")
-    object ArticleDetails: ContentScreens("article_details/{$ARTICLE_ID_ARG}") {
-        fun createRoute(articleId: String) = "article_details/$articleId"
+    object PostDetails: ContentScreens("article_details/{$ARTICLE_ID_ARG}") {
+        fun createRoute(postId: String) = "article_details/$postId"
     }
-    object FeedSourceDetails: ContentScreens("feed_source_details/{$FEED_SOURCE_ID_ARG}") {
+    object SourceDetails: ContentScreens("feed_source_details/{$FEED_SOURCE_ID_ARG}") {
         fun createRoute(sourceId: String) = "feed_source_details/$sourceId"
     }
 

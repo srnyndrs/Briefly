@@ -4,7 +4,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-data class FeedSubscription(
+data class Subscription(
     val userId: String,
     val sourceId: String,
     val createdAt: Instant,

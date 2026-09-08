@@ -37,11 +37,11 @@ fun ContentNavigationGraph(
     val context = LocalContext.current
     val handleNavigationEvent = { event: ContentNavigationEvent ->
         when(event) {
-            is ContentNavigationEvent.ShowArticleDetails -> {
-                navController.navigate(ContentScreens.ArticleDetails.createRoute(event.articleId))
+            is ContentNavigationEvent.ShowPostDetails -> {
+                navController.navigate(ContentScreens.PostDetails.createRoute(event.postId))
             }
-            is ContentNavigationEvent.ShowFeedDetails -> {
-                navController.navigate(ContentScreens.FeedSourceDetails.createRoute(event.sourceId))
+            is ContentNavigationEvent.ShowSourceDetails -> {
+                navController.navigate(ContentScreens.SourceDetails.createRoute(event.sourceId))
             }
             is ContentNavigationEvent.OpenCustomTab -> {
                 event.url?.let {
@@ -92,16 +92,16 @@ fun ContentNavigationGraph(
             )
         }
         composable(
-            route = ContentScreens.ArticleDetails.route,
+            route = ContentScreens.PostDetails.route,
             arguments = listOf(
                 navArgument(ContentScreens.ARTICLE_ID_ARG) { type = NavType.StringType },
             ),
         ) { entry ->
 
-            val articleId = entry.arguments?.getString(ContentScreens.ARTICLE_ID_ARG)
-            articleId?.let {
+            val postId = entry.arguments?.getString(ContentScreens.ARTICLE_ID_ARG)
+            postId?.let {
                 val viewModel = hiltViewModel<ArticleDetailsViewModel, ArticleDetailsViewModel.Factory>(
-                    creationCallback = { factory -> factory.create(articleId) }
+                    creationCallback = { factory -> factory.create(postId) }
                 )
 
                 val state by viewModel.state.collectAsStateWithLifecycle()
@@ -122,7 +122,7 @@ fun ContentNavigationGraph(
             }
         }
         composable(
-            route = ContentScreens.FeedSourceDetails.route,
+            route = ContentScreens.SourceDetails.route,
             arguments = listOf(
                 navArgument(ContentScreens.FEED_SOURCE_ID_ARG) { type = NavType.StringType },
             ),

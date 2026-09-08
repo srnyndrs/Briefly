@@ -6,104 +6,123 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Serializable
-data class FeedResultDto(
-    val items: List<FeedResultItemDto>,
+data class FeedResponseDto(
+    val items: List<PostSummaryResponseDto>,
     val total: Long,
     val page: Int = 1,
+
     @SerialName("page_count")
     val pageCount: Int = 1,
+
     @SerialName("page_size")
     val pageSize: Int = 20,
 )
 
 @Serializable
 @OptIn(ExperimentalTime::class)
-data class FeedResultItemDto(
+data class PostSummaryResponseDto(
     @SerialName("post_id")
-    val articleId: String,
+    val postId: String,
+
     val title: String,
+
     @SerialName("source_title")
     val sourceTitle: String? = null,
+
     val description: String? = null,
+
     @SerialName("canonical_url")
-    val canonicalURL: String? = null,
+    val canonicalUrl: String? = null,
+
     val language: String? = null,
     val category: String? = null,
+
     @SerialName("image_ref")
     val imageRef: String? = null,
+
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("published_at")
-    val publishedAt: Instant,
+    val publishedAt: Instant?,
+
     @SerialName("has_content")
     val hasContent: Boolean,
 )
 
 @Serializable
-data class FeedSourceSubscribeRequestDto(
+data class SubscriptionCreateRequestDto(
     @SerialName("source_id")
     val sourceId: String,
 )
 
 @Serializable
 @OptIn(ExperimentalTime::class)
-data class FeedSourceSubscribeResponseDto(
+data class SubscriptionResponseDto(
     @SerialName("user_id")
     val userId: String,
+
     @SerialName("source_id")
     val sourceId: String,
+
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("created_at")
     val createdAt: Instant,
 )
 
 @Serializable
-data class FeedSourceExploreRequestDto(
+data class SourceDiscoverRequestDto(
     val url: String,
 )
 
 @Serializable
-data class FeedSourceResultItemDto(
-    @SerialName("feed_id")
-    val feedId: String,
+data class SourceDiscoveryResultDto(
     val url: String,
-    val title: String,
+    val title: String? = null,
+
     @SerialName("content_type")
     val contentType: String? = null,
+
     val favicon: String? = null,
     val description: String? = null,
-    @SerialName("is_subscribed")
-    val isSubscribed: Boolean,
 )
 
 
 @Serializable
 @OptIn(ExperimentalTime::class)
-data class ArticleDetailsDto (
+data class PostResponseDto(
     @SerialName("post_id")
-    val articleId: String,
+    val postId: String,
+
     @SerialName("source_id")
     val sourceId: String? = null,
+
     val title: String,
+
     @SerialName("source_title")
     val sourceTitle: String? = null,
+
     val description: String? = null,
+
     @SerialName("canonical_url")
-    val canonicalURL: String? = null,
+    val canonicalUrl: String? = null,
+
     val language: String? = null,
     val category: String? = null,
+
     @SerialName("image_ref")
     val imageRef: String? = null,
+
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("published_at")
-    val publishedAt: Instant,
+    val publishedAt: Instant?,
+
     val content: String? = null,
 )
 
 @Serializable
 @OptIn(ExperimentalTime::class)
-data class FeedSourceDto (
+data class SourceResponseDto(
     @SerialName("source_id")
-    val feedId: String,
+    val sourceId: String,
 
     val url: String,
     val title: String? = null,
@@ -112,7 +131,7 @@ data class FeedSourceDto (
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("last_crawled_at")
-    val lastCrawledAt: Instant,
+    val lastCrawledAt: Instant?,
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("next_crawl_scheduled_at")
@@ -138,9 +157,9 @@ data class FeedSourceDto (
 
 @OptIn(ExperimentalTime::class)
 @Serializable
-data class FeedSourceDetailsDto(
+data class SourceDetailsResponseDto(
     @SerialName("source_id")
-    val feedId: String,
+    val sourceId: String,
 
     val url: String,
     val title: String? = null,
@@ -152,7 +171,7 @@ data class FeedSourceDetailsDto(
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("last_crawled_at")
-    val lastCrawledAt: Instant,
+    val lastCrawledAt: Instant?,
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("next_crawl_scheduled_at")

@@ -311,7 +311,7 @@ fun FeedDetailsScreen(
                                 description = article.description ?: "",
                                 imageUrl = article.imageUrl
                             ) {
-                                onNavigationEvent(ContentNavigationEvent.ShowArticleDetails(article.id))
+                                onNavigationEvent(ContentNavigationEvent.ShowPostDetails(article.id))
                             }
                             HorizontalDivider(
                                 modifier = Modifier

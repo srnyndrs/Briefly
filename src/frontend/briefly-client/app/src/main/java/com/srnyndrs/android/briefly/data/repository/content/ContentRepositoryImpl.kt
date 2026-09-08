@@ -1,15 +1,14 @@
 package com.srnyndrs.android.briefly.data.repository.content
 
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
+import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.Source
+import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
 import io.ktor.http.HttpStatusCode
 import androidx.paging.Pager
@@ -26,7 +25,7 @@ class ContentRepositoryImpl @Inject constructor(
         const val PAGE_SIZE = 20
     }
 
-    override fun getArticlePagingFlow(sourceIds: List<String>?): Flow<PagingData<ArticleItem>> {
+    override fun getArticlePagingFlow(sourceIds: List<String>?): Flow<PagingData<Post>> {
         return Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -43,11 +42,11 @@ class ContentRepositoryImpl @Inject constructor(
         page: Int?,
         pageSize: Int?,
         sourceIds: List<String>?
-    ): Result<ArticlePagingResult> {
+    ): Result<PostPagingResult> {
         return try {
             val response = contentApiService.getFeed(page, pageSize, sourceIds)
             val items = response.items.map { it.toDomain() }
-            val result = ArticlePagingResult(
+            val result = PostPagingResult(
                 page = response.page,
                 count = response.pageCount,
                 items = items,
@@ -59,7 +58,7 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun fetchFeedSources(query: String?): Result<List<FeedSourceResultItem>> {
+    override suspend fun fetchFeedSources(query: String?): Result<List<Source>> {
         return try {
             val response = contentApiService.getFeedSources(query)
             val result = response.map { it.toDomain() }
@@ -70,7 +69,7 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getFeedSourceSubscriptions(): Result<List<FeedSubscription>> {
+    override suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>> {
         return try {
             val response = contentApiService.getFeedSourceSubscriptions()
             val result = response.map { it.toDomain() }
@@ -81,7 +80,7 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails> {
+    override suspend fun getFeedSourceDetails(sourceId: String): Result<SourceDetails> {
         return try {
             val response = contentApiService.getFeedSourceDetails(sourceId)
             val result = response.toDomain()
@@ -92,9 +91,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun subscribeFeedSource(sourceId: String): Result<FeedSubscription> {
+    override suspend fun subscribeFeedSource(sourceId: String): Result<Subscription> {
         return try {
-            val request = FeedSourceSubscribeRequestDto(sourceId)
+            val request = SubscriptionCreateRequestDto(sourceId)
             val response = contentApiService.subscribeFeedSource(request)
 
             Result.success(response.toDomain())
@@ -119,9 +118,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getArticleById(articleId: String): Result<ArticleDetails> {
+    override suspend fun getArticleById(postId: String): Result<PostDetails> {
         return try {
-            val response = contentApiService.getPostById(articleId)
+            val response = contentApiService.getPostById(postId)
             val result = response.toDomain()
 
             Result.success(result)

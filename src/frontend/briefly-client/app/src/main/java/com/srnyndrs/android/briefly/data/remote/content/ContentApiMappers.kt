@@ -1,23 +1,25 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
-import com.srnyndrs.android.briefly.data.remote.content.dto.ArticleDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResultItemDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceResultItemDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeResponseDto
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
+import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PostSummaryResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
+import com.srnyndrs.android.briefly.domain.model.content.Source
+import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
-fun FeedResultItemDto.toDomain(): ArticleItem {
-    return ArticleItem(
-        id = articleId,
+fun PostSummaryResponseDto.toDomain(): Post {
+    return Post(
+        id = postId,
         title = title,
-        url = canonicalURL,
+        url = canonicalUrl,
         description = description,
         source = sourceTitle,
         category = category,
@@ -26,36 +28,36 @@ fun FeedResultItemDto.toDomain(): ArticleItem {
     )
 }
 
-fun FeedSourceResultItemDto.toDomain(): FeedSourceResultItem {
-    return FeedSourceResultItem(
-        id = feedId,
+fun SourceDiscoveryResultDto.toDomain(): SourceDiscoveryResult {
+    return SourceDiscoveryResult(
+        id = url,
         url = url,
-        title = title,
+        title = title ?: url,
         favicon = favicon,
         description = description,
-        isSubscribed = isSubscribed,
+        isSubscribed = false,
     )
 }
 
 @OptIn(ExperimentalTime::class)
-fun ArticleDetailsDto.toDomain(): ArticleDetails {
-    return ArticleDetails(
-        id = articleId,
+fun PostResponseDto.toDomain(): PostDetails {
+    return PostDetails(
+        id = postId,
         sourceId = sourceId,
         title = title,
         content = content,
         imageUrl = imageRef,
         category = category,
-        url = canonicalURL,
-        publishedAt = publishedAt,
+        url = canonicalUrl,
+        publishedAt = publishedAt ?: Instant.fromEpochMilliseconds(0),
         language = language,
         source = sourceTitle
     )
 }
 
-fun FeedSourceDto.toDomain(): FeedSourceResultItem {
-    return FeedSourceResultItem(
-        id = feedId,
+fun SourceResponseDto.toDomain(): Source {
+    return Source(
+        id = sourceId,
         url = url,
         title = title ?: "",
         favicon = favicon,
@@ -65,8 +67,8 @@ fun FeedSourceDto.toDomain(): FeedSourceResultItem {
 }
 
 @OptIn(ExperimentalTime::class)
-fun FeedSourceSubscribeResponseDto.toDomain(): FeedSubscription {
-    return FeedSubscription(
+fun SubscriptionResponseDto.toDomain(): Subscription {
+    return Subscription(
         userId = userId,
         sourceId = sourceId,
         createdAt = createdAt
@@ -74,9 +76,9 @@ fun FeedSourceSubscribeResponseDto.toDomain(): FeedSubscription {
 }
 
 @OptIn(ExperimentalTime::class)
-fun FeedSourceDetailsDto.toDomain(): FeedSourceDetails {
-    return FeedSourceDetails(
-        id = feedId,
+fun SourceDetailsResponseDto.toDomain(): SourceDetails {
+    return SourceDetails(
+        id = sourceId,
         title = title,
         description = description,
         websiteUrl = websiteUrl,

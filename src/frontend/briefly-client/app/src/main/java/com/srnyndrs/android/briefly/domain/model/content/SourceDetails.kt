@@ -4,7 +4,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-data class FeedSourceDetails(
+data class SourceDetails(
     val id: String,
     val title: String?,
     val description: String? = null,

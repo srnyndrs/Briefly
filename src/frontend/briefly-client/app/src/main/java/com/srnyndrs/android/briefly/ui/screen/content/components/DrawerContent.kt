@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
@@ -25,13 +26,16 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.ArrowRightOnRectangle
 import com.composables.icons.heroicons.solid.Home
+import com.composables.icons.heroicons.solid.MagnifyingGlass
 import com.composables.icons.heroicons.solid.Newspaper
 import com.composables.icons.heroicons.solid.Rss
+import com.composables.icons.heroicons.solid.User
 import com.srnyndrs.android.briefly.ui.common.TopAppBar
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
@@ -48,7 +52,7 @@ fun DrawerContent(
         modifier = Modifier.then(modifier)
             .padding(horizontal = 16.dp)
             .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Spacer(Modifier.height(12.dp))
         Row(
@@ -66,11 +70,12 @@ fun DrawerContent(
                 style = MaterialTheme.typography.titleLarge,
             )
         }
-        HorizontalDivider()
-        Text(
-            modifier = Modifier.padding(16.dp),
-            text ="General",
-            style = MaterialTheme.typography.titleMedium
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp)),
+            thickness = 2.dp,
+            color = MaterialTheme.colorScheme.onSurface
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -98,7 +103,36 @@ fun DrawerContent(
             NavigationDrawerItem(
                 label = {
                     Text(
-                        text = "Feeds"
+                        text = "Explore"
+                    )
+                },
+                selected = false, // currentRoute == "TODO",
+                icon = {
+                    Icon(
+                        modifier = Modifier.size(24.dp),
+                        imageVector = Heroicons.Solid.MagnifyingGlass,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    // TODO
+                    // onDrawerEvent(DrawerContentEvent.NavigateHomeScreen)
+                }
+            )
+        }
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(0.125f)
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            NavigationDrawerItem(
+                label = {
+                    Text(
+                        text = "Feed Sources"
                     )
                 },
                 selected = currentRoute == "feed_search",
@@ -114,11 +148,26 @@ fun DrawerContent(
                 }
             )
         }
-        HorizontalDivider()
-        Text(
-            modifier = Modifier.padding(16.dp),
-            text ="Account",
-            style = MaterialTheme.typography.titleMedium
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(0.125f)
+        )
+        NavigationDrawerItem(
+            label = {
+                Text(
+                    text = "Profile Settings"
+                )
+            },
+            selected = false,
+            icon = {
+                Icon(
+                    imageVector = Heroicons.Solid.User,
+                    contentDescription = null // TODO
+                )
+            },
+            onClick = {
+                onDrawerEvent(DrawerContentEvent.NavigateHomeScreen)
+            }
         )
         NavigationDrawerItem(
             label = {

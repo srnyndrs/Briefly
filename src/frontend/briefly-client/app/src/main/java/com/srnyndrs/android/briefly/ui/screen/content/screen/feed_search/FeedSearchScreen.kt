@@ -146,7 +146,7 @@ fun FeedSearchScreen(
                                     .fillMaxWidth()
                                     .requiredHeight(56.dp)
                                     .clickable {
-                                        onNavigationEvent(ContentNavigationEvent.ShowFeedDetails((feedSource.id)))
+                                        onNavigationEvent(ContentNavigationEvent.ShowSourceDetails((feedSource.id)))
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
