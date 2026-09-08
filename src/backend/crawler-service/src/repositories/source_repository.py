@@ -55,7 +55,6 @@ class SourceRepository:
         description: str | None = None,
         favicon: str | None = None,
         website_url: str | None = None,
-        enrich_with_ai: bool = False,
     ) -> Source:
         source = Source(
             source_id=uuid.uuid4(),
@@ -64,7 +63,6 @@ class SourceRepository:
             description=description,
             favicon=favicon,
             website_url=website_url,
-            enrich_with_ai=enrich_with_ai,
         )
         self._db.add(source)
         self._db.commit()
@@ -92,7 +90,6 @@ class SourceRepository:
         description: str | None,
         favicon: str | None,
         website_url: str | None = None,
-        enrich_with_ai: bool | None = None,
     ) -> Source | None:
         item = (
             self._db.query(Source)
@@ -108,8 +105,6 @@ class SourceRepository:
         item.favicon = favicon
         if website_url is not None:
             item.website_url = website_url
-        if enrich_with_ai is not None:
-            item.enrich_with_ai = enrich_with_ai
         item.updated_at = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(item)

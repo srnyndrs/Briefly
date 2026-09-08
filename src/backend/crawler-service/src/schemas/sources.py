@@ -14,7 +14,6 @@ class SourceCreate(BaseModel):
     title: str | None = None
     description: str | None = None
     favicon: str | None = None
-    enrich_with_ai: bool = False
 
 
 class SourcePatchRequest(BaseModel):
@@ -22,7 +21,6 @@ class SourcePatchRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     favicon: str | None = None
-    enrich_with_ai: bool | None = None
 
 
 class SourceDiscoverRequest(BaseModel):
@@ -48,7 +46,6 @@ class SourceResponse(BaseModel):
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool = False
     consecutive_failures: int = 0
-    enrich_with_ai: bool = False
     created_at: datetime
     updated_at: datetime
 

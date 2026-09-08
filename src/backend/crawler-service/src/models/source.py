@@ -53,16 +53,10 @@ class Source(Base):
         Integer, nullable=False, default=0
     )
 
-    etag: Mapped[str | None] = mapped_column(
-        String(512), nullable=True
-    )
+    etag: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_modified: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )
-    enrich_with_ai: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

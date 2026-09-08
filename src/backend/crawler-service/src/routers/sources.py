@@ -82,7 +82,6 @@ def register_source(
         description=body.description or first_source.description,
         favicon=body.favicon or first_source.favicon,
         website_url=website_url,
-        enrich_with_ai=body.enrich_with_ai,
     )
     return source
 
@@ -136,9 +135,6 @@ def patch_source(
         title=patch_data.get("title", current.title),
         description=patch_data.get("description", current.description),
         favicon=patch_data.get("favicon", current.favicon),
-        enrich_with_ai=patch_data.get(
-            "enrich_with_ai", current.enrich_with_ai
-        ),
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="Source not found.")
