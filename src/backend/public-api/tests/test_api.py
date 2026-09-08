@@ -323,30 +323,43 @@ def test_password_reset_confirm_endpoint(monkeypatch) -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_patch_profile_endpoint(monkeypatch) -> None:
+def test_patch_me_endpoint(monkeypatch) -> None:
     client = _build_client()
     user = app.dependency_overrides[get_current_user]()
 
-    def fake_patch_profile(user_id: str, body: dict) -> dict:
+    def fake_patch_user(user_id: str, body: dict) -> dict:
         assert user_id == str(user.user_id)
         assert body == {"display_name": "New Name"}
         return {
             "user_id": user_id,
+            "email": "test@example.com",
             "display_name": "New Name",
-            "bio": None,
-            "avatar_url": None,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+
+    def fake_get_preferences(user_id: str) -> dict:
+        return {
+            "user_id": user_id,
+            "muted_keywords": [],
+            "muted_categories": [],
+            "blocked_source_ids": [],
+            "languages": [],
+            "category_interests": [],
             "updated_at": datetime.now(UTC).isoformat(),
         }
 
     monkeypatch.setattr(
-        "src.routers.user.account_patch_profile", fake_patch_profile
+        "src.routers.user.account_patch_user", fake_patch_user
+    )
+    monkeypatch.setattr(
+        "src.routers.user.account_get_preferences", fake_get_preferences
     )
 
-    response = client.patch(
-        "/me/profile", json={"display_name": "New Name"}
-    )
+    response = client.patch("/me", json={"display_name": "New Name"})
     assert response.status_code == 200
     assert response.json()["display_name"] == "New Name"
+    assert response.json()["preferences"]["languages"] == []
+    assert client.patch("/me/profile").status_code == 404
 
 
 def test_patch_preferences_endpoint(monkeypatch) -> None:
@@ -733,17 +746,8 @@ def test_get_me_composite_response(monkeypatch) -> None:
         return {
             "user_id": u_id,
             "email": "test@example.com",
-            "created_at": now,
-        }
-
-    def fake_get_profile(u_id: str) -> dict:
-        assert u_id == str(user.user_id)
-        return {
-            "user_id": u_id,
             "display_name": "Test User",
-            "bio": "Bio",
-            "avatar_url": None,
-            "updated_at": now,
+            "created_at": now,
         }
 
     def fake_get_preferences(u_id: str) -> dict:
@@ -762,9 +766,6 @@ def test_get_me_composite_response(monkeypatch) -> None:
         "src.routers.user.account_get_user", fake_get_user
     )
     monkeypatch.setattr(
-        "src.routers.user.account_get_profile", fake_get_profile
-    )
-    monkeypatch.setattr(
         "src.routers.user.account_get_preferences",
         fake_get_preferences,
     )
@@ -774,7 +775,7 @@ def test_get_me_composite_response(monkeypatch) -> None:
     payload = response.json()
     assert payload["user_id"] == str(user.user_id)
     assert payload["email"] == "test@example.com"
-    assert payload["profile"]["display_name"] == "Test User"
+    assert payload["display_name"] == "Test User"
     assert payload["preferences"]["category_interests"] == ["tech"]
     assert payload["preferences"]["muted_keywords"] == ["crypto"]
 

@@ -9,7 +9,6 @@ from src.models.account import (
     RefreshToken,
     User,
     UserPreferences,
-    UserProfile,
     UserSubscription,
 )
 
@@ -46,39 +45,17 @@ class AccountRepository:
         self._db.add(user)
         return user
 
-    def create_default_profile(self, user_id: str) -> None:
-        self._db.add(UserProfile(user_id=user_id))
-
-    def get_profile(self, user_id: str) -> UserProfile | None:
-        return self._db.execute(
-            select(UserProfile).where(UserProfile.user_id == user_id)
-        ).scalar_one_or_none()
-
-    def upsert_profile(
-        self,
-        *,
-        user_id: str,
-        display_name: str | None,
-        bio: str | None,
-        avatar_url: str | None,
-        now: datetime,
-    ) -> UserProfile:
-        profile = self.get_profile(user_id)
-        if profile is None:
-            profile = UserProfile(user_id=user_id)
-            self._db.add(profile)
-
-        profile.display_name = display_name
-        profile.bio = bio
-        profile.avatar_url = avatar_url
-        profile.updated_at = now
-
+    def update_display_name(
+        self, *, user_id: str, display_name: str | None, now: datetime
+    ) -> User | None:
         user = self.get_user_by_id(user_id)
-        if user is not None:
-            user.updated_at = now
+        if user is None:
+            return None
 
+        user.display_name = display_name
+        user.updated_at = now
         self._db.commit()
-        return profile
+        return user
 
     def create_default_preferences(self, user_id: str) -> None:
         self._db.add(UserPreferences(user_id=user_id))

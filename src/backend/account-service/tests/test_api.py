@@ -30,13 +30,12 @@ def test_register_login_and_get_user(client, db_session) -> None:
             """
             SELECT
                 (SELECT COUNT(*) FROM accounts),
-                (SELECT COUNT(*) FROM user_profiles),
                 (SELECT COUNT(*) FROM user_preferences),
                 (SELECT COUNT(*) FROM refresh_tokens)
             """
         )
     ).one()
-    assert persisted == (1, 1, 1, 1)
+    assert persisted == (1, 1, 1)
 
     failed_register = client.post(
         "/auth/register",
@@ -93,6 +92,60 @@ def test_register_login_and_get_user(client, db_session) -> None:
     assert user.status_code == 200
     assert user.json()["email"] == "alice@example.com"
     assert "status" not in user.json()
+
+
+def test_display_name_account_contract(client, db_session) -> None:
+    register = client.post(
+        "/auth/register",
+        json={
+            "email": "display-name@example.com",
+            "password": "strong-password",
+        },
+    )
+    assert register.status_code == 201
+    user_id = db_session.execute(
+        text(
+            "SELECT user_id FROM accounts "
+            "WHERE email='display-name@example.com'"
+        )
+    ).scalar_one()
+
+    account = client.get(f"/users/{user_id}")
+    assert account.status_code == 200
+    assert account.json()["display_name"] is None
+
+    updated = client.patch(
+        f"/users/{user_id}", json={"display_name": "  Alice  "}
+    )
+    assert updated.status_code == 200
+    assert updated.json()["display_name"] == "Alice"
+
+    unchanged = client.patch(f"/users/{user_id}", json={})
+    assert unchanged.status_code == 200
+    assert unchanged.json()["display_name"] == "Alice"
+
+    cleared = client.patch(
+        f"/users/{user_id}", json={"display_name": None}
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["display_name"] is None
+
+    assert (
+        client.patch(
+            f"/users/{user_id}", json={"display_name": "   "}
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(
+            f"/users/{user_id}", json={"display_name": "x" * 81}
+        ).status_code
+        == 422
+    )
+
+    assert client.get(f"/users/{user_id}/profile").status_code == 404
+    assert client.put(f"/users/{user_id}/profile").status_code == 404
+    assert client.patch(f"/users/{user_id}/profile").status_code == 404
 
 
 def test_preferences_and_subscription_flow(
@@ -158,44 +211,9 @@ def test_preferences_and_subscription_flow(
     assert len(list_subs.json()) == 1
     assert list_subs.json()[0]["source_id"] == source_id
 
-    put_profile = client.put(
-        f"/users/{user_id}/profile",
-        json={
-            "display_name": "Bob",
-            "bio": "About Bob",
-            "avatar_url": "https://example.com/bob.png",
-        },
-    )
-    assert put_profile.status_code == 200
-
-    patch_profile = client.patch(
-        f"/users/{user_id}/profile",
-        json={"display_name": "Alice"},
-    )
-    assert patch_profile.status_code == 200
-    profile_data = patch_profile.json()
-    assert profile_data["user_id"] == user_id
-    assert profile_data["display_name"] == "Alice"
-    assert profile_data["bio"] == "About Bob"
-    assert profile_data["avatar_url"] == "https://example.com/bob.png"
-
-    clear_bio = client.patch(
-        f"/users/{user_id}/profile", json={"bio": None}
-    )
-    assert clear_bio.status_code == 200
-    assert clear_bio.json()["display_name"] == "Alice"
-    assert clear_bio.json()["bio"] is None
-    assert (
-        clear_bio.json()["avatar_url"] == "https://example.com/bob.png"
-    )
     assert [event["event_type"] for event in publisher.events] == [
         "preferences.updated.v1",
     ]
-    profile_updated_at = db_session.execute(
-        text("SELECT updated_at FROM accounts WHERE user_id=:user_id"),
-        {"user_id": user_id},
-    ).scalar_one()
-    assert profile_updated_at > preferences_updated_at
 
     patch_prefs = client.patch(
         f"/users/{user_id}/preferences",

@@ -17,8 +17,7 @@ from src.schemas.users import (
     PreferencesPatchRequest,
     PreferencesResponse,
     PreferencesUpdateRequest,
-    ProfileResponse,
-    ProfileUpdateRequest,
+    AccountPatchRequest,
     SubscriptionCreateRequest,
     SubscriptionResponse,
     UserResponse,
@@ -46,79 +45,31 @@ def get_user(
     return UserResponse(
         user_id=uuid.UUID(user.user_id),
         email=user.email,
+        display_name=user.display_name,
         created_at=user.created_at,
     )
 
 
-@router.get("/{user_id}/profile", response_model=ProfileResponse)
-def get_profile(
+@router.patch("/{user_id}", response_model=UserResponse)
+def patch_user(
     user_id: uuid.UUID,
+    body: AccountPatchRequest,
     service: AccountService = Depends(get_account_service),
-) -> ProfileResponse:
+) -> UserResponse:
     try:
-        profile = service.get_profile(str(user_id))
-    except NotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
-    return ProfileResponse(
-        user_id=user_id,
-        display_name=profile.display_name,
-        bio=profile.bio,
-        avatar_url=profile.avatar_url,
-        updated_at=profile.updated_at,
-    )
-
-
-@router.put("/{user_id}/profile", response_model=ProfileResponse)
-def update_profile(
-    user_id: uuid.UUID,
-    body: ProfileUpdateRequest,
-    service: AccountService = Depends(get_account_service),
-) -> ProfileResponse:
-    try:
-        profile = service.update_profile(
+        user = service.patch_display_name(
             user_id=str(user_id),
-            display_name=body.display_name,
-            bio=body.bio,
-            avatar_url=body.avatar_url,
+            fields=body.model_dump(mode="json", exclude_unset=True),
         )
     except NotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-
-    return ProfileResponse(
+    return UserResponse(
         user_id=user_id,
-        display_name=profile.display_name,
-        bio=profile.bio,
-        avatar_url=profile.avatar_url,
-        updated_at=profile.updated_at,
-    )
-
-
-@router.patch("/{user_id}/profile", response_model=ProfileResponse)
-def patch_profile(
-    user_id: uuid.UUID,
-    body: ProfileUpdateRequest,
-    service: AccountService = Depends(get_account_service),
-) -> ProfileResponse:
-    try:
-        patch_data = body.model_dump(mode="json", exclude_unset=True)
-        profile = service.patch_profile(
-            user_id=str(user_id), fields=patch_data
-        )
-    except NotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
-
-    return ProfileResponse(
-        user_id=user_id,
-        display_name=profile.display_name,
-        bio=profile.bio,
-        avatar_url=profile.avatar_url,
-        updated_at=profile.updated_at,
+        email=user.email,
+        display_name=user.display_name,
+        created_at=user.created_at,
     )
 
 

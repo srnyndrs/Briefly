@@ -76,14 +76,6 @@ def account_get_user(user_id: str) -> dict:
     )
 
 
-def account_get_profile(user_id: str) -> dict:
-    return _forward(
-        "GET",
-        settings.account_service_url,
-        f"/users/{user_id}/profile",
-    )
-
-
 def account_register(body: dict) -> dict:
     return _forward(
         "POST",
@@ -160,11 +152,11 @@ def account_list_subscriptions(user_id: str) -> list[dict]:
     return []
 
 
-def account_patch_profile(user_id: str, body: dict) -> dict:
+def account_patch_user(user_id: str, body: dict) -> dict:
     return _forward(
         "PATCH",
         settings.account_service_url,
-        f"/users/{user_id}/profile",
+        f"/users/{user_id}",
         json=body,
     )
 

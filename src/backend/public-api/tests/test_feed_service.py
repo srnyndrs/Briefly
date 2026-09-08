@@ -97,7 +97,7 @@ class TestFeedServiceList:
                 user_id=uuid4(),
                 limit=20,
                 offset=0,
-                use_profile=False,
+                use_preferences=False,
             )
         )
 
@@ -223,7 +223,7 @@ class TestFeedServiceSearch:
                 q="test",
                 limit=20,
                 offset=0,
-                use_profile=False,
+                use_preferences=False,
             )
         )
 

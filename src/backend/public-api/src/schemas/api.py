@@ -60,6 +60,7 @@ class StatusResponse(BaseModel):
 class UserResponse(BaseModel):
     user_id: UUID
     email: EmailStr
+    display_name: str | None
     created_at: datetime
 
     @field_serializer("created_at")
@@ -69,24 +70,8 @@ class UserResponse(BaseModel):
         return value.isoformat()
 
 
-class ProfilePatchRequest(BaseModel):
+class AccountPatchRequest(BaseModel):
     display_name: str | None = None
-    bio: str | None = None
-    avatar_url: str | None = None
-
-
-class ProfileResponse(BaseModel):
-    user_id: UUID
-    display_name: str | None
-    bio: str | None
-    avatar_url: str | None
-    updated_at: datetime
-
-    @field_serializer("updated_at")
-    def serialize_updated_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.isoformat()
 
 
 class PreferencesPatchRequest(BaseModel):
@@ -114,7 +99,6 @@ class PreferencesResponse(BaseModel):
 
 
 class MeDetailsResponse(UserResponse):
-    profile: ProfileResponse | None = None
     preferences: PreferencesResponse | None = None
 
 

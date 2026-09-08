@@ -19,7 +19,7 @@ class ListFeedInput:
     user_id: UUID
     limit: int
     offset: int
-    use_profile: bool = True
+    use_preferences: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
     source_ids: list[str] | None = None
@@ -40,7 +40,7 @@ class SearchFeedInput:
     q: str
     limit: int
     offset: int
-    use_profile: bool = True
+    use_preferences: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
     source_ids: list[str] | None = None
@@ -80,8 +80,8 @@ class FeedService:
             self._preferences_repository.get_preferences(data.user_id)
         )
         context = self._merge_service.merge(
-            profile=prefs_dto,
-            use_profile=data.use_profile,
+            preferences=prefs_dto,
+            use_preferences=data.use_preferences,
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,
@@ -122,8 +122,8 @@ class FeedService:
             data.user_id
         )
         context = self._merge_service.merge(
-            profile=prefs,
-            use_profile=data.use_profile,
+            preferences=prefs,
+            use_preferences=data.use_preferences,
             overrides=PersonalizationQueryOverrides(
                 include_categories=data.categories,
                 include_languages=data.languages,

@@ -56,7 +56,6 @@ class AccountService:
             password_hash=password_hash,
             now=now,
         )
-        self._repo.create_default_profile(user.user_id)
         self._repo.create_default_preferences(user.user_id)
         return self._auth_service.issue_token_pair(user_id=user.user_id)
 
@@ -102,52 +101,26 @@ class AccountService:
             raise NotFoundError("User not found")
         return user
 
-    def get_profile(self, user_id: str):
-        profile = self._repo.get_profile(user_id)
-        if profile is None:
-            raise NotFoundError("User profile not found")
-        return profile
-
-    def update_profile(
-        self,
-        *,
-        user_id: str,
-        display_name: str | None,
-        bio: str | None,
-        avatar_url: str | None,
+    def update_display_name(
+        self, *, user_id: str, display_name: str | None
     ):
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User not found")
-
-        profile = self._repo.upsert_profile(
+        user = self._repo.update_display_name(
             user_id=user_id,
             display_name=display_name,
-            bio=bio,
-            avatar_url=avatar_url,
             now=utc_now_naive(),
         )
+        if user is None:
+            raise NotFoundError("User not found")
+        return user
 
-        return profile
-
-    def patch_profile(self, *, user_id: str, fields: dict[str, Any]):
-        profile = self._repo.get_profile(user_id)
-        if profile is None:
-            raise NotFoundError("User profile not found")
-
-        return self.update_profile(
-            user_id=user_id,
-            display_name=(
-                fields["display_name"]
-                if "display_name" in fields
-                else profile.display_name
-            ),
-            bio=fields["bio"] if "bio" in fields else profile.bio,
-            avatar_url=(
-                fields["avatar_url"]
-                if "avatar_url" in fields
-                else profile.avatar_url
-            ),
+    def patch_display_name(
+        self, *, user_id: str, fields: dict[str, Any]
+    ):
+        user = self.get_user(user_id)
+        if "display_name" not in fields:
+            return user
+        return self.update_display_name(
+            user_id=user_id, display_name=fields["display_name"]
         )
 
     def get_preferences(self, user_id: str):

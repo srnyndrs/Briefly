@@ -104,7 +104,7 @@ def get_feed(
                 q=query.strip(),
                 limit=limit,
                 offset=offset,
-                use_profile=use_profile,
+                use_preferences=use_profile,
                 categories=categories,
                 languages=languages,
                 source_ids=filtered_source_ids,
@@ -119,7 +119,7 @@ def get_feed(
                 user_id=user.user_id,
                 limit=limit,
                 offset=offset,
-                use_profile=use_profile,
+                use_preferences=use_profile,
                 categories=categories,
                 languages=languages,
                 source_ids=filtered_source_ids,
@@ -180,7 +180,7 @@ def get_general_feed(
             user_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
             limit=limit,
             offset=offset,
-            use_profile=False,
+            use_preferences=False,
         )
     )
     total_pages = (

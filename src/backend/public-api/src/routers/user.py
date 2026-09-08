@@ -8,19 +8,17 @@ from src.adapters.service_clients import (
     account_create_subscription,
     account_delete_subscription,
     account_get_preferences,
-    account_get_profile,
     account_get_user,
     account_list_subscriptions,
+    account_patch_user,
     account_patch_preferences,
-    account_patch_profile,
     map_service_error,
 )
 from src.schemas.api import (
+    AccountPatchRequest,
     MeDetailsResponse,
     PreferencesPatchRequest,
     PreferencesResponse,
-    ProfilePatchRequest,
-    ProfileResponse,
     SubscriptionCreateRequest,
     SubscriptionResponse,
 )
@@ -34,13 +32,6 @@ def get_me(user: CurrentUser) -> MeDetailsResponse:
     try:
         user_data = account_get_user(str(user.user_id))
 
-        profile_data = None
-        try:
-            profile_data = account_get_profile(str(user.user_id))
-        except ServiceClientError as exc:
-            if exc.status_code != 404:
-                raise map_service_error(exc) from exc
-
         prefs_data = None
         try:
             prefs_data = account_get_preferences(str(user.user_id))
@@ -50,9 +41,6 @@ def get_me(user: CurrentUser) -> MeDetailsResponse:
 
         return MeDetailsResponse(
             **user_data,
-            profile=ProfileResponse(**profile_data)
-            if profile_data
-            else None,
             preferences=PreferencesResponse(**prefs_data)
             if prefs_data
             else None,
@@ -61,17 +49,21 @@ def get_me(user: CurrentUser) -> MeDetailsResponse:
         raise map_service_error(exc) from exc
 
 
-@router.patch("/profile", response_model=ProfileResponse)
-def patch_my_profile(
-    body: ProfilePatchRequest,
+@router.patch("", response_model=MeDetailsResponse)
+def patch_me(
+    body: AccountPatchRequest,
     user: CurrentUser,
-) -> ProfileResponse:
+) -> MeDetailsResponse:
     try:
-        updated = account_patch_profile(
+        updated = account_patch_user(
             str(user.user_id),
             body.model_dump(mode="json", exclude_unset=True),
         )
-        return ProfileResponse(**updated)
+        prefs_data = account_get_preferences(str(user.user_id))
+        return MeDetailsResponse(
+            **updated,
+            preferences=PreferencesResponse(**prefs_data),
+        )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

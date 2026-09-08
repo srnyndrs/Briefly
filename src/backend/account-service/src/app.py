@@ -32,7 +32,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Account Service",
-    description="Identity, profile, preferences, and subscriptions service for Briefly.",
+    description="Identity, account settings, preferences, and subscriptions service for Briefly.",
     version="0.1.0",
     lifespan=lifespan,
 )

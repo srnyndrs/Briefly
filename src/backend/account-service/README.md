@@ -3,14 +3,14 @@
 ## Role
 
 The account service is Briefly's authority for user identity and account data.
-It helps users create accounts, sign in securely, manage their profiles and
+It helps users create accounts, sign in securely, manage their display name and
 preferences, and follow feed sources.
 
 ## Responsibilities
 
 - Register and authenticate users.
 - Protect passwords and manage token lifecycle.
-- Manage user profiles.
+- Manage account display names.
 - Manage reading preferences and source subscriptions.
 - Publish selected account changes for downstream services.
 
@@ -40,7 +40,7 @@ The service receives account operations from the public API. It stores account
 data in PostgreSQL and publishes selected changes through RabbitMQ so other
 services can update their read models.
 
-It exposes HTTP endpoints for authentication, account data, profiles,
+It exposes HTTP endpoints for authentication, account data,
 preferences, subscriptions, and health checks. When it is running, use `/docs`
 for the current API documentation.
 

@@ -33,16 +33,16 @@ class PersonalizationMergeService:
     def merge(
         self,
         *,
-        profile: UserPreferencesDTO,
-        use_profile: bool,
+        preferences: UserPreferencesDTO,
+        use_preferences: bool,
         overrides: PersonalizationQueryOverrides,
     ) -> EffectivePersonalizationContext:
-        if use_profile:
-            muted_keywords = list(profile.muted_keywords)
-            muted_categories = list(profile.muted_categories)
-            blocked_source_ids = list(profile.blocked_source_ids)
-            languages = list(profile.languages)
-            category_interests = list(profile.category_interests)
+        if use_preferences:
+            muted_keywords = list(preferences.muted_keywords)
+            muted_categories = list(preferences.muted_categories)
+            blocked_source_ids = list(preferences.blocked_source_ids)
+            languages = list(preferences.languages)
+            category_interests = list(preferences.category_interests)
         else:
             muted_keywords = []
             muted_categories = []

@@ -39,10 +39,8 @@ class User(Base):
         nullable=False,
     )
 
-    profile: Mapped["UserProfile"] = relationship(
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan",
+    display_name: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
     )
     preferences: Mapped["UserPreferences"] = relationship(
         back_populates="user",
@@ -52,31 +50,6 @@ class User(Base):
     subscriptions: Mapped[list["UserSubscription"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-
-
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    user_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("accounts.user_id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    display_name: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
-    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    avatar_url: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
-        nullable=False,
-    )
-
-    user: Mapped[User] = relationship(back_populates="profile")
 
 
 class UserPreferences(Base):
