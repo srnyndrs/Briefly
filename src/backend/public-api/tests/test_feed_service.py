@@ -107,6 +107,48 @@ class TestFeedServiceList:
         assert call_kwargs["muted_keywords"] == []
         assert call_kwargs["muted_categories"] == []
 
+    def test_execute_skips_scoring_when_preferences_are_disabled(self):
+        mock_repo = Mock()
+        mock_prefs_reader = Mock()
+        mock_scoring_service = Mock()
+        posts = [
+            PostDTO(
+                post_id="newer",
+                source_id="s1",
+                title="Newer",
+                canonical_url="http://test.com/newer",
+                language="en",
+            ),
+            PostDTO(
+                post_id="older",
+                source_id="s1",
+                title="Older",
+                canonical_url="http://test.com/older",
+                language="en",
+            ),
+        ]
+        mock_repo.list_feed_candidates.return_value = (posts, 2)
+        mock_prefs_reader.get_preferences.return_value = (
+            UserPreferencesDTO(category_interests=["tech"])
+        )
+
+        service = FeedService(
+            mock_repo, mock_prefs_reader, mock_scoring_service
+        )
+
+        result = service.list_feed(
+            ListFeedInput(
+                user_id=uuid4(),
+                limit=20,
+                offset=0,
+                use_preferences=False,
+                sort="oldest",
+            )
+        )
+
+        mock_scoring_service.rank.assert_not_called()
+        assert result.items == posts
+
     def test_execute_applies_query_override_for_languages(
         self,
     ):

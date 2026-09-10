@@ -784,10 +784,10 @@ def test_feed_search_query_parameter() -> None:
             post_id=post_id,
             source_id=str(uuid4()),
             canonical_url="https://example.com/search-test",
-            title="Antigravity Release Notes",
-            description="Antigravity agent tooling",
+            title="FC Barcelona wins the derby",
+            description="Both team fought hard.",
             language="en",
-            keywords=["tech"],
+            keywords=["sport"],
             published_at=now,
             updated_at=now,
         )
@@ -796,12 +796,21 @@ def test_feed_search_query_parameter() -> None:
 
     response = client.get(
         "/feed",
-        params={"query": "Antigravity", "use_profile": "false"},
+        params={
+            "query": "FC Barcelona",
+            "page": "1",
+            "page_size": "10",
+            "sort": "newest",
+            "use_profile": "false",
+            "subscribed_only": "false",
+        },
     )
     assert response.status_code == 200
     payload = response.json()
+    assert payload["page"] == 1
+    assert payload["page_size"] == 10
     assert payload["total"] >= 1
-    assert payload["items"][0]["title"] == "Antigravity Release Notes"
+    assert payload["items"][0]["title"] == "FC Barcelona wins the derby"
 
 
 def test_get_post_by_id_endpoint() -> None:

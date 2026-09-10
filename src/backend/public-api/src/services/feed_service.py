@@ -107,13 +107,15 @@ class FeedService:
             limit=data.limit,
             offset=data.offset,
         )
-        ranked = self._scoring_service.rank(
-            articles=candidates,
-            preferences=prefs_dto,
-            limit=data.limit,
-        )
+        items = candidates
+        if data.use_preferences:
+            items = self._scoring_service.rank(
+                articles=candidates,
+                preferences=prefs_dto,
+                limit=data.limit,
+            )
         return ListFeedOutput(
-            items=ranked,
+            items=items,
             total=total,
         )
 
