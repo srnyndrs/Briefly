@@ -15,6 +15,7 @@ import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 fun PostSummaryResponseDto.toDomain(): Post {
     return Post(
         id = postId,
@@ -24,7 +25,8 @@ fun PostSummaryResponseDto.toDomain(): Post {
         source = sourceTitle,
         category = category,
         imageUrl = imageRef,
-        hasContent = hasContent
+        publishDate = publishedAt,
+        hasContent = hasContent,
     )
 }
 

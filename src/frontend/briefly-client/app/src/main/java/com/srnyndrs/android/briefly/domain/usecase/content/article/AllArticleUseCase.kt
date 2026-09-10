@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 class AllArticleUseCase @Inject constructor(
     val getArticleByIdUseCase: GetArticleByIdUseCase,
-    val getArticlePagingFlowUseCase: GetArticlePagingFlowUseCase,
+    val getHomePostPagingFlowUseCase: GetHomePostPagingFlowUseCase,
+    val getExplorePostPagingFlowUseCase: GetExplorePostPagingFlowUseCase,
     val getArticlesUseCase: GetArticlesUseCase,
 )

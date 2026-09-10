@@ -15,9 +15,10 @@ import androidx.navigation.compose.navigation
 import com.srnyndrs.android.briefly.domain.model.auth.AuthState
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthViewModel
-import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentScreen
-import com.srnyndrs.android.briefly.ui.screen.content.screen.ContentViewModel
-import com.srnyndrs.android.briefly.ui.screen.profile.screen.ProfileScreen
+import com.srnyndrs.android.briefly.ui.screen.main.MainScreen
+import com.srnyndrs.android.briefly.ui.screen.main.MainViewModel
+import com.srnyndrs.android.briefly.ui.screen.profile.ProfileScreen
+import com.srnyndrs.android.briefly.ui.screen.profile.ProfileViewModel
 
 @Composable
 fun AppNavigation(
@@ -91,10 +92,10 @@ fun NavGraphBuilder.mainGraph(
     onNavigationEvent: (NavigationEvent) -> Unit
 ) {
     navigation<Graph.Main>(
-        startDestination = Screen.Content
+        startDestination = Screen.Main
     ) {
-        composable<Screen.Content> {
-            val viewModel = hiltViewModel<ContentViewModel>()
+        composable<Screen.Main> {
+            val viewModel = hiltViewModel<MainViewModel>()
             val logoutState by viewModel.logoutState.collectAsStateWithLifecycle()
 
             LaunchedEffect(logoutState) {
@@ -103,14 +104,14 @@ fun NavGraphBuilder.mainGraph(
                 }
             }
 
-            ContentScreen(
+            MainScreen(
                 modifier = Modifier.then(modifier),
+                onProfileNavigation = {
+                    onNavigationEvent(NavigationEvent.NavigateToProfileScreen)
+                },
                 onLogout = {
                     viewModel.logoutUser()
                 },
-                onNavigateProfile = {
-                    onNavigationEvent(NavigationEvent.NavigateToProfileScreen)
-                }
             )
         }
     }
@@ -124,8 +125,12 @@ fun NavGraphBuilder.profileGraph(
         startDestination = Screen.Profile
     ) {
         composable<Screen.Profile> {
+            val viewModel = hiltViewModel<ProfileViewModel>()
+            val state by viewModel.state.collectAsStateWithLifecycle()
+
             ProfileScreen(
-                modifier = Modifier.then(modifier)
+                modifier = Modifier.then(modifier),
+                state = state
             )
         }
     }

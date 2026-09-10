@@ -5,10 +5,13 @@ import com.srnyndrs.android.briefly.data.remote.auth.AuthApiService
 import com.srnyndrs.android.briefly.data.remote.auth.dto.RefreshRequestDto
 import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
+import com.srnyndrs.android.briefly.data.remote.profile.ProfileApiService
 import com.srnyndrs.android.briefly.data.repository.auth.AuthRepositoryImpl
 import com.srnyndrs.android.briefly.data.repository.content.ContentRepositoryImpl
+import com.srnyndrs.android.briefly.data.repository.profile.ProfileRepositoryImpl
 import com.srnyndrs.android.briefly.domain.repository.auth.AuthRepository
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
+import com.srnyndrs.android.briefly.domain.repository.profile.ProfileRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -114,6 +117,16 @@ object NetworkModule {
         contentApiService: ContentApiService
     ): ContentRepository {
         return ContentRepositoryImpl(contentApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideProfileApiService(client: HttpClient): ProfileApiService = ProfileApiService(client)
+
+    @Provides
+    @Singleton
+    fun provideProfileRepository(api: ProfileApiService): ProfileRepository {
+        return ProfileRepositoryImpl(api)
     }
 
 }

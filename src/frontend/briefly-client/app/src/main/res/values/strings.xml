@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">Briefly</string>
+    <string name="settings_title">Edition Settings</string>
+    <string name="settings_subtitle">Tailor your daily dispatch &amp; reading preferences</string>
+    <string name="settings_section_languages">Content Languages</string>
+    <string name="settings_languages_description">Select the languages for articles appearing in your news feed.</string>
+    <string name="settings_languages_quick_pick">Popular Editions</string>
+    <string name="settings_languages_active">Active Languages</string>
+    <string name="settings_languages_none_selected">No languages selected. Select or add at least one language.</string>
+    <string name="settings_custom_language_label">Add Language Code</string>
+    <string name="settings_custom_language_placeholder">e.g. de, fr, es, ja</string>
+    <string name="settings_add_language">Add</string>
+    <string name="settings_remove_language">Remove language</string>
+    <string name="settings_section_muted">Muted Topics &amp; Keywords</string>
+    <string name="settings_muted_description">Articles containing these keywords will be filtered out from your feed.</string>
+    <string name="settings_muted_placeholder">Add keyword or topic to mute</string>
+    <string name="settings_add_keyword">Mute</string>
+    <string name="settings_remove_keyword">Remove muted keyword</string>
+    <string name="settings_muted_empty">No muted keywords active. Add topics or words you wish to hide.</string>
+    <string name="settings_save">Save Preferences</string>
+    <string name="settings_saving">Saving…</string>
+    <string name="settings_saved_success">Preferences successfully saved.</string>
+    <string name="settings_failure">Unable to update settings</string>
+    <string name="settings_dismiss">Dismiss</string>
 </resources>

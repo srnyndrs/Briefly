@@ -8,6 +8,7 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResul
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.model.FeedRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -21,14 +22,33 @@ class ContentApiService (
     private val client: HttpClient
 ) {
 
-    suspend fun getFeed(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): FeedResponseDto {
+    suspend fun getFeed(request: FeedRequest): FeedResponseDto {
         return client.get("feed") {
-            parameter("page", page ?: 1)
-            parameter("page_size", pageSize ?: 20)
-            sourceIds?.forEach { id ->
+            parameter("page", request.page)
+            parameter("page_size", request.pageSize)
+            parameter("subscribed_only", request.subscribedOnly)
+            parameter("use_profile", request.useProfile)
+            request.query?.let {
+                parameter("query", it)
+            }
+            request.categories?.forEach {
+                parameter("categories", it)
+            }
+            request.languages?.forEach {
+                parameter("languages", it)
+            }
+            request.sourceIds?.forEach { id ->
                 parameter("source_ids", id)
             }
-            parameter("subscribed_only", sourceIds == null)
+            request.publishedFrom?.let {
+                parameter("from", it)
+            }
+            request.publishedTo?.let {
+                parameter("to", it)
+            }
+            request.sort?.let {
+                parameter("sort", it)
+            }
         }.body()
     }
 
