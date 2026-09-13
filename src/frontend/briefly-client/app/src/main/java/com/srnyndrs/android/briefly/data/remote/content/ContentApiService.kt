@@ -1,14 +1,15 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
+import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PostListItemsResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.model.FeedRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -22,24 +23,34 @@ class ContentApiService (
     private val client: HttpClient
 ) {
 
-    suspend fun getFeed(request: FeedRequest): FeedResponseDto {
+    suspend fun getFeed(request: FeedRequestDto): PostListItemsResponseDto {
         return client.get("feed") {
+            parameter("includeFilterOptions", true)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
-            parameter("subscribed_only", request.subscribedOnly)
-            parameter("use_profile", request.useProfile)
-            request.query?.let {
-                parameter("query", it)
+            request.category?.let {
+                parameter("category", it)
             }
+        }.body()
+    }
+
+    suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
+        return client.get("explore") {
+            parameter("includeFilterOptions", true)
+            parameter("page", request.page)
+            parameter("page_size", request.pageSize)
+            /*request.query?.let {
+                parameter("query", it)
+            }*/
             request.categories?.forEach {
                 parameter("categories", it)
             }
             request.languages?.forEach {
                 parameter("languages", it)
             }
-            request.sourceIds?.forEach { id ->
+            /*request.sourceIds?.forEach { id ->
                 parameter("source_ids", id)
-            }
+            }*/
             request.publishedFrom?.let {
                 parameter("from", it)
             }

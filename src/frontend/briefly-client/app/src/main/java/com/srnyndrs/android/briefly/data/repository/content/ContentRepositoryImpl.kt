@@ -1,7 +1,6 @@
 package com.srnyndrs.android.briefly.data.repository.content
 
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.model.FeedRequest
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.PostDetails
@@ -10,12 +9,15 @@ import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.domain.model.content.Subscription
-import com.srnyndrs.android.briefly.domain.model.content.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
 import io.ktor.http.HttpStatusCode
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
@@ -29,25 +31,26 @@ class ContentRepositoryImpl @Inject constructor(
         const val PAGE_SIZE = 20
     }
 
-    override fun getHomePostPagingFlow(): Flow<PagingData<Post>> = getPostPagingFlow(
-        FeedRequest(subscribedOnly = true, useProfile = true)
+    override fun getHomePostPagingFlow(filter: HomePostFilter): Flow<PagingData<Post>> = getHomePostPagingFlow(
+        FeedRequestDto(
+            includeFilterOptions = true,
+            category = filter.category
+        )
     )
 
-    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> = getPostPagingFlow(
-        FeedRequest(
-            subscribedOnly = false,
-            useProfile = false,
-            query = filter.query,
+    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> = getExplorePostPagingFlow(
+        ExploreRequestDto(
+            //query = filter.query,
+            //sourceIds = filter.sourceIds,
             categories = filter.categories,
             languages = filter.languages,
-            sourceIds = filter.sourceIds,
             publishedFrom = filter.publishedFrom?.toString(),
             publishedTo = filter.publishedTo?.toString(),
             sort = filter.sort,
         )
     )
 
-    private fun getPostPagingFlow(request: FeedRequest): Flow<PagingData<Post>> {
+    private fun getHomePostPagingFlow(request: FeedRequestDto): Flow<PagingData<Post>> {
         return Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -55,7 +58,20 @@ class ContentRepositoryImpl @Inject constructor(
                 enablePlaceholders = false
             ),
             pagingSourceFactory = {
-                ArticlePagingSource(contentApiService, request)
+                PersonalFeedPagingSource(contentApiService, request)
+            }
+        ).flow
+    }
+
+    private fun getExplorePostPagingFlow(request: ExploreRequestDto): Flow<PagingData<Post>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                initialLoadSize = PAGE_SIZE,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                ExploreFeedPagingSource(contentApiService, request)
             }
         ).flow
     }
@@ -66,13 +82,11 @@ class ContentRepositoryImpl @Inject constructor(
         sourceIds: List<String>?
     ): Result<PostPagingResult> {
         return try {
-            val response = contentApiService.getFeed(
-                FeedRequest(
+            val response = contentApiService.getExplore(
+                ExploreRequestDto(
                     page = page ?: 1,
                     pageSize = pageSize ?: PAGE_SIZE,
-                    subscribedOnly = false,
-                    useProfile = false,
-                    sourceIds = sourceIds,
+                    //sourceIds = sourceIds,
                 )
             )
             val items = response.items.map { it.toDomain() }

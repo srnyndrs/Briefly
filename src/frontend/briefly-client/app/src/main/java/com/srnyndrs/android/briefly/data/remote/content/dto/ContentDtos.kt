@@ -6,7 +6,43 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Serializable
-data class FeedResponseDto(
+data class FeedRequestDto(
+    val page: Int = 1,
+
+    @SerialName("page_size")
+    val pageSize: Int = 20,
+
+    val category: String? = null,
+
+    @SerialName("include_filter_options")
+    val includeFilterOptions: Boolean = false,
+)
+
+@Serializable
+data class ExploreRequestDto(
+    val page: Int = 1,
+
+    @SerialName("page_size")
+    val pageSize: Int = 20,
+
+    val categories: List<String>? = null,
+    val languages: List<String>? = null,
+
+    @SerialName("from")
+    val publishedFrom: String? = null,
+
+
+    @SerialName("to")
+    val publishedTo: String? = null,
+
+    val sort: String? = null,
+
+    @SerialName("include_filter_options")
+    val includeFilterOptions: Boolean = false,
+)
+
+@Serializable
+data class PostListItemsResponseDto(
     val items: List<PostSummaryResponseDto>,
     val total: Long,
     val page: Int = 1,
@@ -16,6 +52,15 @@ data class FeedResponseDto(
 
     @SerialName("page_size")
     val pageSize: Int = 20,
+
+    @SerialName("filter_options")
+    val filterOptions: FilterOptionsDto? = null,
+)
+
+@Serializable
+data class FilterOptionsDto(
+    val categories: List<String> = emptyList(),
+    val languages: List<String> = emptyList(),
 )
 
 @Serializable
@@ -23,6 +68,9 @@ data class FeedResponseDto(
 data class PostSummaryResponseDto(
     @SerialName("post_id")
     val postId: String,
+
+    @SerialName("source_id")
+    val sourceId: String? = null,
 
     val title: String,
 

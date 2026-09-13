@@ -3,13 +3,14 @@ package com.srnyndrs.android.briefly.data.repository.content
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.model.FeedRequest
+import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.Post
 
-class ArticlePagingSource(
+class ExploreFeedPagingSource(
     private val contentApiService: ContentApiService,
-    private val request: FeedRequest,
+    private val request: ExploreRequestDto,
 ) : PagingSource<Int, Post>() {
 
     override fun getRefreshKey(state: PagingState<Int, Post>): Int? {
@@ -22,7 +23,7 @@ class ArticlePagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Post> {
         val page = params.key ?: 1
         return try {
-            val response = contentApiService.getFeed(
+            val response = contentApiService.getExplore(
                 request.copy(page = page, pageSize = params.loadSize)
             )
             val items = response.items.map { it.toDomain() }

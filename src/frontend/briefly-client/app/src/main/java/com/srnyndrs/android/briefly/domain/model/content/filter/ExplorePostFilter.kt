@@ -1,7 +1,7 @@
-package com.srnyndrs.android.briefly.domain.model.content
+package com.srnyndrs.android.briefly.domain.model.content.filter
 
-import kotlin.time.Instant
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 data class ExplorePostFilter(

@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import com.srnyndrs.android.briefly.domain.model.content.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.usecase.content.article.GetExplorePostPagingFlowUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed.GetExplorePostPagingFlowUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +20,7 @@ import kotlin.time.ExperimentalTime
 class ExploreViewModel @Inject constructor(
     private val getExplorePostPagingFlowUseCase: GetExplorePostPagingFlowUseCase,
 ): ViewModel() {
+
     private val _filter = MutableStateFlow(ExplorePostFilter(sort = "newest"))
     val filter = _filter.asStateFlow()
 
