@@ -95,7 +95,6 @@ def project_user_preferences(
     prefs.muted_categories = payload.get("muted_categories") or []
     prefs.blocked_source_ids = payload.get("blocked_source_ids") or []
     prefs.languages = payload.get("languages") or []
-    prefs.category_interests = payload.get("category_interests") or []
     prefs.updated_at = (
         _parse_dt(payload.get("updated_at")) or prefs.updated_at
     )

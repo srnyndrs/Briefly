@@ -46,7 +46,6 @@ class PreferencesUpdateRequest(BaseModel):
     muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
-    category_interests: list[str] = Field(default_factory=list)
 
 
 class PreferencesPatchRequest(BaseModel):
@@ -54,7 +53,6 @@ class PreferencesPatchRequest(BaseModel):
     muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
     languages: list[str] | None = None
-    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
@@ -63,7 +61,6 @@ class PreferencesResponse(BaseModel):
     muted_categories: list[str]
     blocked_source_ids: list[UUID]
     languages: list[str]
-    category_interests: list[str]
     updated_at: datetime
 
     @field_serializer("updated_at")

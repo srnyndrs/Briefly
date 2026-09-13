@@ -102,9 +102,6 @@ class UserPreferencesProjection(Base):
     languages: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
-    category_interests: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
-    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

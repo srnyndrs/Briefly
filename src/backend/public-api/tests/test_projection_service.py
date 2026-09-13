@@ -124,7 +124,6 @@ def test_project_user_preferences() -> None:
                 "muted_categories": ["sports"],
                 "blocked_source_ids": ["s-blocked"],
                 "languages": ["en", "hu"],
-                "category_interests": ["tech", "science"],
                 "updated_at": datetime.now(UTC).isoformat(),
             },
         )
@@ -136,7 +135,6 @@ def test_project_user_preferences() -> None:
         assert prefs.muted_categories == ["sports"]
         assert prefs.blocked_source_ids == ["s-blocked"]
         assert prefs.languages == ["en", "hu"]
-        assert prefs.category_interests == ["tech", "science"]
     finally:
         db.close()
 
@@ -158,7 +156,6 @@ def test_project_user_preferences_updates_existing() -> None:
             payload={
                 "user_id": "u1",
                 "muted_keywords": ["crypto"],
-                "category_interests": ["tech"],
             },
         )
         db.commit()
@@ -168,7 +165,6 @@ def test_project_user_preferences_updates_existing() -> None:
             payload={
                 "user_id": "u1",
                 "muted_keywords": ["ai"],
-                "category_interests": ["science"],
             },
         )
         db.commit()
@@ -176,6 +172,5 @@ def test_project_user_preferences_updates_existing() -> None:
         prefs = db.get(UserPreferencesProjection, "u1")
         assert prefs is not None
         assert prefs.muted_keywords == ["ai"]
-        assert prefs.category_interests == ["science"]
     finally:
         db.close()

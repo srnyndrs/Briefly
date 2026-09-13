@@ -16,7 +16,7 @@ responsible for their own data.
 - Provide the public HTTP API for accounts, sources, posts, and feeds.
 - Forward commands and immediate reads to the service that owns the data.
 - Build local read models from selected asynchronous events.
-- Apply feed filtering, personalization, and ranking to read-model data.
+- Apply feed filtering and chronological ordering to read-model data.
 
 ## Does not own
 
@@ -40,6 +40,14 @@ may become visible to feed queries shortly after the original operation.
 
 The current public API is available through FastAPI's `/docs` endpoint when
 the service is running.
+
+`GET /feed` returns the newest eligible posts from the caller's subscribed
+sources, subject to saved languages and visibility exclusions. `GET /explore`
+returns the newest global posts with explicit category, language, date, and
+sort filters; it applies the same visibility exclusions without applying saved
+languages or subscriptions. Both routes support page-number pagination and an
+opt-in `include_filter_options=true` response field for available categories
+and languages.
 
 ## Development
 

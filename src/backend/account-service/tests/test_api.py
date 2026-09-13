@@ -179,14 +179,9 @@ def test_preferences_and_subscription_flow(
             "muted_categories": ["sports"],
             "blocked_source_ids": [source_id],
             "languages": ["en", "hu"],
-            "category_interests": ["tech", "science"],
         },
     )
     assert put_prefs.status_code == 200
-    assert put_prefs.json()["category_interests"] == [
-        "tech",
-        "science",
-    ]
     assert put_prefs.json()["muted_keywords"] == [
         "crypto",
         "gossip",
@@ -220,10 +215,6 @@ def test_preferences_and_subscription_flow(
         json={"languages": ["en", "de"]},
     )
     assert patch_prefs.status_code == 200
-    assert patch_prefs.json()["category_interests"] == [
-        "tech",
-        "science",
-    ]
     assert patch_prefs.json()["languages"] == ["en", "de"]
     assert patch_prefs.json()["muted_keywords"] == [
         "crypto",

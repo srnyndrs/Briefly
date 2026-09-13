@@ -75,7 +75,6 @@ class AccountRepository:
         muted_categories: list[str],
         blocked_source_ids: list[str],
         languages: list[str],
-        category_interests: list[str],
         now: datetime,
     ) -> UserPreferences:
         preferences = self.get_preferences(user_id)
@@ -87,7 +86,6 @@ class AccountRepository:
         preferences.muted_categories = muted_categories
         preferences.blocked_source_ids = blocked_source_ids
         preferences.languages = languages
-        preferences.category_interests = category_interests
         preferences.updated_at = now
 
         user = self.get_user_by_id(user_id)

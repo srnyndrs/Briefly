@@ -79,7 +79,6 @@ class PreferencesPatchRequest(BaseModel):
     muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
     languages: list[str] | None = None
-    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
@@ -88,7 +87,6 @@ class PreferencesResponse(BaseModel):
     muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
-    category_interests: list[str] = Field(default_factory=list)
     updated_at: datetime
 
     @field_serializer("updated_at")
@@ -195,7 +193,7 @@ class AdminPostResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
-class PostResponse(BaseModel):
+class PostListItemResponse(BaseModel):
     post_id: UUID
     source_id: UUID | None = None
     title: str
@@ -207,7 +205,6 @@ class PostResponse(BaseModel):
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False
-    content: str | None = None
 
     @field_serializer("published_at")
     def serialize_published_at(
@@ -220,9 +217,19 @@ class PostResponse(BaseModel):
         return value.isoformat()
 
 
+class PostResponse(PostListItemResponse):
+    content: str | None = None
+
+
+class FilterOptionsResponse(BaseModel):
+    categories: list[str]
+    languages: list[str]
+
+
 class FeedResponse(BaseModel):
-    items: list[PostResponse]
+    items: list[PostListItemResponse]
     total: int
     page: int = 1
     page_count: int = 1
     page_size: int = 20
+    filter_options: FilterOptionsResponse | None = None

@@ -33,16 +33,32 @@ class PostDTO:
 
 
 @dataclass(frozen=True)
+class FilterOptionsDTO:
+    categories: list[str]
+    languages: list[str]
+
+
+@dataclass(frozen=True)
+class EffectiveFeedQuery:
+    blocked_source_ids: list[str] = field(default_factory=list)
+    muted_keywords: list[str] = field(default_factory=list)
+    muted_categories: list[str] = field(default_factory=list)
+    languages: list[str] | None = None
+    source_ids: list[str] | None = None
+    categories: list[str] | None = None
+    published_from: datetime | None = None
+    published_to: datetime | None = None
+    sort: str = "freshness"
+    limit: int = 20
+    offset: int = 0
+
+
+@dataclass(frozen=True)
 class UserPreferencesDTO:
     muted_keywords: list[str] = field(default_factory=list)
     muted_categories: list[str] = field(default_factory=list)
     blocked_source_ids: list[str] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
-    category_interests: list[str] = field(default_factory=list)
-
-    @property
-    def has_category_interests(self) -> bool:
-        return bool(self.category_interests)
 
 
 def post_projection_to_dto(model: PostProjection) -> PostDTO:
@@ -73,5 +89,4 @@ def user_preferences_projection_to_dto(
         muted_categories=model.muted_categories or [],
         blocked_source_ids=model.blocked_source_ids or [],
         languages=model.languages or [],
-        category_interests=model.category_interests or [],
     )

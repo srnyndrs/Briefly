@@ -94,7 +94,6 @@ def get_preferences(
             uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
-        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 
@@ -118,7 +117,6 @@ def update_preferences(
                 str(value) for value in body.blocked_source_ids
             ],
             languages=body.languages,
-            category_interests=body.category_interests,
             correlation_id=request_id,
         )
     except NotFoundError as exc:
@@ -134,7 +132,6 @@ def update_preferences(
             uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
-        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 
@@ -169,7 +166,6 @@ def patch_preferences(
             uuid.UUID(value) for value in preferences.blocked_source_ids
         ],
         languages=preferences.languages,
-        category_interests=preferences.category_interests,
         updated_at=preferences.updated_at,
     )
 

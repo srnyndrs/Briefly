@@ -137,7 +137,6 @@ class AccountService:
         muted_categories: list[str],
         blocked_source_ids: list[str],
         languages: list[str],
-        category_interests: list[str],
         correlation_id: str,
     ):
         user = self._repo.get_user_by_id(user_id)
@@ -150,7 +149,6 @@ class AccountService:
             muted_categories=muted_categories,
             blocked_source_ids=blocked_source_ids,
             languages=languages,
-            category_interests=category_interests,
             now=utc_now_naive(),
         )
 
@@ -165,7 +163,6 @@ class AccountService:
                 "muted_categories": preferences.muted_categories,
                 "blocked_source_ids": preferences.blocked_source_ids,
                 "languages": preferences.languages,
-                "category_interests": preferences.category_interests,
             },
         )
 
@@ -201,10 +198,6 @@ class AccountService:
                 or []
             ],
             languages=fields.get("languages", preferences.languages)
-            or [],
-            category_interests=fields.get(
-                "category_interests", preferences.category_interests
-            )
             or [],
             correlation_id=correlation_id,
         )
