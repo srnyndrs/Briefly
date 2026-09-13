@@ -40,8 +40,8 @@ class ContentRepositoryImpl @Inject constructor(
 
     override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> = getExplorePostPagingFlow(
         ExploreRequestDto(
-            //query = filter.query,
-            //sourceIds = filter.sourceIds,
+            query = filter.query,
+            sourceIds = filter.sourceIds,
             categories = filter.categories,
             languages = filter.languages,
             publishedFrom = filter.publishedFrom?.toString(),
@@ -86,7 +86,7 @@ class ContentRepositoryImpl @Inject constructor(
                 ExploreRequestDto(
                     page = page ?: 1,
                     pageSize = pageSize ?: PAGE_SIZE,
-                    //sourceIds = sourceIds,
+                    sourceIds = sourceIds,
                 )
             )
             val items = response.items.map { it.toDomain() }

@@ -25,7 +25,7 @@ class ContentApiService (
 
     suspend fun getFeed(request: FeedRequestDto): PostListItemsResponseDto {
         return client.get("feed") {
-            parameter("includeFilterOptions", true)
+            parameter("include_filter_options", true)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
             request.category?.let {
@@ -36,21 +36,21 @@ class ContentApiService (
 
     suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
         return client.get("explore") {
-            parameter("includeFilterOptions", true)
+            parameter("include_filter_options", true)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
-            /*request.query?.let {
+            request.query?.let {
                 parameter("query", it)
-            }*/
+            }
             request.categories?.forEach {
                 parameter("categories", it)
             }
             request.languages?.forEach {
                 parameter("languages", it)
             }
-            /*request.sourceIds?.forEach { id ->
+            request.sourceIds?.forEach { id ->
                 parameter("source_ids", id)
-            }*/
+            }
             request.publishedFrom?.let {
                 parameter("from", it)
             }

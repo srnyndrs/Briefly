@@ -28,9 +28,13 @@ data class ExploreRequestDto(
     val categories: List<String>? = null,
     val languages: List<String>? = null,
 
+    @SerialName("source_ids")
+    val sourceIds: List<String>? = null,
+
     @SerialName("from")
     val publishedFrom: String? = null,
 
+    val query: String? = null,
 
     @SerialName("to")
     val publishedTo: String? = null,
@@ -61,6 +65,13 @@ data class PostListItemsResponseDto(
 data class FilterOptionsDto(
     val categories: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    val sources: List<SourceEntry> = emptyList(),
+)
+
+@Serializable
+data class SourceEntry(
+    val id: String,
+    val title: String,
 )
 
 @Serializable

@@ -61,7 +61,7 @@ fun RemoteImageContainer(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        MaterialTheme.colorScheme.onSurface.copy(0.3f)
+                        MaterialTheme.colorScheme.onSurface.copy(0.125f)
                     )
             )
         }

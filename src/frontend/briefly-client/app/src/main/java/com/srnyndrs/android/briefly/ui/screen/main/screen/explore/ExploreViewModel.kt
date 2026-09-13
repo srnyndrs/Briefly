@@ -21,7 +21,7 @@ class ExploreViewModel @Inject constructor(
     private val getExplorePostPagingFlowUseCase: GetExplorePostPagingFlowUseCase,
 ): ViewModel() {
 
-    private val _filter = MutableStateFlow(ExplorePostFilter(sort = "newest"))
+    private val _filter = MutableStateFlow(ExplorePostFilter(sort = "freshness"))
     val filter = _filter.asStateFlow()
 
     val posts: Flow<PagingData<Post>> = _filter
@@ -33,7 +33,7 @@ class ExploreViewModel @Inject constructor(
             is ExploreEvent.UpdateQuery -> Unit
             is ExploreEvent.SubmitQuery -> _filter.value = _filter.value.copy(query = event.query.trim().ifBlank { null })
             is ExploreEvent.ChangeSort -> _filter.value = _filter.value.copy(sort = event.sort)
-            ExploreEvent.ClearFilters -> _filter.value = ExplorePostFilter(sort = "newest")
+            ExploreEvent.ClearFilters -> _filter.value = ExplorePostFilter(sort = "freshness")
         }
     }
 }
