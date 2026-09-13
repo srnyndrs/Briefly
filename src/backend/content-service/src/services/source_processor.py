@@ -11,6 +11,55 @@ from src.repositories.post_repository import PostRepository
 
 logger = logging.getLogger(__name__)
 
+_INVALID_TITLES = frozenset({"null", "undefined", "null: undefined"})
+
+
+def _clean_text(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _clean_title(value: Any) -> str | None:
+    title = _clean_text(value)
+    if title and title.casefold() not in _INVALID_TITLES:
+        return title
+    return None
+
+
+def _clean_values(values: Any) -> list[str]:
+    if not isinstance(values, (list, tuple)):
+        return []
+    return [
+        cleaned
+        for value in values
+        if (cleaned := _clean_text(value)) is not None
+    ]
+
+
+def _entry_tags(entry: Any) -> list[str]:
+    tags = entry.get("tags") or []
+    return _clean_values(
+        [tag.get("term") for tag in tags if hasattr(tag, "get")]
+    )
+
+
+def _entry_image(entry: Any) -> str | None:
+    for enclosure in entry.get("enclosures") or []:
+        image_url = _clean_text(
+            enclosure.get("href") or enclosure.get("url")
+        )
+        if image_url:
+            return image_url
+
+    for media in entry.get("media_content") or []:
+        image_url = _clean_text(media.get("url"))
+        if image_url:
+            return image_url
+
+    return None
+
 
 def _parse_dt(value: str | None) -> datetime | None:
     if not value:
@@ -34,27 +83,49 @@ def _build_post_data(
     entry: Any,
     crawled_at: datetime | None,
     source_title: str | None = None,
+    feed_language: str | None = None,
 ) -> dict[str, Any]:
     item_guid = (
         entry.get("guid") or entry.get("id") or entry.get("link", "")
     )
     url = entry.get("link", "")
-    title = entry.get("title", "Untitled")
-    author = entry.get("author", None)
-    category = entry.get("category", None)
+    tags = _entry_tags(entry)
+    title = _clean_title(entry.get("title"))
+    description = _clean_text(entry.get("description")) or _clean_text(
+        entry.get("summary")
+    )
+    author = _clean_text(entry.get("author"))
+    category = _clean_text(entry.get("category")) or (
+        tags[0] if tags else None
+    )
     published_at = _entry_published_at(entry)
 
     extracted = content_extractor.extract_article(url) if url else {}
+    extracted_title = _clean_title(extracted.get("title"))
+    if _clean_text(extracted.get("title")) and not extracted_title:
+        logger.warning(
+            "Ignoring invalid extracted title for %s: %r",
+            url,
+            extracted.get("title"),
+        )
 
-    final_title = extracted.get("title") or title
-    description = extracted.get("description") or None
-    content = extracted.get("content") or None
-    authors = extracted.get("authors") or []
-    final_author = authors[0] if authors else author
+    final_title = title or extracted_title or "Untitled"
+    description = description or _clean_text(
+        extracted.get("description")
+    )
+    content = _clean_text(extracted.get("content"))
+    authors = _clean_values(extracted.get("authors"))
+    final_author = author or (authors[0] if authors else None)
     final_published_at = published_at or extracted.get("publish_date")
-    image_url = extracted.get("image") or None
-    keywords = extracted.get("keywords") or []
-    language = extracted.get("language") or None
+    image_url = _entry_image(entry) or _clean_text(
+        extracted.get("image")
+    )
+    keywords = _clean_values(extracted.get("keywords")) or tags
+    language = (
+        _clean_text(entry.get("language"))
+        or _clean_text(feed_language)
+        or _clean_text(extracted.get("language"))
+    )
 
     return {
         "source_id": source_id,
@@ -89,9 +160,11 @@ class SourceProcessorService:
         )
 
         feed = feedparser.parse(raw_xml)
-        source_title = payload.get("source_title") or (
-            feed.feed.get("title") if hasattr(feed, "feed") else None
+        feed_data = feed.feed if hasattr(feed, "feed") else {}
+        source_title = payload.get("source_title") or feed_data.get(
+            "title"
         )
+        feed_language = feed_data.get("language")
         for entry in feed.entries:
             item_guid = (
                 entry.get("id")
@@ -100,7 +173,11 @@ class SourceProcessorService:
             )
             try:
                 post_data = _build_post_data(
-                    source_id, entry, crawled_at, source_title
+                    source_id,
+                    entry,
+                    crawled_at,
+                    source_title,
+                    feed_language,
                 )
             except Exception as exc:
                 logger.error(
