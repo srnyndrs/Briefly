@@ -1,4 +1,7 @@
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
+import pytest
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -31,6 +34,7 @@ def test_project_post_persists_content() -> None:
             payload={
                 "post_id": "a1",
                 "source_id": "s1",
+                "source_title": "Source One",
                 "url": "https://example.com/a1",
                 "title": "Title",
                 "description": "Short description",
@@ -48,6 +52,21 @@ def test_project_post_persists_content() -> None:
         assert post.image_ref == "https://example.com/images/a1.png"
     finally:
         db.close()
+
+
+@pytest.mark.parametrize("field", ["source_id", "source_title"])
+def test_project_post_rejects_missing_source_identity(
+    field: str,
+) -> None:
+    payload = {
+        "post_id": "a1",
+        "source_id": "s1",
+        "source_title": "Source One",
+    }
+    payload.pop(field)
+
+    with pytest.raises(ValueError, match=field):
+        project_post(MagicMock(), payload)
 
 
 def test_project_post_preserves_immutable_fields_on_update() -> None:
@@ -68,6 +87,7 @@ def test_project_post_preserves_immutable_fields_on_update() -> None:
             payload={
                 "post_id": "a1",
                 "source_id": "s1",
+                "source_title": "Source One",
                 "title": "Original Title",
                 "language": "en",
                 "keywords": ["tech"],
@@ -81,6 +101,8 @@ def test_project_post_preserves_immutable_fields_on_update() -> None:
             db,
             payload={
                 "post_id": "a1",
+                "source_id": "s1",
+                "source_title": "Source One",
                 "title": "Updated Title",
                 "language": "fr",
                 "keywords": ["finance"],

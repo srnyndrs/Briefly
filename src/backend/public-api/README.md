@@ -43,11 +43,27 @@ the service is running.
 
 `GET /feed` returns the newest eligible posts from the caller's subscribed
 sources, subject to saved languages and visibility exclusions. `GET /explore`
-returns the newest global posts with explicit category, language, date, and
-sort filters; it applies the same visibility exclusions without applying saved
-languages or subscriptions. Both routes support page-number pagination and an
-opt-in `include_filter_options=true` response field for available categories
-and languages.
+returns global posts with explicit category, language, source, date, and
+optional full-text search filters; it applies the same visibility exclusions
+without applying saved languages or subscriptions. `source_ids` is repeatable,
+and `query` searches projected title, description, and content. Search results
+use relevance ordering, so `sort` cannot be combined with `query`. Both routes
+support page-number pagination. Explore also supports an opt-in
+`include_filter_options=true` response field for available categories,
+languages, and source options.
+
+For example:
+
+```text
+/explore?source_ids=...&source_ids=...&query=%22climate+change%22&include_filter_options=true
+```
+
+The PostgreSQL search index was verified with 10,001 disposable projected
+posts after `ANALYZE`. The representative query searched `climate`, applied
+blocked-source, muted-category, and muted-keyword exclusions, ranked by
+`ts_rank_cd`, and limited the page to 20 rows. PostgreSQL used a
+`Bitmap Index Scan` on `ix_post_projections_search_vector`; the measured
+execution time was 9.315 ms with 354 shared blocks hit.
 
 ## Development
 

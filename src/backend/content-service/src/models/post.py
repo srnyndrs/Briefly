@@ -37,9 +37,9 @@ class Post(Base):
         String,
         nullable=False,
     )
-    source_title: Mapped[str | None] = mapped_column(
-        String,
-        nullable=True,
+    source_title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
     )
     title: Mapped[str] = mapped_column(
         String,

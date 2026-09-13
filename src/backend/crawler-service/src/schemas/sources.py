@@ -4,21 +4,34 @@ from datetime import datetime, timezone
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     HttpUrl,
     field_serializer,
+    field_validator,
 )
 
 
 class SourceCreate(BaseModel):
     url: HttpUrl
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=255)
     description: str | None = None
     favicon: str | None = None
 
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Title must not be blank")
+        return normalized
+
 
 class SourcePatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: HttpUrl | None = None
-    title: str | None = None
     description: str | None = None
     favicon: str | None = None
 
@@ -38,7 +51,7 @@ class SourceDiscoverResult(BaseModel):
 class SourceResponse(BaseModel):
     source_id: uuid.UUID
     url: str
-    title: str | None = None
+    title: str
     description: str | None = None
     favicon: str | None = None
     website_url: str | None = None

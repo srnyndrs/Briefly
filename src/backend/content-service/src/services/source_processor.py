@@ -21,6 +21,20 @@ def _clean_text(value: Any) -> str | None:
     return cleaned or None
 
 
+def _require_source_value(value: Any, field_name: str) -> str:
+    normalized = _clean_text(value)
+    if normalized is None:
+        raise ValueError(f"{field_name} must be nonblank")
+    return normalized
+
+
+def _require_source_title(value: Any) -> str:
+    title = _require_source_value(value, "source_title")
+    if len(title) > 255:
+        raise ValueError("source_title must be at most 255 characters")
+    return title
+
+
 def _clean_title(value: Any) -> str | None:
     title = _clean_text(value)
     if title and title.casefold() not in _INVALID_TITLES:
@@ -82,7 +96,7 @@ def _build_post_data(
     source_id: str,
     entry: Any,
     crawled_at: datetime | None,
-    source_title: str | None = None,
+    source_title: str,
     feed_language: str | None = None,
 ) -> dict[str, Any]:
     item_guid = (
@@ -153,7 +167,12 @@ class SourceProcessorService:
     def process(self, channel: Any, event: dict[str, Any]) -> None:
         payload = event.get("payload", {})
         raw_xml = payload.get("raw_xml", "")
-        source_id = payload.get("source_id", "")
+        source_id = _require_source_value(
+            payload.get("source_id"), "source_id"
+        )
+        source_title = _require_source_title(
+            payload.get("source_title")
+        )
         crawled_at = _parse_dt(event.get("occurred_at"))
         correlation_id = event.get("correlation_id") or str(
             uuid.uuid4()
@@ -161,9 +180,6 @@ class SourceProcessorService:
 
         feed = feedparser.parse(raw_xml)
         feed_data = feed.feed if hasattr(feed, "feed") else {}
-        source_title = payload.get("source_title") or feed_data.get(
-            "title"
-        )
         feed_language = feed_data.get("language")
         for entry in feed.entries:
             item_guid = (
@@ -219,6 +235,6 @@ def _publish_success_events(
         else None,
         language=data["language"],
         keywords=data["keywords"],
-        source_title=data.get("source_title"),
+        source_title=data["source_title"],
         image_url=data.get("image_url"),
     )

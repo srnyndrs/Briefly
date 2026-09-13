@@ -1,7 +1,14 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_serializer,
+    field_validator,
+)
 
 
 class HealthResponse(BaseModel):
@@ -102,9 +109,19 @@ class MeDetailsResponse(UserResponse):
 
 class SourceCreateRequest(BaseModel):
     url: str
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=255)
     description: str | None = None
     favicon: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Title must not be blank")
+        return normalized
 
 
 class SourceDiscoverRequest(BaseModel):
@@ -136,8 +153,9 @@ class SubscriptionResponse(BaseModel):
 
 
 class SourcePatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str | None = None
-    title: str | None = None
     description: str | None = None
     favicon: str | None = None
 
@@ -145,7 +163,7 @@ class SourcePatchRequest(BaseModel):
 class SourceResponse(BaseModel):
     source_id: UUID
     url: str
-    title: str | None
+    title: str
     description: str | None
     favicon: str | None
     website_url: str | None
@@ -178,6 +196,7 @@ class PostCountResponse(BaseModel):
 class AdminPostResponse(BaseModel):
     post_id: str
     source_id: str
+    source_title: str
     item_guid: str
     url: str
     title: str
@@ -195,9 +214,9 @@ class AdminPostResponse(BaseModel):
 
 class PostListItemResponse(BaseModel):
     post_id: UUID
-    source_id: UUID | None = None
+    source_id: UUID
     title: str
-    source_title: str | None = None
+    source_title: str
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
@@ -221,9 +240,15 @@ class PostResponse(PostListItemResponse):
     content: str | None = None
 
 
+class SourceOptionResponse(BaseModel):
+    id: UUID
+    title: str
+
+
 class FilterOptionsResponse(BaseModel):
     categories: list[str]
     languages: list[str]
+    sources: list[SourceOptionResponse] | None = None
 
 
 class FeedResponse(BaseModel):

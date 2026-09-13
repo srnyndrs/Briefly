@@ -11,6 +11,7 @@ def _make_post_data(**overrides) -> dict:
         "source_id": "source-1",
         "item_guid": "guid-1",
         "url": "https://example.com/1",
+        "source_title": "Test Source",
         "title": "t1",
         "description": "",
         "category": "",

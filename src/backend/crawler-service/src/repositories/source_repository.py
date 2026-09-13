@@ -51,7 +51,7 @@ class SourceRepository:
         self,
         *,
         url: str,
-        title: str | None = None,
+        title: str,
         description: str | None = None,
         favicon: str | None = None,
         website_url: str | None = None,
@@ -86,7 +86,6 @@ class SourceRepository:
         *,
         source_id: UUID,
         url: str,
-        title: str | None,
         description: str | None,
         favicon: str | None,
         website_url: str | None = None,
@@ -100,7 +99,6 @@ class SourceRepository:
             return None
 
         item.url = url
-        item.title = title
         item.description = description
         item.favicon = favicon
         if website_url is not None:

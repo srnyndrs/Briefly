@@ -1,7 +1,11 @@
 from unittest.mock import Mock
 from uuid import uuid4
 
-from src.services.feed_models import PostDTO, UserPreferencesDTO
+from src.services.feed_models import (
+    FilterOptionsDTO,
+    PostDTO,
+    UserPreferencesDTO,
+)
 from src.services.feed_service import (
     ExploreFeedInput,
     FeedService,
@@ -15,7 +19,12 @@ def test_personal_feed_applies_preferences_and_subscriptions(
 ):
     repository = Mock()
     preferences = Mock()
-    post = PostDTO(post_id="post", title="Post")
+    post = PostDTO(
+        post_id="post",
+        title="Post",
+        source_id=str(uuid4()),
+        source_title="Test Source",
+    )
     preferences.get_preferences.return_value = UserPreferencesDTO(
         languages=["hu"],
         muted_keywords=["crypto"],
@@ -23,13 +32,21 @@ def test_personal_feed_applies_preferences_and_subscriptions(
         blocked_source_ids=["blocked"],
     )
     repository.list_candidates.return_value = ([post], 1)
+    repository.list_filter_options.return_value = FilterOptionsDTO(
+        categories=[], languages=[]
+    )
     monkeypatch.setattr(
         "src.services.feed_service.account_list_subscriptions",
         lambda _: [{"source_id": "subscribed"}],
     )
 
     result = FeedService(repository, preferences).get_personal_feed(
-        PersonalFeedInput(user_id=uuid4(), limit=20, offset=0)
+        PersonalFeedInput(
+            user_id=uuid4(),
+            limit=20,
+            offset=0,
+            include_filter_options=True,
+        )
     )
 
     assert result.items == [post]
@@ -37,6 +54,9 @@ def test_personal_feed_applies_preferences_and_subscriptions(
     assert query.languages == ["hu"]
     assert query.source_ids == ["subscribed"]
     assert query.sort == "freshness"
+    repository.list_filter_options.assert_called_once_with(
+        query, include_sources=False
+    )
 
 
 def test_personal_feed_without_subscriptions_skips_repository(
@@ -72,6 +92,9 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope():
         languages=["hu"], blocked_source_ids=["blocked"]
     )
     repository.list_candidates.return_value = ([], 0)
+    repository.list_filter_options.return_value = FilterOptionsDTO(
+        categories=[], languages=[], sources=[]
+    )
 
     FeedService(repository, preferences).get_explore_feed(
         ExploreFeedInput(
@@ -81,6 +104,7 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope():
             categories=["technology"],
             languages=["en"],
             sort="oldest",
+            include_filter_options=True,
         )
     )
 
@@ -89,12 +113,18 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope():
     assert query.source_ids is None
     assert query.sort == "oldest"
     assert query.blocked_source_ids == ["blocked"]
+    repository.list_filter_options.assert_called_once_with(
+        query, include_sources=True
+    )
 
 
 def test_get_post_delegates_to_repository():
     repository = Mock()
     repository.get_post.return_value = PostDTO(
-        post_id="post", title="Post"
+        post_id="post",
+        title="Post",
+        source_id=str(uuid4()),
+        source_title="Test Source",
     )
 
     result = FeedService(repository, Mock()).get_post(

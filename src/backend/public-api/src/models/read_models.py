@@ -8,10 +8,23 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    literal_column,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.config.database import Base
+
+
+def post_search_document(title, description, content):
+    return func.to_tsvector(
+        literal_column("'simple'"),
+        func.coalesce(title, literal_column("''"))
+        + literal_column("' '")
+        + func.coalesce(description, literal_column("''"))
+        + literal_column("' '")
+        + func.coalesce(content, literal_column("''")),
+    )
 
 
 class ProcessedEvent(Base):
@@ -27,11 +40,11 @@ class PostProjection(Base):
     __tablename__ = "post_projections"
 
     post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    source_id: Mapped[str | None] = mapped_column(
-        String(64), index=True
+    source_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
     )
-    source_title: Mapped[str | None] = mapped_column(
-        String(1024), nullable=True
+    source_title: Mapped[str] = mapped_column(
+        String(255), nullable=False
     )
     canonical_url: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
@@ -105,3 +118,15 @@ class UserPreferencesProjection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+POST_SEARCH_INDEX = Index(
+    "ix_post_projections_search_vector",
+    post_search_document(
+        PostProjection.__table__.c.title,
+        PostProjection.__table__.c.description,
+        PostProjection.__table__.c.content,
+    ),
+    postgresql_using="gin",
+).ddl_if(dialect="postgresql")
+PostProjection.__table__.append_constraint(POST_SEARCH_INDEX)

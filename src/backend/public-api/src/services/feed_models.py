@@ -11,8 +11,8 @@ from src.models.read_models import (
 class PostDTO:
     post_id: str
     title: str
-    source_id: str | None = None
-    source_title: str | None = None
+    source_id: str
+    source_title: str
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
@@ -33,9 +33,16 @@ class PostDTO:
 
 
 @dataclass(frozen=True)
+class SourceOptionDTO:
+    source_id: str
+    title: str
+
+
+@dataclass(frozen=True)
 class FilterOptionsDTO:
     categories: list[str]
     languages: list[str]
+    sources: list[SourceOptionDTO] | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +53,7 @@ class EffectiveFeedQuery:
     languages: list[str] | None = None
     source_ids: list[str] | None = None
     categories: list[str] | None = None
+    query: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str = "freshness"

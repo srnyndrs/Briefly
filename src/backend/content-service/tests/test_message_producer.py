@@ -19,6 +19,7 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
         item_guid="g1",
         url="https://example.com/a1",
         title="Title",
+        source_title="Test Source",
         correlation_id="corr-123",
         content="Full body",
         content_length=9,

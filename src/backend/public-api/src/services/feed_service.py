@@ -30,6 +30,8 @@ class ExploreFeedInput:
     offset: int
     categories: list[str] | None = None
     languages: list[str] | None = None
+    source_ids: list[str] | None = None
+    query: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str | None = None
@@ -101,14 +103,20 @@ class FeedService:
             muted_keywords=preferences.muted_keywords,
             muted_categories=preferences.muted_categories,
             languages=data.languages,
+            source_ids=data.source_ids,
             categories=data.categories,
+            query=data.query,
             published_from=data.published_from,
             published_to=data.published_to,
             sort=data.sort or "freshness",
             limit=data.limit,
             offset=data.offset,
         )
-        return self._execute(query, data.include_filter_options)
+        return self._execute(
+            query,
+            data.include_filter_options,
+            include_source_options=True,
+        )
 
     def get_admin_feed(self, data: AdminFeedInput) -> FeedOutput:
         return self._execute(
@@ -117,11 +125,18 @@ class FeedService:
         )
 
     def _execute(
-        self, query: EffectiveFeedQuery, include_options: bool
+        self,
+        query: EffectiveFeedQuery,
+        include_options: bool,
+        *,
+        include_source_options: bool = False,
     ) -> FeedOutput:
         items, total = self._post_repository.list_candidates(query)
         options = (
-            self._post_repository.list_filter_options(query)
+            self._post_repository.list_filter_options(
+                query,
+                include_sources=include_source_options,
+            )
             if include_options
             else None
         )

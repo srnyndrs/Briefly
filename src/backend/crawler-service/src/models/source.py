@@ -27,9 +27,7 @@ class Source(Base):
     url: Mapped[str] = mapped_column(
         String(2048), unique=True, nullable=False
     )
-    title: Mapped[str | None] = mapped_column(
-        String(255), nullable=True
-    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     favicon: Mapped[str | None] = mapped_column(
         String(2048), nullable=True

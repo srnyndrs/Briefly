@@ -41,7 +41,7 @@ def publish_post_parsed_success(
     published_at: str | None = None,
     language: str | None = None,
     keywords: list[str] | None = None,
-    source_title: str | None = None,
+    source_title: str,
     image_url: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {

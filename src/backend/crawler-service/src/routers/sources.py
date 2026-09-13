@@ -22,6 +22,13 @@ from src.schemas.sources import (
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
+def _normalized_title(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 def discover_sources(url: str) -> List[SourceDiscoverResult]:
     discovery = SourceDiscoveryAdapter()
     return discovery.discover(url)
@@ -76,9 +83,16 @@ def register_source(
         final_url
     )
 
+    source_title = body.title or _normalized_title(first_source.title)
+    if source_title is None:
+        raise HTTPException(
+            status_code=422,
+            detail="A nonblank source title is required.",
+        )
+
     source = repository.create_source(
         url=final_url,
-        title=body.title or first_source.title,
+        title=source_title,
         description=body.description or first_source.description,
         favicon=body.favicon or first_source.favicon,
         website_url=website_url,
@@ -132,7 +146,6 @@ def patch_source(
     updated = repository.update_source(
         source_id=source_id,
         url=resolved_url,
-        title=patch_data.get("title", current.title),
         description=patch_data.get("description", current.description),
         favicon=patch_data.get("favicon", current.favicon),
     )

@@ -30,7 +30,7 @@ class FeedPublisher:
         source_id: uuid.UUID,
         source_url: str,
         correlation_id: str,
-        source_title: str | None = None,
+        source_title: str,
         raw_xml: str,
     ) -> None:
         payload = {

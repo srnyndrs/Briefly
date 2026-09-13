@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
+import re
 from uuid import UUID
 
 from sqlalchemy import String, cast, func, or_, select
@@ -8,11 +9,13 @@ from sqlalchemy.orm import Session
 from src.models.read_models import (
     PostProjection,
     UserPreferencesProjection,
+    post_search_document,
 )
 from src.services.feed_models import (
     EffectiveFeedQuery,
     FilterOptionsDTO,
     PostDTO,
+    SourceOptionDTO,
     UserPreferencesDTO,
     post_projection_to_dto,
     user_preferences_projection_to_dto,
@@ -36,6 +39,7 @@ class PostRepository:
         include_categories: Sequence[str] | None = None,
         published_from: datetime | None = None,
         published_to: datetime | None = None,
+        search_query: str | None = None,
     ):
         normalized_muted_categories = [
             category.lower().strip()
@@ -46,10 +50,7 @@ class PostRepository:
         # 1. Hard Block: Blocked Sources
         if blocked_source_ids:
             query = query.where(
-                or_(
-                    PostProjection.source_id.is_(None),
-                    PostProjection.source_id.not_in(blocked_source_ids),
-                )
+                PostProjection.source_id.not_in(blocked_source_ids)
             )
 
         # 2. Hard Block: Muted Categories
@@ -126,6 +127,43 @@ class PostRepository:
                 PostProjection.published_at <= published_to
             )
 
+        if search_query:
+            query = self._apply_search_filter(query, search_query)
+
+        return query
+
+    def _apply_search_filter(self, query, search_query: str):
+        document = post_search_document(
+            PostProjection.title,
+            PostProjection.description,
+            PostProjection.content,
+        )
+        if self._db.bind and self._db.bind.dialect.name == "postgresql":
+            return query.where(
+                document.op("@@")(
+                    func.websearch_to_tsquery("simple", search_query)
+                )
+            )
+
+        fields = (
+            PostProjection.title,
+            PostProjection.description,
+            PostProjection.content,
+        )
+        terms = re.findall(r'"([^"]+)"|([^\s]+)', search_query)
+        for phrase, word in terms:
+            token = phrase or word
+            is_negative = token.startswith("-")
+            token = token[1:] if is_negative else token
+            if not token or token.upper() == "OR":
+                continue
+            match = or_(
+                *(
+                    func.coalesce(field, "").ilike(f"%{token}%")
+                    for field in fields
+                )
+            )
+            query = query.where(~match if is_negative else match)
         return query
 
     def _order_by(self, sort: str | None):
@@ -152,15 +190,34 @@ class PostRepository:
             )
             or 0
         )
+        if query.query and self._db.bind.dialect.name == "postgresql":
+            document = post_search_document(
+                PostProjection.title,
+                PostProjection.description,
+                PostProjection.content,
+            )
+            order_by = (
+                func.ts_rank_cd(
+                    document,
+                    func.websearch_to_tsquery("simple", query.query),
+                ).desc(),
+                PostProjection.published_at.desc().nullslast(),
+                PostProjection.post_id.asc(),
+            )
+        else:
+            order_by = self._order_by(query.sort)
         rows = self._db.scalars(
-            statement.order_by(*self._order_by(query.sort))
+            statement.order_by(*order_by)
             .offset(query.offset)
             .limit(query.limit)
         ).all()
         return [post_projection_to_dto(row) for row in rows], total
 
     def list_filter_options(
-        self, query: EffectiveFeedQuery
+        self,
+        query: EffectiveFeedQuery,
+        *,
+        include_sources: bool = False,
     ) -> FilterOptionsDTO:
         category_query = EffectiveFeedQuery(
             blocked_source_ids=query.blocked_source_ids,
@@ -171,6 +228,7 @@ class PostRepository:
             categories=None,
             published_from=query.published_from,
             published_to=query.published_to,
+            query=query.query,
             sort=query.sort,
         )
         language_query = EffectiveFeedQuery(
@@ -183,6 +241,7 @@ class PostRepository:
             published_from=query.published_from,
             published_to=query.published_to,
             sort=query.sort,
+            query=query.query,
         )
         categories = self._db.scalars(
             self._apply_query(
@@ -207,8 +266,44 @@ class PostRepository:
             .distinct()
             .order_by(PostProjection.language)
         ).all()
+        sources = None
+        if include_sources:
+            source_query = EffectiveFeedQuery(
+                blocked_source_ids=query.blocked_source_ids,
+                muted_keywords=query.muted_keywords,
+                muted_categories=query.muted_categories,
+                languages=query.languages,
+                source_ids=None,
+                categories=query.categories,
+                published_from=query.published_from,
+                published_to=query.published_to,
+                sort=query.sort,
+                query=query.query,
+            )
+            normalized_title = func.lower(
+                func.trim(PostProjection.source_title)
+            ).label("source_title_order")
+            source_rows = self._db.execute(
+                self._apply_query(
+                    select(
+                        PostProjection.source_id,
+                        PostProjection.source_title,
+                        normalized_title,
+                    ),
+                    source_query,
+                )
+                .distinct()
+                .order_by(normalized_title, PostProjection.source_id)
+            ).all()
+            sources = [
+                SourceOptionDTO(source_id=source_id, title=source_title)
+                for source_id, source_title, _ in source_rows
+            ]
+
         return FilterOptionsDTO(
-            categories=list(categories), languages=list(languages)
+            categories=list(categories),
+            languages=list(languages),
+            sources=sources,
         )
 
     def _apply_query(self, statement, query: EffectiveFeedQuery):
@@ -223,6 +318,7 @@ class PostRepository:
             include_categories=query.categories,
             published_from=query.published_from,
             published_to=query.published_to,
+            search_query=query.query,
         )
 
     def get_post(self, post_id: UUID) -> PostDTO | None:

@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from feedparser import FeedParserDict
+import pytest
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
@@ -11,6 +12,7 @@ from src.services.source_processor import SourceProcessorService
 
 def _make_event(
     source_id: str = "s1",
+    source_title: str = "Crawler Source",
     raw_xml: str = "<xml/>",
     correlation_id: str = "test-corr-id",
 ) -> dict:
@@ -18,6 +20,7 @@ def _make_event(
         "correlation_id": correlation_id,
         "payload": {
             "source_id": source_id,
+            "source_title": source_title,
             "raw_xml": raw_xml,
         },
         "occurred_at": datetime.now(timezone.utc).isoformat(),
@@ -211,7 +214,10 @@ def test_process_source_stores_source_title() -> None:
     }
     feed_mock = MagicMock()
     feed_mock.entries = [entry]
-    feed_mock.feed = {"title": "Feed Publisher Title"}
+    feed_mock.feed = {
+        "title": "Feed Publisher Title",
+        "language": "hu",
+    }
 
     saved_payloads: list[dict] = []
 
@@ -242,20 +248,14 @@ def test_process_source_stores_source_title() -> None:
     ):
         SourceProcessorService(db).process(
             channel,
-            _make_event(
-                source_id="s1",
-                correlation_id="test-corr",
-            ),
+            _make_event(source_id="s1", correlation_id="test-corr"),
         )
         assert mock_save.called
         assert len(saved_payloads) == 1
-        assert (
-            saved_payloads[0].get("source_title")
-            == "Feed Publisher Title"
-        )
+        assert saved_payloads[0].get("source_title") == "Crawler Source"
         assert (
             mock_publish.call_args.kwargs.get("source_title")
-            == "Feed Publisher Title"
+            == "Crawler Source"
         )
 
 
@@ -287,7 +287,10 @@ def test_process_source_persists_source_title(
     ):
         SourceProcessorService(db_session).process(
             channel,
-            _make_event(source_id="source-1"),
+            _make_event(
+                source_id="source-1",
+                source_title="  Registered Source  ",
+            ),
         )
 
     db_session.expire_all()
@@ -296,10 +299,10 @@ def test_process_source_persists_source_title(
         .filter(Post.item_guid == "guid-persisted-title")
         .one()
     )
-    assert post.source_title == "Persisted Publisher Title"
+    assert post.source_title == "Registered Source"
     assert (
         mock_publish.call_args.kwargs["source_title"]
-        == "Persisted Publisher Title"
+        == "Registered Source"
     )
 
 
@@ -330,3 +333,14 @@ def test_process_source_skips_entry_on_extraction_error() -> None:
     ):
         SourceProcessorService(db).process(channel, _make_event())
         assert not mock_save.called
+
+
+@pytest.mark.parametrize("field", ["source_id", "source_title"])
+def test_process_source_rejects_missing_source_identity(
+    field: str,
+) -> None:
+    event = _make_event()
+    event["payload"].pop(field)
+
+    with pytest.raises(ValueError, match=field):
+        SourceProcessorService(MagicMock()).process(MagicMock(), event)

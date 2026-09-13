@@ -27,6 +27,7 @@ def _post(
     return PostProjection(
         post_id=str(uuid4()),
         source_id=source_id,
+        source_title="Test Source",
         canonical_url=f"https://example.com/{uuid4()}",
         title="Article",
         category=category,
@@ -40,6 +41,7 @@ def _post(
 def test_filter_options_ignore_their_own_active_dimension():
     session, repository = _repository()
     source = str(uuid4())
+    other_source = str(uuid4())
     session.add_all(
         [
             _post(
@@ -48,7 +50,7 @@ def test_filter_options_ignore_their_own_active_dimension():
             _post(category="business", language="hu", source_id=source),
             _post(category=None, language="en", source_id=source),
             _post(
-                category="sports", language="de", source_id=str(uuid4())
+                category="sports", language="de", source_id=other_source
             ),
         ]
     )
@@ -62,9 +64,20 @@ def test_filter_options_ignore_their_own_active_dimension():
     language_options = repository.list_filter_options(
         EffectiveFeedQuery(source_ids=[source], languages=["en"])
     )
+    source_options = repository.list_filter_options(
+        EffectiveFeedQuery(source_ids=[source]),
+        include_sources=True,
+    )
 
     assert category_options.categories == ["business", "technology"]
     assert language_options.languages == ["en", "hu"]
+    assert category_options.sources is None
+    assert language_options.sources is None
+    assert source_options.sources is not None
+    assert {option.source_id for option in source_options.sources} == {
+        source,
+        other_source,
+    }
 
 
 def test_candidates_apply_exclusions_and_order_before_pagination():

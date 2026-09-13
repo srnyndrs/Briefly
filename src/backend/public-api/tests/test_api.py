@@ -85,6 +85,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=subscribed_source_id,
+                source_title="Subscribed Source",
                 canonical_url="https://example.com/technology",
                 title="Technology Story",
                 language="en",
@@ -96,6 +97,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=subscribed_source_id,
+                source_title="Subscribed Source",
                 canonical_url="https://example.com/sports",
                 title="Muted Sports Story",
                 language="en",
@@ -107,6 +109,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=subscribed_source_id,
+                source_title="Subscribed Source",
                 canonical_url="https://example.com/hungarian",
                 title="Hungarian Story",
                 language="hu",
@@ -118,6 +121,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=unsubscribed_source_id,
+                source_title="Unsubscribed Source",
                 canonical_url="https://example.com/unsubscribed",
                 title="Unsubscribed Story",
                 language="en",
@@ -135,13 +139,20 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
         lambda _: [{"source_id": subscribed_source_id}],
     )
 
-    response = client.get("/feed", params={"category": "technology"})
+    response = client.get(
+        "/feed",
+        params={
+            "category": "technology",
+            "include_filter_options": "true",
+        },
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
     assert [item["title"] for item in payload["items"]] == [
         "Technology Story"
     ]
+    assert "sources" not in payload["filter_options"]
 
 
 def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
@@ -168,6 +179,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Older Source",
                 canonical_url="https://example.com/older",
                 title="Older English Story",
                 language="en",
@@ -179,6 +191,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Newer Source",
                 canonical_url="https://example.com/newer",
                 title="Newer English Story",
                 language="en",
@@ -190,6 +203,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=blocked_source_id,
+                source_title="Blocked Source",
                 canonical_url="https://example.com/blocked",
                 title="Blocked Story",
                 language="en",
@@ -201,6 +215,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Muted Source",
                 canonical_url="https://example.com/muted",
                 title="Muted Story",
                 language="en",
@@ -212,6 +227,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Hungarian Source",
                 canonical_url="https://example.com/hungarian",
                 title="Hungarian Story",
                 language="hu",
@@ -565,36 +581,10 @@ def test_delete_source_endpoint(monkeypatch) -> None:
 def test_patch_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
-
-    def fake_patch_source(sid: str, body: dict) -> dict:
-        now = datetime.now(UTC).isoformat()
-        assert sid == source_id
-        assert body == {"title": "Updated"}
-        return {
-            "source_id": sid,
-            "url": "https://example.com/feed.xml",
-            "title": "Updated",
-            "description": "Desc",
-            "favicon": None,
-            "website_url": "https://example.com",
-            "last_crawled_at": None,
-            "next_crawl_scheduled_at": now,
-            "last_crawl_succeeded": True,
-            "consecutive_failures": 0,
-            "created_at": now,
-            "updated_at": now,
-        }
-
-    monkeypatch.setattr(
-        "src.routers.sources.ingestion_patch_source",
-        fake_patch_source,
-    )
-
     response = client.patch(
         f"/sources/{source_id}", json={"title": "Updated"}
     )
-    assert response.status_code == 200
-    assert response.json()["title"] == "Updated"
+    assert response.status_code == 422
 
 
 def test_admin_feed_returns_items() -> None:
@@ -606,6 +596,7 @@ def test_admin_feed_returns_items() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Admin Source",
             canonical_url="https://example.com/admin",
             title="General Story",
             language="en",
@@ -662,6 +653,7 @@ def test_admin_posts_list_endpoint(monkeypatch) -> None:
             {
                 "post_id": str(uuid4()),
                 "source_id": "source-1",
+                "source_title": "Admin Source",
                 "item_guid": "guid-1",
                 "url": "https://example.com/article",
                 "title": "Admin Post",
@@ -701,6 +693,7 @@ def test_admin_get_post_endpoint(monkeypatch) -> None:
         return {
             "post_id": target_id,
             "source_id": "source-1",
+            "source_title": "Admin Source",
             "item_guid": "guid-1",
             "url": "https://example.com/article",
             "title": "Admin Post",
@@ -785,6 +778,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Technology Source",
                 canonical_url="https://example.com/technology-en",
                 title="Technology English",
                 language="en",
@@ -796,6 +790,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Business Source",
                 canonical_url="https://example.com/business-hu",
                 title="Business Hungarian",
                 language="hu",
@@ -807,6 +802,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Business Source",
                 canonical_url="https://example.com/business-en",
                 title="Business English",
                 language="en",
@@ -818,6 +814,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Technology Source",
                 canonical_url="https://example.com/technology-hu",
                 title="Technology Hungarian",
                 language="hu",
@@ -849,10 +846,177 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
     assert [item["title"] for item in payload["items"]] == [
         "Technology English"
     ]
-    assert payload["filter_options"] == {
-        "categories": ["business", "technology"],
-        "languages": ["en", "hu"],
-    }
+    assert payload["filter_options"]["categories"] == [
+        "business",
+        "technology",
+    ]
+    assert payload["filter_options"]["languages"] == ["en", "hu"]
+    assert [
+        option["title"]
+        for option in payload["filter_options"]["sources"]
+    ] == ["Technology Source"]
+
+
+def test_explore_source_ids_are_repeatable_and_options_ignore_selection() -> (
+    None
+):
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    source_ids = [str(uuid4()) for _ in range(3)]
+    now = datetime.now(UTC)
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=source_id,
+                source_title=f"Source {index}",
+                canonical_url=f"https://example.com/source/{index}",
+                title=f"Source {index} story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            )
+            for index, source_id in enumerate(source_ids)
+        ]
+    )
+    db.commit()
+
+    response = client.get(
+        "/explore",
+        params=[
+            ("source_ids", source_ids[0]),
+            ("source_ids", source_ids[1]),
+            ("include_filter_options", "true"),
+        ],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert {item["source_id"] for item in payload["items"]} == set(
+        source_ids[:2]
+    )
+    assert {
+        option["id"] for option in payload["filter_options"]["sources"]
+    } == set(source_ids)
+
+
+def test_explore_query_searches_fields_and_supports_web_syntax() -> (
+    None
+):
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    now = datetime.now(UTC)
+    source_id = str(uuid4())
+    db.add_all(
+        [
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000001",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-title",
+                title="Climate change report",
+                language="en",
+                keywords=["ignored-keyword"],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000002",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-description",
+                title="Economy outlook",
+                description="Climate policy update",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000003",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-content",
+                title="Research notes",
+                content="Climate adaptation matters",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000004",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-sports",
+                title="Sports climate report",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000005",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-accent",
+                title="Café review",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
+    )
+    db.commit()
+
+    climate = client.get("/explore", params={"query": "  CLIMATE "})
+    phrase = client.get(
+        "/explore", params={"query": '"climate change"'}
+    )
+    negated = client.get(
+        "/explore", params={"query": "climate -sports"}
+    )
+    cafe = client.get("/explore", params={"query": "cafe"})
+    accented = client.get("/explore", params={"query": "Café"})
+
+    assert climate.json()["total"] == 4
+    assert phrase.json()["total"] == 1
+    assert phrase.json()["items"][0]["post_id"] == (
+        "00000000-0000-0000-0000-000000000001"
+    )
+    assert negated.json()["total"] == 3
+    assert cafe.json()["total"] == 0
+    assert accented.json()["total"] == 1
+
+
+def test_explore_query_validation_rejects_empty_and_sort_combinations() -> (
+    None
+):
+    client = _build_client()
+
+    assert (
+        client.get("/explore", params={"query": "   "}).status_code
+        == 422
+    )
+    assert (
+        client.get("/explore", params={"query": "..."}).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            "/explore",
+            params={"query": "climate", "sort": "oldest"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get("/explore", params={"query": "x" * 201}).status_code
+        == 422
+    )
 
 
 def test_list_and_detail_post_contracts(monkeypatch) -> None:
@@ -866,6 +1030,7 @@ def test_list_and_detail_post_contracts(monkeypatch) -> None:
         PostProjection(
             post_id=post_id,
             source_id=source_id,
+            source_title="Single Source",
             canonical_url="https://example.com/single-article",
             title="Single Post",
             description="Detail",
@@ -989,6 +1154,7 @@ def test_feed_pagination_pages_and_counts(monkeypatch) -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=source_id,
+                source_title=f"Source {i}",
                 canonical_url=f"https://example.com/{i}",
                 title=f"Post {i}",
                 language="en",
@@ -1049,6 +1215,7 @@ def test_admin_feed_pagination() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title=f"Admin Source {i}",
                 canonical_url=f"https://example.com/admin/{i}",
                 title=f"Admin Post {i}",
                 language="en",
@@ -1222,6 +1389,7 @@ def test_explore_filters_muted_keywords() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Clean Source",
             canonical_url="https://example.com/clean-article",
             title="Clean Post",
             language="en",
@@ -1234,6 +1402,7 @@ def test_explore_filters_muted_keywords() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Crypto Source",
             canonical_url="https://example.com/crypto-article",
             title="Crypto Post",
             language="en",
@@ -1271,6 +1440,7 @@ def test_explore_filters_muted_categories() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Technology Source",
             canonical_url="https://example.com/tech",
             title="Tech Post",
             language="en",
@@ -1284,6 +1454,7 @@ def test_explore_filters_muted_categories() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Sports Source",
             canonical_url="https://example.com/sports",
             title="Sports Post",
             language="en",
@@ -1325,6 +1496,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Technology Source",
                 canonical_url="https://example.com/technology",
                 title="Technology Category",
                 language="en",
@@ -1336,6 +1508,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Business Source",
                 canonical_url="https://example.com/business",
                 title="Technology Keyword",
                 language="en",
@@ -1347,6 +1520,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Sports Source",
                 canonical_url="https://example.com/sports",
                 title="Muted Sports Category",
                 language="en",
@@ -1383,6 +1557,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="One Source",
                 canonical_url="https://example.com/one",
                 title="One",
                 language="en",
@@ -1394,6 +1569,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Two Source",
                 canonical_url="https://example.com/two",
                 title="Two",
                 language="en",
@@ -1405,6 +1581,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Three Source",
                 canonical_url="https://example.com/three",
                 title="Three",
                 language="en",
@@ -1416,6 +1593,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> (
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title="Four Source",
                 canonical_url="https://example.com/four",
                 title="Four",
                 language="en",
@@ -1448,12 +1626,14 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> (
         "business",
         "technology",
     ]
+    assert len(with_options.json()["filter_options"]["sources"]) == 4
     assert selected.status_code == 200
     assert selected.json()["total"] == 2
     assert selected.json()["filter_options"]["categories"] == [
         "business",
         "technology",
     ]
+    assert len(selected.json()["filter_options"]["sources"]) == 2
 
 
 def test_explore_filters_blocked_source_ids() -> None:
@@ -1478,6 +1658,7 @@ def test_explore_filters_blocked_source_ids() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=allowed_src,
+            source_title="Allowed Source",
             canonical_url="https://example.com/allowed",
             title="Allowed Source Post",
             language="en",
@@ -1490,6 +1671,7 @@ def test_explore_filters_blocked_source_ids() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=blocked_src,
+            source_title="Blocked Source",
             canonical_url="https://example.com/blocked",
             title="Blocked Source Post",
             language="en",
@@ -1532,6 +1714,7 @@ def test_personal_feed_returns_empty_page_without_subscriptions(
         PostProjection(
             post_id=str(uuid4()),
             source_id=sub_source_id,
+            source_title="Subscribed Source",
             canonical_url="https://example.com/sub",
             title="Subscribed Post",
             language="en",
@@ -1544,6 +1727,7 @@ def test_personal_feed_returns_empty_page_without_subscriptions(
         PostProjection(
             post_id=str(uuid4()),
             source_id=unsub_source_id,
+            source_title="Unsubscribed Source",
             canonical_url="https://example.com/unsub",
             title="Unsubscribed Post",
             language="en",

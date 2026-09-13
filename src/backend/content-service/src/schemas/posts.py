@@ -8,7 +8,7 @@ class PostResponse(BaseModel):
     source_id: str
     item_guid: str
     url: str
-    source_title: str | None = None
+    source_title: str
     title: str
     description: str | None = None
     category: str | None = None

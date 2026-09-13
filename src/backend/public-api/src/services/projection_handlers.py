@@ -12,6 +12,22 @@ from src.models.read_models import (
 logger = logging.getLogger("public-api.projections")
 
 
+def _require_source_value(value: Any, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a nonblank string")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must be nonblank")
+    return normalized
+
+
+def _require_source_title(value: Any) -> str:
+    title = _require_source_value(value, "source_title")
+    if len(title) > 255:
+        raise ValueError("source_title must be at most 255 characters")
+    return title
+
+
 def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -24,11 +40,14 @@ def _parse_dt(value: str | None) -> datetime | None:
 def project_post(db: Session, payload: dict[str, Any]) -> None:
     """Project parsed post event into read model."""
     payload = payload or {}
+    source_id = _require_source_value(
+        payload.get("source_id"), "source_id"
+    )
+    source_title = _require_source_title(payload.get("source_title"))
     post_id = payload.get("post_id")
     if not post_id:
         return
 
-    source_id = payload.get("source_id")
     published_at_raw = payload.get("published_at")
     parsed_at_raw = payload.get("parsed_at")
     published_at = _parse_dt(published_at_raw or parsed_at_raw)
@@ -47,9 +66,7 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
         db.add(existing)
 
     existing.source_id = source_id
-    existing.source_title = (
-        payload.get("source_title") or existing.source_title
-    )
+    existing.source_title = source_title
     existing.canonical_url = payload.get(
         "canonical_url"
     ) or payload.get("url")
