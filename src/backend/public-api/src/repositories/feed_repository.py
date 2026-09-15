@@ -213,6 +213,17 @@ class PostRepository:
         ).all()
         return [post_projection_to_dto(row) for row in rows], total
 
+    def list_headlines(
+        self, query: EffectiveFeedQuery, limit: int
+    ) -> list[PostDTO]:
+        statement = self._apply_query(select(PostProjection), query)
+        rows = self._db.scalars(
+            statement.order_by(*self._order_by("freshness")).limit(
+                limit
+            )
+        ).all()
+        return [post_projection_to_dto(row) for row in rows]
+
     def list_filter_options(
         self,
         query: EffectiveFeedQuery,
@@ -306,8 +317,55 @@ class PostRepository:
             sources=sources,
         )
 
+    def list_personal_filter_options(
+        self, query: EffectiveFeedQuery
+    ) -> FilterOptionsDTO:
+        category_query = self._without_category(query)
+        normalized_category = func.lower(
+            func.trim(PostProjection.category)
+        ).label("category")
+        category_count = func.count(PostProjection.post_id).label(
+            "count"
+        )
+        category_rows = self._db.execute(
+            self._apply_query(
+                select(normalized_category, category_count),
+                category_query,
+            )
+            .where(
+                PostProjection.category.is_not(None),
+                func.trim(PostProjection.category) != "",
+            )
+            .group_by(normalized_category)
+            .order_by(category_count.desc(), normalized_category.asc())
+        ).all()
+        language_options = self.list_filter_options(query).languages
+        return FilterOptionsDTO(
+            categories=[category for category, _ in category_rows],
+            languages=language_options,
+        )
+
+    @staticmethod
+    def _without_category(
+        query: EffectiveFeedQuery,
+    ) -> EffectiveFeedQuery:
+        return EffectiveFeedQuery(
+            blocked_source_ids=query.blocked_source_ids,
+            muted_keywords=query.muted_keywords,
+            muted_categories=query.muted_categories,
+            languages=query.languages,
+            source_ids=query.source_ids,
+            query=query.query,
+            published_from=query.published_from,
+            published_to=query.published_to,
+            sort=query.sort,
+            excluded_post_ids=query.excluded_post_ids,
+            limit=query.limit,
+            offset=query.offset,
+        )
+
     def _apply_query(self, statement, query: EffectiveFeedQuery):
-        return self._apply_common_filters(
+        statement = self._apply_common_filters(
             statement,
             languages=query.languages,
             muted_keywords=query.muted_keywords,
@@ -320,6 +378,11 @@ class PostRepository:
             published_to=query.published_to,
             search_query=query.query,
         )
+        if query.excluded_post_ids:
+            statement = statement.where(
+                PostProjection.post_id.not_in(query.excluded_post_ids)
+            )
+        return statement
 
     def get_post(self, post_id: UUID) -> PostDTO | None:
         model = self._db.get(PostProjection, str(post_id))

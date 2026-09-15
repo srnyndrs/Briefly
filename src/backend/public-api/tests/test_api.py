@@ -148,10 +148,11 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert [item["title"] for item in payload["items"]] == [
+    assert [item["title"] for item in payload["headlines"]] == [
         "Technology Story"
     ]
+    assert payload["total"] == 0
+    assert payload["items"] == []
     assert "sources" not in payload["filter_options"]
 
 
@@ -1051,7 +1052,12 @@ def test_list_and_detail_post_contracts(monkeypatch) -> None:
     for path in ("/feed", "/explore"):
         list_response = client.get(path)
         assert list_response.status_code == 200
-        list_item = list_response.json()["items"][0]
+        payload = list_response.json()
+        list_item = (
+            payload["headlines"][0]
+            if path == "/feed"
+            else payload["items"][0]
+        )
         assert list_item["has_content"] is True
         assert "content" not in list_item
 
@@ -1177,32 +1183,27 @@ def test_feed_pagination_pages_and_counts(monkeypatch) -> None:
     res_p1 = client.get("/feed", params={"page": 1, "page_size": 2})
     assert res_p1.status_code == 200
     p1 = res_p1.json()
-    assert p1["total"] == 5
+    assert [item["title"] for item in p1["headlines"]] == [
+        "Post 4",
+        "Post 3",
+        "Post 2",
+    ]
+    assert p1["total"] == 2
     assert p1["page"] == 1
-    assert p1["page_count"] == 3
+    assert p1["page_count"] == 1
     assert p1["page_size"] == 2
     assert len(p1["items"]) == 2
-    assert p1["items"][0]["title"] == "Post 4"
-    assert p1["items"][1]["title"] == "Post 3"
+    assert p1["items"][0]["title"] == "Post 1"
+    assert p1["items"][1]["title"] == "Post 0"
 
     # Page 2 with page_size=2
     res_p2 = client.get("/feed", params={"page": 2, "page_size": 2})
     assert res_p2.status_code == 200
     p2 = res_p2.json()
     assert p2["page"] == 2
-    assert p2["page_count"] == 3
-    assert len(p2["items"]) == 2
-    assert p2["items"][0]["title"] == "Post 2"
-    assert p2["items"][1]["title"] == "Post 1"
-
-    # Page 3 (last page with remaining 1 item)
-    res_p3 = client.get("/feed", params={"page": 3, "page_size": 2})
-    assert res_p3.status_code == 200
-    p3 = res_p3.json()
-    assert p3["page"] == 3
-    assert p3["page_count"] == 3
-    assert len(p3["items"]) == 1
-    assert p3["items"][0]["title"] == "Post 0"
+    assert p2["page_count"] == 1
+    assert p2["items"] == []
+    assert "headlines" not in p2
 
 
 def test_admin_feed_pagination() -> None:
@@ -1752,8 +1753,12 @@ def test_personal_feed_returns_empty_page_without_subscriptions(
 
     personal_res = client.get("/feed")
     assert personal_res.status_code == 200
-    assert personal_res.json()["total"] == 1
-    assert personal_res.json()["items"][0]["title"] == "Subscribed Post"
+    assert personal_res.json()["total"] == 0
+    assert personal_res.json()["items"] == []
+    assert (
+        personal_res.json()["headlines"][0]["title"]
+        == "Subscribed Post"
+    )
 
     subscriptions.clear()
     empty_res = client.get(

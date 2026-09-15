@@ -57,6 +57,7 @@ class EffectiveFeedQuery:
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str = "freshness"
+    excluded_post_ids: list[str] = field(default_factory=list)
     limit: int = 20
     offset: int = 0
 

@@ -258,3 +258,7 @@ class FeedResponse(BaseModel):
     page_count: int = 1
     page_size: int = 20
     filter_options: FilterOptionsResponse | None = None
+
+
+class PersonalFeedResponse(FeedResponse):
+    headlines: list[PostListItemResponse] | None = None

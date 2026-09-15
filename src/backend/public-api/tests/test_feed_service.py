@@ -32,8 +32,9 @@ def test_personal_feed_applies_preferences_and_subscriptions(
         blocked_source_ids=["blocked"],
     )
     repository.list_candidates.return_value = ([post], 1)
-    repository.list_filter_options.return_value = FilterOptionsDTO(
-        categories=[], languages=[]
+    repository.list_headlines.return_value = [post]
+    repository.list_personal_filter_options.return_value = (
+        FilterOptionsDTO(categories=[], languages=[])
     )
     monkeypatch.setattr(
         "src.services.feed_service.account_list_subscriptions",
@@ -54,8 +55,9 @@ def test_personal_feed_applies_preferences_and_subscriptions(
     assert query.languages == ["hu"]
     assert query.source_ids == ["subscribed"]
     assert query.sort == "freshness"
-    repository.list_filter_options.assert_called_once_with(
-        query, include_sources=False
+    assert query.excluded_post_ids == [post.post_id]
+    repository.list_personal_filter_options.assert_called_once_with(
+        query
     )
 
 
@@ -83,6 +85,46 @@ def test_personal_feed_without_subscriptions_skips_repository(
     assert result.filter_options is not None
     assert result.filter_options.categories == []
     repository.list_candidates.assert_not_called()
+
+
+def test_personal_feed_keeps_headlines_unfiltered_and_excludes_them(
+    monkeypatch,
+):
+    repository = Mock()
+    preferences = Mock()
+    headlines = [
+        PostDTO(
+            post_id=f"headline-{index}",
+            title="Headline",
+            source_id=str(uuid4()),
+            source_title="Source",
+        )
+        for index in range(3)
+    ]
+    repository.list_headlines.return_value = headlines
+    repository.list_candidates.return_value = ([], 0)
+    monkeypatch.setattr(
+        "src.services.feed_service.account_list_subscriptions",
+        lambda _: [{"source_id": "subscribed"}],
+    )
+
+    result = FeedService(repository, preferences).get_personal_feed(
+        PersonalFeedInput(
+            user_id=uuid4(),
+            limit=20,
+            offset=0,
+            category="technology",
+        )
+    )
+
+    headline_query = repository.list_headlines.call_args.args[0]
+    content_query = repository.list_candidates.call_args.args[0]
+    assert headline_query.categories is None
+    assert content_query.categories == ["technology"]
+    assert content_query.excluded_post_ids == [
+        post.post_id for post in headlines
+    ]
+    assert result.headlines == headlines
 
 
 def test_explore_feed_uses_explicit_filters_not_saved_scope():

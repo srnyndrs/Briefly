@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
@@ -43,6 +43,7 @@ class FeedOutput:
     items: list[PostDTO]
     total: int
     filter_options: FilterOptionsDTO | None = None
+    headlines: list[PostDTO] | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,8 @@ class GetPostInput:
 
 
 class FeedService:
+    HEADLINE_COUNT = 3
+
     def __init__(
         self,
         post_repository: PostRepository,
@@ -80,19 +83,42 @@ class FeedService:
                     if data.include_filter_options
                     else None
                 ),
+                headlines=[] if data.offset == 0 else None,
             )
 
-        query = EffectiveFeedQuery(
+        base_query = EffectiveFeedQuery(
             blocked_source_ids=preferences.blocked_source_ids,
             muted_keywords=preferences.muted_keywords,
             muted_categories=preferences.muted_categories,
             languages=preferences.languages,
             source_ids=source_ids,
-            categories=[data.category] if data.category else None,
             limit=data.limit,
             offset=data.offset,
         )
-        return self._execute(query, data.include_filter_options)
+        headlines = self._post_repository.list_headlines(
+            base_query, self.HEADLINE_COUNT
+        )
+        content_query = replace(
+            base_query,
+            categories=[data.category] if data.category else None,
+            excluded_post_ids=[post.post_id for post in headlines],
+        )
+        items, total = self._post_repository.list_candidates(
+            content_query
+        )
+        options = (
+            self._post_repository.list_personal_filter_options(
+                content_query
+            )
+            if data.include_filter_options
+            else None
+        )
+        return FeedOutput(
+            items=items,
+            total=total,
+            filter_options=options,
+            headlines=headlines if data.offset == 0 else None,
+        )
 
     def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
         preferences = self._preferences_repository.get_preferences(

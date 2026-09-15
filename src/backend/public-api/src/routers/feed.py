@@ -16,6 +16,7 @@ from src.schemas.api import (
     FeedResponse,
     FilterOptionsResponse,
     SourceOptionResponse,
+    PersonalFeedResponse,
 )
 from src.services.auth import CurrentAdminUser, CurrentUser
 from src.services.feed_service import (
@@ -89,9 +90,26 @@ def _response(
     )
 
 
+def _personal_response(
+    output: FeedOutput, page: int, page_size: int
+) -> PersonalFeedResponse:
+    response = _response(output, page, page_size)
+    return PersonalFeedResponse(
+        **response.model_dump(),
+        headlines=(
+            [
+                to_post_list_item_response(item)
+                for item in output.headlines
+            ]
+            if output.headlines is not None
+            else None
+        ),
+    )
+
+
 @router.get(
     "/feed",
-    response_model=FeedResponse,
+    response_model=PersonalFeedResponse,
     response_model_exclude_none=True,
 )
 def get_feed(
@@ -101,7 +119,7 @@ def get_feed(
     page_size: int = Query(default=20, ge=1, le=100),
     category: str | None = None,
     include_filter_options: bool = False,
-) -> FeedResponse:
+) -> PersonalFeedResponse:
     try:
         output = service.get_personal_feed(
             PersonalFeedInput(
@@ -114,7 +132,7 @@ def get_feed(
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
-    return _response(output, page, page_size)
+    return _personal_response(output, page, page_size)
 
 
 @router.get(

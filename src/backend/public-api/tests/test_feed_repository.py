@@ -111,3 +111,28 @@ def test_candidates_apply_exclusions_and_order_before_pagination():
 
     assert total == 2
     assert items[0].post_id == visible.post_id
+
+
+def test_personal_category_options_rank_normalized_categories():
+    session, repository = _repository()
+    source = str(uuid4())
+    posts = [
+        _post(category=" Technology ", language="en", source_id=source),
+        _post(category="technology", language="en", source_id=source),
+        _post(category="business", language="en", source_id=source),
+        _post(category="World", language="en", source_id=source),
+        _post(category=None, language="en", source_id=source),
+        _post(category=" ", language="en", source_id=source),
+    ]
+    session.add_all(posts)
+    session.commit()
+
+    options = repository.list_personal_filter_options(
+        EffectiveFeedQuery(
+            source_ids=[source],
+            categories=["technology"],
+            excluded_post_ids=[posts[0].post_id],
+        )
+    )
+
+    assert options.categories == ["business", "technology", "world"]
