@@ -124,14 +124,17 @@ fun PostItemCard(
                     )
                     ShimmerItem(
                         modifier = Modifier
-                            .defaultMinSize(minHeight = 16.dp, minWidth = 72.dp),
+                            .defaultMinSize(
+                                minHeight = 16.dp,
+                                minWidth = if (isLoading) 72.dp else 0.dp,
+                            ),
                         isLoading = isLoading,
                         cornerRadius = 5.dp,
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.CenterStart,
                     ) {
                         Text(
                             text = publishDate?.toRelativeArticleTime() ?: "",
-                            style = MaterialTheme.typography.labelSmall
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
                 }
@@ -190,10 +193,10 @@ fun PostItemCardPreview() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .requiredHeight(128.dp),
-                    title = "Összeszarták a gecis játszóteret!\nMutatjuk!",
+                    title = "A magyar néptánc még ma is tömegeket mozgat meg!",
                     category = "Kultúra",
                     imageUrl = "",
-                    publishDate = Instant.parse("2026-05-22T12:36:11Z"),
+                    publishDate = Instant.parse("2026-09-15T18:36:11Z"),
                     isLoading = false
                 ) {}
             }
