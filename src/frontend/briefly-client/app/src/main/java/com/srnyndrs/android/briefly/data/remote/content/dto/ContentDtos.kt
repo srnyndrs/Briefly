@@ -62,6 +62,23 @@ data class PostListItemsResponseDto(
 )
 
 @Serializable
+data class PersonalFeedResponseDto(
+    val headlines: List<PostSummaryResponseDto>? = null,
+    val items: List<PostSummaryResponseDto>,
+    val total: Long,
+    val page: Int = 1,
+
+    @SerialName("page_count")
+    val pageCount: Int = 1,
+
+    @SerialName("page_size")
+    val pageSize: Int = 20,
+
+    @SerialName("filter_options")
+    val filterOptions: FilterOptionsDto? = null,
+)
+
+@Serializable
 data class FilterOptionsDto(
     val categories: List<String> = emptyList(),
     val languages: List<String> = emptyList(),

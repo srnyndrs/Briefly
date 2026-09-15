@@ -1,8 +1,9 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.home
 
-import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
-import com.srnyndrs.android.briefly.ui.model.UiState
+import com.srnyndrs.android.briefly.domain.model.content.Post
 
 data class HomeState(
-    val result: UiState<PostPagingResult> = UiState.Idle,
+    val headlines: List<Post> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val selectedCategory: String? = null,
 )

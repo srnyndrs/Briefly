@@ -4,6 +4,7 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.PostListItemsResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PersonalFeedResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
@@ -23,9 +24,9 @@ class ContentApiService (
     private val client: HttpClient
 ) {
 
-    suspend fun getFeed(request: FeedRequestDto): PostListItemsResponseDto {
+    suspend fun getFeed(request: FeedRequestDto): PersonalFeedResponseDto {
         return client.get("feed") {
-            parameter("include_filter_options", true)
+            parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
             request.category?.let {

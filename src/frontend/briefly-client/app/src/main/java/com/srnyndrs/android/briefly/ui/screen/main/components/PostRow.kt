@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,23 +14,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
-import com.srnyndrs.android.briefly.ui.model.UiState
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeState
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.preview.HomeStateProvider
-import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
 fun PostRow(
     modifier: Modifier = Modifier,
     title: String,
     source: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.then(modifier)
+        modifier = modifier
             .clickable {
                 onClick()
             },
@@ -41,7 +33,6 @@ fun PostRow(
         // Source
         source?.let { sourceTitle ->
             Row(
-                modifier = Modifier.wrapContentWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -58,38 +49,11 @@ fun PostRow(
             modifier = Modifier.fillMaxWidth(),
             text = title,
             minLines = 1,
+            maxLines = 3,
             textAlign = TextAlign.Start,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-@PreviewLightDark
-@Composable
-fun PostRowPreview(
-    @PreviewParameter(HomeStateProvider::class) state: HomeState
-) {
-    val articles = (state.result as UiState.Success).data.items
-    BrieflyTheme {
-        Surface(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                articles.map { article ->
-                    PostRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 6.dp),
-                        title = article.title,
-                        source = "24.hu"
-                    ) {}
-                }
-            }
-        }
     }
 }

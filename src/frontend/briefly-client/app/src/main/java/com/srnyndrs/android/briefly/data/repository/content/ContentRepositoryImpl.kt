@@ -5,6 +5,8 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRe
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
 import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.Source
@@ -19,6 +21,7 @@ import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
 
@@ -31,12 +34,19 @@ class ContentRepositoryImpl @Inject constructor(
         const val PAGE_SIZE = 20
     }
 
-    override fun getHomePostPagingFlow(filter: HomePostFilter): Flow<PagingData<Post>> = getHomePostPagingFlow(
-        FeedRequestDto(
+    override fun getHomeFeed(filter: HomePostFilter): HomeFeed {
+        val metadata = MutableStateFlow<HomeFeedMetadata?>(null)
+        return HomeFeed(
+            posts = getHomePostPagingFlow(
+                request = FeedRequestDto(
             includeFilterOptions = true,
-            category = filter.category
+            category = filter.category,
+        ),
+                metadata = metadata,
+            ),
+            metadata = metadata,
         )
-    )
+    }
 
     override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> = getExplorePostPagingFlow(
         ExploreRequestDto(
@@ -50,7 +60,10 @@ class ContentRepositoryImpl @Inject constructor(
         )
     )
 
-    private fun getHomePostPagingFlow(request: FeedRequestDto): Flow<PagingData<Post>> {
+    private fun getHomePostPagingFlow(
+        request: FeedRequestDto,
+        metadata: MutableStateFlow<HomeFeedMetadata?>,
+    ): Flow<PagingData<Post>> {
         return Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -58,7 +71,11 @@ class ContentRepositoryImpl @Inject constructor(
                 enablePlaceholders = false
             ),
             pagingSourceFactory = {
-                PersonalFeedPagingSource(contentApiService, request)
+                PersonalFeedPagingSource(
+                    contentApiService = contentApiService,
+                    request = request,
+                    metadata = metadata,
+                )
             }
         ).flow
     }
