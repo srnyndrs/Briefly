@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.data.remote.auth
 
 import com.srnyndrs.android.briefly.data.remote.auth.dto.LoginRequestDto
 import com.srnyndrs.android.briefly.data.remote.auth.dto.LogoutRequestDto
+import com.srnyndrs.android.briefly.data.remote.auth.dto.RefreshRequestDto
 import com.srnyndrs.android.briefly.data.remote.auth.dto.RegisterRequestDto
 import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairResponseDto
 import io.ktor.client.HttpClient
@@ -25,6 +26,12 @@ class AuthApiService(
 
     suspend fun register(request: RegisterRequestDto): TokenPairResponseDto {
         return client.post("${BASE_AUTH_PATH}/register") {
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun refresh(request: RefreshRequestDto): TokenPairResponseDto {
+        return client.post("${BASE_AUTH_PATH}/refresh") {
             setBody(request)
         }.body()
     }

@@ -40,8 +40,8 @@ data class PreferencesDto (
 
     val languages: List<String>,
 
-    @SerialName("category_interests")
-    val categoryInterests: List<String>,
+    /*@SerialName("category_interests")
+    val categoryInterests: List<String>,*/
 
     @SerialName("updated_at")
     val updatedAt: String

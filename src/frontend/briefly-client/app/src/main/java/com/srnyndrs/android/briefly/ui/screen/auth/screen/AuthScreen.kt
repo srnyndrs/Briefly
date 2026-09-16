@@ -36,7 +36,6 @@ import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Newspaper
 import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.model.UiState
-import com.srnyndrs.android.briefly.ui.navigation.NavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.login.LoginScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.register.RegisterScreen
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -47,8 +46,7 @@ import kotlinx.coroutines.launch
 fun AuthScreen(
     modifier: Modifier = Modifier,
     state: UiState<Unit> = UiState.Idle,
-    onSuccess: () -> Unit,
-    onAuthEvent: (AuthEvent) -> Unit
+    onAuthEvent: (AuthEvent) -> Unit,
 ) {
 
     val scope = rememberCoroutineScope()
@@ -57,7 +55,6 @@ fun AuthScreen(
 
     LaunchedEffect(state) {
         when (state) {
-            is UiState.Success -> onSuccess()
             is UiState.Error -> snackbarHostState.showSnackbar(
                 message = state.message,
                 withDismissAction = true,
@@ -180,7 +177,6 @@ fun AuthScreenPreview() {
             AuthScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = UiState.Idle,
-                onSuccess = {},
             ) {}
         }
     }

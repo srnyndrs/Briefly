@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.srnyndrs.android.briefly.ui.components.TopAppBar
-import com.srnyndrs.android.briefly.ui.navigation.NavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationGraph
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainRoutes
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme

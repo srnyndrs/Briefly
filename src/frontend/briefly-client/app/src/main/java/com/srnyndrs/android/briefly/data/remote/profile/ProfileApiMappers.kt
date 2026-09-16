@@ -16,7 +16,7 @@ fun PreferencesDto.toDomain(): ProfilePreferences {
     return ProfilePreferences(
         mutedKeywords = this.mutedKeywords,
         mutedCategories = this.mutedCategories,
-        categoryInterests = this.categoryInterests,
+        categoryInterests = emptyList(), // this.categoryInterests,
         blockedSourceIds = this.blockedSourceIds.toSet(),
         languages = this.languages.toSet(),
     )

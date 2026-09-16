@@ -58,8 +58,10 @@ class ContentApiService (
             request.publishedTo?.let {
                 parameter("to", it)
             }
-            request.sort?.let {
-                parameter("sort", it)
+            if (request.query.isNullOrBlank()) {
+                request.sort?.let {
+                    parameter("sort", it)
+                }
             }
         }.body()
     }
