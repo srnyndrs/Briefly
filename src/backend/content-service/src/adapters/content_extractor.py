@@ -8,11 +8,25 @@ logger = logging.getLogger(__name__)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
-def _strip_html(text: str) -> str:
+def normalize_html_text(text: str) -> str:
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(text, "lxml")
-    cleaned = soup.get_text("\n")
+    for line_break in soup.find_all("br"):
+        line_break.replace_with("\n")
+    for block in soup.find_all(
+        [
+            "address",
+            "article",
+            "blockquote",
+            "div",
+            "li",
+            "p",
+            "section",
+        ]
+    ):
+        block.append("\n")
+    cleaned = soup.get_text()
     lines = [line.strip() for line in cleaned.splitlines()]
     return "\n".join([line for line in lines if line])
 
@@ -31,7 +45,7 @@ def extract_article(url: str) -> dict[str, Any]:
             else article.text or None
         )
         if content and _HTML_TAG_RE.search(content):
-            content = _strip_html(content)
+            content = normalize_html_text(content)
         image = article.top_image or article.top_img or None
         keywords = article.meta_keywords or article.keywords or None
 

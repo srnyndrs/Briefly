@@ -21,6 +21,15 @@ def _clean_text(value: Any) -> str | None:
     return cleaned or None
 
 
+def _clean_description(value: Any) -> str | None:
+    description = _clean_text(value)
+    if description is None:
+        return None
+    return _clean_text(
+        content_extractor.normalize_html_text(description)
+    )
+
+
 def _require_source_value(value: Any, field_name: str) -> str:
     normalized = _clean_text(value)
     if normalized is None:
@@ -105,9 +114,9 @@ def _build_post_data(
     url = entry.get("link", "")
     tags = _entry_tags(entry)
     title = _clean_title(entry.get("title"))
-    description = _clean_text(entry.get("description")) or _clean_text(
-        entry.get("summary")
-    )
+    description = _clean_description(
+        entry.get("description")
+    ) or _clean_description(entry.get("summary"))
     author = _clean_text(entry.get("author"))
     category = _clean_text(entry.get("category")) or (
         tags[0] if tags else None
@@ -124,7 +133,7 @@ def _build_post_data(
         )
 
     final_title = title or extracted_title or "Untitled"
-    description = description or _clean_text(
+    description = description or _clean_description(
         extracted.get("description")
     )
     content = _clean_text(extracted.get("content"))

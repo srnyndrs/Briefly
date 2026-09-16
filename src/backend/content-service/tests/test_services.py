@@ -160,6 +160,71 @@ def test_process_source_uses_feed_metadata_as_baseline() -> None:
     assert saved["keywords"] == ["extracted"]
 
 
+def test_process_source_normalizes_html_feed_description() -> None:
+    entry = FeedParserDict(
+        {
+            "id": "g-html-description",
+            "link": "https://example.com/html-description",
+            "title": "Title",
+            "description": (
+                "<p>Short summary.</p><p>The post "
+                '<a href="https://example.com/article">Title</a> '
+                "first appeared on "
+                '<a href="https://example.com">Example</a>.</p>'
+            ),
+        }
+    )
+
+    saved = _capture_saved_payload(entry, {"content": "Body"})
+
+    assert saved["description"] == (
+        "Short summary.\nThe post Title first appeared on Example."
+    )
+    assert "<" not in saved["description"]
+    assert ">" not in saved["description"]
+
+
+def test_process_source_uses_summary_after_blank_html_description() -> (
+    None
+):
+    entry = FeedParserDict(
+        {
+            "id": "g-blank-html-description",
+            "link": "https://example.com/blank-html-description",
+            "title": "Title",
+            "description": "<p> </p>",
+            "summary": "<p>Feed summary</p>",
+        }
+    )
+
+    saved = _capture_saved_payload(entry, {"content": "Body"})
+
+    assert saved["description"] == "Feed summary"
+
+
+def test_process_source_uses_extracted_description_after_blank_html() -> (
+    None
+):
+    entry = FeedParserDict(
+        {
+            "id": "g-blank-html-description",
+            "link": "https://example.com/blank-html-description",
+            "title": "Title",
+            "description": "<br>",
+        }
+    )
+
+    saved = _capture_saved_payload(
+        entry,
+        {
+            "content": "Body",
+            "description": "<p>Extracted description</p>",
+        },
+    )
+
+    assert saved["description"] == "Extracted description"
+
+
 def test_process_source_uses_valid_extracted_fallbacks() -> None:
     entry = FeedParserDict(
         {
