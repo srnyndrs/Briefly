@@ -7,6 +7,8 @@
     <string name="home_empty">No articles available</string>
     <string name="home_content_empty">No articles match this category</string>
     <string name="home_refresh">Refresh</string>
+    <string name="explore_search_posts">Search posts</string>
+    <string name="explore_search">Search</string>
     <string name="settings_title">Edition Settings</string>
     <string name="settings_subtitle">Tailor your daily dispatch &amp; reading preferences</string>
     <string name="settings_section_languages">Content Languages</string>

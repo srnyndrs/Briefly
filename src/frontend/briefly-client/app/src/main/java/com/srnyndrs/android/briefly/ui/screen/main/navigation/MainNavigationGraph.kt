@@ -19,7 +19,6 @@ import com.srnyndrs.android.briefly.ui.components.UiStateContainer
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeScreen
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeEvent
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreViewModel
@@ -71,11 +70,11 @@ fun MainNavigationGraph(
 
             val viewModel = hiltViewModel<HomeViewModel>()
             val state by viewModel.state.collectAsStateWithLifecycle()
-            val articles = viewModel.articles.collectAsLazyPagingItems()
+            val posts = viewModel.articles.collectAsLazyPagingItems()
 
             HomeScreen(
                 modifier = Modifier.fillMaxSize(),
-                articles = articles,
+                posts = posts,
                 state = state,
                 onNavigationEvent = handleNavigationEvent,
                 onHomeEvent = viewModel::onEvent
@@ -101,10 +100,16 @@ fun MainNavigationGraph(
         composable(
             route = MainRoutes.Explore.route
         ) {
+            val viewModel = hiltViewModel<ExploreViewModel>()
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            val posts = viewModel.posts.collectAsLazyPagingItems()
+
             ExploreScreen(
                 modifier = Modifier.fillMaxSize(),
-                viewModel = hiltViewModel<ExploreViewModel>(),
+                posts = posts,
+                state = state,
                 onNavigationEvent = handleNavigationEvent,
+                onExploreEvent = viewModel::onEvent,
             )
         }
         composable(

@@ -49,13 +49,13 @@ import kotlin.time.ExperimentalTime
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    articles: LazyPagingItems<Post>,
+    posts: LazyPagingItems<Post>,
     state: HomeState,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
     onHomeEvent: (HomeEvent) -> Unit,
 ) {
 
-    val refreshState = articles.loadState.refresh
+    val refreshState = posts.loadState.refresh
 
     when {
         refreshState is LoadState.Loading && state.headlines.isEmpty() -> {
@@ -101,7 +101,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
-                    Button(onClick = articles::retry) {
+                    Button(onClick = posts::retry) {
                         Text(
                             text = stringResource(R.string.home_retry)
                         )
@@ -111,7 +111,7 @@ fun HomeScreen(
         }
 
         state.headlines.isEmpty() &&
-            articles.itemCount == 0 &&
+            posts.itemCount == 0 &&
             state.selectedCategory == null -> {
             Box(
                 modifier = modifier
@@ -127,7 +127,7 @@ fun HomeScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center,
                     )
-                    OutlinedButton(onClick = articles::refresh) {
+                    OutlinedButton(onClick = posts::refresh) {
                         Text(
                             text = stringResource(R.string.home_refresh)
                         )
@@ -200,7 +200,7 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center,
                                 )
-                                OutlinedButton(onClick = articles::retry) {
+                                OutlinedButton(onClick = posts::retry) {
                                     Text(
                                         text = stringResource(R.string.home_retry)
                                     )
@@ -209,7 +209,7 @@ fun HomeScreen(
                         }
                     }
 
-                    articles.itemCount == 0 && state.selectedCategory != null -> {
+                    posts.itemCount == 0 && state.selectedCategory != null -> {
                         item(key = "content_empty") {
                             Text(
                                 modifier = Modifier
@@ -226,10 +226,10 @@ fun HomeScreen(
                 }
 
                 items(
-                    count = articles.itemCount,
-                    key = { index -> articles.peek(index)?.id ?: "article_$index" },
+                    count = posts.itemCount,
+                    key = { index -> posts.peek(index)?.id ?: "article_$index" },
                 ) { index ->
-                    val article = articles[index] ?: return@items
+                    val article = posts[index] ?: return@items
                     PostRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -255,7 +255,7 @@ fun HomeScreen(
                     )
                 }
 
-                when (val appendState = articles.loadState.append) {
+                when (val appendState = posts.loadState.append) {
                     is LoadState.Loading -> item(key = "append_loading") {
                         Box(
                             modifier = Modifier
@@ -291,7 +291,7 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
                             )
-                            OutlinedButton(onClick = articles::retry) {
+                            OutlinedButton(onClick = posts::retry) {
                                 Text(
                                     text = stringResource(R.string.home_retry)
                                 )
@@ -325,7 +325,7 @@ fun HomeScreenPreview(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
-                    articles = content.collectAsLazyPagingItems(),
+                    posts = content.collectAsLazyPagingItems(),
                     state = homeState,
                     onNavigationEvent = {}
                 ) {}
