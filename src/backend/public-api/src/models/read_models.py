@@ -12,18 +12,42 @@ from sqlalchemy import (
     literal_column,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.config.database import Base
 
 
-def post_search_document(title, description, content):
-    return func.to_tsvector(
-        literal_column("'simple'"),
-        func.coalesce(title, literal_column("''"))
-        + literal_column("' '")
-        + func.coalesce(description, literal_column("''"))
-        + literal_column("' '")
-        + func.coalesce(content, literal_column("''")),
+def post_search_document(
+    title: ColumnElement,
+    description: ColumnElement,
+    keywords: ColumnElement,
+) -> ColumnElement:
+    configuration = literal_column("'simple'")
+    title_vector = func.setweight(
+        func.to_tsvector(
+            configuration, func.coalesce(title, literal_column("''"))
+        ),
+        literal_column("'A'"),
+    )
+    description_vector = func.setweight(
+        func.to_tsvector(
+            configuration,
+            func.coalesce(description, literal_column("''")),
+        ),
+        literal_column("'B'"),
+    )
+    keywords_vector = func.setweight(
+        func.to_tsvector(
+            configuration,
+            func.coalesce(
+                func.array_to_string(keywords, literal_column("' '")),
+                literal_column("''"),
+            ),
+        ),
+        literal_column("'C'"),
+    )
+    return title_vector.op("||")(description_vector).op("||")(
+        keywords_vector
     )
 
 
@@ -125,7 +149,7 @@ POST_SEARCH_INDEX = Index(
     post_search_document(
         PostProjection.__table__.c.title,
         PostProjection.__table__.c.description,
-        PostProjection.__table__.c.content,
+        PostProjection.__table__.c.keywords,
     ),
     postgresql_using="gin",
 ).ddl_if(dialect="postgresql")

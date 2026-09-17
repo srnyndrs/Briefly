@@ -46,8 +46,11 @@ sources, subject to saved languages and visibility exclusions. `GET /explore`
 returns global posts with explicit category, language, source, date, and
 optional full-text search filters; it applies the same visibility exclusions
 without applying saved languages or subscriptions. `source_ids` is repeatable,
-and `query` searches projected title, description, and content. Search results
-use relevance ordering, so `sort` cannot be combined with `query`. Both routes
+and `query` searches projected title, description, and keywords (not full
+content). Title matches rank ahead of description matches, which rank ahead of
+keyword-only matches. Search uses web-style syntax, has no prefix/autocomplete
+matching, and relevance ordering means `sort` cannot be combined with `query`.
+Both routes
 support page-number pagination. Explore also supports an opt-in
 `include_filter_options=true` response field for available categories,
 languages, and source options.
@@ -58,12 +61,8 @@ For example:
 /explore?source_ids=...&source_ids=...&query=%22climate+change%22&include_filter_options=true
 ```
 
-The PostgreSQL search index was verified with 10,001 disposable projected
-posts after `ANALYZE`. The representative query searched `climate`, applied
-blocked-source, muted-category, and muted-keyword exclusions, ranked by
-`ts_rank_cd`, and limited the page to 20 rows. PostgreSQL used a
-`Bitmap Index Scan` on `ix_post_projections_search_vector`; the measured
-execution time was 9.315 ms with 354 shared blocks hit.
+The disposable PostgreSQL search-index and query-plan verification is a
+deployment validation step; it must be rerun after rebuilding the local schema.
 
 ## Development
 

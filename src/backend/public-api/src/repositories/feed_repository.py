@@ -136,7 +136,7 @@ class PostRepository:
         document = post_search_document(
             PostProjection.title,
             PostProjection.description,
-            PostProjection.content,
+            PostProjection.keywords,
         )
         if self._db.bind and self._db.bind.dialect.name == "postgresql":
             return query.where(
@@ -148,7 +148,7 @@ class PostRepository:
         fields = (
             PostProjection.title,
             PostProjection.description,
-            PostProjection.content,
+            cast(PostProjection.keywords, String),
         )
         terms = re.findall(r'"([^"]+)"|([^\s]+)', search_query)
         for phrase, word in terms:
@@ -194,7 +194,7 @@ class PostRepository:
             document = post_search_document(
                 PostProjection.title,
                 PostProjection.description,
-                PostProjection.content,
+                PostProjection.keywords,
             )
             order_by = (
                 func.ts_rank_cd(

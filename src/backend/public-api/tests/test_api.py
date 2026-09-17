@@ -920,7 +920,7 @@ def test_explore_query_searches_fields_and_supports_web_syntax() -> (
                 canonical_url="https://example.com/search-title",
                 title="Climate change report",
                 language="en",
-                keywords=["ignored-keyword"],
+                keywords=["Technology trends"],
                 published_at=now,
                 updated_at=now,
             ),
@@ -975,6 +975,7 @@ def test_explore_query_searches_fields_and_supports_web_syntax() -> (
     db.commit()
 
     climate = client.get("/explore", params={"query": "  CLIMATE "})
+    keyword = client.get("/explore", params={"query": "Technology"})
     phrase = client.get(
         "/explore", params={"query": '"climate change"'}
     )
@@ -984,12 +985,16 @@ def test_explore_query_searches_fields_and_supports_web_syntax() -> (
     cafe = client.get("/explore", params={"query": "cafe"})
     accented = client.get("/explore", params={"query": "Café"})
 
-    assert climate.json()["total"] == 4
+    assert climate.json()["total"] == 3
+    assert keyword.json()["total"] == 1
+    assert keyword.json()["items"][0]["post_id"] == (
+        "00000000-0000-0000-0000-000000000001"
+    )
     assert phrase.json()["total"] == 1
     assert phrase.json()["items"][0]["post_id"] == (
         "00000000-0000-0000-0000-000000000001"
     )
-    assert negated.json()["total"] == 3
+    assert negated.json()["total"] == 2
     assert cafe.json()["total"] == 0
     assert accented.json()["total"] == 1
 
