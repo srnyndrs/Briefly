@@ -4,13 +4,15 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
 import com.srnyndrs.android.briefly.domain.model.content.Post
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class ExploreFeedPagingSource(
     private val contentApiService: ContentApiService,
     private val request: ExploreRequestDto,
+    private val metadata: MutableStateFlow<ExploreFilterOptions?>? = null,
 ) : PagingSource<Int, Post>() {
 
     override fun getRefreshKey(state: PagingState<Int, Post>): Int? {
@@ -26,6 +28,9 @@ class ExploreFeedPagingSource(
             val response = contentApiService.getExplore(
                 request.copy(page = page, pageSize = params.loadSize)
             )
+            if (page == 1 && response.filterOptions != null) {
+                metadata?.value = response.filterOptions.toDomain()
+            }
             val items = response.items.map { it.toDomain() }
             val prevKey = if (page <= 1) null else page - 1
             val nextKey = if (items.isEmpty() || page >= response.pageCount) null else page + 1

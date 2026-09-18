@@ -1,25 +1,27 @@
 package com.srnyndrs.android.briefly.data.repository.content
 
-import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.PostDetails
-import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
-import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
-import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.Source
-import com.srnyndrs.android.briefly.domain.model.content.Subscription
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
-import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
-import io.ktor.http.HttpStatusCode
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.toDomain
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFeed
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
+import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
+import com.srnyndrs.android.briefly.domain.model.content.Source
+import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.Subscription
+import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
+import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
@@ -39,17 +41,18 @@ class ContentRepositoryImpl @Inject constructor(
         return HomeFeed(
             posts = getHomePostPagingFlow(
                 request = FeedRequestDto(
-            includeFilterOptions = true,
-            category = filter.category,
-        ),
+                    includeFilterOptions = true,
+                    category = filter.category,
+                ),
                 metadata = metadata,
             ),
             metadata = metadata,
         )
     }
 
-    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> = getExplorePostPagingFlow(
-        ExploreRequestDto(
+    override fun getExploreFeed(filter: ExplorePostFilter): ExploreFeed {
+        val metadata = MutableStateFlow<ExploreFilterOptions?>(null)
+        val request = ExploreRequestDto(
             query = filter.query,
             sourceIds = filter.sourceIds,
             categories = filter.categories,
@@ -57,8 +60,31 @@ class ContentRepositoryImpl @Inject constructor(
             publishedFrom = filter.publishedFrom?.toString(),
             publishedTo = filter.publishedTo?.toString(),
             sort = filter.sort,
+            includeFilterOptions = true,
         )
-    )
+        val posts = Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                initialLoadSize = PAGE_SIZE,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                ExploreFeedPagingSource(
+                    contentApiService = contentApiService,
+                    request = request,
+                    metadata = metadata,
+                )
+            }
+        ).flow
+        return ExploreFeed(
+            posts = posts,
+            metadata = metadata,
+        )
+    }
+
+    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> {
+        return getExploreFeed(filter).posts
+    }
 
     private fun getHomePostPagingFlow(
         request: FeedRequestDto,
@@ -76,19 +102,6 @@ class ContentRepositoryImpl @Inject constructor(
                     request = request,
                     metadata = metadata,
                 )
-            }
-        ).flow
-    }
-
-    private fun getExplorePostPagingFlow(request: ExploreRequestDto): Flow<PagingData<Post>> {
-        return Pager(
-            config = PagingConfig(
-                pageSize = PAGE_SIZE,
-                initialLoadSize = PAGE_SIZE,
-                enablePlaceholders = false
-            ),
-            pagingSourceFactory = {
-                ExploreFeedPagingSource(contentApiService, request)
             }
         ).flow
     }
@@ -189,5 +202,4 @@ class ContentRepositoryImpl @Inject constructor(
             Result.failure(exception)
         }
     }
-
 }

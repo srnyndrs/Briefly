@@ -12,6 +12,10 @@ import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
 import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.domain.model.content.Subscription
+import com.srnyndrs.android.briefly.data.remote.content.dto.FilterOptionsDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceEntry
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.FilterSource
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -90,3 +94,19 @@ fun SourceDetailsResponseDto.toDomain(): SourceDetails {
         lastUpdatedAt = updatedAt
     )
 }
+
+fun SourceEntry.toDomain(): FilterSource {
+    return FilterSource(
+        id = id,
+        title = title,
+    )
+}
+
+fun FilterOptionsDto.toDomain(): ExploreFilterOptions {
+    return ExploreFilterOptions(
+        categories = categories,
+        languages = languages,
+        sources = sources.map { it.toDomain() },
+    )
+}
+

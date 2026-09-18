@@ -34,4 +34,25 @@
     <string name="settings_saved_success">Preferences successfully saved.</string>
     <string name="settings_failure">Unable to update settings</string>
     <string name="settings_dismiss">Dismiss</string>
+    <string name="explore_search_placeholder">Search articles, topics, sources…</string>
+    <string name="explore_filter_title">Filter Options</string>
+    <string name="explore_filter_reset">Reset All</string>
+    <string name="explore_filter_apply">Apply Filters</string>
+    <string name="explore_filter_section_sort">Sort By</string>
+    <string name="explore_filter_sort_freshness">Latest First</string>
+    <string name="explore_filter_sort_oldest">Oldest First</string>
+    <string name="explore_filter_sort_query_disabled">Search queries are ranked by relevance</string>
+    <string name="explore_filter_section_date">Publication Date Range</string>
+    <string name="explore_filter_date_from">From</string>
+    <string name="explore_filter_date_to">To</string>
+    <string name="explore_filter_date_any">Any time</string>
+    <string name="explore_filter_date_select_range">Select Date Range</string>
+    <string name="explore_filter_date_clear">Clear Dates</string>
+    <string name="explore_filter_section_categories">Categories</string>
+    <string name="explore_filter_section_languages">Languages</string>
+    <string name="explore_filter_section_sources">Sources</string>
+    <string name="explore_filter_button_cd">Open filters</string>
+    <string name="explore_filter_clear_all">Clear All</string>
+    <string name="explore_filter_confirm">Confirm</string>
+    <string name="explore_filter_cancel">Cancel</string>
 </resources>
