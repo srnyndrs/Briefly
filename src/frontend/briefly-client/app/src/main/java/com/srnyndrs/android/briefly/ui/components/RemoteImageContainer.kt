@@ -77,9 +77,14 @@ fun RemoteImage(
     when (state) {
         is AsyncImagePainter.State.Empty,
         is AsyncImagePainter.State.Loading -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-            )
+            ShimmerItem(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                    MaterialTheme.colorScheme.surface.copy(0.6f)
+                    ),
+                isLoading = true
+            ) {}
         }
         is AsyncImagePainter.State.Success -> {
             Image(
@@ -90,9 +95,9 @@ fun RemoteImage(
             )
         }
         is AsyncImagePainter.State.Error -> {
-            // TODO: apply shimmer effect
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .background(
                         MaterialTheme.colorScheme.errorContainer.copy(0.6f)
                     ),
@@ -133,13 +138,12 @@ fun RemoteImagePreview() {
                 )
             )
 
-
             Column(
                 modifier = Modifier.fillMaxWidth().padding(6.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                stateList.map { state ->
+                stateList.forEach { state ->
                     Box(
                         modifier = Modifier
                             .requiredWidth(72.dp)
