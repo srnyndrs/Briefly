@@ -125,7 +125,10 @@ fun MainScreen(
                     .fillMaxSize()
                     .let {
                         if(isTopBarShow) {
-                            it.padding(innerPadding)
+                            it.padding(
+                                top = innerPadding.calculateTopPadding(),
+                                bottom = 0.dp
+                            )
                         } else {
                             it.padding(top = 0.dp)
                         }

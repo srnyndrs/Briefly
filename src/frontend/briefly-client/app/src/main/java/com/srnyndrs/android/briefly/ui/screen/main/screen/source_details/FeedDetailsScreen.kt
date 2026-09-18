@@ -324,7 +324,11 @@ fun SourceDetailsScreen(
                                 publishDate = article.publishDate,
                                 isLoading = false,
                             ) {
-                                onNavigationEvent(MainNavigationEvent.ShowPostDetails(article.id))
+                                if (article.hasContent) {
+                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(article.id))
+                                } else {
+                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(article.url))
+                                }
                             }
                             /*HorizontalDivider(
                                 modifier = Modifier

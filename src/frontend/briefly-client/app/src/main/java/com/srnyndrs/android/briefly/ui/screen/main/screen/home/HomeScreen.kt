@@ -147,9 +147,11 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             headlines = state.headlines,
                             onHeadlineSelected = { post ->
-                                onNavigationEvent(
-                                    MainNavigationEvent.ShowPostDetails(post.id),
-                                )
+                                if (post.hasContent) {
+                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(post.id))
+                                } else {
+                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(post.url))
+                                }
                             },
                         )
                     }

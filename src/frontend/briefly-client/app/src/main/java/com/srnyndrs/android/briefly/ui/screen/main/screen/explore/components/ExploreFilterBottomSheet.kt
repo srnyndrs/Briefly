@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -53,221 +54,217 @@ fun ExploreFilterBottomSheet(
     onDismiss: () -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
+        modifier = Modifier.then(modifier),
     ) {
-        // Header: Title, Close button, and Newspaper dividers
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.explore_filter_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                IconButton(
-                    modifier = Modifier.size(36.dp),
-                    onClick = onDismiss,
-                ) {
-                    Icon(
-                        imageVector = Heroicons.Solid.XMark,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                thickness = 2.dp,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            HorizontalDivider(
-                thickness = 4.dp,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Scrollable filter sections
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Section 1: Sort
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterSectionHeader(
-                    title = stringResource(R.string.explore_filter_section_sort),
-                )
-
-                val isQueryActive = !draftFilter.query.isNullOrBlank()
-                if (isQueryActive) {
+            // Header: Title, Close button, and Newspaper dividers
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        text = stringResource(R.string.explore_filter_sort_query_disabled),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        text = stringResource(R.string.explore_filter_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                     )
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HomeCategoryChip(
-                            label = stringResource(R.string.explore_filter_sort_freshness),
-                            selected = draftFilter.sort == null || draftFilter.sort == "freshness",
-                            onClick = {
-                                onDraftFilterChange(draftFilter.copy(sort = "freshness"))
-                            },
-                        )
-                        HomeCategoryChip(
-                            label = stringResource(R.string.explore_filter_sort_oldest),
-                            selected = draftFilter.sort == "oldest",
-                            onClick = {
-                                onDraftFilterChange(draftFilter.copy(sort = "oldest"))
-                            },
+                    IconButton(
+                        modifier = Modifier.size(36.dp),
+                        onClick = onDismiss,
+                    ) {
+                        Icon(
+                            imageVector = Heroicons.Solid.XMark,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
-            }
 
-            // Section 2: Publication Date Range
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterSectionHeader(
-                    title = stringResource(R.string.explore_filter_section_date),
-                )
-                DateRangeSelector(
-                    publishedFrom = draftFilter.publishedFrom,
-                    publishedTo = draftFilter.publishedTo,
-                    onDateRangeSelected = { from, to ->
-                        onDraftFilterChange(
-                            draftFilter.copy(
-                                publishedFrom = from,
-                                publishedTo = to,
-                            )
-                        )
-                    },
-                    onClearDateRange = {
-                        onDraftFilterChange(
-                            draftFilter.copy(
-                                publishedFrom = null,
-                                publishedTo = null,
-                            )
-                        )
-                    },
+                HorizontalDivider(
+                    thickness = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
 
-            // Section 3: Categories
-            if (filterOptions.categories.isNotEmpty()) {
+            // Scrollable filter sections
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                // Section 1: Sort
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     FilterSectionHeader(
-                        title = stringResource(R.string.explore_filter_section_categories),
+                        title = stringResource(R.string.explore_filter_section_sort),
                     )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        filterOptions.categories.forEach { category ->
-                            val isSelected = draftFilter.categories?.contains(category) == true
+
+                    val isQueryActive = !draftFilter.query.isNullOrBlank()
+                    if (isQueryActive) {
+                        Text(
+                            text = stringResource(R.string.explore_filter_sort_query_disabled),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             HomeCategoryChip(
-                                label = category,
-                                selected = isSelected,
+                                label = stringResource(R.string.explore_filter_sort_freshness),
+                                selected = draftFilter.sort == null || draftFilter.sort == "freshness",
                                 onClick = {
-                                    val currentList = draftFilter.categories.orEmpty()
-                                    val updatedList = if (isSelected) {
-                                        currentList - category
-                                    } else {
-                                        currentList + category
-                                    }
-                                    onDraftFilterChange(
-                                        draftFilter.copy(
-                                            categories = updatedList.ifEmpty { null }
-                                        )
-                                    )
+                                    onDraftFilterChange(draftFilter.copy(sort = "freshness"))
+                                },
+                            )
+                            HomeCategoryChip(
+                                label = stringResource(R.string.explore_filter_sort_oldest),
+                                selected = draftFilter.sort == "oldest",
+                                onClick = {
+                                    onDraftFilterChange(draftFilter.copy(sort = "oldest"))
                                 },
                             )
                         }
                     }
                 }
-            }
 
-            // Section 4: Languages
-            if (filterOptions.languages.isNotEmpty()) {
+                // Section 2: Publication Date Range
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     FilterSectionHeader(
-                        title = stringResource(R.string.explore_filter_section_languages),
+                        title = stringResource(R.string.explore_filter_section_date),
                     )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        filterOptions.languages.forEach { language ->
-                            val isSelected = draftFilter.languages?.contains(language) == true
-                            HomeCategoryChip(
-                                label = language.uppercase(),
-                                selected = isSelected,
-                                onClick = {
-                                    val currentList = draftFilter.languages.orEmpty()
-                                    val updatedList = if (isSelected) {
-                                        currentList - language
-                                    } else {
-                                        currentList + language
-                                    }
-                                    onDraftFilterChange(
-                                        draftFilter.copy(
-                                            languages = updatedList.ifEmpty { null }
-                                        )
-                                    )
-                                },
+                    DateRangeSelector(
+                        publishedFrom = draftFilter.publishedFrom,
+                        publishedTo = draftFilter.publishedTo,
+                        onDateRangeSelected = { from, to ->
+                            onDraftFilterChange(
+                                draftFilter.copy(
+                                    publishedFrom = from,
+                                    publishedTo = to,
+                                )
                             )
+                        },
+                        onClearDateRange = {
+                            onDraftFilterChange(
+                                draftFilter.copy(
+                                    publishedFrom = null,
+                                    publishedTo = null,
+                                )
+                            )
+                        },
+                    )
+                }
+
+                // Section 3: Categories
+                if (filterOptions.categories.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilterSectionHeader(
+                            title = stringResource(R.string.explore_filter_section_categories),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            filterOptions.categories.forEach { category ->
+                                val isSelected = draftFilter.categories?.contains(category) == true
+                                HomeCategoryChip(
+                                    label = category,
+                                    selected = isSelected,
+                                    onClick = {
+                                        val currentList = draftFilter.categories.orEmpty()
+                                        val updatedList = if (isSelected) {
+                                            currentList - category
+                                        } else {
+                                            currentList + category
+                                        }
+                                        onDraftFilterChange(
+                                            draftFilter.copy(
+                                                categories = updatedList.ifEmpty { null }
+                                            )
+                                        )
+                                    },
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Section 5: Sources
-            if (filterOptions.sources.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilterSectionHeader(
-                        title = stringResource(R.string.explore_filter_section_sources),
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        filterOptions.sources.forEach { source ->
-                            val isSelected = draftFilter.sourceIds?.contains(source.id) == true
-                            HomeCategoryChip(
-                                label = source.title,
-                                selected = isSelected,
-                                onClick = {
-                                    val currentList = draftFilter.sourceIds.orEmpty()
-                                    val updatedList = if (isSelected) {
-                                        currentList - source.id
-                                    } else {
-                                        currentList + source.id
-                                    }
-                                    onDraftFilterChange(
-                                        draftFilter.copy(
-                                            sourceIds = updatedList.ifEmpty { null }
+                // Section 4: Languages
+                if (filterOptions.languages.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilterSectionHeader(
+                            title = stringResource(R.string.explore_filter_section_languages),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            filterOptions.languages.forEach { language ->
+                                val isSelected = draftFilter.languages?.contains(language) == true
+                                HomeCategoryChip(
+                                    label = language.uppercase(),
+                                    selected = isSelected,
+                                    onClick = {
+                                        val currentList = draftFilter.languages.orEmpty()
+                                        val updatedList = if (isSelected) {
+                                            currentList - language
+                                        } else {
+                                            currentList + language
+                                        }
+                                        onDraftFilterChange(
+                                            draftFilter.copy(
+                                                languages = updatedList.ifEmpty { null }
+                                            )
                                         )
-                                    )
-                                },
-                            )
+                                    },
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                // Section 5: Sources
+                if (filterOptions.sources.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilterSectionHeader(
+                            title = stringResource(R.string.explore_filter_section_sources),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            filterOptions.sources.forEach { source ->
+                                val isSelected = draftFilter.sourceIds?.contains(source.id) == true
+                                HomeCategoryChip(
+                                    label = source.title,
+                                    selected = isSelected,
+                                    onClick = {
+                                        val currentList = draftFilter.sourceIds.orEmpty()
+                                        val updatedList = if (isSelected) {
+                                            currentList - source.id
+                                        } else {
+                                            currentList + source.id
+                                        }
+                                        onDraftFilterChange(
+                                            draftFilter.copy(
+                                                sourceIds = updatedList.ifEmpty { null }
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
 
         // Bottom Sticky Actions: Reset All & Apply
@@ -327,6 +324,7 @@ fun ExploreFilterBottomSheetPreview() {
     BrieflyTheme {
         Surface {
             ExploreFilterBottomSheet(
+                modifier = Modifier.fillMaxSize(),
                 draftFilter = ExplorePostFilter(
                     categories = listOf("Politics"),
                     languages = listOf("en"),

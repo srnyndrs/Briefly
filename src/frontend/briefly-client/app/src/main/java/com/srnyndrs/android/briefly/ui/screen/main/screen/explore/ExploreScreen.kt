@@ -1,11 +1,14 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.explore
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -63,9 +67,6 @@ fun ExploreScreen(
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
         skipHiddenState = false,
-        confirmValueChange = { targetValue ->
-            targetValue != SheetValue.PartiallyExpanded
-        },
     )
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = bottomSheetState,
@@ -74,18 +75,21 @@ fun ExploreScreen(
     LaunchedEffect(state.isFilterSheetOpen) {
         if (state.isFilterSheetOpen) {
             bottomSheetState.expand()
-        } else if (bottomSheetState.isVisible) {
+        } else {
             bottomSheetState.hide()
         }
     }
 
     LaunchedEffect(bottomSheetState.currentValue) {
-        if (bottomSheetState.currentValue == SheetValue.Hidden && state.isFilterSheetOpen) {
+        if (
+            bottomSheetState.currentValue != SheetValue.Expanded &&
+            state.isFilterSheetOpen
+        ) {
             onExploreEvent(ExploreEvent.DismissFilterSheet)
         }
     }
 
-    BackHandler(enabled = bottomSheetState.isVisible) {
+    BackHandler(enabled = state.isFilterSheetOpen) {
         scope.launch { bottomSheetState.hide() }
         onExploreEvent(ExploreEvent.DismissFilterSheet)
     }
@@ -93,17 +97,22 @@ fun ExploreScreen(
     val refreshState = posts.loadState.refresh
 
     BottomSheetScaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.then(modifier),
         scaffoldState = scaffoldState,
         sheetPeekHeight = 0.dp,
         sheetDragHandle = null,
-        sheetSwipeEnabled = bottomSheetState.isVisible || state.isFilterSheetOpen,
+        sheetSwipeEnabled = false,
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContainerColor = MaterialTheme.colorScheme.surface,
         sheetContentColor = MaterialTheme.colorScheme.onSurface,
         sheetContent = {
             ExploreFilterBottomSheet(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.onSurface,
+                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    ),
                 draftFilter = state.draftFilter,
                 filterOptions = state.filterOptions,
                 onDraftFilterChange = { onExploreEvent(ExploreEvent.UpdateDraftFilter(it)) },
@@ -118,11 +127,10 @@ fun ExploreScreen(
                 },
             )
         },
-    ) { paddingValues ->
+    ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -250,6 +258,7 @@ fun ExploreScreen(
             }
         }
     }
+
 }
 
 @OptIn(ExperimentalTime::class, ExperimentalMaterial3Api::class)
