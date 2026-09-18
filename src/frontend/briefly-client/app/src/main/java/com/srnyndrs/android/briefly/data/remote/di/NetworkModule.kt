@@ -1,5 +1,6 @@
 package com.srnyndrs.android.briefly.data.remote.di
 
+import com.srnyndrs.android.briefly.BuildConfig
 import com.srnyndrs.android.briefly.data.local.auth.AuthSessionManager
 import com.srnyndrs.android.briefly.data.remote.auth.AuthApiService
 import com.srnyndrs.android.briefly.data.remote.auth.dto.RefreshRequestDto
@@ -99,8 +100,7 @@ object NetworkModule {
             }
         }
         defaultRequest {
-            // TODO: use BuildConfig
-            url("http://10.0.2.2:8000/")
+            url(BuildConfig.BACKEND_BASE_URL)
             contentType(ContentType.Application.Json)
         }
     }
