@@ -20,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemColors
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -50,6 +52,11 @@ fun MainDrawerContent(
 ) {
 
     val scrollState = rememberScrollState()
+    val itemColors = NavigationDrawerItemDefaults.colors(
+        selectedContainerColor = MaterialTheme.colorScheme.onSurface
+            .copy(0.125f),
+        unselectedContainerColor = MaterialTheme.colorScheme.surface,
+    )
 
     Column(
         modifier = Modifier.then(modifier)
@@ -86,6 +93,7 @@ fun MainDrawerContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             NavigationDrawerItem(
+                colors = itemColors,
                 label = {
                     Text(
                         text = "Home"
@@ -104,6 +112,7 @@ fun MainDrawerContent(
                 }
             )
             NavigationDrawerItem(
+                colors = itemColors,
                 label = {
                     Text(
                         text = "Explore"
@@ -132,6 +141,7 @@ fun MainDrawerContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             NavigationDrawerItem(
+                colors = itemColors,
                 label = {
                     Text(
                         text = "Feed Sources"
@@ -155,6 +165,7 @@ fun MainDrawerContent(
             color = MaterialTheme.colorScheme.onSurface.copy(0.125f)
         )
         NavigationDrawerItem(
+            colors = itemColors,
             label = {
                 Text(
                     text = "Settings"
@@ -172,6 +183,7 @@ fun MainDrawerContent(
             }
         )
         NavigationDrawerItem(
+            colors = itemColors,
             label = {
                 Text(
                     text = "Sign Out"
