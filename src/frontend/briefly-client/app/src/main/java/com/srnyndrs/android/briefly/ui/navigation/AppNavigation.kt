@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,29 +34,17 @@ import com.srnyndrs.android.briefly.ui.screen.profile.ProfileViewModel
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
+    viewModel: AppViewModel,
     navController: NavHostController,
 ) {
 
-    val viewModel = hiltViewModel<AppViewModel>()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
 
     when (authState) {
         AuthState.Loading -> {
-            Box(
-                modifier = Modifier.then(modifier),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = stringResource(R.string.session_loading),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
+            SessionSplash(
+                modifier = Modifier.then(modifier)
+            )
         }
         AuthState.Unavailable -> {
             Box(

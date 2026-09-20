@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Briefly</string>
-    <string name="session_loading">Restoring your session…</string>
     <string name="session_unavailable">Unable to reach Briefly. Check your connection and try again.</string>
     <string name="session_retry">Try again</string>
     <string name="home_category_all">All</string>
