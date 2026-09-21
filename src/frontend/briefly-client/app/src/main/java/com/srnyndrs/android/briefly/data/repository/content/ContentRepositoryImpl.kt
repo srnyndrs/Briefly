@@ -143,6 +143,17 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions> {
+        return try {
+            val response = contentApiService.getExploreFilterOptions()
+            val options = response.filterOptions
+                ?: error("Explore response did not include filter options")
+            Result.success(options.toDomain())
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
     override suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>> {
         return try {
             val response = contentApiService.getFeedSourceSubscriptions()

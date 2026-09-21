@@ -1,4 +1,4 @@
-package com.srnyndrs.android.briefly.ui.screen.main.screen.explore.components
+package com.srnyndrs.android.briefly.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,15 +18,12 @@ import androidx.compose.ui.unit.dp
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
-fun FilterSectionHeader(
+fun SectionHeader(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String? = null,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -39,7 +36,6 @@ fun FilterSectionHeader(
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
-
         subtitle?.let {
             Text(
                 text = it,
@@ -47,11 +43,8 @@ fun FilterSectionHeader(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
             )
         }
-
         HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
         )
@@ -60,17 +53,14 @@ fun FilterSectionHeader(
 
 @PreviewLightDark
 @Composable
-fun FilterSectionHeaderPreview() {
+private fun SectionHeaderPreview() {
     BrieflyTheme {
         Surface {
-            FilterSectionHeader(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+            SectionHeader(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 title = "Categories",
                 subtitle = "Filter articles by primary topics",
             )
         }
     }
 }
-

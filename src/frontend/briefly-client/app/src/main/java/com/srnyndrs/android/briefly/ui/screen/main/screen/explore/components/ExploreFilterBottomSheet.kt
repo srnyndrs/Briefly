@@ -38,7 +38,8 @@ import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
 import com.srnyndrs.android.briefly.domain.model.content.FilterSource
 import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.components.HomeCategoryChip
+import com.srnyndrs.android.briefly.ui.components.SectionHeader
+import com.srnyndrs.android.briefly.ui.components.SelectionChip
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 import kotlin.time.ExperimentalTime
 
@@ -104,7 +105,7 @@ fun ExploreFilterBottomSheet(
             ) {
                 // Section 1: Sort
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilterSectionHeader(
+                    SectionHeader(
                         title = stringResource(R.string.explore_filter_section_sort),
                     )
 
@@ -117,14 +118,14 @@ fun ExploreFilterBottomSheet(
                         )
                     } else {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            HomeCategoryChip(
+                            SelectionChip(
                                 label = stringResource(R.string.explore_filter_sort_freshness),
                                 selected = draftFilter.sort == null || draftFilter.sort == "freshness",
                                 onClick = {
                                     onDraftFilterChange(draftFilter.copy(sort = "freshness"))
                                 },
                             )
-                            HomeCategoryChip(
+                            SelectionChip(
                                 label = stringResource(R.string.explore_filter_sort_oldest),
                                 selected = draftFilter.sort == "oldest",
                                 onClick = {
@@ -137,7 +138,7 @@ fun ExploreFilterBottomSheet(
 
                 // Section 2: Publication Date Range
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilterSectionHeader(
+                    SectionHeader(
                         title = stringResource(R.string.explore_filter_section_date),
                     )
                     DateRangeSelector(
@@ -165,7 +166,7 @@ fun ExploreFilterBottomSheet(
                 // Section 3: Categories
                 if (filterOptions.categories.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FilterSectionHeader(
+                        SectionHeader(
                             title = stringResource(R.string.explore_filter_section_categories),
                         )
                         FlowRow(
@@ -174,7 +175,7 @@ fun ExploreFilterBottomSheet(
                         ) {
                             filterOptions.categories.forEach { category ->
                                 val isSelected = draftFilter.categories?.contains(category) == true
-                                HomeCategoryChip(
+                                SelectionChip(
                                     label = category,
                                     selected = isSelected,
                                     onClick = {
@@ -199,7 +200,7 @@ fun ExploreFilterBottomSheet(
                 // Section 4: Languages
                 if (filterOptions.languages.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FilterSectionHeader(
+                        SectionHeader(
                             title = stringResource(R.string.explore_filter_section_languages),
                         )
                         FlowRow(
@@ -208,7 +209,7 @@ fun ExploreFilterBottomSheet(
                         ) {
                             filterOptions.languages.forEach { language ->
                                 val isSelected = draftFilter.languages?.contains(language) == true
-                                HomeCategoryChip(
+                                SelectionChip(
                                     label = language.uppercase(),
                                     selected = isSelected,
                                     onClick = {
@@ -233,7 +234,7 @@ fun ExploreFilterBottomSheet(
                 // Section 5: Sources
                 if (filterOptions.sources.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FilterSectionHeader(
+                        SectionHeader(
                             title = stringResource(R.string.explore_filter_section_sources),
                         )
                         FlowRow(
@@ -242,7 +243,7 @@ fun ExploreFilterBottomSheet(
                         ) {
                             filterOptions.sources.forEach { source ->
                                 val isSelected = draftFilter.sourceIds?.contains(source.id) == true
-                                HomeCategoryChip(
+                                SelectionChip(
                                     label = source.title,
                                     selected = isSelected,
                                     onClick = {

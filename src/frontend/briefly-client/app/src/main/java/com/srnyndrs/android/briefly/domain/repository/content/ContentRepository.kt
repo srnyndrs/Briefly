@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.domain.repository.content
 
 import androidx.paging.PagingData
 import com.srnyndrs.android.briefly.domain.model.content.ExploreFeed
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
 import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
 import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.domain.model.content.PostDetails
@@ -19,6 +20,7 @@ interface ContentRepository {
     fun getExploreFeed(filter: ExplorePostFilter): ExploreFeed
     suspend fun fetchArticles(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): Result<PostPagingResult>
     suspend fun fetchFeedSources(query: String? = null): Result<List<Source>>
+    suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions>
     suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>>
     suspend fun getFeedSourceDetails(sourceId: String): Result<SourceDetails>
     suspend fun subscribeFeedSource(sourceId: String): Result<Subscription>

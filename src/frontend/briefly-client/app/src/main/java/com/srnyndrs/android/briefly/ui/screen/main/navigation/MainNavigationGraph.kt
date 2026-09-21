@@ -30,6 +30,7 @@ import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsScreen
+import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsViewModel
 
 @Composable
 fun MainNavigationGraph(
@@ -166,8 +167,13 @@ fun MainNavigationGraph(
         composable(
             route = MainRoutes.Settings.route,
         ) {
+            val viewModel = hiltViewModel<SettingsViewModel>()
+            val state by viewModel.state.collectAsStateWithLifecycle()
+
             SettingsScreen(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                state = state,
+                onEvent = viewModel::onEvent,
             )
         }
     }

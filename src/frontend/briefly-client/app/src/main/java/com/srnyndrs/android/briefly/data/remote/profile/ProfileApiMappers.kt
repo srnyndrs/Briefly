@@ -2,6 +2,7 @@ package com.srnyndrs.android.briefly.data.remote.profile
 
 import com.srnyndrs.android.briefly.data.remote.profile.dto.PreferencesDto
 import com.srnyndrs.android.briefly.data.remote.profile.dto.ProfileDataResponseDto
+import com.srnyndrs.android.briefly.data.remote.profile.dto.PreferenceUpdateRequestDto
 import com.srnyndrs.android.briefly.domain.model.profile.ProfileData
 import com.srnyndrs.android.briefly.domain.model.profile.ProfilePreferences
 
@@ -16,8 +17,16 @@ fun PreferencesDto.toDomain(): ProfilePreferences {
     return ProfilePreferences(
         mutedKeywords = this.mutedKeywords,
         mutedCategories = this.mutedCategories,
-        categoryInterests = emptyList(), // this.categoryInterests,
         blockedSourceIds = this.blockedSourceIds.toSet(),
         languages = this.languages.toSet(),
+    )
+}
+
+fun ProfilePreferences.toPatchDto(): PreferenceUpdateRequestDto {
+    return PreferenceUpdateRequestDto(
+        mutedKeywords = mutedKeywords,
+        mutedCategories = mutedCategories,
+        blockedSourceIds = blockedSourceIds.toList(),
+        languages = languages.toList(),
     )
 }

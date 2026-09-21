@@ -37,7 +37,7 @@ class ContentApiService (
 
     suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
         return client.get("explore") {
-            parameter("include_filter_options", true)
+            parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
             request.query?.let {
@@ -64,6 +64,16 @@ class ContentApiService (
                 }
             }
         }.body()
+    }
+
+    suspend fun getExploreFilterOptions(): PostListItemsResponseDto {
+        return getExplore(
+            ExploreRequestDto(
+                page = 1,
+                pageSize = 1,
+                includeFilterOptions = true,
+            )
+        )
     }
 
     suspend fun getFeedSources(query: String? = null): List<SourceResponseDto> {

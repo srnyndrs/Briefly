@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.srnyndrs.android.briefly.R
+import com.srnyndrs.android.briefly.ui.components.SelectionChip
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 private const val MAX_VISIBLE_CATEGORIES = 5
@@ -40,7 +41,7 @@ fun HomeCategorySelector(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         item(key = "all") {
-            HomeCategoryChip(
+            SelectionChip(
                 label = stringResource(R.string.home_category_all),
                 selected = selectedCategory == null,
                 onClick = { onCategorySelected(null) },
@@ -53,7 +54,7 @@ fun HomeCategorySelector(
 
             val category = visibleCategories[index]
 
-            HomeCategoryChip(
+            SelectionChip(
                 label = category,
                 selected = selectedCategory == category,
                 onClick = { onCategorySelected(category) },
