@@ -37,7 +37,9 @@ class PostDetailsStateProvider: PreviewParameterProvider<PostDetailsState> {
                                 "Az ÁKK bejelentése szerint ezek a feltételek nem változnak, csak mindegyik fix kamatozású sorozat kamatszintje csökken.\n\n" +
                                 "A legtöbb állampapírt idő előtt egy egyszázalékos díj ellenében lehet eladni. A MÁP Plusznak ehhez képest van egy olyan előnye, hogy évente egyszer, egy ötnapos időtartamban ingyen vissza lehet váltani. A mostani bejelentéssel ezek a feltételek sem változnak.\n\n" +
                                 "Az inflációhoz kötött (prémium állampapír) és piaci folyamatokhoz kötött (bónusz állampapír) kamatait a mostani bejelentés nem érinti.\n\n" +
-                                "A kamatcsökkentést az ÁKK azzal magyarázza, hogy az elmúlt időszakban jelentősen megváltozott a magyarországi kamatkörnyezet, és a magyar állam mind a kötvénypiacon, mind a többi pénzügyi piacon a korábbinál alacsonyabb kamattal tud hitelt felvenni. Bár a közlemény nem tér ki erre, ennek az oka, hogy a külföldi befektetők sokkal szívesebben adnak pénzt az euró bevezetését ígérő Magyar-kormánynak, mint az Orbán-kormánynak."
+                                "A kamatcsökkentést az ÁKK azzal magyarázza, hogy az elmúlt időszakban jelentősen megváltozott a magyarországi kamatkörnyezet, és a magyar állam mind a kötvénypiacon, mind a többi pénzügyi piacon a korábbinál alacsonyabb kamattal tud hitelt felvenni. Bár a közlemény nem tér ki erre, ennek az oka, hogy a külföldi befektetők sokkal szívesebben adnak pénzt az euró bevezetését ígérő Magyar-kormánynak, mint az Orbán-kormánynak.",
+                        keywords = listOf("állampapír","fixMÁP", "kamat"),
+                        author = "Kiss Domonkos",
                     )
                 )
             )

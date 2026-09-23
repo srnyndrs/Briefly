@@ -14,5 +14,7 @@ data class PostDetails(
     val publishedAt: Instant,
     val language: String? = null,
     val content: String? = null,
+    val author: String? = null,
+    val keywords: List<String> = emptyList(),
     val imageUrl: String? = null
 )

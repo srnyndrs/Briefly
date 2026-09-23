@@ -52,6 +52,8 @@ fun PostResponseDto.toDomain(): PostDetails {
         sourceId = sourceId,
         title = title,
         content = content,
+        author = author,
+        keywords = keywords,
         imageUrl = imageRef,
         category = category,
         url = canonicalUrl,
@@ -106,6 +108,8 @@ fun FilterOptionsDto.toDomain(): ExploreFilterOptions {
     return ExploreFilterOptions(
         categories = categories,
         languages = languages,
+        authors = authors,
+        keywords = keywords,
         sources = sources.map { it.toDomain() },
     )
 }

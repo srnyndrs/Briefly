@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -469,7 +470,7 @@ fun PostDetailsScreen(
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(
-                                        text = "John Doe", // TODO: user article field
+                                        text = article?.author.orEmpty(),
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                 }
@@ -479,15 +480,14 @@ fun PostDetailsScreen(
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
                                 ) {
-                                    // TODO: loop through dynamic keywords field
-                                    items(5) { index ->
+                                    items(article?.keywords.orEmpty()) { keyword ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "Tag #${index + 1}",
+                                                text = keyword,
                                                 style = MaterialTheme.typography.labelMedium
                                             )
                                             IconButton(
