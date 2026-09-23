@@ -53,7 +53,7 @@ matching, and relevance ordering means `sort` cannot be combined with `query`.
 Both routes
 support page-number pagination. Explore also supports an opt-in
 `include_filter_options=true` response field for available categories,
-languages, and source options.
+languages, authors, and keywords; Explore additionally returns source options.
 
 For example:
 

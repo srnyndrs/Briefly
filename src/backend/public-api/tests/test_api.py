@@ -784,7 +784,8 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
                 title="Technology English",
                 language="en",
                 category="technology",
-                keywords=[],
+                author="Example Author",
+                keywords=["Climate", "policy"],
                 published_at=now,
                 updated_at=now,
             ),
@@ -852,6 +853,11 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
         "technology",
     ]
     assert payload["filter_options"]["languages"] == ["en", "hu"]
+    assert payload["filter_options"]["authors"] == ["Example Author"]
+    assert payload["filter_options"]["keywords"] == [
+        "Climate",
+        "policy",
+    ]
     assert [
         option["title"]
         for option in payload["filter_options"]["sources"]
@@ -902,6 +908,16 @@ def test_explore_source_ids_are_repeatable_and_options_ignore_selection() -> (
     assert {
         option["id"] for option in payload["filter_options"]["sources"]
     } == set(source_ids)
+
+
+def test_filter_options_openapi_exposes_metadata_arrays() -> None:
+    properties = app.openapi()["components"]["schemas"][
+        "FilterOptionsResponse"
+    ]["properties"]
+
+    for field in ("authors", "keywords"):
+        assert properties[field]["type"] == "array"
+        assert properties[field]["items"] == {"type": "string"}
 
 
 def test_explore_query_searches_fields_and_supports_web_syntax() -> (
@@ -1777,6 +1793,8 @@ def test_personal_feed_returns_empty_page_without_subscriptions(
     assert empty_res.json()["filter_options"] == {
         "categories": [],
         "languages": [],
+        "authors": [],
+        "keywords": [],
     }
 
 

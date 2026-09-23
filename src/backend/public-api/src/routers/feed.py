@@ -64,6 +64,8 @@ def _response(
         FilterOptionsResponse(
             categories=output.filter_options.categories,
             languages=output.filter_options.languages,
+            authors=output.filter_options.authors,
+            keywords=output.filter_options.keywords,
             sources=(
                 [
                     SourceOptionResponse(

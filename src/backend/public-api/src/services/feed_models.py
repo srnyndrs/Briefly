@@ -43,6 +43,8 @@ class SourceOptionDTO:
 class FilterOptionsDTO:
     categories: list[str]
     languages: list[str]
+    authors: list[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
     sources: list[SourceOptionDTO] | None = None
 
 

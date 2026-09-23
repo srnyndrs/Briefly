@@ -21,7 +21,12 @@ def _repository() -> tuple[Session, PostRepository]:
 
 
 def _post(
-    *, category: str | None, language: str, source_id: str
+    *,
+    category: str | None,
+    language: str,
+    source_id: str,
+    author: str | None = None,
+    keywords: list[str] | None = None,
 ) -> PostProjection:
     now = datetime.now(UTC)
     return PostProjection(
@@ -32,7 +37,8 @@ def _post(
         title="Article",
         category=category,
         language=language,
-        keywords=[],
+        author=author,
+        keywords=keywords or [],
         published_at=now,
         updated_at=now,
     )
@@ -71,6 +77,8 @@ def test_filter_options_ignore_their_own_active_dimension():
 
     assert category_options.categories == ["business", "technology"]
     assert language_options.languages == ["en", "hu"]
+    assert category_options.authors == []
+    assert category_options.keywords == []
     assert category_options.sources is None
     assert language_options.sources is None
     assert source_options.sources is not None
@@ -136,3 +144,41 @@ def test_personal_category_options_rank_normalized_categories():
     )
 
     assert options.categories == ["business", "technology", "world"]
+
+
+def test_filter_options_normalize_authors_and_keywords_from_all_rows():
+    session, repository = _repository()
+    source = str(uuid4())
+    session.add_all(
+        [
+            _post(
+                category="technology",
+                language="en",
+                source_id=source,
+                author="  Ada Lovelace ",
+                keywords=["Climate", "policy"],
+            ),
+            _post(
+                category="technology",
+                language="en",
+                source_id=source,
+                author="ada lovelace",
+                keywords=[" climate ", "AI"],
+            ),
+            _post(
+                category="technology",
+                language="en",
+                source_id=source,
+                author=" ",
+                keywords=["", " POLICY "],
+            ),
+        ]
+    )
+    session.commit()
+
+    options = repository.list_filter_options(
+        EffectiveFeedQuery(source_ids=[source], limit=1)
+    )
+
+    assert options.authors == ["Ada Lovelace"]
+    assert options.keywords == ["AI", "Climate", "POLICY"]

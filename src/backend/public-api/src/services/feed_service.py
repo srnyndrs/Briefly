@@ -79,7 +79,12 @@ class FeedService:
                 items=[],
                 total=0,
                 filter_options=(
-                    FilterOptionsDTO(categories=[], languages=[])
+                    FilterOptionsDTO(
+                        categories=[],
+                        languages=[],
+                        authors=[],
+                        keywords=[],
+                    )
                     if data.include_filter_options
                     else None
                 ),

@@ -84,6 +84,8 @@ def test_personal_feed_without_subscriptions_skips_repository(
     assert result.total == 0
     assert result.filter_options is not None
     assert result.filter_options.categories == []
+    assert result.filter_options.authors == []
+    assert result.filter_options.keywords == []
     repository.list_candidates.assert_not_called()
 
 

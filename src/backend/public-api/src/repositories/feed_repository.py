@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 import re
 from uuid import UUID
@@ -277,6 +277,20 @@ class PostRepository:
             .distinct()
             .order_by(PostProjection.language)
         ).all()
+        metadata_rows = self._db.execute(
+            self._apply_query(
+                select(PostProjection.author, PostProjection.keywords),
+                query,
+            )
+        ).all()
+        authors = self._normalize_filter_values(
+            author for author, _ in metadata_rows
+        )
+        keywords = self._normalize_filter_values(
+            keyword
+            for _, row_keywords in metadata_rows
+            for keyword in row_keywords or []
+        )
         sources = None
         if include_sources:
             source_query = EffectiveFeedQuery(
@@ -314,6 +328,8 @@ class PostRepository:
         return FilterOptionsDTO(
             categories=list(categories),
             languages=list(languages),
+            authors=authors,
+            keywords=keywords,
             sources=sources,
         )
 
@@ -339,11 +355,28 @@ class PostRepository:
             .group_by(normalized_category)
             .order_by(category_count.desc(), normalized_category.asc())
         ).all()
-        language_options = self.list_filter_options(query).languages
+        metadata_options = self.list_filter_options(query)
         return FilterOptionsDTO(
             categories=[category for category, _ in category_rows],
-            languages=language_options,
+            languages=metadata_options.languages,
+            authors=metadata_options.authors,
+            keywords=metadata_options.keywords,
         )
+
+    @staticmethod
+    def _normalize_filter_values(
+        values: Iterable[str | None],
+    ) -> list[str]:
+        normalized: dict[str, str] = {}
+        for value in values:
+            if value is None:
+                continue
+            trimmed = value.strip()
+            if not trimmed:
+                continue
+            key = trimmed.casefold()
+            normalized[key] = min(trimmed, normalized.get(key, trimmed))
+        return [normalized[key] for key in sorted(normalized)]
 
     @staticmethod
     def _without_category(

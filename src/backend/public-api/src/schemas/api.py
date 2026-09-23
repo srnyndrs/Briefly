@@ -250,6 +250,8 @@ class SourceOptionResponse(BaseModel):
 class FilterOptionsResponse(BaseModel):
     categories: list[str]
     languages: list[str]
+    authors: list[str]
+    keywords: list[str]
     sources: list[SourceOptionResponse] | None = None
 
 
