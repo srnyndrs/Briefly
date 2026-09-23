@@ -79,6 +79,8 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
     # Only set language on first parse event (immutable)
     if not existing.language and payload.get("language"):
         existing.language = payload.get("language")
+    if not existing.author and payload.get("author"):
+        existing.author = payload.get("author")
     # Only set keywords on first parse event (immutable)
     keywords_payload = payload.get("keywords")
     if (

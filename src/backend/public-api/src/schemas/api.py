@@ -238,6 +238,8 @@ class PostListItemResponse(BaseModel):
 
 class PostResponse(PostListItemResponse):
     content: str | None = None
+    author: str | None = None
+    keywords: list[str] = Field(default_factory=list)
 
 
 class SourceOptionResponse(BaseModel):

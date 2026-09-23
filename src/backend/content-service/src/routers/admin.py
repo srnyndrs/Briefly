@@ -66,6 +66,7 @@ def replay_posts(
                 else None,
                 language=post.language,
                 keywords=keywords_val,
+                author=post.author,
                 source_title=post.source_title,
                 image_url=post.image_url,
             )

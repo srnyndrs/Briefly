@@ -244,6 +244,7 @@ def _publish_success_events(
         else None,
         language=data["language"],
         keywords=data["keywords"],
+        author=data["author"],
         source_title=data["source_title"],
         image_url=data.get("image_url"),
     )

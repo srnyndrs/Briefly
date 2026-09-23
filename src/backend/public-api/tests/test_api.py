@@ -1040,8 +1040,9 @@ def test_list_and_detail_post_contracts(monkeypatch) -> None:
             canonical_url="https://example.com/single-article",
             title="Single Post",
             description="Detail",
+            author="Example Author",
             language="en",
-            keywords=[],
+            keywords=["climate", "policy"],
             content="Full body text",
             published_at=now,
             updated_at=now,
@@ -1072,6 +1073,8 @@ def test_list_and_detail_post_contracts(monkeypatch) -> None:
     assert payload["post_id"] == post_id
     assert payload["title"] == "Single Post"
     assert payload["content"] == "Full body text"
+    assert payload["author"] == "Example Author"
+    assert payload["keywords"] == ["climate", "policy"]
 
 
 def test_list_sources_subscribed_only_filter(monkeypatch) -> None:

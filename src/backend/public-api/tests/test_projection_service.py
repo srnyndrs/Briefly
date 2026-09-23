@@ -39,6 +39,8 @@ def test_project_post_persists_content() -> None:
                 "title": "Title",
                 "description": "Short description",
                 "content": "Full body",
+                "author": "Example Author",
+                "keywords": ["tech"],
                 "image_url": "https://example.com/images/a1.png",
                 "parsed_at": datetime.now(UTC).isoformat(),
             },
@@ -50,6 +52,8 @@ def test_project_post_persists_content() -> None:
         assert post.content == "Full body"
         assert post.description == "Short description"
         assert post.image_ref == "https://example.com/images/a1.png"
+        assert post.author == "Example Author"
+        assert post.keywords == ["tech"]
     finally:
         db.close()
 
@@ -118,10 +122,47 @@ def test_project_post_preserves_immutable_fields_on_update() -> None:
         assert post.title == "Updated Title"
         assert post.language == "en"
         assert post.keywords == ["tech"]
+        assert post.author is None
         assert (
             post.published_at.replace(tzinfo=UTC)
             == initial_published_at
         )
+    finally:
+        db.close()
+
+
+def test_project_post_preserves_author_on_replay() -> None:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        execution_options={"schema_translate_map": {"query": None}},
+    )
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
+    try:
+        base = {
+            "post_id": "a1",
+            "source_id": "s1",
+            "source_title": "Source One",
+            "author": "Original Author",
+            "keywords": ["tech"],
+        }
+        project_post(db, payload=base)
+        db.commit()
+
+        project_post(
+            db,
+            payload={
+                **base,
+                "author": "Replay Author",
+                "keywords": ["finance"],
+            },
+        )
+        db.commit()
+
+        post = db.get(PostProjection, "a1")
+        assert post is not None
+        assert post.author == "Original Author"
+        assert post.keywords == ["tech"]
     finally:
         db.close()
 

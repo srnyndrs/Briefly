@@ -41,6 +41,7 @@ def publish_post_parsed_success(
     published_at: str | None = None,
     language: str | None = None,
     keywords: list[str] | None = None,
+    author: str | None = None,
     source_title: str,
     image_url: str | None = None,
 ) -> None:
@@ -65,6 +66,8 @@ def publish_post_parsed_success(
         payload["language"] = language
     if keywords is not None:
         payload["keywords"] = keywords
+    if author is not None:
+        payload["author"] = author
     if category is not None:
         payload["category"] = category
 

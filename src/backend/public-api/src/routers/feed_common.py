@@ -33,6 +33,8 @@ def to_post_response(item: PostDTO) -> PostResponse:
     return PostResponse(
         **to_post_list_item_response(item).model_dump(),
         content=item.content,
+        author=item.author,
+        keywords=item.keywords,
     )
 
 

@@ -81,6 +81,7 @@ class PostProjection(Base):
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
+    author: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )

@@ -25,6 +25,7 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
         content_length=9,
         description="A short description",
         published_at="2026-05-05T00:00:00+00:00",
+        author="Example Author",
         image_url="https://example.com/images/a1.png",
     )
 
@@ -36,7 +37,28 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
     assert envelope["payload"]["content"] == "Full body"
     assert envelope["payload"]["content_length"] == 9
     assert envelope["payload"]["description"] == "A short description"
+    assert envelope["payload"]["author"] == "Example Author"
     assert (
         envelope["payload"]["image_url"]
         == "https://example.com/images/a1.png"
     )
+
+
+def test_publish_post_parsed_success_omits_missing_author() -> None:
+    channel = MagicMock()
+
+    post_publisher.publish_post_parsed_success(
+        channel,
+        post_id="a1",
+        source_id="s1",
+        item_guid="g1",
+        url="https://example.com/a1",
+        title="Title",
+        source_title="Test Source",
+        correlation_id="corr-123",
+        content=None,
+        content_length=0,
+    )
+
+    _, body = _extract_publish_args(channel)
+    assert "author" not in json.loads(body.decode())["payload"]
