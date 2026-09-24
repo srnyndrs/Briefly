@@ -31,6 +31,7 @@ uiGeometry = "1.11.2"
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coilCompose" }
+coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coilCompose" }
 icons-heroicons-outline-cmp = { module = "com.composables:icons-heroicons-outline-cmp", version.ref = "iconsHeroiconsSolidAndroid" }
 icons-heroicons-solid-cmp = { module = "com.composables:icons-heroicons-solid-cmp", version.ref = "iconsHeroiconsSolidAndroid" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }

@@ -1,5 +1,6 @@
 package com.srnyndrs.android.briefly.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -95,6 +96,8 @@ fun RemoteImage(
             )
         }
         is AsyncImagePainter.State.Error -> {
+            // TODO: consolidate logging and use stringResource
+            Log.d("RemoteImage", state.result.throwable.message ?: "Unexpected error when loading picture")
             Box(
                 modifier = Modifier
                     .fillMaxSize()
