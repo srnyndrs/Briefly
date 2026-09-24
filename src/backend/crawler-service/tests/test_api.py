@@ -85,6 +85,31 @@ def test_discover_sources_does_not_guess_unverified_feed_paths():
     mock_head.assert_not_called()
 
 
+def test_discover_sources_prefers_publisher_name_to_feed_label():
+    from src.adapters.source_discovery import SourceDiscoveryAdapter
+
+    response = MagicMock()
+    response.url = "https://example.com/"
+    response.content = (
+        b"<html><head>"
+        b"<meta property='og:site_name' content='Example News'>"
+        b"<link rel='alternate' type='application/rss+xml' "
+        b"title='Latest stories' href='/feed.xml'>"
+        b"</head></html>"
+    )
+    response.text = response.content.decode()
+
+    with patch(
+        "src.adapters.source_discovery.requests.get",
+        return_value=response,
+    ):
+        result = SourceDiscoveryAdapter().discover(
+            "https://example.com/"
+        )
+
+    assert result[0].title == "Example News"
+
+
 @patch(
     "src.routers.sources.SourceDiscoveryAdapter.extract_website_url",
     return_value=None,

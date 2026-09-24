@@ -43,6 +43,7 @@ class SourceDiscoveryAdapter:
                 return [direct_feed]
 
             soup = BeautifulSoup(response.text, "html.parser")
+            publisher_name = self._extract_publisher_name(soup)
 
             sources: list[SourceDiscoverResult] = []
             feed_links = soup.find_all(
@@ -61,7 +62,8 @@ class SourceDiscoveryAdapter:
                     sources.append(
                         SourceDiscoverResult(
                             url=feed_url,
-                            title=link.get("title")
+                            title=publisher_name
+                            or link.get("title")
                             or self._extract_site_title(soup),
                             content_type=link.get("type"),
                             favicon=self._extract_favicon(
@@ -104,6 +106,20 @@ class SourceDiscoveryAdapter:
             favicon=getattr(getattr(feed, "image", None), "href", None),
             description=getattr(feed, "subtitle", None),
         )
+
+    def _extract_publisher_name(
+        self, soup: BeautifulSoup
+    ) -> str | None:
+        for attributes in (
+            {"property": "og:site_name"},
+            {"name": "application-name"},
+        ):
+            tag = soup.find("meta", attributes)
+            if tag:
+                value = tag.get("content")
+                if value and value.strip():
+                    return value.strip()
+        return None
 
     def _extract_site_title(self, soup: BeautifulSoup) -> str | None:
         title_tag = soup.find("title")
