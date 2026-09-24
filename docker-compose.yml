@@ -175,6 +175,7 @@ services:
       INGESTION_SERVICE_URL: http://crawler-service:8001
       CONTENT_SERVICE_URL: http://content-service:8002
       REQUEST_TIMEOUT_SECONDS: 10
+      SOURCE_DISCOVERY_TIMEOUT_SECONDS: 15
     depends_on:
       rabbitmq:
         condition: service_healthy

@@ -23,16 +23,20 @@ def _forward(
     json: dict | None = None,
     params: dict | None = None,
     correlation_id: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> dict:
     headers: dict[str, str] = {}
     if correlation_id:
         headers["x-correlation-id"] = correlation_id
 
     url = f"{base_url}{path}"
+    timeout = (
+        settings.request_timeout_seconds
+        if timeout_seconds is None
+        else timeout_seconds
+    )
     try:
-        with httpx.Client(
-            timeout=settings.request_timeout_seconds
-        ) as client:
+        with httpx.Client(timeout=timeout) as client:
             response = client.request(
                 method=method,
                 url=url,
@@ -212,6 +216,7 @@ def ingestion_discover_sources(body: dict) -> list[dict]:
         settings.ingestion_service_url,
         "/sources/discover",
         json=body,
+        timeout_seconds=settings.source_discovery_timeout_seconds,
     )
     if isinstance(result, list):
         return result

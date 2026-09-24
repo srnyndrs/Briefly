@@ -1836,3 +1836,26 @@ def test_forward_maps_httpx_request_error_to_service_client_error(
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == "Upstream service unavailable"
+
+
+def test_source_discovery_uses_dedicated_timeout(monkeypatch) -> None:
+    from src.adapters import service_clients
+
+    captured: dict = {}
+
+    def fake_forward(*args, **kwargs) -> list[dict]:
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(service_clients, "_forward", fake_forward)
+
+    assert (
+        service_clients.ingestion_discover_sources(
+            {"url": "https://example.com"}
+        )
+        == []
+    )
+    assert (
+        captured["timeout_seconds"]
+        == service_clients.settings.source_discovery_timeout_seconds
+    )
