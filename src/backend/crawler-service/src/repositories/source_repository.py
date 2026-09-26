@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.config.settings import settings
@@ -14,8 +15,27 @@ class SourceRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_sources(self) -> list[Source]:
-        return self._db.query(Source).all()
+    def get_sources(
+        self, *, verified_only: bool = False
+    ) -> list[Source]:
+        query = self._db.query(Source)
+        if verified_only:
+            query = query.filter(Source.verified.is_(True))
+        return query.order_by(
+            Source.verified.desc(),
+            func.lower(Source.title),
+            Source.source_id,
+        ).all()
+
+    def get_sources_by_registrable_domain(
+        self, registrable_domain: str
+    ) -> list[Source]:
+        return (
+            self._db.query(Source)
+            .filter(Source.registrable_domain == registrable_domain)
+            .order_by(Source.source_id)
+            .all()
+        )
 
     def get_active_sources(
         self, now: datetime, max_retries: int
@@ -55,6 +75,9 @@ class SourceRepository:
         description: str | None = None,
         favicon: str | None = None,
         website_url: str | None = None,
+        registrable_domain: str = "",
+        verified: bool = False,
+        submitted_by_user_id: UUID | None = None,
     ) -> Source:
         source = Source(
             source_id=uuid.uuid4(),
@@ -63,6 +86,9 @@ class SourceRepository:
             description=description,
             favicon=favicon,
             website_url=website_url,
+            registrable_domain=registrable_domain,
+            verified=verified,
+            submitted_by_user_id=submitted_by_user_id,
         )
         self._db.add(source)
         self._db.commit()

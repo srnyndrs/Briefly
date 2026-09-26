@@ -70,6 +70,7 @@ class SourceResponse(BaseModel):
     description: str | None = None
     favicon: str | None = None
     website_url: str | None = None
+    verified: bool = False
     last_crawled_at: datetime | None = None
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool = False

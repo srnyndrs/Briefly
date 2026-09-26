@@ -54,11 +54,26 @@ def seed_sources(path: Path = SOURCES_FILE) -> tuple[int, int]:
             if urls
             else set()
         )
-        missing_sources = [
-            Source(**source)
-            for source in sources
-            if source["url"] not in existing_urls
-        ]
+        missing_sources = []
+        for source in sources:
+            if source["url"] in existing_urls:
+                continue
+            seed_data = {
+                key: value
+                for key, value in source.items()
+                if key
+                in {
+                    "url",
+                    "title",
+                    "description",
+                    "favicon",
+                    "website_url",
+                    "registrable_domain",
+                }
+            }
+            seed_data["verified"] = True
+            seed_data["submitted_by_user_id"] = None
+            missing_sources.append(Source(**seed_data))
 
         session.add_all(missing_sources)
         session.commit()

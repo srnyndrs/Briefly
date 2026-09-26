@@ -74,6 +74,57 @@ def test_get_active_sources_respects_max_retries(db_session):
     assert source_future.source_id not in active_ids
 
 
+def test_source_defaults_unverified_and_domain_lookup_is_non_unique(
+    db_session,
+):
+    repo = SourceRepository(db_session)
+    first = repo.create_source(
+        url="https://www.example.com/first.xml",
+        title="Example",
+        registrable_domain="example.com",
+    )
+    second = repo.create_source(
+        url="https://news.example.com/second.xml",
+        title="Example News",
+        registrable_domain="example.com",
+        verified=True,
+    )
+
+    assert first.verified is False
+    assert first.submitted_by_user_id is None
+    assert [
+        source.source_id
+        for source in repo.get_sources_by_registrable_domain(
+            "example.com"
+        )
+    ] == sorted([first.source_id, second.source_id], key=str)
+
+
+def test_get_sources_orders_verified_then_title_and_id(db_session):
+    repo = SourceRepository(db_session)
+    unverified = repo.create_source(
+        url="https://example.com/z.xml", title="Alpha"
+    )
+    verified_z = repo.create_source(
+        url="https://example.com/a.xml", title="zeta", verified=True
+    )
+    verified_a = repo.create_source(
+        url="https://example.com/b.xml", title="Alpha", verified=True
+    )
+
+    ordered = repo.get_sources()
+    source_ids = [source.source_id for source in ordered]
+    assert (
+        source_ids.index(verified_a.source_id)
+        < source_ids.index(verified_z.source_id)
+        < source_ids.index(unverified.source_id)
+    )
+    assert repo.get_sources(verified_only=True) == [
+        verified_a,
+        verified_z,
+    ]
+
+
 def test_save_crawl_failure_increments_failures_and_delays_retry(
     db_session,
 ):
