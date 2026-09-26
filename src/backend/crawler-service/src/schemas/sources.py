@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -12,10 +13,13 @@ from pydantic import (
 
 
 class SourceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: HttpUrl
     title: str | None = Field(default=None, max_length=255)
     description: str | None = None
     favicon: str | None = None
+    submitted_by_user_id: UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -46,6 +50,8 @@ class SourceDiscoverResult(BaseModel):
     content_type: str | None = None
     favicon: str | None = None
     description: str | None = None
+    website_url: str | None = None
+    registrable_domain: str | None = None
 
     @field_validator("url")
     @classmethod
@@ -53,7 +59,14 @@ class SourceDiscoverResult(BaseModel):
         """Remove surrounding whitespace from discovered URLs."""
         return value.strip()
 
-    @field_validator("title", "content_type", "favicon", "description")
+    @field_validator(
+        "title",
+        "content_type",
+        "favicon",
+        "description",
+        "website_url",
+        "registrable_domain",
+    )
     @classmethod
     def normalize_discovered_text(cls, value: str | None) -> str | None:
         """Collapse whitespace in optional metadata collected from feeds."""

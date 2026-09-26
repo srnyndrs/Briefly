@@ -42,7 +42,7 @@ class Source(Base):
         UUID(as_uuid=True), nullable=True
     )
     registrable_domain: Mapped[str] = mapped_column(
-        String(255), nullable=False, default=""
+        String(255), nullable=False
     )
 
     last_crawled_at: Mapped[datetime | None] = mapped_column(

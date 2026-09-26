@@ -75,7 +75,7 @@ class SourceRepository:
         description: str | None = None,
         favicon: str | None = None,
         website_url: str | None = None,
-        registrable_domain: str = "",
+        registrable_domain: str,
         verified: bool = False,
         submitted_by_user_id: UUID | None = None,
     ) -> Source:

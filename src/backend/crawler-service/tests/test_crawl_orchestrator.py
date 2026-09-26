@@ -270,6 +270,7 @@ def test_save_crawl_success_reschedules_and_resets_failures(db_session):
     source = repo.create_source(
         url="https://example.com/feed-304.xml",
         title="Test Feed",
+        registrable_domain="example.com",
     )
 
     # Set prior failures and past next_crawl_scheduled_at

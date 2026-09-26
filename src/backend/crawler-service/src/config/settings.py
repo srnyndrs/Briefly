@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     crawl_interval_seconds: int = 300
     # HTTP request timeout for fetching a single feed
     fetch_timeout_seconds: int = 30
+    source_validation_timeout_seconds: int = 10
+    source_validation_max_redirects: int = 5
+    source_validation_max_bytes: int = 1_048_576
     # Maximum consecutive failures before a feed is suspended
     max_retries: int = 5
     # Base crawl interval in seconds (used by retry-backoff scheduler)

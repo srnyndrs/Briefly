@@ -5,9 +5,15 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from src.adapters.source_discovery import (
+    SourceDiscoveryAdapter,
+    normalize_feed_url,
+    normalize_host,
+    normalize_source_title,
+    registrable_domain,
+)
 from src.config.database import get_db
 from src.config.settings import settings
-from src.adapters.source_discovery import SourceDiscoveryAdapter
 from src.repositories.source_repository import (
     SourceRepository,
 )
@@ -20,13 +26,6 @@ from src.schemas.sources import (
 )
 
 router = APIRouter(prefix="/sources", tags=["sources"])
-
-
-def _normalized_title(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip()
-    return normalized or None
 
 
 def discover_sources(url: str) -> List[SourceDiscoverResult]:
@@ -69,33 +68,71 @@ def register_source(
             detail="No valid RSS/Atom feed found at the provided URL.",
         )
 
-    first_source = discovered[0]
-    final_url = first_source.url
-
-    repository = SourceRepository(db)
-    existing = repository.get_source_by_url(final_url)
-    if existing:
+    if len(discovered) > 1:
         raise HTTPException(
-            status_code=409, detail="Source URL already registered."
+            status_code=422,
+            detail="Multiple valid feeds found; submit a direct feed URL.",
         )
 
-    website_url = SourceDiscoveryAdapter().extract_website_url(
-        final_url
-    )
-
-    source_title = body.title or _normalized_title(first_source.title)
-    if source_title is None:
+    candidate = discovered[0]
+    final_url = normalize_feed_url(candidate.url)
+    source_title = body.title or candidate.title
+    if source_title is None or not source_title.strip():
         raise HTTPException(
             status_code=422,
             detail="A nonblank source title is required.",
         )
 
+    website_url = candidate.website_url
+    source_domain = candidate.registrable_domain or registrable_domain(
+        website_url or final_url
+    )
+
+    repository = SourceRepository(db)
+    same_domain_sources = repository.get_sources_by_registrable_domain(
+        source_domain
+    )
+    exact_existing = repository.get_source_by_url(final_url)
+    if exact_existing is not None or any(
+        normalize_feed_url(existing.url) == final_url
+        for existing in same_domain_sources
+    ):
+        raise HTTPException(
+            status_code=409, detail="Source URL already registered."
+        )
+
+    candidate_website_host = (
+        normalize_host(website_url) if website_url else None
+    )
+    candidate_title = normalize_source_title(candidate.title)
+    for existing in same_domain_sources:
+        existing_website_host = (
+            normalize_host(existing.website_url)
+            if existing.website_url
+            else None
+        )
+        if (
+            candidate_website_host is not None
+            and candidate_website_host == existing_website_host
+        ) or (
+            candidate_title is not None
+            and candidate_title
+            == normalize_source_title(existing.title)
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="A source from this publisher is already registered.",
+            )
+
     source = repository.create_source(
         url=final_url,
-        title=source_title,
-        description=body.description or first_source.description,
-        favicon=body.favicon or first_source.favicon,
+        title=" ".join(source_title.split()),
+        description=body.description or candidate.description,
+        favicon=body.favicon or candidate.favicon,
         website_url=website_url,
+        registrable_domain=source_domain,
+        verified=False,
+        submitted_by_user_id=body.submitted_by_user_id,
     )
     return source
 

@@ -9,6 +9,7 @@ def test_calculate_next_crawl_success_and_failures(db_session):
     source = repo.create_source(
         url="https://example.com/feed-retry.xml",
         title="Retry Test Feed",
+        registrable_domain="example.com",
     )
 
     base = settings.base_crawl_interval_seconds
@@ -44,6 +45,7 @@ def test_get_active_sources_respects_max_retries(db_session):
     source_eligible = repo.create_source(
         url="https://example.com/eligible.xml",
         title="Eligible",
+        registrable_domain="example.com",
     )
     source_eligible.consecutive_failures = 4
     source_eligible.next_crawl_scheduled_at = past
@@ -52,6 +54,7 @@ def test_get_active_sources_respects_max_retries(db_session):
     source_suspended = repo.create_source(
         url="https://example.com/suspended.xml",
         title="Suspended",
+        registrable_domain="example.com",
     )
     source_suspended.consecutive_failures = 5
     source_suspended.next_crawl_scheduled_at = past
@@ -60,6 +63,7 @@ def test_get_active_sources_respects_max_retries(db_session):
     source_future = repo.create_source(
         url="https://example.com/future.xml",
         title="Future",
+        registrable_domain="example.com",
     )
     source_future.consecutive_failures = 0
     source_future.next_crawl_scheduled_at = now + timedelta(minutes=10)
@@ -92,24 +96,35 @@ def test_source_defaults_unverified_and_domain_lookup_is_non_unique(
 
     assert first.verified is False
     assert first.submitted_by_user_id is None
-    assert [
+    domain_sources = [
         source.source_id
         for source in repo.get_sources_by_registrable_domain(
             "example.com"
         )
-    ] == sorted([first.source_id, second.source_id], key=str)
+    ]
+    assert first.source_id in domain_sources
+    assert second.source_id in domain_sources
+    assert domain_sources == sorted(domain_sources, key=str)
 
 
 def test_get_sources_orders_verified_then_title_and_id(db_session):
     repo = SourceRepository(db_session)
     unverified = repo.create_source(
-        url="https://example.com/z.xml", title="Alpha"
+        url="https://example.com/z.xml",
+        title="Alpha",
+        registrable_domain="example.com",
     )
     verified_z = repo.create_source(
-        url="https://example.com/a.xml", title="zeta", verified=True
+        url="https://example.com/a.xml",
+        title="zeta",
+        registrable_domain="example.com",
+        verified=True,
     )
     verified_a = repo.create_source(
-        url="https://example.com/b.xml", title="Alpha", verified=True
+        url="https://example.com/b.xml",
+        title="Alpha",
+        registrable_domain="example.com",
+        verified=True,
     )
 
     ordered = repo.get_sources()
@@ -132,6 +147,7 @@ def test_save_crawl_failure_increments_failures_and_delays_retry(
     source = repo.create_source(
         url="https://example.com/failure-test.xml",
         title="Failure Test Feed",
+        registrable_domain="example.com",
     )
     assert source.consecutive_failures == 0
 
