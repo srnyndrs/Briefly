@@ -43,9 +43,15 @@ the service is running.
 
 `GET /feed` returns the newest eligible posts from the caller's subscribed
 sources, subject to saved languages and visibility exclusions. `GET /explore`
-returns global posts with explicit category, language, source, date, and
-optional full-text search filters; it applies the same visibility exclusions
-without applying saved languages or subscriptions. `source_ids` is repeatable,
+returns posts from verified Sources only, with explicit category, language,
+source, date, and optional full-text search filters; it applies the same
+visibility exclusions without applying saved languages or subscriptions.
+Before each Explore query, public-api fetches current verified Source IDs from
+crawler-service and applies them as a hard allowlist to items, totals, and
+filter options. Repeatable `source_ids` selections intersect that allowlist;
+they cannot expose unverified Sources. An empty verified catalog returns an
+empty result and empty filter options. Personal `/feed` remains subscription-based
+and may include posts from unverified Sources. `source_ids` is repeatable,
 and `query` searches projected title, description, and keywords (not full
 content). Title matches rank ahead of description matches, which rank ahead of
 keyword-only matches. Search uses web-style syntax, has no prefix/autocomplete
@@ -54,6 +60,13 @@ Both routes
 support page-number pagination. Explore also supports an opt-in
 `include_filter_options=true` response field for available categories,
 languages, authors, and keywords; Explore additionally returns source options.
+
+Source creation is a synchronous gateway operation. `POST /sources` accepts a
+feed URL and optional display metadata; public-api derives the submitter ID
+from the authenticated user. The client cannot set `verified`, submitter ID,
+or registrable domain. Crawler-service validates RSS/Atom content before
+persisting, and user-created Sources are unverified. `POST /sources/discover`
+returns only validated direct or explicitly advertised feed candidates.
 
 For example:
 
