@@ -178,6 +178,7 @@ def test_explore_feed_intersects_selected_sources_with_verified_catalog(
     repository = Mock()
     preferences = Mock()
     preferences.get_preferences.return_value = UserPreferencesDTO()
+    repository.list_candidates.return_value = ([], 0)
     verified_source_id = str(uuid4())
     unverified_source_id = str(uuid4())
     monkeypatch.setattr(

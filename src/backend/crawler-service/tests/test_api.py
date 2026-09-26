@@ -2,6 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+import requests
+
 from src.models.source import Source
 from src.schemas.sources import SourceDiscoverResult
 
@@ -12,7 +15,7 @@ def _http_response(url: str, body: bytes, *, headers=None, status=200):
     response.status_code = status
     response.headers = headers or {}
     response.content = body
-    response.iter_content.return_value = [body]
+    response.raw.read1.side_effect = [body, b""]
     return response
 
 
@@ -62,7 +65,7 @@ def test_discover_sources_accepts_direct_feed_url(_mock_public):
     )
 
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         return_value=response,
     ):
         result = SourceDiscoveryAdapter().discover(
@@ -88,12 +91,10 @@ def test_discover_sources_does_not_guess_unverified_feed_paths(
 
     with (
         patch(
-            "src.adapters.source_discovery.requests.get",
+            "src.adapters.source_discovery.requests.Session.get",
             return_value=response,
         ),
-        patch(
-            "src.adapters.source_discovery.requests.head"
-        ) as mock_head,
+        patch("requests.head") as mock_head,
     ):
         result = SourceDiscoveryAdapter().discover(
             "https://example.com/"
@@ -125,7 +126,7 @@ def test_discover_sources_validates_advertised_feed_and_prefers_feed_title(
     )
 
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         side_effect=[page, feed],
     ) as mock_get:
         result = SourceDiscoveryAdapter().discover(
@@ -152,7 +153,7 @@ def test_discover_sources_omits_advertised_non_feed(_mock_public):
         "https://example.com/fake", b"<html>no</html>"
     )
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         side_effect=[page, fake_feed],
     ):
         result = SourceDiscoveryAdapter().discover(
@@ -172,7 +173,7 @@ def test_discover_sources_accepts_empty_atom_feed(_mock_public):
         b"</feed>",
     )
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         return_value=response,
     ):
         result = SourceDiscoveryAdapter().discover(response.url)
@@ -184,7 +185,7 @@ def test_discover_sources_rejects_non_public_url_before_request():
     from src.adapters.source_discovery import SourceDiscoveryAdapter
 
     with patch(
-        "src.adapters.source_discovery.requests.get"
+        "src.adapters.source_discovery.requests.Session.get"
     ) as mock_get:
         result = SourceDiscoveryAdapter().discover(
             "http://127.0.0.1/feed"
@@ -215,6 +216,93 @@ def test_public_destination_rejects_private_dns_results():
             assert "Non-public" in str(exc)
         else:
             raise AssertionError("Private DNS result was accepted")
+
+
+def test_source_validation_uses_the_vetted_address():
+    import socket
+
+    from src.adapters.source_discovery import _bounded_get
+
+    public_result = (
+        socket.AF_INET,
+        socket.SOCK_STREAM,
+        6,
+        "",
+        ("93.184.215.14", 443),
+    )
+    response = _http_response(
+        "https://example.com/feed",
+        b"<rss version='2.0'><channel/></rss>",
+    )
+    seen_addresses = []
+
+    def fake_get(session, url, **kwargs):
+        seen_addresses.append(session.adapters["https://"]._address)
+        assert not session.trust_env
+        assert kwargs["headers"]["Host"] == "example.com"
+        return response
+
+    with (
+        patch(
+            "src.adapters.source_discovery.socket.getaddrinfo",
+            return_value=[public_result],
+        ) as resolve,
+        patch(
+            "src.adapters.source_discovery.requests.Session.get",
+            autospec=True,
+            side_effect=fake_get,
+        ),
+    ):
+        _bounded_get(response.url)
+
+    assert seen_addresses == ["93.184.215.14"]
+    resolve.assert_called_once()
+
+
+def test_pinned_adapter_preserves_https_hostname():
+    from src.adapters.source_discovery import _PinnedAddressAdapter
+
+    adapter = _PinnedAddressAdapter("93.184.215.14", "example.com")
+    request = requests.Request(
+        "GET", "https://example.com/feed"
+    ).prepare()
+    with patch.object(
+        adapter.poolmanager, "connection_from_host"
+    ) as connection:
+        adapter.get_connection_with_tls_context(request, True)
+
+    kwargs = connection.call_args.kwargs
+    assert kwargs["host"] == "93.184.215.14"
+    assert kwargs["pool_kwargs"]["assert_hostname"] == "example.com"
+    assert kwargs["pool_kwargs"]["server_hostname"] == "example.com"
+
+
+def test_source_validation_deadline_stops_a_trickling_response():
+    from src.adapters.source_discovery import _bounded_get
+
+    response = _http_response("https://example.com/feed", b"")
+    response.raw.read1.side_effect = [b"first", b"second"]
+    with (
+        patch(
+            "src.adapters.source_discovery._assert_public_destination",
+            return_value="93.184.215.14",
+        ),
+        patch(
+            "src.adapters.source_discovery.requests.Session.get",
+            return_value=response,
+        ),
+        patch(
+            "src.adapters.source_discovery.settings.source_validation_timeout_seconds",
+            1,
+        ),
+        patch(
+            "src.adapters.source_discovery.time.monotonic",
+            side_effect=[0, 0, 0.4, 1.1],
+        ),
+    ):
+        with pytest.raises(requests.Timeout):
+            _bounded_get(response.url)
+    response.close.assert_called_once()
 
 
 def test_normalize_feed_url_keeps_path_query_and_removes_defaults():
@@ -253,7 +341,7 @@ def test_discover_sources_follows_redirect_and_uses_final_url(
         b"<rss version='2.0'><channel><title>Final</title></channel></rss>",
     )
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         side_effect=[redirect, feed],
     ):
         result = SourceDiscoveryAdapter().discover(
@@ -277,7 +365,7 @@ def test_discover_sources_checks_redirect_destination_before_request():
             side_effect=[None, ValueError("Non-public destination")],
         ) as check_public,
         patch(
-            "src.adapters.source_discovery.requests.get",
+            "src.adapters.source_discovery.requests.Session.get",
             return_value=redirect,
         ) as mock_get,
     ):
@@ -298,7 +386,7 @@ def test_discover_sources_rejects_response_larger_than_limit(
     response = _http_response("https://example.com/feed", b"123456")
     with (
         patch(
-            "src.adapters.source_discovery.requests.get",
+            "src.adapters.source_discovery.requests.Session.get",
             return_value=response,
         ),
         patch(
@@ -317,7 +405,7 @@ def test_discover_sources_handles_timeout(_mock_public):
     from src.adapters.source_discovery import SourceDiscoveryAdapter
 
     with patch(
-        "src.adapters.source_discovery.requests.get",
+        "src.adapters.source_discovery.requests.Session.get",
         side_effect=requests.Timeout,
     ):
         result = SourceDiscoveryAdapter().discover(

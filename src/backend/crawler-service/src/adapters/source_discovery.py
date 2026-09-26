@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import socket
+import time
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import feedparser
@@ -8,6 +9,7 @@ import requests
 import tldextract
 from bs4 import BeautifulSoup
 from requests import Response
+from requests.adapters import HTTPAdapter
 
 from src.config.settings import settings
 from src.schemas.sources import SourceDiscoverResult
@@ -22,6 +24,7 @@ FEED_TYPES = {
 }
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 _TLD_EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
+_MAX_READ_TIMEOUT_SECONDS = 1.0
 
 
 def normalize_feed_url(url: str) -> str:
@@ -80,7 +83,7 @@ def normalize_source_title(title: str | None) -> str | None:
     return normalized.casefold() or None
 
 
-def _assert_public_destination(url: str) -> None:
+def _assert_public_destination(url: str) -> str:
     parts = urlsplit(url)
     if parts.scheme.lower() not in {"http", "https"}:
         raise ValueError("Only HTTP and HTTPS URLs are accepted")
@@ -111,51 +114,123 @@ def _assert_public_destination(url: str) -> None:
         not address.is_global for address in addresses
     ):
         raise ValueError("Non-public destinations are not allowed")
+    return str(
+        min(
+            addresses,
+            key=lambda address: (address.version, int(address)),
+        )
+    )
+
+
+class _PinnedAddressAdapter(HTTPAdapter):
+    def __init__(self, address: str, hostname: str) -> None:
+        self._address = address
+        self._hostname = hostname
+        super().__init__()
+
+    def get_connection_with_tls_context(
+        self, request, verify, proxies=None, cert=None
+    ):
+        host_params, pool_kwargs = (
+            self.build_connection_pool_key_attributes(
+                request, verify, cert
+            )
+        )
+        host_params["host"] = self._address
+        if host_params["scheme"] == "https":
+            pool_kwargs["assert_hostname"] = self._hostname
+            pool_kwargs["server_hostname"] = self._hostname
+        return self.poolmanager.connection_from_host(
+            **host_params, pool_kwargs=pool_kwargs
+        )
+
+
+def _remaining_timeout(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise requests.Timeout("Source validation deadline exceeded")
+    return remaining
 
 
 def _bounded_get(url: str) -> Response:
     current_url = normalize_feed_url(url)
+    deadline = (
+        time.monotonic() + settings.source_validation_timeout_seconds
+    )
     for redirect_count in range(
         settings.source_validation_max_redirects + 1
     ):
-        _assert_public_destination(current_url)
-        response = requests.get(
-            current_url,
-            timeout=settings.source_validation_timeout_seconds,
-            allow_redirects=False,
-            stream=True,
-            headers={"User-Agent": "briefly-source-validator/1.0"},
-        )
-        if response.status_code in REDIRECT_STATUSES:
-            location = response.headers.get("Location")
-            response.close()
-            if (
-                not location
-                or redirect_count
-                >= settings.source_validation_max_redirects
-            ):
-                raise ValueError("Too many or invalid redirects")
-            current_url = normalize_feed_url(
-                urljoin(current_url, location)
-            )
-            continue
+        address = _assert_public_destination(current_url)
+        remaining = _remaining_timeout(deadline)
+        parts = urlsplit(current_url)
+        hostname = (parts.hostname or "").encode("idna").decode("ascii")
 
-        try:
-            response.raise_for_status()
-            body = bytearray()
-            for chunk in response.iter_content(chunk_size=8192):
-                if not chunk:
-                    continue
-                body.extend(chunk)
-                if len(body) > settings.source_validation_max_bytes:
-                    raise ValueError(
-                        "Response exceeds the configured size limit"
+        with requests.Session() as session:
+            session.trust_env = False
+            # Connect to the checked address while verifying the URL hostname.
+            session.mount(
+                f"{parts.scheme}://",
+                _PinnedAddressAdapter(address, hostname),
+            )
+            response = session.get(
+                current_url,
+                timeout=(
+                    remaining,
+                    min(remaining, _MAX_READ_TIMEOUT_SECONDS),
+                ),
+                allow_redirects=False,
+                stream=True,
+                headers={
+                    "Host": parts.netloc,
+                    "Accept-Encoding": "identity",
+                    "User-Agent": "briefly-source-validator/1.0",
+                },
+            )
+            try:
+                if response.status_code in REDIRECT_STATUSES:
+                    location = response.headers.get("Location")
+                    if (
+                        not location
+                        or redirect_count
+                        >= settings.source_validation_max_redirects
+                    ):
+                        raise ValueError(
+                            "Too many or invalid redirects"
+                        )
+                    current_url = normalize_feed_url(
+                        urljoin(current_url, location)
                     )
-            response._content = bytes(body)
-            response.url = current_url
-            return response
-        finally:
-            response.close()
+                    continue
+
+                response.raise_for_status()
+                if (
+                    response.headers.get(
+                        "Content-Encoding", "identity"
+                    ).lower()
+                    != "identity"
+                ):
+                    raise ValueError(
+                        "Compressed source responses are not supported"
+                    )
+                body = bytearray()
+                while True:
+                    chunk = response.raw.read1(
+                        8192, decode_content=False
+                    )
+                    _remaining_timeout(deadline)
+                    if not chunk:
+                        break
+                    body.extend(chunk)
+                    if len(body) > settings.source_validation_max_bytes:
+                        raise ValueError(
+                            "Response exceeds the configured size limit"
+                        )
+                _remaining_timeout(deadline)
+                response._content = bytes(body)
+                response.url = current_url
+                return response
+            finally:
+                response.close()
     raise ValueError("Too many redirects")
 
 

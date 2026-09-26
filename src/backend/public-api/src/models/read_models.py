@@ -40,7 +40,7 @@ def post_search_document(
         func.to_tsvector(
             configuration,
             func.coalesce(
-                func.array_to_string(keywords, literal_column("' '")),
+                func.query.keywords_to_search_text(keywords),
                 literal_column("''"),
             ),
         ),

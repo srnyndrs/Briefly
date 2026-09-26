@@ -29,6 +29,20 @@ def init_db() -> None:
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS query;"))
+            conn.execute(
+                text(
+                    """
+                    CREATE OR REPLACE FUNCTION
+                    query.keywords_to_search_text(keywords text[])
+                    RETURNS text
+                    LANGUAGE sql
+                    IMMUTABLE
+                    STRICT
+                    PARALLEL SAFE
+                    RETURN array_to_string(keywords, ' ');
+                    """
+                )
+            )
     Base.metadata.create_all(bind=engine)
 
 
