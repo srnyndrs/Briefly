@@ -38,22 +38,23 @@ class SourceRepository:
         )
 
     def get_active_sources(
-        self, now: datetime, max_retries: int
+        self,
+        now: datetime,
+        max_retries: int,
+        *,
+        verified_only: bool = False,
     ) -> list[Source]:
-        sources = (
-            self._db.query(Source)
-            .filter(
-                Source.next_crawl_scheduled_at <= now,
-                Source.consecutive_failures < max_retries,
-            )
-            .order_by(
-                Source.verified.desc(),
-                Source.next_crawl_scheduled_at,
-                Source.source_id,
-            )
-            .all()
+        query = self._db.query(Source).filter(
+            Source.next_crawl_scheduled_at <= now,
+            Source.consecutive_failures < max_retries,
         )
-        return sources
+        if verified_only:
+            query = query.filter(Source.verified.is_(True))
+        return query.order_by(
+            Source.verified.desc(),
+            Source.next_crawl_scheduled_at,
+            Source.source_id,
+        ).all()
 
     def get_source_by_id(self, source_id: UUID) -> Source | None:
         item = (

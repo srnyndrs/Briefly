@@ -36,6 +36,7 @@ def discover_sources(url: str) -> List[SourceDiscoverResult]:
 @router.get("", response_model=List[SourceResponse])
 def list_sources(
     active_only: bool = False,
+    verified_only: bool = False,
     db: Session = Depends(get_db),
 ) -> List[SourceResponse]:
     repository = SourceRepository(db)
@@ -43,9 +44,10 @@ def list_sources(
         sources = repository.get_active_sources(
             now=datetime.now(timezone.utc),
             max_retries=settings.max_retries,
+            verified_only=verified_only,
         )
     else:
-        sources = repository.get_sources()
+        sources = repository.get_sources(verified_only=verified_only)
     return sources
 
 

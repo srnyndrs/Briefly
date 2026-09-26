@@ -27,9 +27,10 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 
 @router.post("", status_code=201)
 def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
-    _ = user
+    payload = body.model_dump(mode="json")
+    payload["submitted_by_user_id"] = str(user.user_id)
     try:
-        return ingestion_create_source(body.model_dump(mode="json"))
+        return ingestion_create_source(payload)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

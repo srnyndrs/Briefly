@@ -203,8 +203,13 @@ def ingestion_create_source(body: dict) -> dict:
     )
 
 
-def ingestion_list_sources() -> list[dict]:
-    result = _forward("GET", settings.ingestion_service_url, "/sources")
+def ingestion_list_sources(
+    *, verified_only: bool = False
+) -> list[dict]:
+    params = {"verified_only": "true"} if verified_only else None
+    result = _forward(
+        "GET", settings.ingestion_service_url, "/sources", params=params
+    )
     if isinstance(result, list):
         return result
     return []

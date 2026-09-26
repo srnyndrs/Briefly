@@ -413,6 +413,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "description": "Desc",
             "favicon": None,
             "website_url": "https://example.com",
+            "verified": True,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,
@@ -454,6 +455,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -494,6 +496,8 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
                 "content_type": "application/rss+xml",
                 "favicon": "https://example.com/favicon.ico",
                 "description": "Feed description",
+                "website_url": "https://example.com",
+                "registrable_domain": "example.com",
             }
         ]
 
@@ -509,6 +513,8 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["title"] == "Discovered"
+    assert payload[0]["website_url"] == "https://example.com"
+    assert payload[0]["registrable_domain"] == "example.com"
 
 
 def test_create_source_endpoint_forwards_json_payload(
@@ -527,6 +533,7 @@ def test_create_source_endpoint_forwards_json_payload(
             "description": body["description"],
             "favicon": body["favicon"],
             "website_url": "https://example.com",
+            "verified": False,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": False,
@@ -551,12 +558,28 @@ def test_create_source_endpoint_forwards_json_payload(
     )
 
     assert response.status_code == 201
+    current_user = app.dependency_overrides[get_current_user]()
     assert captured == {
         "url": "https://example.com",
         "title": "Example",
         "description": "Feed description",
         "favicon": "https://example.com/favicon.ico",
+        "submitted_by_user_id": str(current_user.user_id),
     }
+
+
+def test_create_source_rejects_client_policy_fields() -> None:
+    client = _build_client()
+    response = client.post(
+        "/sources",
+        json={
+            "url": "https://example.com/feed.xml",
+            "verified": True,
+            "submitted_by_user_id": str(uuid4()),
+            "registrable_domain": "example.com",
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_delete_source_endpoint(monkeypatch) -> None:
@@ -1108,6 +1131,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": True,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -1122,6 +1146,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -1859,3 +1884,22 @@ def test_source_discovery_uses_dedicated_timeout(monkeypatch) -> None:
         captured["timeout_seconds"]
         == service_clients.settings.source_discovery_timeout_seconds
     )
+
+
+def test_ingestion_list_sources_forwards_verified_only(
+    monkeypatch,
+) -> None:
+    from src.adapters import service_clients
+
+    captured: dict = {}
+
+    def fake_forward(*args, **kwargs) -> list[dict]:
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(service_clients, "_forward", fake_forward)
+
+    assert (
+        service_clients.ingestion_list_sources(verified_only=True) == []
+    )
+    assert captured["params"] == {"verified_only": "true"}

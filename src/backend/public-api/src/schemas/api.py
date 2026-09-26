@@ -108,6 +108,8 @@ class MeDetailsResponse(UserResponse):
 
 
 class SourceCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str
     title: str | None = Field(default=None, max_length=255)
     description: str | None = None
@@ -134,6 +136,8 @@ class SourceDiscoverResult(BaseModel):
     content_type: str | None = None
     favicon: str | None = None
     description: str | None = None
+    website_url: str | None = None
+    registrable_domain: str | None = None
 
 
 class SubscriptionCreateRequest(BaseModel):
@@ -167,6 +171,7 @@ class SourceResponse(BaseModel):
     description: str | None
     favicon: str | None
     website_url: str | None
+    verified: bool
     last_crawled_at: datetime | None
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool

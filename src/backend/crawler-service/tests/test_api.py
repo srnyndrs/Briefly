@@ -638,3 +638,15 @@ def test_list_sources_returns_all(mock_repo_cls, client):
     response = client.get("/sources")
     assert response.status_code == 200
     assert len(response.json()) == 1
+
+
+@patch("src.routers.sources.SourceRepository")
+def test_list_sources_supports_verified_only(mock_repo_cls, client):
+    repository = MagicMock()
+    repository.get_sources.return_value = []
+    mock_repo_cls.return_value = repository
+
+    response = client.get("/sources?verified_only=true")
+
+    assert response.status_code == 200
+    repository.get_sources.assert_called_once_with(verified_only=True)
