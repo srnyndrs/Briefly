@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     source_validation_max_bytes: int = 1_048_576
     # Maximum consecutive failures before a feed is suspended
     max_retries: int = 5
-    # Base crawl interval in seconds (used by retry-backoff scheduler)
-    base_crawl_interval_seconds: int = 300
+    # Base intervals used for tier-aware scheduling and retry backoff.
+    verified_crawl_interval_seconds: int = 300
+    unverified_crawl_interval_seconds: int = 1800
 
 
 settings = Settings()

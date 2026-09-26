@@ -4,36 +4,75 @@ from src.config.settings import settings
 from src.repositories.source_repository import SourceRepository
 
 
-def test_calculate_next_crawl_success_and_failures(db_session):
+def test_verified_source_uses_verified_interval_after_success(
+    db_session,
+):
     repo = SourceRepository(db_session)
     source = repo.create_source(
         url="https://example.com/feed-retry.xml",
         title="Retry Test Feed",
         registrable_domain="example.com",
+        verified=True,
     )
-
-    base = settings.base_crawl_interval_seconds
     now = datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
 
-    # Success (failures == 0)
     source.consecutive_failures = 0
-    next_run = repo._calculate_next_crawl(source, now)
-    assert next_run == now + timedelta(seconds=base)
+    assert repo._calculate_next_crawl(source, now) == now + timedelta(
+        seconds=settings.verified_crawl_interval_seconds
+    )
 
-    # 1st failure (failures == 1) -> 2^1 * base = 2 * base
-    source.consecutive_failures = 1
-    next_run = repo._calculate_next_crawl(source, now)
-    assert next_run == now + timedelta(seconds=2 * base)
 
-    # 2nd failure (failures == 2) -> 2^2 * base = 4 * base
-    source.consecutive_failures = 2
-    next_run = repo._calculate_next_crawl(source, now)
-    assert next_run == now + timedelta(seconds=4 * base)
+def test_unverified_source_uses_unverified_interval_after_success(
+    db_session,
+):
+    repo = SourceRepository(db_session)
+    source = repo.create_source(
+        url="https://example.com/unverified-retry.xml",
+        title="Unverified Retry Test Feed",
+        registrable_domain="example.com",
+    )
+    now = datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
 
-    # Capped failure delay (e.g. 10 failures) -> min(2^10 * 300, 24 * 3600) = 86400s (24h)
-    source.consecutive_failures = 10
-    next_run = repo._calculate_next_crawl(source, now)
-    assert next_run == now + timedelta(hours=24)
+    source.consecutive_failures = 0
+    assert repo._calculate_next_crawl(source, now) == now + timedelta(
+        seconds=settings.unverified_crawl_interval_seconds
+    )
+
+
+def test_retry_backoff_uses_each_sources_base_interval(db_session):
+    repo = SourceRepository(db_session)
+    now = datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
+    sources = [
+        repo.create_source(
+            url="https://example.com/verified-retry.xml",
+            title="Verified Retry",
+            registrable_domain="example.com",
+            verified=True,
+        ),
+        repo.create_source(
+            url="https://example.com/unverified-retry-2.xml",
+            title="Unverified Retry",
+            registrable_domain="example.com",
+        ),
+    ]
+    intervals = [
+        settings.verified_crawl_interval_seconds,
+        settings.unverified_crawl_interval_seconds,
+    ]
+
+    for source, base_interval in zip(sources, intervals, strict=True):
+        source.consecutive_failures = 1
+        assert repo._calculate_next_crawl(
+            source, now
+        ) == now + timedelta(seconds=2 * base_interval)
+        source.consecutive_failures = 2
+        assert repo._calculate_next_crawl(
+            source, now
+        ) == now + timedelta(seconds=4 * base_interval)
+        source.consecutive_failures = 10
+        assert repo._calculate_next_crawl(
+            source, now
+        ) == now + timedelta(hours=24)
 
 
 def test_get_active_sources_respects_max_retries(db_session):
@@ -76,6 +115,60 @@ def test_get_active_sources_respects_max_retries(db_session):
     assert source_eligible.source_id in active_ids
     assert source_suspended.source_id not in active_ids
     assert source_future.source_id not in active_ids
+
+
+def test_due_sources_are_verified_first_with_stable_order(db_session):
+    repo = SourceRepository(db_session)
+    now = datetime.now(timezone.utc)
+    past = now - timedelta(minutes=1)
+    sources = [
+        repo.create_source(
+            url="https://example.com/verified-z.xml",
+            title="Verified Z",
+            registrable_domain="example.com",
+            verified=True,
+        ),
+        repo.create_source(
+            url="https://example.com/verified-a.xml",
+            title="Verified A",
+            registrable_domain="example.com",
+            verified=True,
+        ),
+        repo.create_source(
+            url="https://example.com/unverified-b.xml",
+            title="Unverified B",
+            registrable_domain="example.com",
+        ),
+        repo.create_source(
+            url="https://example.com/unverified-a.xml",
+            title="Unverified A",
+            registrable_domain="example.com",
+        ),
+    ]
+    for source in sources:
+        source.next_crawl_scheduled_at = past
+    db_session.commit()
+
+    verified_ids = {source.source_id for source in sources[:2]}
+    unverified_ids = {source.source_id for source in sources[2:]}
+    target_ids = verified_ids | unverified_ids
+    ordered_sources = [
+        source
+        for source in repo.get_active_sources(now, max_retries=5)
+        if source.source_id in target_ids
+    ]
+    ordered_verified_ids = [
+        source.source_id
+        for source in ordered_sources
+        if source.verified
+    ]
+    ordered_unverified_ids = [
+        source.source_id
+        for source in ordered_sources
+        if not source.verified
+    ]
+    assert ordered_verified_ids == sorted(verified_ids, key=str)
+    assert ordered_unverified_ids == sorted(unverified_ids, key=str)
 
 
 def test_source_defaults_unverified_and_domain_lookup_is_non_unique(
@@ -134,10 +227,15 @@ def test_get_sources_orders_verified_then_title_and_id(db_session):
         < source_ids.index(verified_z.source_id)
         < source_ids.index(unverified.source_id)
     )
-    assert repo.get_sources(verified_only=True) == [
-        verified_a,
-        verified_z,
+    verified_ids = [
+        source.source_id
+        for source in repo.get_sources(verified_only=True)
     ]
+    assert verified_a.source_id in verified_ids
+    assert verified_z.source_id in verified_ids
+    assert verified_ids.index(
+        verified_a.source_id
+    ) < verified_ids.index(verified_z.source_id)
 
 
 def test_save_crawl_failure_increments_failures_and_delays_retry(
@@ -163,6 +261,8 @@ def test_save_crawl_failure_increments_failures_and_delays_retry(
     if next_scheduled.tzinfo is None:
         next_scheduled = next_scheduled.replace(tzinfo=timezone.utc)
 
-    # Next run should be scheduled roughly 2 * 300s = 600s in future
-    expected_min = datetime.now(timezone.utc) + timedelta(seconds=580)
+    # Next run should use the unverified base interval with 2x backoff.
+    expected_min = datetime.now(timezone.utc) + timedelta(
+        seconds=2 * settings.unverified_crawl_interval_seconds - 20
+    )
     assert next_scheduled >= expected_min

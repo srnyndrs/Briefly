@@ -46,7 +46,11 @@ class SourceRepository:
                 Source.next_crawl_scheduled_at <= now,
                 Source.consecutive_failures < max_retries,
             )
-            .order_by(Source.next_crawl_scheduled_at)
+            .order_by(
+                Source.verified.desc(),
+                Source.next_crawl_scheduled_at,
+                Source.source_id,
+            )
             .all()
         )
         return sources
@@ -183,7 +187,11 @@ class SourceRepository:
     def _calculate_next_crawl(
         self, source: Source, now: datetime
     ) -> datetime:
-        base = settings.base_crawl_interval_seconds
+        base = (
+            settings.verified_crawl_interval_seconds
+            if source.verified
+            else settings.unverified_crawl_interval_seconds
+        )
         if source.consecutive_failures > 0:
             backoff = 2**source.consecutive_failures
             interval = min(backoff * base, 24 * HOURS)
