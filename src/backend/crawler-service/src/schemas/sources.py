@@ -47,6 +47,21 @@ class SourceDiscoverResult(BaseModel):
     favicon: str | None = None
     description: str | None = None
 
+    @field_validator("url")
+    @classmethod
+    def normalize_url(cls, value: str) -> str:
+        """Remove surrounding whitespace from discovered URLs."""
+        return value.strip()
+
+    @field_validator("title", "content_type", "favicon", "description")
+    @classmethod
+    def normalize_discovered_text(cls, value: str | None) -> str | None:
+        """Collapse whitespace in optional metadata collected from feeds."""
+        if value is None:
+            return None
+        normalized = " ".join(value.split())
+        return normalized or None
+
 
 class SourceResponse(BaseModel):
     source_id: uuid.UUID

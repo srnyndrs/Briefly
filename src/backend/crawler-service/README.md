@@ -43,6 +43,17 @@ Run the service locally:
 ```bash
 poetry run uvicorn src.app:app --reload
 ```
+Load the sources listed in `src/scripts/sources.json` into the configured
+database:
+
+```bash
+poetry run python -m src.scripts.seed_sources
+```
+
+The seed command creates the crawler schema when needed, inserts feeds that
+are not already registered by URL, and leaves existing source records
+unchanged.
+
 
 Run tests and lint checks:
 
