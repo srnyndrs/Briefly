@@ -2,7 +2,10 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
-from src.adapters.service_clients import account_list_subscriptions
+from src.adapters.service_clients import (
+    account_list_subscriptions,
+    ingestion_list_sources,
+)
 from src.repositories.feed_repository import (
     PostRepository,
     UserPreferencesRepository,
@@ -126,10 +129,31 @@ class FeedService:
         )
 
     def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
+        verified_sources = ingestion_list_sources(verified_only=True)
+        allowed_source_ids = [
+            str(source["source_id"])
+            for source in verified_sources
+            if source.get("source_id") is not None
+        ]
+        if not allowed_source_ids:
+            options = (
+                FilterOptionsDTO(
+                    categories=[],
+                    languages=[],
+                    authors=[],
+                    keywords=[],
+                    sources=[],
+                )
+                if data.include_filter_options
+                else None
+            )
+            return FeedOutput(items=[], total=0, filter_options=options)
+
         preferences = self._preferences_repository.get_preferences(
             data.user_id
         )
         query = EffectiveFeedQuery(
+            allowed_source_ids=allowed_source_ids,
             blocked_source_ids=preferences.blocked_source_ids,
             muted_keywords=preferences.muted_keywords,
             muted_categories=preferences.muted_categories,

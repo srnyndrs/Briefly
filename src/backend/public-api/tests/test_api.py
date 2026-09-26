@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -15,6 +16,34 @@ from src.models.read_models import (
 )
 from src.schemas.api import AuthContext
 from src.services.auth import get_current_user
+
+
+@pytest.fixture(autouse=True)
+def _use_projected_sources_as_verified_for_existing_explore_tests(
+    monkeypatch,
+) -> None:
+    def list_projected_sources(
+        *, verified_only: bool = False
+    ) -> list[dict]:
+        db_dependency = app.dependency_overrides[get_db]()
+        db = next(db_dependency)
+        try:
+            source_ids = (
+                db.query(PostProjection.source_id).distinct().all()
+            )
+            return [
+                {"source_id": source_id} for (source_id,) in source_ids
+            ]
+        finally:
+            try:
+                next(db_dependency)
+            except StopIteration:
+                pass
+
+    monkeypatch.setattr(
+        "src.services.feed_service.ingestion_list_sources",
+        list_projected_sources,
+    )
 
 
 def _build_client() -> TestClient:
@@ -1521,6 +1550,65 @@ def test_explore_filters_muted_categories() -> None:
     payload = response.json()
     assert payload["total"] == 1
     assert payload["items"][0]["title"] == "Tech Post"
+
+
+def test_explore_explicit_source_filter_cannot_include_unverified(
+    monkeypatch,
+) -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    verified_source_id = str(uuid4())
+    unverified_source_id = str(uuid4())
+    now = datetime.now(UTC)
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=verified_source_id,
+                source_title="Verified",
+                canonical_url="https://example.com/verified",
+                title="Visible verified article",
+                language="en",
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=unverified_source_id,
+                source_title="Unverified",
+                canonical_url="https://example.com/unverified",
+                title="Hidden unverified article",
+                language="hu",
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
+    )
+    db.commit()
+
+    def list_verified_sources(*, verified_only: bool) -> list[dict]:
+        assert verified_only is True
+        return [{"source_id": verified_source_id}]
+
+    monkeypatch.setattr(
+        "src.services.feed_service.ingestion_list_sources",
+        list_verified_sources,
+    )
+
+    response = client.get(
+        "/explore",
+        params=[
+            ("source_ids", verified_source_id),
+            ("source_ids", unverified_source_id),
+        ],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert [item["source_id"] for item in payload["items"]] == [
+        verified_source_id
+    ]
 
 
 def test_explore_category_filter_uses_normalized_category_not_keywords() -> (

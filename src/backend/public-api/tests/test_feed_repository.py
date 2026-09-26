@@ -121,6 +121,63 @@ def test_candidates_apply_exclusions_and_order_before_pagination():
     assert items[0].post_id == visible.post_id
 
 
+def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
+    session, repository = _repository()
+    verified = str(uuid4())
+    verified_other = str(uuid4())
+    unverified = str(uuid4())
+    verified_post = _post(
+        category="technology",
+        language="en",
+        source_id=verified,
+        author="Verified Author",
+        keywords=["verified-keyword"],
+    )
+    verified_post.source_title = "Verified Source"
+    verified_other_post = _post(
+        category="business",
+        language="fr",
+        source_id=verified_other,
+        author="Second Verified Author",
+        keywords=["second-verified-keyword"],
+    )
+    verified_other_post.source_title = "Second Verified Source"
+    unverified_post = _post(
+        category="sports",
+        language="hu",
+        source_id=unverified,
+        author="Unverified Author",
+        keywords=["unverified-keyword"],
+    )
+    unverified_post.source_title = "Unverified Source"
+    session.add_all(
+        [verified_post, verified_other_post, unverified_post]
+    )
+    session.commit()
+
+    query = EffectiveFeedQuery(
+        allowed_source_ids=[verified, verified_other],
+        source_ids=[verified, unverified],
+        limit=20,
+    )
+    items, total = repository.list_candidates(query)
+    options = repository.list_filter_options(
+        query, include_sources=True
+    )
+
+    assert [item.post_id for item in items] == [verified_post.post_id]
+    assert total == 1
+    assert options.categories == ["technology"]
+    assert options.languages == ["en"]
+    assert options.authors == ["Verified Author"]
+    assert options.keywords == ["verified-keyword"]
+    assert options.sources is not None
+    assert {source.source_id for source in options.sources} == {
+        verified,
+        verified_other,
+    }
+
+
 def test_personal_category_options_rank_normalized_categories():
     session, repository = _repository()
     source = str(uuid4())

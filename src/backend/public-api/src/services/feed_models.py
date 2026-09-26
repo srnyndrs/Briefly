@@ -50,6 +50,7 @@ class FilterOptionsDTO:
 
 @dataclass(frozen=True)
 class EffectiveFeedQuery:
+    allowed_source_ids: list[str] | None = None
     blocked_source_ids: list[str] = field(default_factory=list)
     muted_keywords: list[str] = field(default_factory=list)
     muted_categories: list[str] = field(default_factory=list)

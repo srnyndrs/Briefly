@@ -34,6 +34,7 @@ class PostRepository:
         muted_keywords: Sequence[str] | None,
         muted_categories: Sequence[str] | None,
         blocked_source_ids: Sequence[str] | None,
+        allowed_source_ids: Sequence[str] | None = None,
         include_languages: Sequence[str] | None = None,
         include_source_ids: Sequence[str] | None = None,
         include_categories: Sequence[str] | None = None,
@@ -48,6 +49,11 @@ class PostRepository:
         ]
 
         # 1. Hard Block: Blocked Sources
+        if allowed_source_ids is not None:
+            query = query.where(
+                PostProjection.source_id.in_(allowed_source_ids)
+            )
+
         if blocked_source_ids:
             query = query.where(
                 PostProjection.source_id.not_in(blocked_source_ids)
@@ -231,6 +237,7 @@ class PostRepository:
         include_sources: bool = False,
     ) -> FilterOptionsDTO:
         category_query = EffectiveFeedQuery(
+            allowed_source_ids=query.allowed_source_ids,
             blocked_source_ids=query.blocked_source_ids,
             muted_keywords=query.muted_keywords,
             muted_categories=query.muted_categories,
@@ -243,6 +250,7 @@ class PostRepository:
             sort=query.sort,
         )
         language_query = EffectiveFeedQuery(
+            allowed_source_ids=query.allowed_source_ids,
             blocked_source_ids=query.blocked_source_ids,
             muted_keywords=query.muted_keywords,
             muted_categories=query.muted_categories,
@@ -294,6 +302,7 @@ class PostRepository:
         sources = None
         if include_sources:
             source_query = EffectiveFeedQuery(
+                allowed_source_ids=query.allowed_source_ids,
                 blocked_source_ids=query.blocked_source_ids,
                 muted_keywords=query.muted_keywords,
                 muted_categories=query.muted_categories,
@@ -383,6 +392,7 @@ class PostRepository:
         query: EffectiveFeedQuery,
     ) -> EffectiveFeedQuery:
         return EffectiveFeedQuery(
+            allowed_source_ids=query.allowed_source_ids,
             blocked_source_ids=query.blocked_source_ids,
             muted_keywords=query.muted_keywords,
             muted_categories=query.muted_categories,
@@ -404,6 +414,7 @@ class PostRepository:
             muted_keywords=query.muted_keywords,
             muted_categories=query.muted_categories,
             blocked_source_ids=query.blocked_source_ids,
+            allowed_source_ids=query.allowed_source_ids,
             include_languages=None,
             include_source_ids=query.source_ids,
             include_categories=query.categories,
