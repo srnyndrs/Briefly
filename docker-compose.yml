@@ -48,6 +48,9 @@ services:
       context: ./src/backend/crawler-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/crawler-service/.env
+        required: false
     ports:
       - "8001:8001"
     environment:

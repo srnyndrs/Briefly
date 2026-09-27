@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8001
     log_level: str = "INFO"
+    sentry_dsn: str | None = None
 
     database_url: str = (
         "postgresql://postgres:postgres@localhost:5432/briefly"

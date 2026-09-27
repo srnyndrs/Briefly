@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
@@ -16,6 +17,16 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger("crawler-service")
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        send_default_pii=False,
+        traces_sample_rate=0.0,
+        enable_logs=False,
+    )
+    sentry_sdk.set_tag("service", "crawler-service")
 
 
 @asynccontextmanager
