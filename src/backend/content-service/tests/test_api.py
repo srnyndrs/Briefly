@@ -127,7 +127,7 @@ def test_replay_posts_publishes_events(
         assert mock_publish.call_count == 2
 
 
-def test_replay_posts_emits_stored_source_title(
+def test_replay_posts_emits_complete_stored_snapshot(
     client: TestClient, db_session
 ) -> None:
     post_id = str(uuid4())
@@ -169,11 +169,26 @@ def test_replay_posts_emits_stored_source_title(
             params={"limit": 1},
         )
         assert response.status_code == 200
-        assert mock_publish.called
-        assert (
-            mock_publish.call_args.kwargs.get("source_title")
-            == "Tech Blog"
-        )
+        assert mock_publish.call_args.kwargs == {
+            "post_id": post_id,
+            "source_id": "source-1",
+            "item_guid": "guid-replay-title",
+            "url": "https://example.com/replay-title",
+            "title": "Tech News",
+            "correlation_id": mock_publish.call_args.kwargs[
+                "correlation_id"
+            ],
+            "category": "technology",
+            "content": "content",
+            "content_length": 7,
+            "description": "desc",
+            "published_at": now.isoformat(),
+            "language": "en",
+            "keywords": ["technology"],
+            "author": "Author",
+            "source_title": "Tech Blog",
+            "image_url": None,
+        }
 
 
 def test_post_routes_publish_pydantic_response_contracts(

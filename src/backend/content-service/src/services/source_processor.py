@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import feedparser
+import langcodes
 from sqlalchemy.orm import Session
 
 from src.adapters import content_extractor, post_publisher
@@ -19,6 +20,26 @@ def _clean_text(value: Any) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _normalize_language(value: Any) -> str | None:
+    candidate = _clean_text(value)
+    if candidate is None:
+        return None
+
+    try:
+        language = langcodes.get(candidate.replace("_", "-"))
+    except (TypeError, ValueError):
+        return None
+
+    if not language.is_valid() or not language.language:
+        return None
+    primary = language.language.lower()
+    return (
+        None
+        if primary == "und" or primary.startswith("x-")
+        else primary
+    )
 
 
 def _clean_description(value: Any) -> str | None:
@@ -144,10 +165,18 @@ def _build_post_data(
         extracted.get("image")
     )
     keywords = _clean_values(extracted.get("keywords")) or tags
-    language = (
-        _clean_text(entry.get("language"))
-        or _clean_text(feed_language)
-        or _clean_text(extracted.get("language"))
+    language = next(
+        (
+            normalized
+            for candidate in (
+                entry.get("language"),
+                feed_language,
+                extracted.get("language"),
+            )
+            if (normalized := _normalize_language(candidate))
+            is not None
+        ),
+        None,
     )
 
     return {

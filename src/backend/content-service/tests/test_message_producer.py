@@ -44,7 +44,9 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
     )
 
 
-def test_publish_post_parsed_success_omits_missing_author() -> None:
+def test_publish_post_parsed_success_includes_complete_snapshot() -> (
+    None
+):
     channel = MagicMock()
 
     post_publisher.publish_post_parsed_success(
@@ -61,4 +63,11 @@ def test_publish_post_parsed_success_omits_missing_author() -> None:
     )
 
     _, body = _extract_publish_args(channel)
-    assert "author" not in json.loads(body.decode())["payload"]
+    payload = json.loads(body.decode())["payload"]
+    assert payload["author"] is None
+    assert payload["category"] is None
+    assert payload["description"] is None
+    assert payload["image_url"] is None
+    assert payload["language"] is None
+    assert payload["published_at"] is None
+    assert payload["keywords"] == []

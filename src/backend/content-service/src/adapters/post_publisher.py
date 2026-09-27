@@ -56,20 +56,17 @@ def publish_post_parsed_success(
         "content_length": content_length,
         "source_title": source_title,
     }
-    if image_url is not None:
-        payload["image_url"] = image_url
-    if description is not None:
-        payload["description"] = description
-    if published_at:
-        payload["published_at"] = published_at
-    if language:
-        payload["language"] = language
-    if keywords is not None:
-        payload["keywords"] = keywords
-    if author is not None:
-        payload["author"] = author
-    if category is not None:
-        payload["category"] = category
+    payload.update(
+        {
+            "image_url": image_url,
+            "description": description,
+            "published_at": published_at,
+            "language": language,
+            "keywords": keywords if keywords is not None else [],
+            "author": author,
+            "category": category,
+        }
+    )
 
     envelope = build_envelope(
         event_type="post.parsed.v1",

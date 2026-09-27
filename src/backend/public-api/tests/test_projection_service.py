@@ -38,10 +38,13 @@ def test_project_post_persists_content() -> None:
                 "url": "https://example.com/a1",
                 "title": "Title",
                 "description": "Short description",
+                "category": None,
                 "content": "Full body",
                 "author": "Example Author",
+                "language": None,
                 "keywords": ["tech"],
                 "image_url": "https://example.com/images/a1.png",
+                "published_at": None,
                 "parsed_at": datetime.now(UTC).isoformat(),
             },
         )
@@ -54,6 +57,7 @@ def test_project_post_persists_content() -> None:
         assert post.image_ref == "https://example.com/images/a1.png"
         assert post.author == "Example Author"
         assert post.keywords == ["tech"]
+        assert post.published_at is None
     finally:
         db.close()
 
@@ -73,7 +77,7 @@ def test_project_post_rejects_missing_source_identity(
         project_post(MagicMock(), payload)
 
 
-def test_project_post_preserves_immutable_fields_on_update() -> None:
+def test_project_post_replaces_snapshot_fields_on_update() -> None:
     engine = create_engine(
         "sqlite:///:memory:",
         execution_options={"schema_translate_map": {"query": None}},
@@ -92,77 +96,53 @@ def test_project_post_preserves_immutable_fields_on_update() -> None:
                 "post_id": "a1",
                 "source_id": "s1",
                 "source_title": "Source One",
+                "url": "https://example.com/a1",
                 "title": "Original Title",
+                "description": "Original description",
+                "category": "technology",
+                "content": "Original content",
+                "author": "Original Author",
                 "language": "en",
                 "keywords": ["tech"],
+                "image_url": "https://example.com/original.png",
                 "published_at": initial_published_at.isoformat(),
             },
         )
         db.commit()
 
-        # Update with new title, but new language/keywords/published_at should be preserved
+        # A later complete snapshot replaces prior metadata, including nulls.
         project_post(
             db,
             payload={
                 "post_id": "a1",
                 "source_id": "s1",
                 "source_title": "Source One",
+                "url": "https://example.com/a1-updated",
                 "title": "Updated Title",
+                "description": None,
+                "category": "news",
+                "content": None,
+                "author": "Updated Author",
                 "language": "fr",
                 "keywords": ["finance"],
-                "published_at": datetime(
-                    2026, 2, 1, 12, 0, tzinfo=UTC
-                ).isoformat(),
+                "image_url": None,
+                "published_at": None,
             },
         )
         db.commit()
 
         post = db.get(PostProjection, "a1")
         assert post is not None
+        assert post.canonical_url == "https://example.com/a1-updated"
         assert post.title == "Updated Title"
-        assert post.language == "en"
-        assert post.keywords == ["tech"]
-        assert post.author is None
-        assert (
-            post.published_at.replace(tzinfo=UTC)
-            == initial_published_at
-        )
-    finally:
-        db.close()
-
-
-def test_project_post_preserves_author_on_replay() -> None:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        execution_options={"schema_translate_map": {"query": None}},
-    )
-    Base.metadata.create_all(bind=engine)
-    db = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
-    try:
-        base = {
-            "post_id": "a1",
-            "source_id": "s1",
-            "source_title": "Source One",
-            "author": "Original Author",
-            "keywords": ["tech"],
-        }
-        project_post(db, payload=base)
-        db.commit()
-
-        project_post(
-            db,
-            payload={
-                **base,
-                "author": "Replay Author",
-                "keywords": ["finance"],
-            },
-        )
-        db.commit()
-
-        post = db.get(PostProjection, "a1")
-        assert post is not None
-        assert post.author == "Original Author"
-        assert post.keywords == ["tech"]
+        assert post.description is None
+        assert post.category == "news"
+        assert post.content is None
+        assert post.author == "Updated Author"
+        assert post.language == "fr"
+        assert post.keywords == ["finance"]
+        assert post.image_ref is None
+        assert post.published_at is None
     finally:
         db.close()
 

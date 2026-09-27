@@ -7,7 +7,74 @@ import pytest
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
-from src.services.source_processor import SourceProcessorService
+from src.services.source_processor import (
+    SourceProcessorService,
+    _normalize_language,
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("hu-HU", "hu"),
+        ("hu_HU", "hu"),
+        ("en-US", "en"),
+        ("eng-US", "en"),
+        ("iw-IL", "he"),
+        ("sr-Latn", "sr"),
+        ("fil-PH", "fil"),
+        ("yue-Hant-HK", "yue"),
+        ("ast-ES", "ast"),
+        ("qaa", "qaa"),
+        ("", None),
+        ("und", None),
+        ("this-is-not-a-language", None),
+        ("x-private", None),
+    ],
+)
+def test_normalize_language(raw: str, expected: str | None) -> None:
+    assert _normalize_language(raw) == expected
+
+
+def test_normalize_language_precedence_skips_invalid_candidates() -> (
+    None
+):
+    entry = FeedParserDict(
+        {
+            "id": "g-language-precedence",
+            "link": "https://example.com/language-precedence",
+            "title": "Title",
+            "language": "this-is-not-a-language",
+        }
+    )
+
+    saved = _capture_saved_payload(
+        entry,
+        {"content": "Body", "language": "fr-FR"},
+        {"language": "hu-HU"},
+    )
+
+    assert saved["language"] == "hu"
+
+
+def test_normalize_language_precedence_uses_extracted_fallback() -> (
+    None
+):
+    entry = FeedParserDict(
+        {
+            "id": "g-language-extracted-fallback",
+            "link": "https://example.com/language-extracted-fallback",
+            "title": "Title",
+        }
+    )
+
+    saved = _capture_saved_payload(
+        entry,
+        {"content": "Body", "language": "fr-FR"},
+        {"language": "this-is-not-a-language"},
+    )
+
+    assert saved["language"] == "fr"
 
 
 def _make_event(
