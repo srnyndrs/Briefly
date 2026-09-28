@@ -5,6 +5,7 @@ import sentry_sdk
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
@@ -12,21 +13,56 @@ from src.routers import sources
 from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
+TAG_NAME="crawler-service"
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger("crawler-service")
+logger = logging.getLogger(TAG_NAME)
+
+
+def scrub_sentry_event(event: dict, _hint: dict) -> dict:
+    """Keep exception types and frames, but omit captured content."""
+    for key in (
+        "request",
+        "breadcrumbs",
+        "extra",
+        "contexts",
+        "user",
+        "logentry",
+    ):
+        event.pop(key, None)
+    if (
+        "message" in event
+        and event["message"] != "Source suspended after retry limit"
+    ):
+        event["message"] = "Crawler error"
+    for item in event.get("exception", {}).get("values", []):
+        item["value"] = "[redacted]"
+        for frame in item.get("stacktrace", {}).get("frames", []):
+            for key in (
+                "vars",
+                "context_line",
+                "pre_context",
+                "post_context",
+            ):
+                frame.pop(key, None)
+    return event
+
 
 if settings.sentry_dsn:
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.env,
         send_default_pii=False,
+        include_local_variables=False,
+        before_send=scrub_sentry_event,
+        integrations=[LoggingIntegration(level=None, event_level=None)],
         traces_sample_rate=0.0,
         enable_logs=False,
     )
-    sentry_sdk.set_tag("service", "crawler-service")
+    sentry_sdk.set_tag("service", TAG_NAME)
 
 
 @asynccontextmanager

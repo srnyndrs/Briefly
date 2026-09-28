@@ -249,11 +249,12 @@ def test_save_crawl_failure_increments_failures_and_delays_retry(
     )
     assert source.consecutive_failures == 0
 
-    repo.save_crawl_failure(source_id=source.source_id)
+    failure_count = repo.save_crawl_failure(source_id=source.source_id)
 
     updated = repo.get_source_by_id(source.source_id)
     assert updated is not None
     assert updated.consecutive_failures == 1
+    assert failure_count == 1
     assert updated.last_crawl_succeeded is False
     assert updated.last_crawled_at is not None
 

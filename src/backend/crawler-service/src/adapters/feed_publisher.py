@@ -18,6 +18,7 @@ class FeedPublisher:
             exchange=settings.feed_exchange,
             routing_key=routing_key,
             body=body,
+            mandatory=True,
             properties=pika.BasicProperties(
                 delivery_mode=pika.DeliveryMode.Persistent,
                 content_type="application/json",

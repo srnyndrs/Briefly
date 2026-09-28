@@ -166,14 +166,14 @@ class SourceRepository:
         source.updated_at = now
         self._db.commit()
 
-    def save_crawl_failure(self, *, source_id: UUID) -> None:
+    def save_crawl_failure(self, *, source_id: UUID) -> int | None:
         source = (
             self._db.query(Source)
             .filter(Source.source_id == source_id)
             .first()
         )
         if not source:
-            return
+            return None
 
         now = datetime.now(timezone.utc)
         source.last_crawled_at = now
@@ -184,6 +184,7 @@ class SourceRepository:
         )
         source.updated_at = now
         self._db.commit()
+        return source.consecutive_failures
 
     def _calculate_next_crawl(
         self, source: Source, now: datetime

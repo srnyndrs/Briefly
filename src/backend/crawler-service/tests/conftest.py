@@ -1,8 +1,12 @@
+import os
 import sys
 from pathlib import Path
 
 # Insert the service root (directory containing app.py) at the front of sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Tests use an in-memory Sentry transport when capture needs verification.
+os.environ["SENTRY_DSN"] = ""
 
 import pytest
 from fastapi.testclient import TestClient

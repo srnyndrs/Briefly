@@ -20,6 +20,7 @@ def create_feed_publisher_channel() -> (
         exchange_type="topic",
         durable=True,
     )
+    channel.confirm_delivery()
 
     logger.info(
         "RabbitMQ channel ready - exchange='%s'",
