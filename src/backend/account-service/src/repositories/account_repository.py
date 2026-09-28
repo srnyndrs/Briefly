@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -108,7 +108,9 @@ class AccountRepository:
         self._db.refresh(subscription)
         return subscription
 
-    def list_subscriptions(self, *, user_id: str) -> Sequence[Any]:
+    def list_subscriptions(
+        self, *, user_id: str
+    ) -> Sequence[UserSubscription]:
         return (
             self._db.execute(
                 select(UserSubscription)
@@ -150,7 +152,9 @@ class AccountRepository:
             )
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(self, user_id: str) -> Sequence[Any]:
+    def list_active_refresh_tokens(
+        self, user_id: str
+    ) -> Sequence[RefreshToken]:
         return (
             self._db.execute(
                 select(RefreshToken).where(

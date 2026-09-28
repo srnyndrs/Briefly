@@ -1,19 +1,17 @@
-import sys
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from src.app import app
-from src.routers.deps import get_password_reset_mailer
 from src.config.database import Base, get_db
-from src.routers.deps import get_event_publisher
+from src.routers.deps import (
+    get_event_publisher,
+    get_password_reset_mailer,
+)
 
 
 class RecordingPublisher:
@@ -44,31 +42,14 @@ def engine():
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def create_tables(engine) -> Generator[None, None, None]:
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
-
-
 @pytest.fixture()
 def db_session(engine) -> Generator[Session, None, None]:
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection, autoflush=True)
-    session.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(sess, trans):
-        if trans.nested and not trans._parent.nested:
-            sess.begin_nested()
-
+    Base.metadata.create_all(bind=engine)
     try:
-        yield session
+        with Session(engine) as session:
+            yield session
     finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
+        Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture()

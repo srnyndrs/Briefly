@@ -7,6 +7,140 @@ from sqlalchemy import text
 from src.config.settings import settings
 
 
+def test_missing_account_errors(client) -> None:
+    user_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    requests = [
+        ("GET", f"/users/{user_id}", None, "User not found"),
+        ("PATCH", f"/users/{user_id}", {}, "User not found"),
+        (
+            "PATCH",
+            f"/users/{user_id}",
+            {"display_name": None},
+            "User not found",
+        ),
+        (
+            "GET",
+            f"/users/{user_id}/preferences",
+            None,
+            "User preferences not found",
+        ),
+        (
+            "PUT",
+            f"/users/{user_id}/preferences",
+            {},
+            "User not found",
+        ),
+        (
+            "PATCH",
+            f"/users/{user_id}/preferences",
+            {},
+            "User preferences not found",
+        ),
+        (
+            "GET",
+            f"/users/{user_id}/subscriptions",
+            None,
+            "User not found",
+        ),
+        (
+            "POST",
+            f"/users/{user_id}/subscriptions",
+            {"source_id": str(source_id)},
+            "User not found",
+        ),
+        (
+            "DELETE",
+            f"/users/{user_id}/subscriptions/{source_id}",
+            None,
+            "Subscription not found",
+        ),
+    ]
+    for method, path, body, detail in requests:
+        response = client.request(method, path, json=body)
+        assert response.status_code == 404
+        assert response.json() == {"detail": detail}
+
+
+def test_auth_rejects_access_and_malformed_refresh_tokens(
+    client,
+) -> None:
+    registration = client.post(
+        "/auth/register",
+        json={
+            "email": "invalid-token@example.com",
+            "password": "strong-password",
+        },
+    )
+    assert registration.status_code == 201
+    for token, detail in [
+        ("invalid-token", "Invalid token"),
+        (registration.json()["access_token"], "Invalid refresh token"),
+    ]:
+        for path in ("/auth/refresh", "/auth/logout"):
+            response = client.post(path, json={"refresh_token": token})
+            assert response.status_code == 401
+            assert response.json() == {"detail": detail}
+
+
+def test_preferences_patch_null_and_response_serialization(
+    client, publisher
+) -> None:
+    registration = client.post(
+        "/auth/register",
+        json={
+            "email": "patch@example.com",
+            "password": "strong-password",
+        },
+    )
+    assert registration.status_code == 201
+    claims = jwt.decode(
+        registration.json()["access_token"], settings.jwt_secret
+    )
+    user_id = claims["sub"]
+    source_id = str(uuid.uuid4())
+    initial = client.put(
+        f"/users/{user_id}/preferences",
+        json={
+            "muted_keywords": ["example"],
+            "blocked_source_ids": [source_id],
+            "languages": ["en"],
+        },
+    )
+    assert initial.status_code == 200
+    patched = client.patch(
+        f"/users/{user_id}/preferences",
+        json={"muted_keywords": None},
+        headers={"X-Correlation-ID": "patch-request"},
+    )
+    assert patched.status_code == 200
+    body = patched.json()
+    assert body["user_id"] == user_id
+    assert body["muted_keywords"] == []
+    assert body["muted_categories"] == []
+    assert body["blocked_source_ids"] == [source_id]
+    assert body["languages"] == ["en"]
+    assert body["updated_at"].endswith("+00:00")
+    assert client.get(f"/users/{user_id}/preferences").json() == body
+    event = publisher.events[-1]
+    assert event["correlation_id"] == "patch-request"
+    assert event["payload"] == {
+        **body,
+        "updated_at": body["updated_at"].replace("+00:00", "Z"),
+    }
+    account = client.get(f"/users/{user_id}").json()
+    assert account["created_at"].endswith("+00:00")
+    subscription = client.post(
+        f"/users/{user_id}/subscriptions",
+        json={"source_id": source_id},
+    )
+    assert subscription.status_code == 201
+    assert subscription.json()["created_at"].endswith("+00:00")
+    assert client.get(f"/users/{user_id}/subscriptions").json() == [
+        subscription.json()
+    ]
+
+
 def test_health(client) -> None:
     response = client.get("/health")
     assert response.status_code == 200

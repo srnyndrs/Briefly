@@ -6,7 +6,7 @@ from fastapi import (
     status,
 )
 
-from src.routers.deps import get_account_service
+from src.routers.deps import get_account_service, get_auth_service
 from src.schemas.auth import (
     LoginRequest,
     LogoutRequest,
@@ -22,7 +22,7 @@ from src.services.account_service import (
     AccountService,
     ConflictError,
 )
-from src.services.auth_service import AuthError
+from src.services.auth_service import AuthError, AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -53,7 +53,7 @@ def register(
 @router.post("/login", response_model=TokenPairResponse)
 def login(
     body: LoginRequest,
-    service: AccountService = Depends(get_account_service),
+    service: AuthService = Depends(get_auth_service),
 ) -> TokenPairResponse:
     try:
         access_token, refresh_token = service.login(
@@ -73,7 +73,7 @@ def login(
 @router.post("/refresh", response_model=TokenPairResponse)
 def refresh(
     body: RefreshRequest,
-    service: AccountService = Depends(get_account_service),
+    service: AuthService = Depends(get_auth_service),
 ) -> TokenPairResponse:
     try:
         access_token, refresh_token = service.refresh_tokens(
@@ -109,10 +109,10 @@ def password_reset_request(
 )
 def password_reset_confirm(
     body: PasswordResetConfirmRequest,
-    service: AccountService = Depends(get_account_service),
+    service: AuthService = Depends(get_auth_service),
 ) -> StatusResponse:
     try:
-        service.password_reset_confirm(
+        service.reset_password(
             reset_token=body.reset_token,
             new_password=body.new_password,
         )
@@ -127,13 +127,10 @@ def password_reset_confirm(
 @router.post("/logout", status_code=204)
 def logout(
     body: LogoutRequest,
-    service: AccountService = Depends(get_account_service),
+    service: AuthService = Depends(get_auth_service),
 ) -> Response:
     try:
-        service.logout(
-            refresh_token=body.refresh_token,
-            reason=body.reason,
-        )
+        service.revoke_refresh_token(body.refresh_token)
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
