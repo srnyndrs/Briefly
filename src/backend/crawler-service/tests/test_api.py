@@ -20,7 +20,9 @@ def _http_response(url: str, body: bytes, *, headers=None, status=200):
 
 
 def test_discover_sources_success(client):
-    with patch("src.routers.sources.discover_sources") as mock_discover:
+    with patch(
+        "src.routers.sources.SourceDiscoveryAdapter.discover"
+    ) as mock_discover:
         mock_discover.return_value = [
             SourceDiscoverResult(
                 url="https://example.com/feed",
@@ -414,7 +416,7 @@ def test_discover_sources_handles_timeout(_mock_public):
     assert result == []
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 @patch("src.routers.sources.SourceRepository")
 def test_register_source_success(mock_repo_cls, mock_discover, client):
     mock_discover.return_value = [
@@ -473,7 +475,7 @@ def test_register_source_success(mock_repo_cls, mock_discover, client):
     )
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 def test_register_source_rejects_multiple_valid_feeds(
     mock_discover, client
 ):
@@ -496,7 +498,7 @@ def test_register_source_rejects_multiple_valid_feeds(
     assert "direct feed URL" in response.json()["detail"]
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 @patch("src.routers.sources.SourceRepository")
 def test_register_source_rejects_same_publisher_title(
     mock_repo_cls, mock_discover, client
@@ -528,7 +530,7 @@ def test_register_source_rejects_same_publisher_title(
     repository.create_source.assert_not_called()
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 @patch("src.routers.sources.SourceRepository")
 def test_register_source_rejects_normalized_exact_url_duplicate(
     mock_repo_cls, mock_discover, client
@@ -558,7 +560,7 @@ def test_register_source_rejects_normalized_exact_url_duplicate(
     repository.create_source.assert_not_called()
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 @patch("src.routers.sources.SourceRepository")
 def test_register_source_allows_distinct_publisher_same_domain(
     mock_repo_cls, mock_discover, client
@@ -614,7 +616,7 @@ def test_source_create_rejects_client_policy_fields(client):
     assert response.status_code == 422
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 def test_register_source_not_found(mock_discover, client):
     mock_discover.return_value = []
 
@@ -625,7 +627,7 @@ def test_register_source_not_found(mock_discover, client):
     assert "No valid RSS/Atom feed found" in response.text
 
 
-@patch("src.routers.sources.discover_sources")
+@patch("src.routers.sources.SourceDiscoveryAdapter.discover")
 def test_register_source_rejects_missing_title(mock_discover, client):
     mock_discover.return_value = [
         SourceDiscoverResult(

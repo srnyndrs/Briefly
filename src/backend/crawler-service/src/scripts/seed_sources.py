@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from src.config.database import SessionLocal, init_db
 from src.adapters.source_discovery import registrable_domain
+from src.config.database import SessionLocal, init_db
 from src.models.source import Source
 
 SOURCES_FILE = Path(__file__).with_name("sources.json")

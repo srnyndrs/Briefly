@@ -13,7 +13,7 @@ from src.routers import sources
 from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
-TAG_NAME="crawler-service"
+TAG_NAME = "crawler-service"
 
 logging.basicConfig(
     level=settings.log_level,

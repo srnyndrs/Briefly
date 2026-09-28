@@ -1,17 +1,12 @@
 import os
-import sys
-from pathlib import Path
-
-# Insert the service root (directory containing app.py) at the front of sys.path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Tests use an in-memory Sentry transport when capture needs verification.
 os.environ["SENTRY_DSN"] = ""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from src.app import app
@@ -34,18 +29,13 @@ def engine():
 def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
-    session_factory = sessionmaker(
+    # SQLite's legacy transaction mode does not begin before SAVEPOINT.
+    connection.exec_driver_sql("BEGIN")
+    session = Session(
         bind=connection,
-        autocommit=False,
         autoflush=False,
+        join_transaction_mode="create_savepoint",
     )
-    session = session_factory()
-    session.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(session, transaction):
-        if transaction.nested and not transaction._parent.nested:
-            session.begin_nested()
 
     try:
         yield session

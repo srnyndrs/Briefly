@@ -1,7 +1,68 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from src.config.settings import settings
 from src.repositories.source_repository import SourceRepository
+
+
+def test_source_update_and_delete_preserve_metadata(db_session):
+    repo = SourceRepository(db_session)
+    source = repo.create_source(
+        url="https://example.com/feed",
+        title="Example",
+        description="Original description",
+        favicon="https://example.com/icon.png",
+        website_url="https://example.com/",
+        registrable_domain="example.com",
+        verified=True,
+    )
+    source_id = source.source_id
+
+    updated = repo.update_source(
+        source_id=source_id,
+        url="https://example.com/news.xml",
+        description=None,
+        favicon=None,
+    )
+    db_session.expire_all()
+    stored = repo.get_source_by_url("https://example.com/news.xml")
+
+    assert updated is stored
+    assert stored.source_id == source_id
+    assert stored.title == "Example"
+    assert stored.website_url == "https://example.com/"
+    assert stored.registrable_domain == "example.com"
+    assert stored.verified is True
+    assert stored.description is None
+    assert stored.favicon is None
+    assert repo.get_source_by_url("https://example.com/feed") is None
+    assert repo.delete_source(source_id) is True
+    assert repo.get_source_by_id(source_id) is None
+    assert repo.delete_source(source_id) is False
+
+
+def test_missing_source_updates_are_noops(db_session):
+    repo = SourceRepository(db_session)
+    source_id = uuid.uuid4()
+
+    assert repo.get_source_by_id(source_id) is None
+    assert (
+        repo.update_source(
+            source_id=source_id,
+            url="https://example.com/feed",
+            description=None,
+            favicon=None,
+        )
+        is None
+    )
+    assert (
+        repo.save_crawl_success(
+            source_id=source_id, etag=None, last_modified=None
+        )
+        is None
+    )
+    assert repo.save_crawl_failure(source_id=source_id) is None
+    assert repo.get_sources() == []
 
 
 def test_verified_source_uses_verified_interval_after_success(

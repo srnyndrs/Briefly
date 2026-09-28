@@ -1,4 +1,6 @@
+import json
 import uuid
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pika
@@ -7,6 +9,62 @@ import pytest
 from src.adapters.feed_publisher import FeedPublisher
 from src.config.message_broker import create_feed_publisher_channel
 from src.config.settings import settings
+
+
+@patch("src.adapters.feed_publisher.create_feed_publisher_channel")
+def test_publisher_keeps_raw_feed_event_contract(mock_create_channel):
+    source_id = uuid.uuid4()
+    publisher = FeedPublisher()
+    publisher.publish_source_fetched(
+        source_id=source_id,
+        source_url="https://example.com/feed",
+        correlation_id="cycle-1",
+        source_title="Example",
+        raw_xml="<feed/>",
+    )
+
+    published = (
+        mock_create_channel.return_value.basic_publish.call_args.kwargs
+    )
+    envelope = json.loads(published["body"])
+    assert published["exchange"] == settings.feed_exchange
+    assert published["routing_key"] == "feed.raw_fetched.v1"
+    assert published["mandatory"] is True
+    assert (
+        published["properties"].delivery_mode
+        == pika.DeliveryMode.Persistent.value
+    )
+    assert published["properties"].content_type == "application/json"
+    assert set(envelope) == {
+        "event_id",
+        "event_type",
+        "schema_version",
+        "occurred_at",
+        "producer",
+        "correlation_id",
+        "partition_key",
+        "trace",
+        "payload",
+    }
+    assert uuid.UUID(envelope["event_id"])
+    assert (
+        datetime.fromisoformat(envelope["occurred_at"]).tzinfo
+        is not None
+    )
+    assert envelope["event_type"] == "feed.raw_fetched.v1"
+    assert envelope["schema_version"] == 1
+    assert envelope["producer"] == "crawler-service"
+    assert envelope["correlation_id"] == "cycle-1"
+    assert envelope["partition_key"] == f"source:{source_id}"
+    assert set(envelope["trace"]) == {"trace_id", "span_id"}
+    assert len(envelope["trace"]["trace_id"]) == 32
+    assert len(envelope["trace"]["span_id"]) == 16
+    assert envelope["payload"] == {
+        "source_id": str(source_id),
+        "source_url": "https://example.com/feed",
+        "source_title": "Example",
+        "raw_xml": "<feed/>",
+    }
 
 
 @patch("src.config.message_broker.pika.BlockingConnection")

@@ -1,7 +1,8 @@
+from dataclasses import dataclass
+
 import requests
 
 from src.config.settings import settings
-from dataclasses import dataclass
 
 
 @dataclass

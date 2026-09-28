@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -28,17 +27,12 @@ from src.schemas.sources import (
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
-def discover_sources(url: str) -> List[SourceDiscoverResult]:
-    discovery = SourceDiscoveryAdapter()
-    return discovery.discover(url)
-
-
-@router.get("", response_model=List[SourceResponse])
+@router.get("", response_model=list[SourceResponse])
 def list_sources(
     active_only: bool = False,
     verified_only: bool = False,
     db: Session = Depends(get_db),
-) -> List[SourceResponse]:
+) -> list[SourceResponse]:
     repository = SourceRepository(db)
     if active_only:
         sources = repository.get_active_sources(
@@ -48,14 +42,14 @@ def list_sources(
         )
     else:
         sources = repository.get_sources(verified_only=verified_only)
-    return sources
+    return [SourceResponse.model_validate(source) for source in sources]
 
 
-@router.post("/discover", response_model=List[SourceDiscoverResult])
+@router.post("/discover", response_model=list[SourceDiscoverResult])
 def discover_sources_endpoint(
     body: SourceDiscoverRequest,
-) -> List[SourceDiscoverResult]:
-    return discover_sources(str(body.url))
+) -> list[SourceDiscoverResult]:
+    return SourceDiscoveryAdapter().discover(str(body.url))
 
 
 @router.post("", response_model=SourceResponse, status_code=201)
@@ -63,7 +57,7 @@ def register_source(
     body: SourceCreate,
     db: Session = Depends(get_db),
 ) -> SourceResponse:
-    discovered = discover_sources(str(body.url))
+    discovered = SourceDiscoveryAdapter().discover(str(body.url))
     if not discovered:
         raise HTTPException(
             status_code=400,
@@ -136,7 +130,8 @@ def register_source(
         verified=False,
         submitted_by_user_id=body.submitted_by_user_id,
     )
-    return source
+
+    return SourceResponse.model_validate(source)
 
 
 @router.delete("/{source_id}", status_code=204)
@@ -157,7 +152,7 @@ def get_source(
     source = repository.get_source_by_id(source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
-    return source
+    return SourceResponse.model_validate(source)
 
 
 @router.patch("/{source_id}", response_model=SourceResponse)
@@ -191,4 +186,4 @@ def patch_source(
     if updated is None:
         raise HTTPException(status_code=404, detail="Source not found.")
 
-    return updated
+    return SourceResponse.model_validate(updated)

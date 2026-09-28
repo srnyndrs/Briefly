@@ -12,19 +12,6 @@ class FeedPublisher:
     def __init__(self) -> None:
         self._channel = create_feed_publisher_channel()
 
-    def _publish(self, routing_key: str, payload: dict) -> None:
-        body = json.dumps(payload, default=str).encode("utf-8")
-        self._channel.basic_publish(
-            exchange=settings.feed_exchange,
-            routing_key=routing_key,
-            body=body,
-            mandatory=True,
-            properties=pika.BasicProperties(
-                delivery_mode=pika.DeliveryMode.Persistent,
-                content_type="application/json",
-            ),
-        )
-
     def publish_source_fetched(
         self,
         *,
@@ -46,7 +33,16 @@ class FeedPublisher:
             payload=payload,
             correlation_id=correlation_id,
         )
-        self._publish("feed.raw_fetched.v1", envelope)
+        self._channel.basic_publish(
+            exchange=settings.feed_exchange,
+            routing_key="feed.raw_fetched.v1",
+            body=json.dumps(envelope, default=str).encode("utf-8"),
+            mandatory=True,
+            properties=pika.BasicProperties(
+                delivery_mode=pika.DeliveryMode.Persistent,
+                content_type="application/json",
+            ),
+        )
 
     def close(self) -> None:
         if (

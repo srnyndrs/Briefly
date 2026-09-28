@@ -8,8 +8,6 @@ from sqlalchemy.orm import Session
 from src.config.settings import settings
 from src.models.source import Source
 
-HOURS = 3600
-
 
 class SourceRepository:
     def __init__(self, db: Session) -> None:
@@ -57,20 +55,14 @@ class SourceRepository:
         ).all()
 
     def get_source_by_id(self, source_id: UUID) -> Source | None:
-        item = (
+        return (
             self._db.query(Source)
             .filter(Source.source_id == source_id)
             .first()
         )
-        if item is None:
-            return None
-        return item
 
     def get_source_by_url(self, url: str) -> Source | None:
-        item = self._db.query(Source).filter(Source.url == url).first()
-        if item is None:
-            return None
-        return item
+        return self._db.query(Source).filter(Source.url == url).first()
 
     def create_source(
         self,
@@ -101,11 +93,7 @@ class SourceRepository:
         return source
 
     def delete_source(self, source_id: UUID) -> bool:
-        item = (
-            self._db.query(Source)
-            .filter(Source.source_id == source_id)
-            .first()
-        )
+        item = self.get_source_by_id(source_id)
         if item is None:
             return False
         self._db.delete(item)
@@ -119,21 +107,14 @@ class SourceRepository:
         url: str,
         description: str | None,
         favicon: str | None,
-        website_url: str | None = None,
     ) -> Source | None:
-        item = (
-            self._db.query(Source)
-            .filter(Source.source_id == source_id)
-            .first()
-        )
+        item = self.get_source_by_id(source_id)
         if item is None:
             return None
 
         item.url = url
         item.description = description
         item.favicon = favicon
-        if website_url is not None:
-            item.website_url = website_url
         item.updated_at = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(item)
@@ -146,11 +127,7 @@ class SourceRepository:
         etag: str | None,
         last_modified: str | None,
     ) -> None:
-        source = (
-            self._db.query(Source)
-            .filter(Source.source_id == source_id)
-            .first()
-        )
+        source = self.get_source_by_id(source_id)
         if not source:
             return
 
@@ -167,11 +144,7 @@ class SourceRepository:
         self._db.commit()
 
     def save_crawl_failure(self, *, source_id: UUID) -> int | None:
-        source = (
-            self._db.query(Source)
-            .filter(Source.source_id == source_id)
-            .first()
-        )
+        source = self.get_source_by_id(source_id)
         if not source:
             return None
 
@@ -196,7 +169,9 @@ class SourceRepository:
         )
         if source.consecutive_failures > 0:
             backoff = 2**source.consecutive_failures
-            interval = min(backoff * base, 24 * HOURS)
+            interval = min(
+                backoff * base, timedelta(days=1).total_seconds()
+            )
         else:
             interval = base
         return now + timedelta(seconds=interval)

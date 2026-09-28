@@ -33,14 +33,11 @@ def init_db() -> None:
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS crawler;"))
 
-    logger.info("Running database migrations (create_all)...")
+    logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database schema ready.")
 
 
 def get_db():
-    db = SessionLocal()
-    try:
+    with SessionLocal() as db:
         yield db
-    finally:
-        db.close()
