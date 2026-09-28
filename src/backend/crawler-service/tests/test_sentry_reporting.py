@@ -1,7 +1,4 @@
 import json
-import uuid
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -11,7 +8,6 @@ from sentry_sdk.transport import Transport
 
 from src.app import scrub_sentry_event
 from src.config.settings import settings
-from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
 
 class CaptureTransport(Transport):
@@ -87,7 +83,12 @@ def test_suspension_event_keeps_safe_identifiers():
     assert "secret" not in json.dumps(scrubbed)
 
 
-def test_cycle_fault_captures_one_event_but_feed_failure_captures_none():
+@pytest.mark.parametrize(
+    "outcome", ["feed-failure", "cycle-fault", "suspension"]
+)
+def test_reporting_captures_only_actionable_failures(
+    crawl_cycle, source_factory, db_session, outcome
+):
     transport = CaptureTransport()
     previous_client = sentry_sdk.get_client()
     sentry_sdk.init(
@@ -101,68 +102,55 @@ def test_cycle_fault_captures_one_event_but_feed_failure_captures_none():
         enable_logs=False,
     )
     try:
-        source = SimpleNamespace(
-            source_id=uuid.uuid4(),
+        source = source_factory(
             url="https://example.com/feed?token=secret",
-            title="Example",
-            etag=None,
-            last_modified=None,
+            consecutive_failures=(
+                settings.max_retries - 1
+                if outcome == "suspension"
+                else 0
+            ),
         )
-        session_factory = MagicMock()
-        repo = MagicMock()
-        repo.get_active_sources.return_value = [source]
-        repo.save_crawl_failure.return_value = 1
-        http = MagicMock()
-        publisher = MagicMock()
-        with (
-            patch(
-                "src.services.crawl_orchestrator.SourceRepository",
-                return_value=repo,
-            ),
-            patch(
-                "src.services.crawl_orchestrator.RequestsHttpClient",
-                return_value=http,
-            ),
-            patch(
-                "src.services.crawl_orchestrator.FeedPublisher",
-                return_value=publisher,
-            ),
-        ):
-            orchestrator = CrawlCycleOrchestrator(session_factory)
-            http.fetch.side_effect = requests.Timeout("secret")
-            orchestrator.run_crawl_cycle()
-            assert transport.events == []
-
-            http.fetch.side_effect = None
-            http.fetch.return_value = SimpleNamespace(
-                status_code=200,
-                body="<feed>private content</feed>",
-                etag=None,
-                last_modified=None,
-            )
+        orchestrator, http_get, publisher = crawl_cycle
+        if outcome == "cycle-fault":
             publisher.publish_source_fetched.side_effect = ValueError(
                 "secret <feed>private content</feed>"
             )
             with pytest.raises(ValueError):
                 orchestrator.run_crawl_cycle()
+        else:
+            http_get.side_effect = requests.Timeout("secret")
+            orchestrator.run_crawl_cycle()
 
-            repo.save_crawl_failure.return_value = settings.max_retries
-            orchestrator._handle_failure(
-                repo,
-                source.source_id,
-                source.url,
-                "cycle-3",
-                requests.Timeout("secret"),
-            )
+        db_session.refresh(source)
+        events = transport.events
+        if outcome == "feed-failure":
+            assert events == []
+            assert source.consecutive_failures == 1
+        else:
+            assert len(events) == 1
+            event = events[0]
+            assert event["tags"]["cycle_id"]
+            if outcome == "cycle-fault":
+                assert (
+                    event["exception"]["values"][0]["type"]
+                    == "ValueError"
+                )
+                assert source.consecutive_failures == 0
+            else:
+                assert (
+                    event["message"]
+                    == "Source suspended after retry limit"
+                )
+                assert event["tags"]["source_id"] == str(
+                    source.source_id
+                )
+                assert (
+                    source.consecutive_failures == settings.max_retries
+                )
+                orchestrator.run_crawl_cycle()
+                assert len(events) == 1
+        assert "secret" not in json.dumps(events)
+        assert "private content" not in json.dumps(events)
     finally:
         sentry_sdk.get_client().close()
         sentry_sdk.get_global_scope().set_client(previous_client)
-
-    assert len(transport.events) == 2
-    fault, suspension = transport.events
-    assert fault["exception"]["values"][0]["type"] == "ValueError"
-    assert fault["tags"]["cycle_id"]
-    assert suspension["message"] == "Source suspended after retry limit"
-    assert suspension["tags"]["source_id"] == str(source.source_id)
-    assert "secret" not in json.dumps(transport.events)
-    assert "private content" not in json.dumps(transport.events)

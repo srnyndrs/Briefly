@@ -86,6 +86,6 @@ unchanged.
 Run tests and lint checks:
 
 ```bash
-poetry run pytest -p no:cacheprovider -q
+poetry run python -m pytest -p no:cacheprovider -q
 poetry run ruff check --no-cache src tests
 ```
