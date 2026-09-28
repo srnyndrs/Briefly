@@ -120,6 +120,9 @@ services:
       context: ./src/backend/account-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/account-service/.env
+        required: false
     ports:
       - "8003:8003"
     environment:

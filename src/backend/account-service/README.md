@@ -46,6 +46,11 @@ for the current API documentation.
 
 ## Development
 
+Copy `.env.example` to `.env` and adjust the local values. The example lists
+all supported settings, including optional Sentry reporting and local Mailpit
+delivery. JWT settings must match public-api. Root Compose loads `.env`, but
+its explicit `environment` values take precedence.
+
 Install dependencies:
 
 ```bash

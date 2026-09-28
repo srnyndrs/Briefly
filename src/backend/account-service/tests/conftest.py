@@ -1,4 +1,7 @@
+import os
 from collections.abc import Generator
+
+os.environ["SENTRY_DSN"] = ""
 
 import pytest
 from authlib.jose import jwt

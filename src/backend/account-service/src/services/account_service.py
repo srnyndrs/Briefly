@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
+import sentry_sdk
+
 from src.adapters.account_event_publisher import (
     AccountEventPublisher,
 )
@@ -69,11 +71,11 @@ class AccountService:
         user_email, reset_token = reset
         try:
             self._mailer.send(email=user_email, reset_token=reset_token)
-        except PasswordResetDeliveryError:
-            logger.exception(
-                "Password reset delivery failed",
-                extra={"email": user_email},
-            )
+        except PasswordResetDeliveryError as exc:
+            logger.exception("Password reset delivery failed")
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("operation", "password_reset_delivery")
+                sentry_sdk.capture_exception(exc)
 
     def get_user(self, user_id: str) -> User:
         user = self._repo.get_user_by_id(user_id)
