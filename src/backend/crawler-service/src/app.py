@@ -23,7 +23,6 @@ logger = logging.getLogger(TAG_NAME)
 
 
 def scrub_sentry_event(event: dict, _hint: dict) -> dict:
-    """Keep exception types and frames, but omit captured content."""
     for key in (
         "request",
         "breadcrumbs",

@@ -3,7 +3,7 @@ name = "account-service"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Andras Suranyi"}
+    { name = "Andras Suranyi" }
 ]
 requires-python = ">=3.13,<4"
 dependencies = [

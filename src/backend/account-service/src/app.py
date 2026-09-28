@@ -21,7 +21,6 @@ logger = logging.getLogger(TAG_NAME)
 
 
 def scrub_sentry_event(event: dict, _hint: dict) -> dict:
-    """Keep exception types and frames, but omit captured account data."""
     for key in (
         "request",
         "breadcrumbs",
@@ -46,9 +45,7 @@ def scrub_sentry_event(event: dict, _hint: dict) -> dict:
     return event
 
 
-def init_sentry() -> None:
-    if not settings.sentry_dsn:
-        return
+if settings.sentry_dsn:
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.env,
@@ -62,9 +59,6 @@ def init_sentry() -> None:
     sentry_sdk.set_tag("service", TAG_NAME)
 
 
-init_sentry()
-
-
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     if not getattr(application.state, "testing", False):
@@ -75,8 +69,7 @@ async def lifespan(application: FastAPI):
 
     yield
 
-    if not getattr(application.state, "testing", False):
-        logger.info("Account Service stopped")
+    logger.info("Account Service stopped.")
 
 
 app = FastAPI(
