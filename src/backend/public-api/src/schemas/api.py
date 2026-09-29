@@ -6,6 +6,7 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
+    HttpUrl,
     field_serializer,
     field_validator,
 )
@@ -111,19 +112,14 @@ class SourceCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
-    title: str | None = Field(default=None, max_length=255)
+    title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    favicon: str | None = None
+    favicon: HttpUrl | None = Field(default=None, max_length=2048)
 
-    @field_validator("title")
+    @field_validator("title", mode="before")
     @classmethod
-    def normalize_title(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("Title must not be blank")
-        return normalized
+    def trim_title(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class SourceDiscoverRequest(BaseModel):
@@ -137,7 +133,6 @@ class SourceDiscoverResult(BaseModel):
     favicon: str | None = None
     description: str | None = None
     website_url: str | None = None
-    registrable_domain: str | None = None
 
 
 class SubscriptionCreateRequest(BaseModel):
@@ -160,8 +155,23 @@ class SourcePatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str | None = None
+    title: str | None = Field(
+        default=None, min_length=1, max_length=255
+    )
     description: str | None = None
-    favicon: str | None = None
+    favicon: HttpUrl | None = Field(default=None, max_length=2048)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def trim_title(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("url", "title")
+    @classmethod
+    def reject_null(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("URL and title must not be null")
+        return value
 
 
 class SourceResponse(BaseModel):

@@ -6,17 +6,16 @@ import pytest
 
 from src.config.settings import settings
 from src.models.source import Source
-from src.schemas.sources import SourceDiscoverResult
+from src.schemas.sources import SourceDiscoverResponse
 
 
 @pytest.fixture
 def discover(monkeypatch):
-    result = SourceDiscoverResult(
+    result = SourceDiscoverResponse(
         url="https://example.com/feed",
         title="Example",
         description="News",
         website_url="https://example.com/",
-        registrable_domain="example.com",
     )
     discover = Mock(return_value=[result])
     monkeypatch.setattr(
@@ -30,8 +29,9 @@ def test_source_lifecycle(client, discover, db_session):
     response = client.post(
         "/sources",
         json={
-            "url": "https://example.com/",
-            "title": "My Source",
+            "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
+            "title": "  My Source  ",
+            "favicon": "https://example.com/original.png",
             "submitted_by_user_id": submitter,
         },
     )
@@ -40,12 +40,13 @@ def test_source_lifecycle(client, discover, db_session):
     source_id = source["source_id"]
     assert source["title"] == "My Source"
     assert source["url"] == "https://example.com/feed"
+    assert source["website_url"] is None
     assert source["verified"] is False
+    assert source["favicon"] == "https://example.com/original.png"
     assert "submitted_by_user_id" not in source
-    assert "registrable_domain" not in source
     stored = db_session.get(Source, uuid.UUID(source_id))
     assert str(stored.submitted_by_user_id) == submitter
-    assert stored.registrable_domain == "example.com"
+    discover.assert_not_called()
     assert client.get(f"/sources/{source_id}").json() == source
 
     updated = client.patch(
@@ -62,15 +63,21 @@ def test_source_lifecycle(client, discover, db_session):
     assert updated.json()["favicon"] == "https://example.com/icon.png"
     assert updated.json()["title"] == source["title"]
     assert updated.json()["website_url"] == source["website_url"]
-    assert client.get("/sources").json() == [updated.json()]
+    renamed = client.patch(
+        f"/sources/{source_id}",
+        json={"title": "  Updated Source  ", "favicon": None},
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["title"] == "Updated Source"
+    assert renamed.json()["favicon"] is None
+    assert renamed.json()["url"] == updated.json()["url"]
+    assert client.get(f"/sources/{source_id}").json() == renamed.json()
+    assert client.get("/sources").json() == [renamed.json()]
 
     assert client.delete(f"/sources/{source_id}").status_code == 204
     assert client.get(f"/sources/{source_id}").status_code == 404
     assert client.delete(f"/sources/{source_id}").status_code == 404
-    assert (
-        client.patch(f"/sources/{source_id}", json={}).status_code
-        == 404
-    )
+    assert client.patch(f"/sources/{source_id}", json={}).status_code == 404
     assert client.get("/sources").json() == []
 
 
@@ -88,62 +95,38 @@ def test_discovery_endpoint(client, discover):
     discover.assert_called_once_with("https://example.com/")
 
 
-@pytest.mark.parametrize(
-    "problem, status",
-    [
-        ("no-feed", 400),
-        ("multiple-feeds", 422),
-        ("missing-title", 422),
-    ],
-)
-def test_registration_requires_one_named_feed(
-    client, discover, problem, status
-):
-    if problem == "no-feed":
-        discover.return_value = []
-    elif problem == "multiple-feeds":
-        discover.return_value *= 2
-    else:
-        discover.return_value[0].title = None
+def test_registration_does_not_fetch_or_require_discovery(client, discover):
+    discover.return_value = []
     response = client.post(
-        "/sources", json={"url": "https://example.com/"}
+        "/sources",
+        json={"url": "https://feeds.example.com/rss", "title": "Example"},
     )
-    assert response.status_code == status
-    assert client.get("/sources").json() == []
+    assert response.status_code == 201
+    assert response.json()["url"] == "https://feeds.example.com/rss"
+    discover.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "existing",
-    [
-        {
-            "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
-            "title": "Other",
-        },
-        {"website_url": "https://www.example.com/", "title": "Other"},
-        {"title": "  EXAMPLE  "},
-    ],
-    ids=["feed-url", "website-host", "publisher-title"],
-)
-def test_registration_rejects_duplicate_source(
-    client, discover, source_factory, existing
-):
-    source_factory(**existing)
+def test_registration_rejects_duplicate_url(client, source_factory):
+    source_factory(url="https://example.com/feed")
     response = client.post(
-        "/sources", json={"url": "https://example.com/"}
+        "/sources",
+        json={
+            "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
+            "title": "Example",
+        },
     )
     assert response.status_code == 409
     assert len(client.get("/sources").json()) == 1
 
 
-def test_registration_allows_distinct_publishers_on_one_domain(
-    client, discover, source_factory
-):
+def test_registration_allows_other_feeds_on_same_domain(client, source_factory):
     source_factory(
         title="Other Publisher",
         website_url="https://other.example.com/",
     )
     response = client.post(
-        "/sources", json={"url": "https://example.com/"}
+        "/sources",
+        json={"url": "https://example.com/other.xml", "title": "Example"},
     )
     assert response.status_code == 201
     assert len(client.get("/sources").json()) == 2
@@ -152,7 +135,12 @@ def test_registration_allows_distinct_publishers_on_one_domain(
 @pytest.mark.parametrize(
     "method, path, payload",
     [
-        ("post", "/sources", {"url": "not-a-url"}),
+        ("post", "/sources", {"url": "not-a-url", "title": "Example"}),
+        (
+            "post",
+            "/sources",
+            {"url": "https://user:pass@example.com/feed", "title": "Example"},
+        ),
         (
             "post",
             "/sources",
@@ -161,24 +149,18 @@ def test_registration_allows_distinct_publishers_on_one_domain(
         (
             "post",
             "/sources",
-            {"url": "https://example.com/", "verified": True},
-        ),
-        (
-            "post",
-            "/sources",
             {
                 "url": "https://example.com/",
-                "registrable_domain": "other.org",
+                "title": "Example",
+                "verified": True,
             },
         ),
-        ("patch", "/sources/{source_id}", {"title": "Changed"}),
     ],
     ids=[
         "invalid-url",
+        "credentialed-url",
         "blank-title",
         "verification",
-        "domain",
-        "immutable-title",
     ],
 )
 def test_api_rejects_invalid_or_server_owned_fields(
@@ -191,16 +173,46 @@ def test_api_rejects_invalid_or_server_owned_fields(
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "method, payload",
+    [
+        ("post", {}),
+        ("post", {"title": None}),
+        ("post", {"title": "x" * 256}),
+        ("post", {"title": "Example", "favicon": "http-invalid"}),
+        ("patch", {"title": " "}),
+        ("patch", {"title": None}),
+        ("patch", {"title": "x" * 256}),
+        ("patch", {"url": None}),
+        ("patch", {"favicon": "ftp://example.com/icon.png"}),
+        ("patch", {"favicon": "https://example.com/" + "x" * 2048}),
+    ],
+)
+def test_source_metadata_validation(
+    client, discover, source_factory, method, payload
+):
+    source = source_factory()
+    if method == "post":
+        path = "/sources"
+        payload = {"url": "https://example.com/"} | payload
+    else:
+        path = f"/sources/{source.source_id}"
+    response = client.request(method, path, json=payload)
+    assert response.status_code == 422
+    assert (
+        client.get(f"/sources/{source.source_id}").json()["title"]
+        == source.title
+    )
+    assert len(client.get("/sources").json()) == 1
+    discover.assert_not_called()
+
+
 def test_source_list_filters_and_orders(client, source_factory):
     now = datetime.now(timezone.utc)
     verified = source_factory(title="Zeta", verified=True)
     unverified = source_factory(title="Alpha")
-    future = source_factory(
-        next_crawl_scheduled_at=now + timedelta(days=1)
-    )
-    suspended = source_factory(
-        consecutive_failures=settings.max_retries
-    )
+    future = source_factory(next_crawl_scheduled_at=now + timedelta(days=1))
+    suspended = source_factory(consecutive_failures=settings.max_retries)
 
     def ids(response):
         assert response.status_code == 200
@@ -214,9 +226,9 @@ def test_source_list_filters_and_orders(client, source_factory):
         str(verified.source_id),
         str(unverified.source_id),
     }
-    assert ids(
-        client.get("/sources?active_only=true&verified_only=true")
-    ) == [str(verified.source_id)]
+    assert ids(client.get("/sources?active_only=true&verified_only=true")) == [
+        str(verified.source_id)
+    ]
     assert str(future.source_id) in ids(client.get("/sources"))
     assert str(suspended.source_id) in ids(client.get("/sources"))
 
@@ -228,6 +240,5 @@ def test_patch_rejects_existing_feed_url(client, source_factory):
     )
     assert response.status_code == 409
     assert (
-        client.get(f"/sources/{second.source_id}").json()["url"]
-        == second.url
+        client.get(f"/sources/{second.source_id}").json()["url"] == second.url
     )

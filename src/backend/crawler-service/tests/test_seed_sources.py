@@ -12,9 +12,7 @@ from src.scripts import seed_sources
 @pytest.fixture
 def seed_file():
     # Avoid pytest's shared temp root, which can have stale Windows ACLs.
-    with TemporaryDirectory(
-        prefix="briefly-crawler-seed-"
-    ) as directory:
+    with TemporaryDirectory(prefix="briefly-crawler-seed-") as directory:
         yield Path(directory) / "sources.json"
 
 
@@ -35,21 +33,13 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(
-        seed_sources, "SessionLocal", sessionmaker(bind=engine)
-    )
+    monkeypatch.setattr(seed_sources, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(seed_sources, "init_db", lambda: None)
 
     assert seed_sources.seed_sources(seed_file) == (2, 0)
     sources = db_session.query(Source).order_by(Source.title).all()
-    assert [source.registrable_domain for source in sources] == [
-        "example.co.uk",
-        "other.org",
-    ]
     assert all(source.verified for source in sources)
-    assert all(
-        source.submitted_by_user_id is None for source in sources
-    )
+    assert all(source.submitted_by_user_id is None for source in sources)
     sources[0].title = "Updated by user"
     db_session.commit()
 

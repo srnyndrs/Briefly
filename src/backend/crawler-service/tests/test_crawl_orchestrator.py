@@ -21,16 +21,14 @@ def test_crawl_success_persists_state(
     assert source.last_crawl_succeeded is True
     assert source.consecutive_failures == 0
     assert source.last_crawled_at is not None
-    assert (
-        source.next_crawl_scheduled_at - source.last_crawled_at
-        == timedelta(seconds=settings.unverified_crawl_interval_seconds)
+    assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
+        seconds=settings.unverified_crawl_interval_seconds
     )
     headers = http_get.call_args.kwargs["headers"]
     assert headers["If-None-Match"] == "old"
     assert headers["If-Modified-Since"] == "old-date"
     assert (
-        http_get.call_args.kwargs["timeout"]
-        == settings.fetch_timeout_seconds
+        http_get.call_args.kwargs["timeout"] == settings.fetch_timeout_seconds
     )
     if status == 200:
         assert source.etag == "fresh"
@@ -51,9 +49,7 @@ def test_crawl_success_persists_state(
 def test_feed_failure_retries_and_continues(
     crawl_cycle, source_factory, db_session
 ):
-    first = source_factory(
-        url="https://example.com/first", verified=True
-    )
+    first = source_factory(url="https://example.com/first", verified=True)
     second = source_factory(url="https://example.com/second")
     orchestrator, http_get, publisher = crawl_cycle
     response = http_get.return_value
@@ -67,11 +63,8 @@ def test_feed_failure_retries_and_continues(
 
     assert first.last_crawl_succeeded is False
     assert first.consecutive_failures == 1
-    assert (
-        first.next_crawl_scheduled_at - first.last_crawled_at
-        == timedelta(
-            seconds=2 * settings.verified_crawl_interval_seconds
-        )
+    assert first.next_crawl_scheduled_at - first.last_crawled_at == timedelta(
+        seconds=2 * settings.verified_crawl_interval_seconds
     )
     assert second.last_crawl_succeeded is True
     publisher.publish_source_fetched.assert_called_once()
@@ -89,8 +82,7 @@ def test_cycle_shares_correlation_id(crawl_cycle, source_factory):
     events = publisher.publish_source_fetched.call_args_list
     assert len(events) == 2
     assert (
-        events[0].kwargs["correlation_id"]
-        == events[1].kwargs["correlation_id"]
+        events[0].kwargs["correlation_id"] == events[1].kwargs["correlation_id"]
     )
 
 
@@ -104,11 +96,9 @@ def test_idle_cycle_skips_external_services(crawl_cycle):
 
 @pytest.mark.parametrize("stage", ["publish", "database", "close"])
 def test_infrastructure_failure_aborts_without_feed_retry(
-    crawl_cycle, source_factory, db_session, monkeypatch, caplog, stage
+    crawl_cycle, source_factory, db_session, monkeypatch, stage
 ):
-    source = source_factory(
-        url="https://example.com/feed?token=private"
-    )
+    source = source_factory(url="https://example.com/feed?token=private")
     orchestrator, _, publisher = crawl_cycle
     error = RuntimeError("private failure")
     if stage == "publish":
@@ -132,11 +122,6 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     assert source.consecutive_failures == 0
     assert source.last_crawl_succeeded is (stage == "close")
     publisher.close.assert_called_once()
-    assert (
-        sum(record.levelname == "ERROR" for record in caplog.records)
-        == 1
-    )
-    assert "private" not in caplog.text
 
 
 def test_deleted_source_is_skipped(

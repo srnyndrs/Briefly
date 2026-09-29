@@ -63,10 +63,12 @@ languages, authors, and keywords; Explore additionally returns source options.
 
 Source creation is a synchronous gateway operation. `POST /sources` accepts a
 feed URL and optional display metadata; public-api derives the submitter ID
-from the authenticated user. The client cannot set `verified`, submitter ID,
-or registrable domain. Crawler-service validates RSS/Atom content before
-persisting, and user-created Sources are unverified. `POST /sources/discover`
-returns only validated direct or explicitly advertised feed candidates.
+from the authenticated user. The client cannot set `verified` or submitter ID.
+Crawler-service validates fields without fetching the feed again, and
+user-created Sources are unverified. `POST /sources/discover` returns only
+validated direct or explicitly advertised feed candidates. Overall and
+category feeds can coexist; if they contain the same article, each feed keeps
+its own projected post.
 
 For example:
 
@@ -78,6 +80,16 @@ The disposable PostgreSQL search-index and query-plan verification is a
 deployment validation step; it must be rerun after rebuilding the local schema.
 
 ## Development
+
+For an existing development database, remove the URL uniqueness constraint
+before processing overlapping feeds:
+
+```sql
+ALTER TABLE query.post_projections
+DROP CONSTRAINT uq_post_projection_canonical_url;
+```
+
+New databases are created with the current schema by `init_db()`.
 
 Install dependencies:
 

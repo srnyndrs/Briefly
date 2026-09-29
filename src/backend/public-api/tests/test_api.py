@@ -90,6 +90,28 @@ def test_health() -> None:
     assert response.json()["service"] == "public-api"
 
 
+def test_overlapping_feeds_can_project_the_same_article_url() -> None:
+    _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    url = "https://example.com/article"
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=source_id,
+                source_title=source_id,
+                canonical_url=url,
+            )
+            for source_id in ("overall", "category")
+        ]
+    )
+    db.commit()
+    assert (
+        db.query(PostProjection).filter_by(canonical_url=url).count()
+        == 2
+    )
+
+
 def test_personal_feed_applies_subscriptions_languages_and_category(
     monkeypatch,
 ) -> None:
@@ -526,7 +548,6 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
                 "favicon": "https://example.com/favicon.ico",
                 "description": "Feed description",
                 "website_url": "https://example.com",
-                "registrable_domain": "example.com",
             }
         ]
 
@@ -543,7 +564,6 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     assert len(payload) == 1
     assert payload[0]["title"] == "Discovered"
     assert payload[0]["website_url"] == "https://example.com"
-    assert payload[0]["registrable_domain"] == "example.com"
 
 
 def test_create_source_endpoint_forwards_json_payload(
@@ -605,7 +625,6 @@ def test_create_source_rejects_client_policy_fields() -> None:
             "url": "https://example.com/feed.xml",
             "verified": True,
             "submitted_by_user_id": str(uuid4()),
-            "registrable_domain": "example.com",
         },
     )
     assert response.status_code == 422
@@ -634,10 +653,68 @@ def test_delete_source_endpoint(monkeypatch) -> None:
 def test_patch_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
-    response = client.patch(
-        f"/sources/{source_id}", json={"title": "Updated"}
+    now = datetime.now(UTC).isoformat()
+    captured: dict = {}
+
+    def fake_patch_source(sid: str, body: dict) -> dict:
+        assert sid == source_id
+        captured.update(body)
+        return {
+            "source_id": sid,
+            "url": "https://example.com/feed.xml",
+            "title": body["title"],
+            "description": "Feed description",
+            "favicon": body["favicon"],
+            "website_url": "https://example.com",
+            "verified": False,
+            "last_crawled_at": None,
+            "next_crawl_scheduled_at": now,
+            "last_crawl_succeeded": False,
+            "consecutive_failures": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    monkeypatch.setattr(
+        "src.routers.sources.ingestion_patch_source", fake_patch_source
     )
-    assert response.status_code == 422
+    response = client.patch(
+        f"/sources/{source_id}",
+        json={
+            "title": "  Updated  ",
+            "favicon": "https://example.com/icon.png",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["title"] == "Updated"
+    assert captured == {
+        "title": "Updated",
+        "favicon": "https://example.com/icon.png",
+    }
+
+
+@pytest.mark.parametrize(
+    "method, payload",
+    [
+        ("post", {}),
+        ("post", {"title": None}),
+        ("post", {"title": " "}),
+        ("post", {"title": "Example", "favicon": "http-invalid"}),
+        ("patch", {"title": None}),
+        ("patch", {"title": " "}),
+        ("patch", {"title": "x" * 256}),
+        ("patch", {"url": None}),
+        ("patch", {"favicon": "ftp://example.com/icon.png"}),
+    ],
+)
+def test_source_metadata_validation(method, payload) -> None:
+    client = _build_client()
+    if method == "post":
+        path = "/sources"
+        payload = {"url": "https://example.com/feed.xml"} | payload
+    else:
+        path = f"/sources/{uuid4()}"
+    assert client.request(method, path, json=payload).status_code == 422
 
 
 def test_admin_feed_returns_items() -> None:

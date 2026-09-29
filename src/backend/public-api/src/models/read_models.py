@@ -7,7 +7,6 @@ from sqlalchemy import (
     Index,
     String,
     Text,
-    UniqueConstraint,
     func,
     literal_column,
 )
@@ -97,10 +96,6 @@ class PostProjection(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "canonical_url",
-            name="uq_post_projection_canonical_url",
-        ),
         Index(
             "ix_post_projections_published_updated",
             "published_at",

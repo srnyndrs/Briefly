@@ -44,7 +44,6 @@ def source_factory(db_session):
             **{
                 "url": f"https://example.com/{uuid.uuid4()}/feed",
                 "title": "Example",
-                "registrable_domain": "example.com",
             }
             | values
         )
@@ -65,9 +64,7 @@ def crawl_cycle(engine, monkeypatch):
     )
     http_get = Mock(return_value=response)
     publisher = Mock()
-    monkeypatch.setattr(
-        "src.adapters.http_client.requests.get", http_get
-    )
+    monkeypatch.setattr("src.adapters.http_client.requests.get", http_get)
     monkeypatch.setattr(
         "src.services.crawl_orchestrator.FeedPublisher",
         Mock(return_value=publisher),

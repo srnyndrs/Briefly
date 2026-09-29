@@ -1,12 +1,10 @@
 import logging
-import traceback
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import requests
-import sentry_sdk
 from sqlalchemy.orm import sessionmaker
 
 from src.adapters.feed_publisher import FeedPublisher
@@ -25,19 +23,7 @@ class CrawlCycleOrchestrator:
 
     def run_crawl_cycle(self) -> None:
         cycle_id = str(uuid.uuid4())
-        try:
-            self._run_crawl_cycle(cycle_id)
-        except Exception as exc:
-            logger.error(
-                "Crawl cycle failed (cycle_id=%s, error_type=%s)\n%s",
-                cycle_id,
-                type(exc).__name__,
-                "".join(traceback.format_tb(exc.__traceback__)),
-            )
-            with sentry_sdk.new_scope() as scope:
-                scope.set_tag("cycle_id", cycle_id)
-                sentry_sdk.capture_exception(exc)
-            raise
+        self._run_crawl_cycle(cycle_id)
 
     def _run_crawl_cycle(self, cycle_id: str) -> None:
         with self._session_factory() as db:
@@ -143,10 +129,11 @@ class CrawlCycleOrchestrator:
             etag=result.etag,
             last_modified=result.last_modified,
         )
+
         return "succeeded"
 
+    @staticmethod
     def _handle_failure(
-        self,
         source_repository: SourceRepository,
         source_id: UUID,
         source_url: str,
@@ -154,9 +141,7 @@ class CrawlCycleOrchestrator:
         error: requests.RequestException,
     ) -> bool:
         host = urlsplit(source_url).hostname or "unknown"
-        failures = source_repository.save_crawl_failure(
-            source_id=source_id
-        )
+        failures = source_repository.save_crawl_failure(source_id=source_id)
         if failures is None:
             logger.info(
                 "Skipped failure update for deleted source (source_id=%s, "
@@ -169,27 +154,22 @@ class CrawlCycleOrchestrator:
 
         logger.warning(
             "Feed request failed (source_id=%s, host=%s, cycle_id=%s, "
-            "retry_count=%d, error_type=%s)",
+            "retry_count=%d): %s",
             source_id,
             host,
             cycle_id,
             failures,
-            type(error).__name__,
+            error,
         )
         if failures == settings.max_retries:
             logger.error(
                 "Source suspended after retry limit (source_id=%s, host=%s, "
-                "retry_count=%d, cycle_id=%s)",
+                "retry_count=%d, cycle_id=%s): %s",
                 source_id,
                 host,
                 failures,
                 cycle_id,
+                error,
             )
-            with sentry_sdk.new_scope() as scope:
-                scope.set_tag("source_id", str(source_id))
-                scope.set_tag("source_host", host)
-                scope.set_tag("cycle_id", cycle_id)
-                sentry_sdk.capture_message(
-                    "Source suspended after retry limit", level="error"
-                )
+
         return True

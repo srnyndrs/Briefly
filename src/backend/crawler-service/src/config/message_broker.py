@@ -1,16 +1,14 @@
 import logging
 
 import pika
-import pika.adapters.blocking_connection
+from pika.adapters.blocking_connection import BlockingChannel
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
-def create_feed_publisher_channel() -> (
-    pika.adapters.blocking_connection.BlockingChannel
-):
+def create_feed_publisher_channel() -> BlockingChannel:
     params = pika.URLParameters(settings.rabbitmq_url)
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
@@ -22,8 +20,6 @@ def create_feed_publisher_channel() -> (
     )
     channel.confirm_delivery()
 
-    logger.info(
-        "RabbitMQ channel ready - exchange='%s'",
-        settings.feed_exchange,
-    )
+    logger.info("RabbitMQ exchange='%s' ready", settings.feed_exchange)
+
     return channel

@@ -23,9 +23,7 @@ def test_publisher_keeps_raw_feed_event_contract(mock_create_channel):
         raw_xml="<feed/>",
     )
 
-    published = (
-        mock_create_channel.return_value.basic_publish.call_args.kwargs
-    )
+    published = mock_create_channel.return_value.basic_publish.call_args.kwargs
     envelope = json.loads(published["body"])
     assert published["exchange"] == settings.feed_exchange
     assert published["routing_key"] == "feed.raw_fetched.v1"
@@ -47,10 +45,7 @@ def test_publisher_keeps_raw_feed_event_contract(mock_create_channel):
         "payload",
     }
     assert uuid.UUID(envelope["event_id"])
-    assert (
-        datetime.fromisoformat(envelope["occurred_at"]).tzinfo
-        is not None
-    )
+    assert datetime.fromisoformat(envelope["occurred_at"]).tzinfo is not None
     assert envelope["event_type"] == "feed.raw_fetched.v1"
     assert envelope["schema_version"] == 1
     assert envelope["producer"] == "crawler-service"
@@ -94,9 +89,7 @@ def test_publisher_requires_routing_and_propagates_rejection(
     mock_create_channel: MagicMock,
 ) -> None:
     channel = MagicMock()
-    channel.basic_publish.side_effect = pika.exceptions.UnroutableError(
-        []
-    )
+    channel.basic_publish.side_effect = pika.exceptions.UnroutableError([])
     mock_create_channel.return_value = channel
 
     publisher = FeedPublisher()

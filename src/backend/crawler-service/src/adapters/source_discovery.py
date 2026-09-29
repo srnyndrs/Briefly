@@ -1,18 +1,13 @@
-import ipaddress
 import logging
-import socket
-import time
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import feedparser
 import requests
-import tldextract
 from bs4 import BeautifulSoup
 from requests import Response
-from requests.adapters import HTTPAdapter
 
 from src.config.settings import settings
-from src.schemas.sources import SourceDiscoverResult
+from src.schemas.sources import SourceDiscoverResponse
 
 logger = logging.getLogger(__name__)
 
@@ -22,220 +17,56 @@ FEED_TYPES = {
     "application/xml",
     "text/xml",
 }
-REDIRECT_STATUSES = {301, 302, 303, 307, 308}
-_TLD_EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
-_MAX_READ_TIMEOUT_SECONDS = 1.0
 
 
 def normalize_feed_url(url: str) -> str:
     parts = urlsplit(url.strip())
     scheme = parts.scheme.lower()
     host = (parts.hostname or "").encode("idna").decode("ascii").lower()
+
     if scheme not in {"http", "https"} or not host:
         raise ValueError("A valid HTTP(S) URL is required")
+
     if parts.username is not None or parts.password is not None:
         raise ValueError("URL credentials are not allowed")
 
     port = parts.port
     netloc = f"[{host}]" if ":" in host else host
+
     if port is not None and not (
-        (scheme == "http" and port == 80)
-        or (scheme == "https" and port == 443)
+        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
     ):
         netloc = f"{netloc}:{port}"
+
     return urlunsplit((scheme, netloc, parts.path, parts.query, ""))
 
 
-def normalize_host(url: str) -> str | None:
-    try:
-        host = urlsplit(url).hostname
-        if not host:
-            return None
-        normalized = host.encode("idna").decode("ascii").lower()
-    except (UnicodeError, ValueError):
-        return None
-    return (
-        normalized[4:] if normalized.startswith("www.") else normalized
-    )
-
-
-def registrable_domain(url: str) -> str:
-    host = normalize_host(url)
-    if not host:
-        raise ValueError("A valid website or feed URL is required")
-    try:
-        return str(ipaddress.ip_address(host))
-    except ValueError:
-        pass
-    result = _TLD_EXTRACT(host)
-    domain = ".".join(
-        part for part in (result.domain, result.suffix) if part
-    )
-    if not domain:
-        raise ValueError("URL does not have a registrable domain")
-    return domain
-
-
-def normalize_source_title(title: str | None) -> str | None:
-    if title is None:
-        return None
-    normalized = " ".join(title.split())
-    return normalized.casefold() or None
-
-
-def _assert_public_destination(url: str) -> str:
-    parts = urlsplit(url)
-    if parts.scheme.lower() not in {"http", "https"}:
-        raise ValueError("Only HTTP and HTTPS URLs are accepted")
-    if parts.username is not None or parts.password is not None:
-        raise ValueError("URL credentials are not allowed")
-    host = parts.hostname
-    if not host:
-        raise ValueError("URL host is required")
-    normalized_host = host.encode("idna").decode("ascii").lower()
-    if normalized_host == "localhost" or normalized_host.endswith(
-        ".localhost"
-    ):
-        raise ValueError("Non-public destinations are not allowed")
-
-    try:
-        literal_address = ipaddress.ip_address(normalized_host)
-    except ValueError:
-        addresses = {
-            ipaddress.ip_address(result[4][0])
-            for result in socket.getaddrinfo(
-                normalized_host, parts.port, type=socket.SOCK_STREAM
-            )
-        }
-    else:
-        addresses = {literal_address}
-
-    if not addresses or any(
-        not address.is_global for address in addresses
-    ):
-        raise ValueError("Non-public destinations are not allowed")
-    return str(
-        min(
-            addresses,
-            key=lambda address: (address.version, int(address)),
-        )
-    )
-
-
-class _PinnedAddressAdapter(HTTPAdapter):
-    def __init__(self, address: str, hostname: str) -> None:
-        self._address = address
-        self._hostname = hostname
-        super().__init__()
-
-    def get_connection_with_tls_context(
-        self, request, verify, proxies=None, cert=None
-    ):
-        host_params, pool_kwargs = (
-            self.build_connection_pool_key_attributes(
-                request, verify, cert
-            )
-        )
-        host_params["host"] = self._address
-        if host_params["scheme"] == "https":
-            pool_kwargs["assert_hostname"] = self._hostname
-            pool_kwargs["server_hostname"] = self._hostname
-        return self.poolmanager.connection_from_host(
-            **host_params, pool_kwargs=pool_kwargs
-        )
-
-
-def _remaining_timeout(deadline: float) -> float:
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise requests.Timeout("Source validation deadline exceeded")
-    return remaining
-
-
 def _bounded_get(url: str) -> Response:
-    current_url = normalize_feed_url(url)
-    deadline = (
-        time.monotonic() + settings.source_validation_timeout_seconds
-    )
-    for redirect_count in range(
-        settings.source_validation_max_redirects + 1
-    ):
-        address = _assert_public_destination(current_url)
-        remaining = _remaining_timeout(deadline)
-        parts = urlsplit(current_url)
-        hostname = (parts.hostname or "").encode("idna").decode("ascii")
-
-        with requests.Session() as session:
-            session.trust_env = False
-            # Connect to the checked address while verifying the URL hostname.
-            session.mount(
-                f"{parts.scheme}://",
-                _PinnedAddressAdapter(address, hostname),
-            )
-            response = session.get(
-                current_url,
-                timeout=(
-                    remaining,
-                    min(remaining, _MAX_READ_TIMEOUT_SECONDS),
-                ),
-                allow_redirects=False,
-                stream=True,
-                headers={
-                    "Host": parts.netloc,
-                    "Accept-Encoding": "identity",
-                    "User-Agent": "briefly-source-validator/1.0",
-                },
-            )
-            try:
-                if response.status_code in REDIRECT_STATUSES:
-                    location = response.headers.get("Location")
-                    if (
-                        not location
-                        or redirect_count
-                        >= settings.source_validation_max_redirects
-                    ):
-                        raise ValueError(
-                            "Too many or invalid redirects"
-                        )
-                    current_url = normalize_feed_url(
-                        urljoin(current_url, location)
-                    )
-                    continue
-
-                response.raise_for_status()
-                if (
-                    response.headers.get(
-                        "Content-Encoding", "identity"
-                    ).lower()
-                    != "identity"
-                ):
+    with requests.Session() as session:
+        session.max_redirects = settings.source_validation_max_redirects
+        response = session.get(
+            normalize_feed_url(url),
+            timeout=settings.source_validation_timeout_seconds,
+            stream=True,
+            headers={"User-Agent": "briefly-source-discovery/1.0"},
+        )
+        try:
+            response.raise_for_status()
+            body = bytearray()
+            for chunk in response.iter_content(chunk_size=8192):
+                body.extend(chunk)
+                if len(body) > settings.source_validation_max_bytes:
                     raise ValueError(
-                        "Compressed source responses are not supported"
+                        "Response exceeds the configured size limit"
                     )
-                body = bytearray()
-                while True:
-                    chunk = response.raw.read1(
-                        8192, decode_content=False
-                    )
-                    _remaining_timeout(deadline)
-                    if not chunk:
-                        break
-                    body.extend(chunk)
-                    if len(body) > settings.source_validation_max_bytes:
-                        raise ValueError(
-                            "Response exceeds the configured size limit"
-                        )
-                _remaining_timeout(deadline)
-                response._content = bytes(body)
-                response.url = current_url
-                return response
-            finally:
-                response.close()
-    raise ValueError("Too many redirects")
+            response._content = bytes(body)
+            return response
+        finally:
+            response.close()
 
 
 class SourceDiscoveryAdapter:
-    def discover(self, url: str) -> list[SourceDiscoverResult]:
+    def discover(self, url: str) -> list[SourceDiscoverResponse]:
         if not url:
             logger.warning("URL is empty or None")
             return []
@@ -252,7 +83,7 @@ class SourceDiscoveryAdapter:
             page_title = self._extract_site_title(soup)
             page_favicon = self._extract_favicon(soup, page_url)
             page_description = self._extract_description(soup)
-            results: list[SourceDiscoverResult] = []
+            results: list[SourceDiscoverResponse] = []
             seen_candidate_urls: set[str] = set()
             seen_final_urls: set[str] = set()
 
@@ -269,9 +100,7 @@ class SourceDiscoveryAdapter:
                 if not href:
                     continue
                 try:
-                    candidate_url = normalize_feed_url(
-                        urljoin(page_url, href)
-                    )
+                    candidate_url = normalize_feed_url(urljoin(page_url, href))
                     if candidate_url in seen_candidate_urls:
                         continue
                     seen_candidate_urls.add(candidate_url)
@@ -281,8 +110,7 @@ class SourceDiscoveryAdapter:
                         continue
                     seen_final_urls.add(result.url)
                     result.website_url = (
-                        _valid_website_url(result.website_url)
-                        or page_url
+                        _valid_website_url(result.website_url) or page_url
                     )
                     result.title = (
                         result.title
@@ -291,29 +119,23 @@ class SourceDiscoveryAdapter:
                         or page_title
                     )
                     result.favicon = result.favicon or page_favicon
-                    result.description = (
-                        result.description or page_description
-                    )
-                    result.registrable_domain = registrable_domain(
-                        result.website_url or result.url
-                    )
+                    result.description = result.description or page_description
                     results.append(result)
                 except (
                     requests.RequestException,
                     ValueError,
                     OSError,
                 ) as exc:
-                    logger.info(
-                        "Skipping invalid advertised feed: %s", exc
-                    )
+                    logger.info("Skipping invalid advertised feed: %s", exc)
             return results
         except (requests.RequestException, ValueError, OSError) as exc:
             logger.info("Source discovery failed for %s: %s", url, exc)
             return []
 
+    @staticmethod
     def _direct_feed_result(
-        self, response: Response
-    ) -> SourceDiscoverResult | None:
+        response: Response,
+    ) -> SourceDiscoverResponse | None:
         parsed = feedparser.parse(response.content)
         if not (
             parsed.version.startswith("rss")
@@ -326,22 +148,19 @@ class SourceDiscoveryAdapter:
         content_type = content_type.split(";", 1)[0].strip() or None
         website_url = _valid_website_url(getattr(feed, "link", None))
         final_url = normalize_feed_url(response.url)
-        domain_url = website_url or final_url
         image = getattr(feed, "image", None)
-        return SourceDiscoverResult(
+
+        return SourceDiscoverResponse(
             url=final_url,
             title=getattr(feed, "title", None),
             content_type=content_type,
-            favicon=getattr(image, "href", None)
-            or getattr(image, "url", None),
+            favicon=getattr(image, "href", None) or getattr(image, "url", None),
             description=getattr(feed, "subtitle", None),
             website_url=website_url,
-            registrable_domain=registrable_domain(domain_url),
         )
 
-    def _extract_publisher_name(
-        self, soup: BeautifulSoup
-    ) -> str | None:
+    @staticmethod
+    def _extract_publisher_name(soup: BeautifulSoup) -> str | None:
         for attributes in (
             {"property": "og:site_name"},
             {"name": "application-name"},
@@ -351,35 +170,35 @@ class SourceDiscoveryAdapter:
                 value = tag.get("content")
                 if value and value.strip():
                     return " ".join(value.split())
+
         return None
 
-    def _extract_site_title(self, soup: BeautifulSoup) -> str | None:
+    @staticmethod
+    def _extract_site_title(soup: BeautifulSoup) -> str | None:
         title_tag = soup.find("title")
         if title_tag:
             return title_tag.get_text(" ", strip=True)
         h1_tag = soup.find("h1")
         if h1_tag:
             return h1_tag.get_text(" ", strip=True)
+
         return None
 
-    def _extract_favicon(
-        self, soup: BeautifulSoup, base_url: str
-    ) -> str | None:
+    @staticmethod
+    def _extract_favicon(soup: BeautifulSoup, base_url: str) -> str | None:
         favicon_link = soup.find(
             "link",
-            {
-                "rel": lambda value: (
-                    value and "icon" in str(value).lower()
-                )
-            },
+            {"rel": lambda value: value and "icon" in str(value).lower()},
         )
         if favicon_link:
             href = favicon_link.get("href")
             if href:
                 return urljoin(base_url, href)
+
         return None
 
-    def _extract_description(self, soup: BeautifulSoup) -> str | None:
+    @staticmethod
+    def _extract_description(soup: BeautifulSoup) -> str | None:
         for attributes in (
             {"name": "description"},
             {"property": "og:description"},
@@ -387,6 +206,7 @@ class SourceDiscoveryAdapter:
             meta = soup.find("meta", attributes)
             if meta and meta.get("content"):
                 return " ".join(meta["content"].split())
+
         return None
 
 
@@ -397,4 +217,5 @@ def _valid_website_url(value: str | None) -> str | None:
         normalized = normalize_feed_url(value)
     except ValueError:
         return None
+
     return normalized

@@ -13,27 +13,16 @@ class SourceRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_sources(
-        self, *, verified_only: bool = False
-    ) -> list[Source]:
+    def get_sources(self, *, verified_only: bool = False) -> list[Source]:
         query = self._db.query(Source)
         if verified_only:
             query = query.filter(Source.verified.is_(True))
+
         return query.order_by(
             Source.verified.desc(),
             func.lower(Source.title),
             Source.source_id,
         ).all()
-
-    def get_sources_by_registrable_domain(
-        self, registrable_domain: str
-    ) -> list[Source]:
-        return (
-            self._db.query(Source)
-            .filter(Source.registrable_domain == registrable_domain)
-            .order_by(Source.source_id)
-            .all()
-        )
 
     def get_active_sources(
         self,
@@ -48,6 +37,7 @@ class SourceRepository:
         )
         if verified_only:
             query = query.filter(Source.verified.is_(True))
+
         return query.order_by(
             Source.verified.desc(),
             Source.next_crawl_scheduled_at,
@@ -56,9 +46,7 @@ class SourceRepository:
 
     def get_source_by_id(self, source_id: UUID) -> Source | None:
         return (
-            self._db.query(Source)
-            .filter(Source.source_id == source_id)
-            .first()
+            self._db.query(Source).filter(Source.source_id == source_id).first()
         )
 
     def get_source_by_url(self, url: str) -> Source | None:
@@ -72,7 +60,6 @@ class SourceRepository:
         description: str | None = None,
         favicon: str | None = None,
         website_url: str | None = None,
-        registrable_domain: str,
         verified: bool = False,
         submitted_by_user_id: UUID | None = None,
     ) -> Source:
@@ -83,21 +70,24 @@ class SourceRepository:
             description=description,
             favicon=favicon,
             website_url=website_url,
-            registrable_domain=registrable_domain,
             verified=verified,
             submitted_by_user_id=submitted_by_user_id,
         )
+
         self._db.add(source)
         self._db.commit()
         self._db.refresh(source)
+
         return source
 
     def delete_source(self, source_id: UUID) -> bool:
         item = self.get_source_by_id(source_id)
         if item is None:
             return False
+
         self._db.delete(item)
         self._db.commit()
+
         return True
 
     def update_source(
@@ -105,6 +95,7 @@ class SourceRepository:
         *,
         source_id: UUID,
         url: str,
+        title: str,
         description: str | None,
         favicon: str | None,
     ) -> Source | None:
@@ -113,11 +104,14 @@ class SourceRepository:
             return None
 
         item.url = url
+        item.title = title
         item.description = description
         item.favicon = favicon
         item.updated_at = datetime.now(timezone.utc)
+
         self._db.commit()
         self._db.refresh(item)
+
         return item
 
     def save_crawl_success(
@@ -137,10 +131,9 @@ class SourceRepository:
         source.consecutive_failures = 0
         source.etag = etag
         source.last_modified = last_modified
-        source.next_crawl_scheduled_at = self._calculate_next_crawl(
-            source, now
-        )
+        source.next_crawl_scheduled_at = self._calculate_next_crawl(source, now)
         source.updated_at = now
+
         self._db.commit()
 
     def save_crawl_failure(self, *, source_id: UUID) -> int | None:
@@ -152,16 +145,15 @@ class SourceRepository:
         source.last_crawled_at = now
         source.last_crawl_succeeded = False
         source.consecutive_failures += 1
-        source.next_crawl_scheduled_at = self._calculate_next_crawl(
-            source, now
-        )
+        source.next_crawl_scheduled_at = self._calculate_next_crawl(source, now)
         source.updated_at = now
+
         self._db.commit()
+
         return source.consecutive_failures
 
-    def _calculate_next_crawl(
-        self, source: Source, now: datetime
-    ) -> datetime:
+    @staticmethod
+    def _calculate_next_crawl(source: Source, now: datetime) -> datetime:
         base = (
             settings.verified_crawl_interval_seconds
             if source.verified
@@ -169,9 +161,8 @@ class SourceRepository:
         )
         if source.consecutive_failures > 0:
             backoff = 2**source.consecutive_failures
-            interval = min(
-                backoff * base, timedelta(days=1).total_seconds()
-            )
+            interval = min(backoff * base, timedelta(days=1).total_seconds())
         else:
             interval = base
+
         return now + timedelta(seconds=interval)

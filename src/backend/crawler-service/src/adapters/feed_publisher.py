@@ -7,6 +7,8 @@ from src.config.message_broker import create_feed_publisher_channel
 from src.config.settings import settings
 from src.events.envelope import build_envelope
 
+_EVENT_NAME = "feed.raw_fetched.v1"
+
 
 class FeedPublisher:
     def __init__(self) -> None:
@@ -28,14 +30,14 @@ class FeedPublisher:
             "raw_xml": raw_xml,
         }
         envelope = build_envelope(
-            event_type="feed.raw_fetched.v1",
+            event_type=_EVENT_NAME,
             partition_key=f"source:{source_id}",
             payload=payload,
             correlation_id=correlation_id,
         )
         self._channel.basic_publish(
             exchange=settings.feed_exchange,
-            routing_key="feed.raw_fetched.v1",
+            routing_key=_EVENT_NAME,
             body=json.dumps(envelope, default=str).encode("utf-8"),
             mandatory=True,
             properties=pika.BasicProperties(
@@ -45,8 +47,5 @@ class FeedPublisher:
         )
 
     def close(self) -> None:
-        if (
-            self._channel.connection
-            and self._channel.connection.is_open
-        ):
+        if self._channel.connection and self._channel.connection.is_open:
             self._channel.connection.close()

@@ -24,27 +24,17 @@ class Source(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    url: Mapped[str] = mapped_column(
-        String(2048), unique=True, nullable=False
-    )
+    url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    favicon: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
-    website_url: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
+    favicon: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     verified: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
-    registrable_domain: Mapped[str] = mapped_column(
-        String(255), nullable=False
-    )
-
     last_crawled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -77,9 +67,5 @@ class Source(Base):
     )
 
     __table_args__ = (
-        Index(
-            "ix_sources_next_crawl_scheduled_at",
-            "next_crawl_scheduled_at",
-        ),
-        Index("ix_sources_registrable_domain", "registrable_domain"),
+        Index("ix_sources_next_crawl_scheduled_at", "next_crawl_scheduled_at"),
     )

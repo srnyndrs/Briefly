@@ -8,20 +8,18 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: str = "production"
+    env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8001
     log_level: str = "INFO"
     sentry_dsn: str | None = None
 
-    database_url: str = (
-        "postgresql://postgres:postgres@localhost:5432/briefly"
-    )
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/briefly"
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     feed_exchange: str = "feed.content"
 
-    # How often (seconds) the scheduler triggers a full crawl cycle
+    # How often the scheduler triggers a full crawl cycle
     crawl_interval_seconds: int = 300
     # HTTP request timeout for fetching a single feed
     fetch_timeout_seconds: int = 30
@@ -30,7 +28,6 @@ class Settings(BaseSettings):
     source_validation_max_bytes: int = 1_048_576
     # Maximum consecutive failures before a feed is suspended
     max_retries: int = 5
-    # Base intervals used for tier-aware scheduling and retry backoff.
     verified_crawl_interval_seconds: int = 300
     unverified_crawl_interval_seconds: int = 1800
 

@@ -10,9 +10,7 @@ from src.repositories.source_repository import SourceRepository
 @pytest.mark.parametrize(
     "verified", [True, False], ids=["verified", "unverified"]
 )
-def test_retry_scheduling_and_recovery(
-    db_session, source_factory, verified
-):
+def test_retry_scheduling_and_recovery(db_session, source_factory, verified):
     source = source_factory(verified=verified)
     repository = SourceRepository(db_session)
     base = (
@@ -35,9 +33,8 @@ def test_retry_scheduling_and_recovery(
     db_session.commit()
     repository.save_crawl_failure(source_id=source.source_id)
     db_session.refresh(source)
-    assert (
-        source.next_crawl_scheduled_at - source.last_crawled_at
-        == timedelta(days=1)
+    assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
+        days=1
     )
 
     repository.save_crawl_success(
@@ -50,15 +47,12 @@ def test_retry_scheduling_and_recovery(
     assert source.last_crawl_succeeded is True
     assert source.etag == "fresh"
     assert source.last_modified == "new-date"
-    assert (
-        source.next_crawl_scheduled_at - source.last_crawled_at
-        == timedelta(seconds=base)
+    assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
+        seconds=base
     )
 
 
-def test_due_sources_use_tier_time_and_id_order(
-    db_session, source_factory
-):
+def test_due_sources_use_tier_time_and_id_order(db_session, source_factory):
     repository = SourceRepository(db_session)
     now = datetime.now(timezone.utc)
     due = now - timedelta(minutes=1)
@@ -77,10 +71,7 @@ def test_due_sources_use_tier_time_and_id_order(
     source_factory(next_crawl_scheduled_at=now + timedelta(days=1))
     source_factory(consecutive_failures=settings.max_retries)
     expected = [first, second, third, unverified]
-    assert (
-        repository.get_active_sources(now, settings.max_retries)
-        == expected
-    )
+    assert repository.get_active_sources(now, settings.max_retries) == expected
     assert (
         repository.get_active_sources(
             now, settings.max_retries, verified_only=True
@@ -89,9 +80,7 @@ def test_due_sources_use_tier_time_and_id_order(
     )
 
 
-def test_source_catalog_orders_and_groups_publishers(
-    db_session, source_factory
-):
+def test_source_catalog_orders_sources(db_session, source_factory):
     repository = SourceRepository(db_session)
     unverified = source_factory(title="Alpha")
     last = source_factory(verified=True, title="Zeta")
@@ -105,7 +94,6 @@ def test_source_catalog_orders_and_groups_publishers(
         title="Alpha",
         source_id=uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"),
     )
-    source_factory(registrable_domain="other.org")
     assert repository.get_sources(verified_only=True) == [
         first,
         second,
@@ -117,18 +105,6 @@ def test_source_catalog_orders_and_groups_publishers(
         last,
         unverified,
     ]
-    domain_sources = repository.get_sources_by_registrable_domain(
-        "example.com"
-    )
-    assert {source.source_id for source in domain_sources} == {
-        first.source_id,
-        second.source_id,
-        last.source_id,
-        unverified.source_id,
-    }
-    assert domain_sources == sorted(
-        domain_sources, key=lambda source: source.source_id
-    )
     assert unverified.verified is False
     assert unverified.submitted_by_user_id is None
 
@@ -137,15 +113,13 @@ def test_missing_source_updates_are_noops(db_session):
     repository = SourceRepository(db_session)
     source_id = uuid.uuid4()
     assert repository.get_source_by_id(source_id) is None
-    assert (
-        repository.get_source_by_url("https://example.com/missing")
-        is None
-    )
+    assert repository.get_source_by_url("https://example.com/missing") is None
     assert repository.delete_source(source_id) is False
     assert (
         repository.update_source(
             source_id=source_id,
             url="https://example.com/feed",
+            title="Example",
             description=None,
             favicon=None,
         )
