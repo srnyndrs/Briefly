@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +22,14 @@ class Settings(BaseSettings):
     feed_exchange: str = "feed.content"
     feed_queue: str = "feed.raw_fetched.v1.parser"
     parsed_exchange: str = "content.parsed"
+    failed_exchange: str = "content.failed"
+    feed_dlq: str = "feed.raw_fetched.v1.parser.dlq"
+    rabbitmq_blocked_timeout_seconds: float = Field(
+        default=15, gt=0, allow_inf_nan=False
+    )
+    article_request_timeout_seconds: float = Field(
+        default=5, gt=0, allow_inf_nan=False
+    )
 
     admin_token: str | None = None
 

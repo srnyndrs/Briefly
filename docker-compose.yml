@@ -102,6 +102,8 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
       PARSED_EXCHANGE: content.parsed
+      ARTICLE_REQUEST_TIMEOUT_SECONDS: 5
+      RABBITMQ_BLOCKED_TIMEOUT_SECONDS: 15
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
     depends_on:
       rabbitmq:

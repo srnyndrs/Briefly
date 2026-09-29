@@ -45,6 +45,21 @@ class PostRepository:
             .one_or_none()
         )
 
+    def get_by_guids(
+        self, source_id: str, item_guids: list[str]
+    ) -> list[Post]:
+        """Load the stored entries for one feed in a single query."""
+        if not item_guids:
+            return []
+        return (
+            self._db.query(Post)
+            .filter(
+                Post.source_id == source_id,
+                Post.item_guid.in_(item_guids),
+            )
+            .all()
+        )
+
     def count(self) -> int:
         return self._db.query(Post).count()
 

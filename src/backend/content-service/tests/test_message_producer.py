@@ -30,6 +30,7 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
     )
 
     routing_key, body = _extract_publish_args(channel)
+    assert channel.basic_publish.call_args.kwargs["mandatory"] is True
     envelope = json.loads(body.decode())
 
     assert routing_key == "post.parsed.v1"

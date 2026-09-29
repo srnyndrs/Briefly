@@ -92,3 +92,29 @@ def test_list_filters_by_category_not_by_keyword(
 
     assert "guid-category-match" in result_guids
     assert "guid-keyword-only-match" not in result_guids
+
+
+def test_get_by_guids_filters_by_source_and_requested_items(
+    db_session: Session,
+) -> None:
+    repo = PostRepository(db_session)
+    repo.save(_make_post_data(item_guid="requested"))
+    repo.save(_make_post_data(item_guid="other-item"))
+    repo.save(
+        _make_post_data(source_id="source-2", item_guid="requested")
+    )
+
+    posts = repo.get_by_guids(
+        "source-1", ["requested", "requested", "missing"]
+    )
+
+    assert len(posts) == 1
+    assert posts[0].source_id == "source-1"
+    assert posts[0].item_guid == "requested"
+
+
+def test_get_by_guids_with_no_items_skips_query() -> None:
+    db = MagicMock()
+
+    assert PostRepository(db).get_by_guids("source-1", []) == []
+    db.query.assert_not_called()
