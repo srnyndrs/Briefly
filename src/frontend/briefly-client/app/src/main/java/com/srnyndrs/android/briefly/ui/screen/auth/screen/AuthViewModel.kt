@@ -18,10 +18,6 @@ class AuthViewModel @Inject constructor(
     private val _state = MutableStateFlow<UiState<Unit>>(UiState.Idle)
     val state = _state.asStateFlow()
 
-    init {
-        autoLogin()
-    }
-
     fun onEvent(event: AuthEvent) {
         when(event) {
             is AuthEvent.LoginWithEmail -> {
@@ -29,8 +25,8 @@ class AuthViewModel @Inject constructor(
                 loginWithEmail(email, password)
             }
             is AuthEvent.RegisterWithEmail -> {
-                val (username, email, password) = event
-                registerWithEmail(username, email, password)
+                val (email, password) = event
+                registerWithEmail(email, password)
             }
         }
     }
@@ -47,9 +43,9 @@ class AuthViewModel @Inject constructor(
         )
     }
 
-    private fun registerWithEmail(username: String, email: String, password: String) = viewModelScope.launch {
+    private fun registerWithEmail(email: String, password: String) = viewModelScope.launch {
         _state.value = UiState.Loading
-        allAuthUseCase.registerUseCase(username, email, password).fold(
+        allAuthUseCase.registerUseCase(email, password).fold(
             onSuccess = {
                 _state.value = UiState.Success(data = Unit)
             },
@@ -58,16 +54,4 @@ class AuthViewModel @Inject constructor(
             }
         )
     }
-
-    private fun autoLogin() = viewModelScope.launch {
-        allAuthUseCase.refreshSessionUseCase().fold(
-            onSuccess = {
-                _state.value = UiState.Success(data = Unit)
-            },
-            onFailure = {
-                _state.value = UiState.Idle
-            }
-        )
-    }
-
 }

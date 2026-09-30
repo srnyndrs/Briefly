@@ -1,13 +1,16 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
-import com.srnyndrs.android.briefly.data.remote.content.dto.ArticleDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResultDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceResultItemDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PostListItemsResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.PersonalFeedResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -20,29 +23,77 @@ import io.ktor.http.HttpStatusCode
 class ContentApiService (
     private val client: HttpClient
 ) {
-    suspend fun getFeed(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): FeedResultDto {
+
+    suspend fun getFeed(request: FeedRequestDto): PersonalFeedResponseDto {
         return client.get("feed") {
-            parameter("page", page ?: 1)
-            parameter("page_size", pageSize ?: 20)
-            sourceIds?.forEach { id ->
-                parameter("source_ids", id)
+            parameter("include_filter_options", request.includeFilterOptions)
+            parameter("page", request.page)
+            parameter("page_size", request.pageSize)
+            request.category?.let {
+                parameter("category", it)
             }
-            parameter("subscribed_only", sourceIds == null)
         }.body()
     }
 
-    suspend fun getFeedSources(query: String? = null): List<FeedSourceDto> {
+    suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
+        return client.get("explore") {
+            parameter("include_filter_options", request.includeFilterOptions)
+            parameter("page", request.page)
+            parameter("page_size", request.pageSize)
+            request.query?.let {
+                parameter("query", it)
+            }
+            request.categories?.forEach {
+                parameter("categories", it)
+            }
+            request.languages?.forEach {
+                parameter("languages", it)
+            }
+            request.sourceIds?.forEach { id ->
+                parameter("source_ids", id)
+            }
+            request.publishedFrom?.let {
+                parameter("from", it)
+            }
+            request.publishedTo?.let {
+                parameter("to", it)
+            }
+            if (request.query.isNullOrBlank()) {
+                request.sort?.let {
+                    parameter("sort", it)
+                }
+            }
+        }.body()
+    }
+
+    suspend fun getExploreFilterOptions(): PostListItemsResponseDto {
+        return getExplore(
+            ExploreRequestDto(
+                page = 1,
+                pageSize = 1,
+                includeFilterOptions = true,
+            )
+        )
+    }
+
+    suspend fun getFeedSources(query: String? = null): List<SourceResponseDto> {
         return client.get("sources") {
             parameter("query", query ?: "")
         }.body()
     }
 
-    suspend fun getFeedSourceSubscriptions(): List<FeedSourceSubscribeResponseDto> {
+    suspend fun discoverSources(request: SourceDiscoverRequestDto): List<SourceDiscoveryResultDto> {
+        return client.post("sources/discover") {
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun getFeedSourceSubscriptions(): List<SubscriptionResponseDto> {
         return client.get("me/subscriptions")
             .body()
     }
 
-    suspend fun subscribeFeedSource(request: FeedSourceSubscribeRequestDto): FeedSourceSubscribeResponseDto {
+    suspend fun subscribeFeedSource(request: SubscriptionCreateRequestDto): SubscriptionResponseDto {
         return client.post("me/subscriptions") {
             setBody(request)
         }.body()
@@ -53,12 +104,12 @@ class ContentApiService (
             .status
     }
 
-    suspend fun getFeedSourceDetails(sourceId: String): FeedSourceDetailsDto {
+    suspend fun getFeedSourceDetails(sourceId: String): SourceDetailsResponseDto {
         return client.get("sources/${sourceId}")
             .body()
     }
 
-    suspend fun getPostById(postId: String): ArticleDetailsDto {
+    suspend fun getPostById(postId: String): PostResponseDto {
         return client.get("posts/${postId}")
             .body()
     }

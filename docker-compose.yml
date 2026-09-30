@@ -20,7 +20,8 @@ services:
   rabbitmq:
     # 'management' variant ships with the web UI at http://localhost:15672
     # Default credentials: guest / guest
-    image: rabbitmq:3-management-alpine
+    build:
+      context: ./scripts/rabbitmq
     restart: unless-stopped
     ports:
       - "5672:5672"    # AMQP
@@ -48,17 +49,21 @@ services:
       context: ./src/backend/crawler-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/crawler-service/.env
+        required: false
     ports:
       - "8001:8001"
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8001
-      ENV: production
+      ENV: development
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
-      BASE_CRAWL_INTERVAL_SECONDS: 300
+      VERIFIED_CRAWL_INTERVAL_SECONDS: 300
+      UNVERIFIED_CRAWL_INTERVAL_SECONDS: 1800
       CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
       FETCH_TIMEOUT_SECONDS: 30
       MAX_RETRIES: 5
@@ -98,6 +103,8 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
       PARSED_EXCHANGE: content.parsed
+      ARTICLE_REQUEST_TIMEOUT_SECONDS: 5
+      RABBITMQ_BLOCKED_TIMEOUT_SECONDS: 15
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
     depends_on:
       rabbitmq:
@@ -116,6 +123,9 @@ services:
       context: ./src/backend/account-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/account-service/.env
+        required: false
     ports:
       - "8003:8003"
     environment:
@@ -175,6 +185,7 @@ services:
       INGESTION_SERVICE_URL: http://crawler-service:8001
       CONTENT_SERVICE_URL: http://content-service:8002
       REQUEST_TIMEOUT_SECONDS: 10
+      SOURCE_DISCOVERY_TIMEOUT_SECONDS: 15
     depends_on:
       rabbitmq:
         condition: service_healthy

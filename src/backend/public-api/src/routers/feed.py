@@ -1,197 +1,191 @@
-import uuid
+import re
 from datetime import datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.adapters.service_clients import (
     ServiceClientError,
-    account_list_subscriptions,
     map_service_error,
 )
 from src.routers.feed_common import (
     get_feed_service,
-    to_post_response,
+    to_post_list_item_response,
 )
-from src.schemas.api import FeedResponse
+from src.schemas.api import (
+    FeedResponse,
+    FilterOptionsResponse,
+    SourceOptionResponse,
+    PersonalFeedResponse,
+)
 from src.services.auth import CurrentAdminUser, CurrentUser
 from src.services.feed_service import (
+    ExploreFeedInput,
+    FeedOutput,
     FeedService,
-    ListFeedInput,
-    SearchFeedInput,
+    PersonalFeedInput,
 )
 
 router = APIRouter(tags=["feed"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/feed", response_model=FeedResponse)
+def _normalize_search_query(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise HTTPException(status_code=422, detail="query must not be blank")
+    terms = re.findall(r'"([^"]+)"|([^\s]+)', normalized)
+    has_term = any(
+        re.search(r"[^\W_]", phrase or word, flags=re.UNICODE)
+        and (phrase or word).lstrip("-").casefold() != "or"
+        for phrase, word in terms
+    )
+    if not has_term:
+        raise HTTPException(
+            status_code=422, detail="query must contain a search term"
+        )
+    return normalized
+
+
+def _response(output: FeedOutput, page: int, page_size: int) -> FeedResponse:
+    total_pages = (
+        (output.total + page_size - 1) // page_size if output.total > 0 else 0
+    )
+    options = (
+        FilterOptionsResponse(
+            categories=output.filter_options.categories,
+            languages=output.filter_options.languages,
+            authors=output.filter_options.authors,
+            keywords=output.filter_options.keywords,
+            sources=(
+                [
+                    SourceOptionResponse(
+                        id=UUID(option.source_id), title=option.title
+                    )
+                    for option in output.filter_options.sources
+                ]
+                if output.filter_options.sources is not None
+                else None
+            ),
+        )
+        if output.filter_options is not None
+        else None
+    )
+    return FeedResponse(
+        items=[to_post_list_item_response(item) for item in output.items],
+        total=output.total,
+        page=page,
+        page_count=total_pages,
+        page_size=page_size,
+        filter_options=options,
+    )
+
+
+def _personal_response(
+    output: FeedOutput, page: int, page_size: int
+) -> PersonalFeedResponse:
+    response = _response(output, page, page_size)
+    return PersonalFeedResponse(
+        **response.model_dump(),
+        headlines=(
+            [to_post_list_item_response(item) for item in output.headlines]
+            if output.headlines is not None
+            else None
+        ),
+    )
+
+
+@router.get(
+    "/feed",
+    response_model=PersonalFeedResponse,
+    response_model_exclude_none=True,
+)
 def get_feed(
     user: CurrentUser,
     service: FeedService = Depends(get_feed_service),
-    query: str | None = Query(
-        default=None, description="Optional search query text"
-    ),
-    page: int = Query(
-        default=1, ge=1, description="Page number (1-based)"
-    ),
-    page_size: int = Query(
-        default=20, ge=1, le=100, description="Items per page"
-    ),
-    page_count: int | None = Query(
-        default=None,
-        ge=1,
-        le=100,
-        alias="page_count",
-        description="Alias for page_size",
-    ),
-    pageCount: int | None = Query(
-        default=None,
-        ge=1,
-        le=100,
-        alias="pageCount",
-        description="Alias for page_size",
-    ),
-    use_profile: bool = True,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    category: str | None = None,
+    include_filter_options: bool = False,
+) -> PersonalFeedResponse:
+    try:
+        output = service.get_personal_feed(
+            PersonalFeedInput(
+                user_id=user.user_id,
+                limit=page_size,
+                offset=(page - 1) * page_size,
+                category=category,
+                include_filter_options=include_filter_options,
+            )
+        )
+    except ServiceClientError as exc:
+        raise map_service_error(exc) from exc
+    return _personal_response(output, page, page_size)
+
+
+@router.get(
+    "/explore",
+    response_model=FeedResponse,
+    response_model_exclude_none=True,
+)
+def get_explore(
+    user: CurrentUser,
+    service: FeedService = Depends(get_feed_service),
     categories: list[str] | None = Query(default=None),
     languages: list[str] | None = Query(default=None),
-    source_ids: list[str] | None = Query(default=None),
+    source_ids: list[UUID] | None = Query(default=None),
+    query: str | None = Query(default=None, max_length=200),
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
-    sort: str | None = None,
-    subscribed_only: bool = False,
+    sort: str | None = Query(default=None, pattern="^(freshness|oldest)$"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    include_filter_options: bool = False,
 ) -> FeedResponse:
-    resolved_size = page_count or pageCount or page_size
-    resolved_size = max(1, min(resolved_size, 100))
-    resolved_page = max(1, page)
-    offset = (resolved_page - 1) * resolved_size
-    limit = resolved_size
-
-    # If subscribed_only is True, filter to only subscribed sources
-    filtered_source_ids = source_ids
-    if subscribed_only:
-        try:
-            subscriptions = account_list_subscriptions(
-                str(user.user_id)
-            )
-            subscribed_ids = [
-                str(s["source_id"]) for s in subscriptions
-            ]
-            # If no subscriptions, return empty result
-            if not subscribed_ids:
-                return FeedResponse(
-                    items=[],
-                    total=0,
-                    page=resolved_page,
-                    page_count=0,
-                    page_size=resolved_size,
-                )
-            # If source_ids are already provided, intersect with subscriptions
-            if filtered_source_ids:
-                filtered_source_ids = [
-                    sid
-                    for sid in filtered_source_ids
-                    if sid in subscribed_ids
-                ]
-            else:
-                filtered_source_ids = subscribed_ids
-        except ServiceClientError as exc:
-            raise map_service_error(exc) from exc
-
-    if query and query.strip():
-        output = service.search_feed(
-            SearchFeedInput(
+    normalized_query = _normalize_search_query(query)
+    if normalized_query is not None and sort is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="sort cannot be combined with query",
+        )
+    try:
+        output = service.get_explore_feed(
+            ExploreFeedInput(
                 user_id=user.user_id,
-                q=query.strip(),
-                limit=limit,
-                offset=offset,
-                use_preferences=use_profile,
+                limit=page_size,
+                offset=(page - 1) * page_size,
                 categories=categories,
                 languages=languages,
-                source_ids=filtered_source_ids,
+                source_ids=(
+                    [str(source_id) for source_id in source_ids]
+                    if source_ids is not None
+                    else None
+                ),
+                query=normalized_query,
                 published_from=from_,
                 published_to=to_,
                 sort=sort,
+                include_filter_options=include_filter_options,
             )
         )
-    else:
-        output = service.list_feed(
-            ListFeedInput(
-                user_id=user.user_id,
-                limit=limit,
-                offset=offset,
-                use_preferences=use_profile,
-                categories=categories,
-                languages=languages,
-                source_ids=filtered_source_ids,
-                published_from=from_,
-                published_to=to_,
-                sort=sort,
-            )
-        )
-
-    total_pages = (
-        (output.total + resolved_size - 1) // resolved_size
-        if output.total > 0
-        else 0
-    )
-    return FeedResponse(
-        items=[to_post_response(item) for item in output.items],
-        total=output.total,
-        page=resolved_page,
-        page_count=total_pages,
-        page_size=resolved_size,
-    )
+    except ServiceClientError as exc:
+        raise map_service_error(exc) from exc
+    return _response(output, page, page_size)
 
 
-@admin_router.get("/feed", response_model=FeedResponse)
+@admin_router.get(
+    "/feed",
+    response_model=FeedResponse,
+    response_model_exclude_none=True,
+)
 def get_general_feed(
     admin_user: CurrentAdminUser,
     service: FeedService = Depends(get_feed_service),
-    page: int = Query(
-        default=1, ge=1, description="Page number (1-based)"
-    ),
-    page_size: int = Query(
-        default=20, ge=1, le=100, description="Items per page"
-    ),
-    page_count: int | None = Query(
-        default=None,
-        ge=1,
-        le=100,
-        alias="page_count",
-        description="Alias for page_size",
-    ),
-    pageCount: int | None = Query(
-        default=None,
-        ge=1,
-        le=100,
-        alias="pageCount",
-        description="Alias for page_size",
-    ),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
 ) -> FeedResponse:
     _ = admin_user
-    resolved_size = page_count or pageCount or page_size
-    resolved_size = max(1, min(resolved_size, 100))
-    resolved_page = max(1, page)
-    offset = (resolved_page - 1) * resolved_size
-    limit = resolved_size
-
-    output = service.list_feed(
-        ListFeedInput(
-            user_id=uuid.UUID("00000000-0000-0000-0000-000000000000"),
-            limit=limit,
-            offset=offset,
-            use_preferences=False,
-        )
-    )
-    total_pages = (
-        (output.total + resolved_size - 1) // resolved_size
-        if output.total > 0
-        else 0
-    )
-    return FeedResponse(
-        items=[to_post_response(item) for item in output.items],
-        total=output.total,
-        page=resolved_page,
-        page_count=total_pages,
-        page_size=resolved_size,
-    )
+    output = service.get_admin_feed(page_size, (page - 1) * page_size)
+    return _response(output, page, page_size)

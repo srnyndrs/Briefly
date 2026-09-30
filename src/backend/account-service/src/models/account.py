@@ -72,9 +72,6 @@ class UserPreferences(Base):
     languages: Mapped[list[str]] = mapped_column(
         _json_type(), default=list, nullable=False
     )
-    category_interests: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
-    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         default=lambda: datetime.now(UTC).replace(tzinfo=None),

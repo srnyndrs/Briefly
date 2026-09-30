@@ -77,9 +77,7 @@ class QueryProjector:
             durable=True,
         )
 
-        self._channel.queue_declare(
-            queue=settings.query_queue, durable=True
-        )
+        self._channel.queue_declare(queue=settings.query_queue, durable=True)
 
         for key in ("preferences.updated.v1",):
             self._channel.queue_bind(
@@ -159,9 +157,7 @@ class QueryProjector:
                 db.close()
         except Exception:
             logger.exception("Unhandled projector message error")
-            ch.basic_nack(
-                delivery_tag=method.delivery_tag, requeue=False
-            )
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     def _apply_event(
         self, db: Session, event_type: str, payload: dict[str, Any]

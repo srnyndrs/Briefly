@@ -71,9 +71,7 @@ def patch_me(
 @router.get("/preferences", response_model=PreferencesResponse)
 def get_my_preferences(user: CurrentUser) -> PreferencesResponse:
     try:
-        return PreferencesResponse(
-            **account_get_preferences(str(user.user_id))
-        )
+        return PreferencesResponse(**account_get_preferences(str(user.user_id)))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 

@@ -1,23 +1,33 @@
 package com.srnyndrs.android.briefly.data.repository.content
 
-import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
-import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
-import io.ktor.http.HttpStatusCode
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
+import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.toDomain
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFeed
+import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
+import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
+import com.srnyndrs.android.briefly.domain.model.content.Source
+import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.Subscription
+import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
+import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
+import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 class ContentRepositoryImpl @Inject constructor(
     private val contentApiService: ContentApiService
 ): ContentRepository {
@@ -26,7 +36,60 @@ class ContentRepositoryImpl @Inject constructor(
         const val PAGE_SIZE = 20
     }
 
-    override fun getArticlePagingFlow(sourceIds: List<String>?): Flow<PagingData<ArticleItem>> {
+    override fun getHomeFeed(filter: HomePostFilter): HomeFeed {
+        val metadata = MutableStateFlow<HomeFeedMetadata?>(null)
+        return HomeFeed(
+            posts = getHomePostPagingFlow(
+                request = FeedRequestDto(
+                    includeFilterOptions = true,
+                    category = filter.category,
+                ),
+                metadata = metadata,
+            ),
+            metadata = metadata,
+        )
+    }
+
+    override fun getExploreFeed(filter: ExplorePostFilter): ExploreFeed {
+        val metadata = MutableStateFlow<ExploreFilterOptions?>(null)
+        val request = ExploreRequestDto(
+            query = filter.query,
+            sourceIds = filter.sourceIds,
+            categories = filter.categories,
+            languages = filter.languages,
+            publishedFrom = filter.publishedFrom?.toString(),
+            publishedTo = filter.publishedTo?.toString(),
+            sort = filter.sort,
+            includeFilterOptions = true,
+        )
+        val posts = Pager(
+            config = PagingConfig(
+                pageSize = PAGE_SIZE,
+                initialLoadSize = PAGE_SIZE,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                ExploreFeedPagingSource(
+                    contentApiService = contentApiService,
+                    request = request,
+                    metadata = metadata,
+                )
+            }
+        ).flow
+        return ExploreFeed(
+            posts = posts,
+            metadata = metadata,
+        )
+    }
+
+    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> {
+        return getExploreFeed(filter).posts
+    }
+
+    private fun getHomePostPagingFlow(
+        request: FeedRequestDto,
+        metadata: MutableStateFlow<HomeFeedMetadata?>,
+    ): Flow<PagingData<Post>> {
         return Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
@@ -34,7 +97,11 @@ class ContentRepositoryImpl @Inject constructor(
                 enablePlaceholders = false
             ),
             pagingSourceFactory = {
-                ArticlePagingSource(contentApiService, sourceIds)
+                PersonalFeedPagingSource(
+                    contentApiService = contentApiService,
+                    request = request,
+                    metadata = metadata,
+                )
             }
         ).flow
     }
@@ -43,11 +110,17 @@ class ContentRepositoryImpl @Inject constructor(
         page: Int?,
         pageSize: Int?,
         sourceIds: List<String>?
-    ): Result<ArticlePagingResult> {
+    ): Result<PostPagingResult> {
         return try {
-            val response = contentApiService.getFeed(page, pageSize, sourceIds)
+            val response = contentApiService.getExplore(
+                ExploreRequestDto(
+                    page = page ?: 1,
+                    pageSize = pageSize ?: PAGE_SIZE,
+                    sourceIds = sourceIds,
+                )
+            )
             val items = response.items.map { it.toDomain() }
-            val result = ArticlePagingResult(
+            val result = PostPagingResult(
                 page = response.page,
                 count = response.pageCount,
                 items = items,
@@ -59,7 +132,7 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun fetchFeedSources(query: String?): Result<List<FeedSourceResultItem>> {
+    override suspend fun fetchFeedSources(query: String?): Result<List<Source>> {
         return try {
             val response = contentApiService.getFeedSources(query)
             val result = response.map { it.toDomain() }
@@ -70,7 +143,18 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getFeedSourceSubscriptions(): Result<List<FeedSubscription>> {
+    override suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions> {
+        return try {
+            val response = contentApiService.getExploreFilterOptions()
+            val options = response.filterOptions
+                ?: error("Explore response did not include filter options")
+            Result.success(options.toDomain())
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
+    override suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>> {
         return try {
             val response = contentApiService.getFeedSourceSubscriptions()
             val result = response.map { it.toDomain() }
@@ -81,7 +165,7 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails> {
+    override suspend fun getFeedSourceDetails(sourceId: String): Result<SourceDetails> {
         return try {
             val response = contentApiService.getFeedSourceDetails(sourceId)
             val result = response.toDomain()
@@ -92,9 +176,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun subscribeFeedSource(sourceId: String): Result<FeedSubscription> {
+    override suspend fun subscribeFeedSource(sourceId: String): Result<Subscription> {
         return try {
-            val request = FeedSourceSubscribeRequestDto(sourceId)
+            val request = SubscriptionCreateRequestDto(sourceId)
             val response = contentApiService.subscribeFeedSource(request)
 
             Result.success(response.toDomain())
@@ -119,9 +203,9 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getArticleById(articleId: String): Result<ArticleDetails> {
+    override suspend fun getArticleById(postId: String): Result<PostDetails> {
         return try {
-            val response = contentApiService.getPostById(articleId)
+            val response = contentApiService.getPostById(postId)
             val result = response.toDomain()
 
             Result.success(result)
@@ -129,5 +213,4 @@ class ContentRepositoryImpl @Inject constructor(
             Result.failure(exception)
         }
     }
-
 }

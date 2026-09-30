@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
@@ -12,48 +13,12 @@ class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def save(self, post_data: dict[str, Any]) -> str | None:
-        stmt = insert(Post).values(**post_data)
-        update_fields = {
-            "item_guid": stmt.excluded.item_guid,
-            "url": stmt.excluded.url,
-            "source_title": stmt.excluded.source_title,
-            "title": stmt.excluded.title,
-            "description": stmt.excluded.description,
-            "category": stmt.excluded.category,
-            "content": stmt.excluded.content,
-            "author": stmt.excluded.author,
-            "published_at": stmt.excluded.published_at,
-            "crawled_at": stmt.excluded.crawled_at,
-            "parsed_at": stmt.excluded.parsed_at,
-            "image_url": stmt.excluded.image_url,
-            "language": stmt.excluded.language,
-            "keywords": stmt.excluded.keywords,
-        }
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["source_id", "item_guid"],
-            set_=update_fields,
-        ).returning(Post.post_id)
-        inserted_id = self._db.scalar(stmt)
-        self._db.commit()
-        return str(inserted_id) if inserted_id else None
-
-    def get_by_id(self, post_id: str) -> Post | None:
-        return (
-            self._db.query(Post)
-            .filter(Post.post_id == post_id)
-            .one_or_none()
-        )
-
-    def count(self) -> int:
-        return self._db.query(Post).count()
-
-    def list(
+    def get_posts(
         self,
         *,
         limit: int,
         skip: int,
-        source_id: str | None = None,
+        source_id: UUID | None = None,
         language: str | None = None,
         category: str | None = None,
         published_from: datetime | None = None,
@@ -68,9 +33,7 @@ class PostRepository:
         if language:
             query = query.filter(Post.language == language)
         if category:
-            query = query.filter(
-                func.lower(Post.category) == category.lower()
-            )
+            query = query.filter(func.lower(Post.category) == category.lower())
         if published_from:
             query = query.filter(Post.published_at >= published_from)
         if published_to:
@@ -83,3 +46,47 @@ class PostRepository:
         query = query.order_by(Post.parsed_at.desc())
 
         return query.offset(skip).limit(limit).all()
+
+    def get_post_by_id(self, post_id: UUID) -> Post | None:
+        return self._db.query(Post).filter(Post.post_id == post_id).first()
+
+    def get_by_guids(self, source_id: UUID, guids: list[str]) -> list[Post]:
+        if not guids:
+            return []
+
+        return (
+            self._db.query(Post)
+            .filter(Post.source_id == source_id, Post.item_guid.in_(guids))
+            .all()
+        )
+
+    def get_posts_count(self) -> int:
+        return self._db.query(Post).count()
+
+    def create_post(self, post_data: dict[str, Any]) -> UUID | None:
+        insert_statement = insert(Post).values(**post_data)
+        update_fields = {
+            "item_guid": insert_statement.excluded.item_guid,
+            "url": insert_statement.excluded.url,
+            "source_title": insert_statement.excluded.source_title,
+            "title": insert_statement.excluded.title,
+            "description": insert_statement.excluded.description,
+            "category": insert_statement.excluded.category,
+            "content": insert_statement.excluded.content,
+            "author": insert_statement.excluded.author,
+            "published_at": insert_statement.excluded.published_at,
+            "crawled_at": insert_statement.excluded.crawled_at,
+            "parsed_at": insert_statement.excluded.parsed_at,
+            "image_url": insert_statement.excluded.image_url,
+            "language": insert_statement.excluded.language,
+            "keywords": insert_statement.excluded.keywords,
+        }
+        upsert_statement = insert_statement.on_conflict_do_update(
+            index_elements=["source_id", "item_guid"],
+            set_=update_fields,
+        ).returning(Post.post_id)
+
+        inserted_id = self._db.scalar(upsert_statement)
+        self._db.commit()
+
+        return inserted_id

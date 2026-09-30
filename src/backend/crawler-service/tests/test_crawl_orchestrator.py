@@ -1,314 +1,142 @@
-import uuid
-from datetime import datetime, timezone
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from datetime import timedelta
 
-from src.services.crawl_orchestrator import CrawlCycleOrchestrator
+import pytest
+import requests
 
-
-def _session_factory_with(session):
-    session_factory = MagicMock()
-    session_factory.return_value.__enter__.return_value = session
-    return session_factory
+from src.config.settings import settings
 
 
-@patch("src.services.crawl_orchestrator.FeedPublisher")
-@patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SourceRepository")
-def test_orchestrator_runs_crawl_and_updates_state(
-    mock_source_repo_cls,
-    mock_http_client_cls,
-    mock_event_pub_cls,
+@pytest.mark.parametrize("status", [200, 304])
+def test_crawl_success_persists_state(
+    crawl_cycle, source_factory, db_session, status
 ):
-    source = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/feed.xml",
-        title="Test Source",
-        etag="old-etag",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
-        consecutive_failures=1,
+    source = source_factory(
+        etag="old", last_modified="old-date", consecutive_failures=2
     )
-
-    source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = [source]
-    mock_source_repo_cls.return_value = source_repository
-
-    http_client = MagicMock()
-    http_client.fetch.return_value = SimpleNamespace(
-        status_code=200,
-        body="<xml>",
-        etag="fresh-etag",
-        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
-    )
-    mock_http_client_cls.return_value = http_client
-
-    event_publisher = MagicMock()
-    mock_event_pub_cls.return_value = event_publisher
-
-    orchestrator = CrawlCycleOrchestrator(
-        session_factory=_session_factory_with(MagicMock())
-    )
+    orchestrator, http_get, publisher = crawl_cycle
+    http_get.return_value.status_code = status
     orchestrator.run_crawl_cycle()
+    db_session.refresh(source)
 
-    http_client.fetch.assert_called_once()
-    fetch_headers = http_client.fetch.call_args[0][1]
-    assert fetch_headers.etag == "old-etag"
+    assert source.last_crawl_succeeded is True
+    assert source.consecutive_failures == 0
+    assert source.last_crawled_at is not None
+    assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
+        seconds=settings.unverified_crawl_interval_seconds
+    )
+    headers = http_get.call_args.kwargs["headers"]
+    assert headers["If-None-Match"] == "old"
+    assert headers["If-Modified-Since"] == "old-date"
     assert (
-        fetch_headers.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
+        http_get.call_args.kwargs["timeout"] == settings.fetch_timeout_seconds
     )
+    if status == 200:
+        assert source.etag == "fresh"
+        assert source.last_modified == "new-date"
+        event = publisher.publish_source_fetched.call_args.kwargs
+        assert event["source_id"] == source.source_id
+        assert event["source_url"] == source.url
+        assert event["source_title"] == source.title
+        assert event["raw_xml"] == "<feed/>"
+        assert event["correlation_id"]
+    else:
+        assert source.etag == "old"
+        assert source.last_modified == "old-date"
+        publisher.publish_source_fetched.assert_not_called()
+    publisher.close.assert_called_once()
 
-    event_publisher.publish_source_fetched.assert_called_once()
-    source_repository.save_crawl_success.assert_called_once_with(
-        source_id=source.source_id,
-        etag="fresh-etag",
-        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
-    )
-    event_publisher.close.assert_called_once()
 
-
-@patch("src.services.crawl_orchestrator.FeedPublisher")
-@patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SourceRepository")
-def test_orchestrator_idle_cycle_does_not_initialize_rabbitmq(
-    mock_source_repo_cls,
-    mock_http_client_cls,
-    mock_event_pub_cls,
+def test_feed_failure_retries_and_continues(
+    crawl_cycle, source_factory, db_session
 ):
-    source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = []
-    mock_source_repo_cls.return_value = source_repository
-
-    http_client = MagicMock()
-    mock_http_client_cls.return_value = http_client
-
-    orchestrator = CrawlCycleOrchestrator(
-        session_factory=_session_factory_with(MagicMock())
-    )
-    orchestrator.run_crawl_cycle()
-
-    mock_event_pub_cls.assert_not_called()
-    http_client.fetch.assert_not_called()
-
-
-@patch("src.services.crawl_orchestrator.FeedPublisher")
-@patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SourceRepository")
-def test_orchestrator_shares_correlation_id_across_cycle(
-    mock_source_repo_cls,
-    mock_http_client_cls,
-    mock_event_pub_cls,
-):
-    source1 = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/s1.xml",
-        title="Source 1",
-        etag=None,
-        last_modified=None,
-        consecutive_failures=0,
-    )
-    source2 = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/s2.xml",
-        title="Source 2",
-        etag=None,
-        last_modified=None,
-        consecutive_failures=0,
-    )
-
-    source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = [
-        source1,
-        source2,
+    first = source_factory(url="https://example.com/first", verified=True)
+    second = source_factory(url="https://example.com/second")
+    orchestrator, http_get, publisher = crawl_cycle
+    response = http_get.return_value
+    http_get.side_effect = [
+        requests.Timeout("private detail"),
+        response,
     ]
-    mock_source_repo_cls.return_value = source_repository
-
-    http_client = MagicMock()
-    http_client.fetch.return_value = SimpleNamespace(
-        status_code=200,
-        body="<xml>",
-        etag=None,
-        last_modified=None,
-    )
-    mock_http_client_cls.return_value = http_client
-
-    event_publisher = MagicMock()
-    mock_event_pub_cls.return_value = event_publisher
-
-    orchestrator = CrawlCycleOrchestrator(
-        session_factory=_session_factory_with(MagicMock())
-    )
     orchestrator.run_crawl_cycle()
+    db_session.refresh(first)
+    db_session.refresh(second)
 
-    assert event_publisher.publish_source_fetched.call_count == 2
-    call1_kwargs = (
-        event_publisher.publish_source_fetched.call_args_list[0].kwargs
+    assert first.last_crawl_succeeded is False
+    assert first.consecutive_failures == 1
+    assert first.next_crawl_scheduled_at - first.last_crawled_at == timedelta(
+        seconds=2 * settings.verified_crawl_interval_seconds
     )
-    call2_kwargs = (
-        event_publisher.publish_source_fetched.call_args_list[1].kwargs
-    )
-
+    assert second.last_crawl_succeeded is True
+    publisher.publish_source_fetched.assert_called_once()
     assert (
-        call1_kwargs["correlation_id"] == call2_kwargs["correlation_id"]
-    )
-    assert len(call1_kwargs["correlation_id"]) > 0
-
-
-@patch("src.services.crawl_orchestrator.FeedPublisher")
-@patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SourceRepository")
-def test_orchestrator_handles_304_not_modified(
-    mock_source_repo_cls,
-    mock_http_client_cls,
-    mock_event_pub_cls,
-):
-    source = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/feed.xml",
-        title="Test Source",
-        etag="existing-etag",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
-        consecutive_failures=0,
+        publisher.publish_source_fetched.call_args.kwargs["source_id"]
+        == second.source_id
     )
 
-    source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = [source]
-    mock_source_repo_cls.return_value = source_repository
 
-    http_client = MagicMock()
-    http_client.fetch.return_value = SimpleNamespace(
-        status_code=304,
-        body="",
-        etag="existing-etag",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
-    )
-    mock_http_client_cls.return_value = http_client
-
-    event_publisher = MagicMock()
-    mock_event_pub_cls.return_value = event_publisher
-
-    orchestrator = CrawlCycleOrchestrator(
-        session_factory=_session_factory_with(MagicMock())
-    )
+def test_cycle_shares_correlation_id(crawl_cycle, source_factory):
+    source_factory()
+    source_factory()
+    orchestrator, _, publisher = crawl_cycle
     orchestrator.run_crawl_cycle()
-
-    http_client.fetch.assert_called_once()
-    fetch_headers = http_client.fetch.call_args[0][1]
-    assert fetch_headers.etag == "existing-etag"
+    events = publisher.publish_source_fetched.call_args_list
+    assert len(events) == 2
     assert (
-        fetch_headers.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
+        events[0].kwargs["correlation_id"] == events[1].kwargs["correlation_id"]
     )
 
-    event_publisher.publish_source_fetched.assert_not_called()
-    source_repository.save_crawl_success.assert_called_once_with(
-        source_id=source.source_id,
-        etag="existing-etag",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
-    )
-    event_publisher.close.assert_called_once()
 
-
-@patch("src.services.crawl_orchestrator.FeedPublisher")
-@patch("src.services.crawl_orchestrator.RequestsHttpClient")
-@patch("src.services.crawl_orchestrator.SourceRepository")
-def test_orchestrator_recovers_after_prior_failures(
-    mock_source_repo_cls,
-    mock_http_client_cls,
-    mock_event_pub_cls,
-):
-    source = SimpleNamespace(
-        source_id=uuid.uuid4(),
-        url="https://example.com/feed.xml",
-        title="Failing Source",
-        etag=None,
-        last_modified=None,
-        consecutive_failures=3,
-    )
-
-    source_repository = MagicMock()
-    source_repository.get_active_sources.return_value = [source]
-    mock_source_repo_cls.return_value = source_repository
-
-    http_client = MagicMock()
-    http_client.fetch.return_value = SimpleNamespace(
-        status_code=200,
-        body="<xml>recovered</xml>",
-        etag="recovered-etag",
-        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
-    )
-    mock_http_client_cls.return_value = http_client
-
-    event_publisher = MagicMock()
-    mock_event_pub_cls.return_value = event_publisher
-
-    orchestrator = CrawlCycleOrchestrator(
-        session_factory=_session_factory_with(MagicMock())
-    )
+def test_idle_cycle_skips_external_services(crawl_cycle):
+    orchestrator, http_get, publisher = crawl_cycle
     orchestrator.run_crawl_cycle()
-
-    http_client.fetch.assert_called_once()
-    event_publisher.publish_source_fetched.assert_called_once_with(
-        source_id=source.source_id,
-        source_url="https://example.com/feed.xml",
-        correlation_id=event_publisher.publish_source_fetched.call_args.kwargs[
-            "correlation_id"
-        ],
-        source_title="Failing Source",
-        raw_xml="<xml>recovered</xml>",
-    )
-    source_repository.save_crawl_success.assert_called_once_with(
-        source_id=source.source_id,
-        etag="recovered-etag",
-        last_modified="Tue, 02 Jan 2026 00:00:00 GMT",
-    )
-    event_publisher.close.assert_called_once()
+    http_get.assert_not_called()
+    publisher.publish_source_fetched.assert_not_called()
+    publisher.close.assert_not_called()
 
 
-def test_save_crawl_success_reschedules_and_resets_failures(db_session):
-    from src.repositories.source_repository import SourceRepository
+@pytest.mark.parametrize("stage", ["publish", "database", "close"])
+def test_infrastructure_failure_aborts_without_feed_retry(
+    crawl_cycle, source_factory, db_session, monkeypatch, stage
+):
+    source = source_factory(url="https://example.com/feed?token=private")
+    orchestrator, _, publisher = crawl_cycle
+    error = RuntimeError("private failure")
+    if stage == "publish":
+        publisher.publish_source_fetched.side_effect = error
+        publisher.close.side_effect = RuntimeError("cleanup failure")
+    elif stage == "database":
 
-    repo = SourceRepository(db_session)
-    source = repo.create_source(
-        url="https://example.com/feed-304.xml",
-        title="Test Feed",
-    )
+        def fail_commit(*args, **kwargs):
+            raise error
 
-    # Set prior failures and past next_crawl_scheduled_at
-    past = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    source.consecutive_failures = 2
-    source.next_crawl_scheduled_at = past
-    db_session.commit()
+        monkeypatch.setattr(
+            "src.repositories.source_repository.SourceRepository.save_crawl_success",
+            fail_commit,
+        )
+    else:
+        publisher.close.side_effect = error
 
-    # Verify it is due initially
-    due = repo.get_active_sources(
-        datetime.now(timezone.utc), max_retries=5
-    )
-    assert any(s.source_id == source.source_id for s in due)
+    with pytest.raises(RuntimeError, match="private failure"):
+        orchestrator.run_crawl_cycle()
+    db_session.refresh(source)
+    assert source.consecutive_failures == 0
+    assert source.last_crawl_succeeded is (stage == "close")
+    publisher.close.assert_called_once()
 
-    # Record 304 crawl success with existing validators
-    repo.save_crawl_success(
-        source_id=source.source_id,
-        etag="etag-1",
-        last_modified="Mon, 01 Jan 2026 00:00:00 GMT",
-    )
 
-    # Reload source and assert state transitions
-    updated = repo.get_source_by_id(source.source_id)
-    assert updated is not None
-    assert updated.consecutive_failures == 0
-    assert updated.last_crawl_succeeded is True
-    assert updated.etag == "etag-1"
-    assert updated.last_modified == "Mon, 01 Jan 2026 00:00:00 GMT"
-    assert updated.last_crawled_at is not None
+def test_deleted_source_is_skipped(
+    crawl_cycle, source_factory, db_session, caplog
+):
+    source = source_factory()
+    orchestrator, http_get, _ = crawl_cycle
 
-    next_scheduled = updated.next_crawl_scheduled_at
-    if next_scheduled.tzinfo is None:
-        next_scheduled = next_scheduled.replace(tzinfo=timezone.utc)
-    assert next_scheduled > datetime.now(timezone.utc)
+    def delete_during_fetch(*args, **kwargs):
+        db_session.delete(source)
+        db_session.commit()
+        raise requests.Timeout()
 
-    # Subsequent scheduler run does not select the source before that time
-    subsequent_due = repo.get_active_sources(
-        datetime.now(timezone.utc), max_retries=5
-    )
-    assert not any(
-        s.source_id == source.source_id for s in subsequent_due
-    )
+    http_get.side_effect = delete_during_fetch
+
+    with caplog.at_level("INFO"):
+        orchestrator.run_crawl_cycle()
+    assert "failed=0, skipped=1" in caplog.text

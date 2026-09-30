@@ -1,242 +1,244 @@
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock
 
+import pytest
+
+from src.config.settings import settings
 from src.models.source import Source
-from src.schemas.sources import SourceDiscoverResult
+from src.schemas.sources import SourceDiscoverResponse
 
 
-def test_discover_sources_success(client):
-    with patch("src.routers.sources.discover_sources") as mock_discover:
-        mock_discover.return_value = [
-            SourceDiscoverResult(
-                url="https://example.com/feed",
-                title="Example",
-                description="Desc",
-                favicon="icon.ico",
-            )
-        ]
-
-        response = client.post(
-            "/sources/discover", json={"url": "https://example.com"}
-        )
-
-        assert response.status_code == 200
-        assert len(response.json()) == 1
-        assert response.json()[0]["url"] == "https://example.com/feed"
-        assert response.json()[0]["title"] == "Example"
-        assert response.json()[0]["description"] == "Desc"
-        assert response.json()[0]["favicon"] == "icon.ico"
-
-
-def test_discover_sources_accepts_direct_feed_url():
-    from src.adapters.source_discovery import SourceDiscoveryAdapter
-
-    response = MagicMock()
-    response.url = "https://example.com/feed.xml"
-    response.content = (
-        b"<?xml version='1.0'?><rss version='2.0'><channel>"
-        b"<title>Example</title><description>News</description>"
-        b"</channel></rss>"
-    )
-    response.text = response.content.decode()
-    response.headers = {
-        "Content-Type": "application/rss+xml; charset=utf-8"
-    }
-
-    with patch(
-        "src.adapters.source_discovery.requests.get",
-        return_value=response,
-    ):
-        result = SourceDiscoveryAdapter().discover(
-            "https://example.com/feed.xml"
-        )
-
-    assert len(result) == 1
-    assert result[0].url == "https://example.com/feed.xml"
-    assert result[0].content_type == "application/rss+xml"
-    assert result[0].title == "Example"
-
-
-def test_discover_sources_does_not_guess_unverified_feed_paths():
-    from src.adapters.source_discovery import SourceDiscoveryAdapter
-
-    response = MagicMock()
-    response.url = "https://example.com/"
-    response.content = (
-        b"<html><head><title>Example</title></head></html>"
-    )
-    response.text = response.content.decode()
-
-    with (
-        patch(
-            "src.adapters.source_discovery.requests.get",
-            return_value=response,
-        ),
-        patch(
-            "src.adapters.source_discovery.requests.head"
-        ) as mock_head,
-    ):
-        result = SourceDiscoveryAdapter().discover(
-            "https://example.com/"
-        )
-
-    assert result == []
-    mock_head.assert_not_called()
-
-
-@patch(
-    "src.routers.sources.SourceDiscoveryAdapter.extract_website_url",
-    return_value=None,
-)
-@patch("src.routers.sources.discover_sources")
-@patch("src.routers.sources.SourceRepository")
-def test_register_source_success(
-    mock_repo_cls, mock_discover, mock_extract, client
-):
-    mock_discover.return_value = [
-        SourceDiscoverResult(
-            url="https://example.com/feed",
-            title="Example",
-            description="Desc",
-            favicon="icon.ico",
-        )
-    ]
-
-    now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    repository = MagicMock()
-    repository.get_source_by_url.return_value = None
-    repository.create_source.return_value = Source(
-        source_id=uuid.uuid4(),
+@pytest.fixture
+def discover(monkeypatch):
+    result = SourceDiscoverResponse(
         url="https://example.com/feed",
         title="Example",
-        description="Desc",
-        favicon="icon.ico",
-        consecutive_failures=0,
-        last_crawled_at=None,
-        next_crawl_scheduled_at=now_dt,
-        last_crawl_succeeded=False,
-        created_at=now_dt,
-        updated_at=now_dt,
+        description="News",
+        website_url="https://example.com/",
     )
-    mock_repo_cls.return_value = repository
+    discover = Mock(return_value=[result])
+    monkeypatch.setattr(
+        "src.routers.sources.SourceDiscoveryAdapter.discover", discover
+    )
+    return discover
 
+
+def test_source_lifecycle(client, discover, db_session):
+    submitter = str(uuid.uuid4())
     response = client.post(
         "/sources",
-        json={"url": "https://example.com", "title": "My Title"},
+        json={
+            "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
+            "title": "  My Source  ",
+            "favicon": "https://example.com/original.png",
+            "submitted_by_user_id": submitter,
+        },
     )
     assert response.status_code == 201
-    assert response.json()["url"] == "https://example.com/feed"
-    assert response.json()["title"] == "Example"
-    assert "source_id" in response.json()
-    mock_extract.assert_called_once_with("https://example.com/feed")
+    source = response.json()
+    source_id = source["source_id"]
+    assert source["title"] == "My Source"
+    assert source["url"] == "https://example.com/feed"
+    assert source["website_url"] is None
+    assert source["verified"] is False
+    assert source["favicon"] == "https://example.com/original.png"
+    assert "submitted_by_user_id" not in source
+    stored = db_session.get(Source, uuid.UUID(source_id))
+    assert str(stored.submitted_by_user_id) == submitter
+    discover.assert_not_called()
+    assert client.get(f"/sources/{source_id}").json() == source
+
+    updated = client.patch(
+        f"/sources/{source_id}",
+        json={
+            "url": "https://example.com/news.xml",
+            "description": None,
+            "favicon": "https://example.com/icon.png",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["url"] == "https://example.com/news.xml"
+    assert updated.json()["description"] is None
+    assert updated.json()["favicon"] == "https://example.com/icon.png"
+    assert updated.json()["title"] == source["title"]
+    assert updated.json()["website_url"] == source["website_url"]
+    renamed = client.patch(
+        f"/sources/{source_id}",
+        json={"title": "  Updated Source  ", "favicon": None},
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["title"] == "Updated Source"
+    assert renamed.json()["favicon"] is None
+    assert renamed.json()["url"] == updated.json()["url"]
+    assert client.get(f"/sources/{source_id}").json() == renamed.json()
+    assert client.get("/sources").json() == [renamed.json()]
+
+    assert client.delete(f"/sources/{source_id}").status_code == 204
+    assert client.get(f"/sources/{source_id}").status_code == 404
+    assert client.delete(f"/sources/{source_id}").status_code == 404
+    assert client.patch(f"/sources/{source_id}", json={}).status_code == 404
+    assert client.get("/sources").json() == []
 
 
-@patch("src.routers.sources.discover_sources")
-def test_register_source_not_found(mock_discover, client):
-    mock_discover.return_value = []
-
+def test_discovery_endpoint(client, discover):
     response = client.post(
-        "/sources", json={"url": "https://example.com"}
-    )
-    assert response.status_code == 400
-    assert "No valid RSS/Atom feed found" in response.text
-
-
-@patch("src.routers.sources.SourceRepository")
-def test_get_source_success(mock_repo_cls, client):
-    now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    source_id = uuid.uuid4()
-    repository = MagicMock()
-    repository.get_source_by_id.return_value = Source(
-        source_id=source_id,
-        url="https://example.com/feed",
-        title="Example",
-        description="Desc",
-        favicon="icon.ico",
-        consecutive_failures=0,
-        last_crawled_at=None,
-        next_crawl_scheduled_at=now_dt,
-        last_crawl_succeeded=True,
-        created_at=now_dt,
-        updated_at=now_dt,
-    )
-    mock_repo_cls.return_value = repository
-
-    response = client.get(f"/sources/{source_id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["source_id"] == str(source_id)
-    assert "consecutive_failures" in data
-    assert "next_crawl_scheduled_at" in data
-    assert "health_score" not in data
-
-
-@patch("src.routers.sources.SourceRepository")
-def test_patch_source_success(mock_repo_cls, client):
-    now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    source_id = uuid.uuid4()
-    existing = Source(
-        source_id=source_id,
-        url="https://example.com/feed",
-        title="Example",
-        description="Desc",
-        favicon="icon.ico",
-        consecutive_failures=0,
-        last_crawled_at=None,
-        next_crawl_scheduled_at=now_dt,
-        last_crawl_succeeded=True,
-        created_at=now_dt,
-        updated_at=now_dt,
-    )
-    updated = Source(
-        source_id=source_id,
-        url=existing.url,
-        title="Updated Title",
-        description=existing.description,
-        favicon=existing.favicon,
-        consecutive_failures=0,
-        last_crawled_at=None,
-        next_crawl_scheduled_at=now_dt,
-        last_crawl_succeeded=True,
-        created_at=now_dt,
-        updated_at=now_dt,
-    )
-    repository = MagicMock()
-    repository.get_source_by_id.return_value = existing
-    repository.get_source_by_url.return_value = None
-    repository.update_source.return_value = updated
-    mock_repo_cls.return_value = repository
-
-    response = client.patch(
-        f"/sources/{source_id}", json={"title": "Updated Title"}
+        "/sources/discover",
+        json={
+            "url": "https://example.com/",
+        },
     )
     assert response.status_code == 200
-    assert response.json()["title"] == "Updated Title"
-
-
-@patch("src.routers.sources.SourceRepository")
-def test_list_sources_returns_all(mock_repo_cls, client):
-    source_id = uuid.uuid4()
-    now_dt = datetime(2026, 3, 11, tzinfo=timezone.utc)
-    repository = MagicMock()
-    repository.get_sources.return_value = [
-        Source(
-            source_id=source_id,
-            url="https://example.com/feed",
-            title="Example",
-            description="Desc",
-            favicon="icon.ico",
-            consecutive_failures=0,
-            last_crawled_at=None,
-            next_crawl_scheduled_at=now_dt,
-            last_crawl_succeeded=True,
-            created_at=now_dt,
-            updated_at=now_dt,
-        )
+    assert response.json() == [
+        result.model_dump() for result in discover.return_value
     ]
-    mock_repo_cls.return_value = repository
+    discover.assert_called_once_with("https://example.com/")
 
-    response = client.get("/sources")
-    assert response.status_code == 200
-    assert len(response.json()) == 1
+
+def test_registration_does_not_fetch_or_require_discovery(client, discover):
+    discover.return_value = []
+    response = client.post(
+        "/sources",
+        json={"url": "https://feeds.example.com/rss", "title": "Example"},
+    )
+    assert response.status_code == 201
+    assert response.json()["url"] == "https://feeds.example.com/rss"
+    discover.assert_not_called()
+
+
+def test_registration_rejects_duplicate_url(client, source_factory):
+    source_factory(url="https://example.com/feed")
+    response = client.post(
+        "/sources",
+        json={
+            "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
+            "title": "Example",
+        },
+    )
+    assert response.status_code == 409
+    assert len(client.get("/sources").json()) == 1
+
+
+def test_registration_allows_other_feeds_on_same_domain(client, source_factory):
+    source_factory(
+        title="Other Publisher",
+        website_url="https://other.example.com/",
+    )
+    response = client.post(
+        "/sources",
+        json={"url": "https://example.com/other.xml", "title": "Example"},
+    )
+    assert response.status_code == 201
+    assert len(client.get("/sources").json()) == 2
+
+
+@pytest.mark.parametrize(
+    "method, path, payload",
+    [
+        ("post", "/sources", {"url": "not-a-url", "title": "Example"}),
+        (
+            "post",
+            "/sources",
+            {"url": "https://user:pass@example.com/feed", "title": "Example"},
+        ),
+        (
+            "post",
+            "/sources",
+            {"url": "https://example.com/", "title": " "},
+        ),
+        (
+            "post",
+            "/sources",
+            {
+                "url": "https://example.com/",
+                "title": "Example",
+                "verified": True,
+            },
+        ),
+    ],
+    ids=[
+        "invalid-url",
+        "credentialed-url",
+        "blank-title",
+        "verification",
+    ],
+)
+def test_api_rejects_invalid_or_server_owned_fields(
+    client, source_factory, method, path, payload
+):
+    source = source_factory()
+    response = client.request(
+        method, path.format(source_id=source.source_id), json=payload
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "method, payload",
+    [
+        ("post", {}),
+        ("post", {"title": None}),
+        ("post", {"title": "x" * 256}),
+        ("post", {"title": "Example", "favicon": "http-invalid"}),
+        ("patch", {"title": " "}),
+        ("patch", {"title": None}),
+        ("patch", {"title": "x" * 256}),
+        ("patch", {"url": None}),
+        ("patch", {"favicon": "ftp://example.com/icon.png"}),
+        ("patch", {"favicon": "https://example.com/" + "x" * 2048}),
+    ],
+)
+def test_source_metadata_validation(
+    client, discover, source_factory, method, payload
+):
+    source = source_factory()
+    if method == "post":
+        path = "/sources"
+        payload = {"url": "https://example.com/"} | payload
+    else:
+        path = f"/sources/{source.source_id}"
+    response = client.request(method, path, json=payload)
+    assert response.status_code == 422
+    assert (
+        client.get(f"/sources/{source.source_id}").json()["title"]
+        == source.title
+    )
+    assert len(client.get("/sources").json()) == 1
+    discover.assert_not_called()
+
+
+def test_source_list_filters_and_orders(client, source_factory):
+    now = datetime.now(timezone.utc)
+    verified = source_factory(title="Zeta", verified=True)
+    unverified = source_factory(title="Alpha")
+    future = source_factory(next_crawl_scheduled_at=now + timedelta(days=1))
+    suspended = source_factory(consecutive_failures=settings.max_retries)
+
+    def ids(response):
+        assert response.status_code == 200
+        return [row["source_id"] for row in response.json()]
+
+    assert ids(client.get("/sources"))[0] == str(verified.source_id)
+    assert ids(client.get("/sources?verified_only=true")) == [
+        str(verified.source_id)
+    ]
+    assert set(ids(client.get("/sources?active_only=true"))) == {
+        str(verified.source_id),
+        str(unverified.source_id),
+    }
+    assert ids(client.get("/sources?active_only=true&verified_only=true")) == [
+        str(verified.source_id)
+    ]
+    assert str(future.source_id) in ids(client.get("/sources"))
+    assert str(suspended.source_id) in ids(client.get("/sources"))
+
+
+def test_patch_rejects_existing_feed_url(client, source_factory):
+    first, second = source_factory(), source_factory()
+    response = client.patch(
+        f"/sources/{second.source_id}", json={"url": first.url}
+    )
+    assert response.status_code == 409
+    assert (
+        client.get(f"/sources/{second.source_id}").json()["url"] == second.url
+    )

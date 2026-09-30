@@ -1,0 +1,30 @@
+{
+  "users": [
+    {"name": "guest", "password_hash": "YMuxTbBjDJVAHuhCoxgTgh1vZMi1wCC3t6Kudn5NOFm0VA+N", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": "administrator"}
+  ],
+  "vhosts": [
+    {"name": "/"}
+  ],
+  "permissions": [
+    {"user": "guest", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*"}
+  ],
+  "exchanges": [
+    {"name": "content.failed", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {}}
+  ],
+  "queues": [
+    {"name": "feed.raw_fetched.v1.parser.dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
+  ],
+  "bindings": [
+    {"source": "content.failed", "vhost": "/", "destination": "feed.raw_fetched.v1.parser.dlq", "destination_type": "queue", "routing_key": "feed.failed", "arguments": {}}
+  ],
+  "policies": [
+    {
+      "name": "content-feed-dlq",
+      "vhost": "/",
+      "pattern": "^feed\\.raw_fetched\\.v1\\.parser$",
+      "apply-to": "queues",
+      "priority": 10,
+      "definition": {"dead-letter-exchange": "content.failed", "dead-letter-routing-key": "feed.failed"}
+    }
+  ]
+}

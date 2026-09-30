@@ -1,9 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
@@ -11,20 +13,29 @@ from src.routers import sources
 from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
+TAG_NAME = "crawler-service"
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger("crawler-service")
+logger = logging.getLogger(TAG_NAME)
+
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
+        enable_logs=True,
+    )
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     if not getattr(application.state, "testing", False):
         init_db()
-        orchestrator = CrawlCycleOrchestrator(
-            session_factory=SessionLocal
-        )
+        orchestrator = CrawlCycleOrchestrator(session_factory=SessionLocal)
         scheduler = BackgroundScheduler()
         scheduler.add_job(
             func=orchestrator.run_crawl_cycle,
@@ -55,10 +66,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Crawler Service",
-    description=(
-        "Periodically crawls RSS/Atom sources and publishes events to RabbitMQ. "
-        "Part of the Briefly news aggregator platform."
-    ),
+    description="Periodically crawls RSS/Atom sources and publishes events to RabbitMQ.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -66,7 +74,7 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health_check() -> HealthResponse:
-    return HealthResponse(status="ok", service="crawler-service")
+    return HealthResponse(status="ok", service=TAG_NAME)
 
 
 app.include_router(sources.router)

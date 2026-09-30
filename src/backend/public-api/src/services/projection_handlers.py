@@ -12,6 +12,22 @@ from src.models.read_models import (
 logger = logging.getLogger("public-api.projections")
 
 
+def _require_source_value(value: Any, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a nonblank string")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must be nonblank")
+    return normalized
+
+
+def _require_source_title(value: Any) -> str:
+    title = _require_source_value(value, "source_title")
+    if len(title) > 255:
+        raise ValueError("source_title must be at most 255 characters")
+    return title
+
+
 def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -24,20 +40,19 @@ def _parse_dt(value: str | None) -> datetime | None:
 def project_post(db: Session, payload: dict[str, Any]) -> None:
     """Project parsed post event into read model."""
     payload = payload or {}
+    source_id = _require_source_value(payload.get("source_id"), "source_id")
+    source_title = _require_source_title(payload.get("source_title"))
     post_id = payload.get("post_id")
     if not post_id:
         return
 
-    source_id = payload.get("source_id")
-    published_at_raw = payload.get("published_at")
-    parsed_at_raw = payload.get("parsed_at")
-    published_at = _parse_dt(published_at_raw or parsed_at_raw)
+    published_at_raw = payload["published_at"]
+    published_at = _parse_dt(published_at_raw)
 
     logger.info(
-        "ProjectPost: post_id=%s, published_at_raw=%s, parsed_at_raw=%s, final_published_at=%s",
+        "ProjectPost: post_id=%s, published_at_raw=%s, final_published_at=%s",
         post_id,
         published_at_raw,
-        parsed_at_raw,
         published_at,
     )
 
@@ -47,39 +62,20 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
         db.add(existing)
 
     existing.source_id = source_id
-    existing.source_title = (
-        payload.get("source_title") or existing.source_title
-    )
-    existing.canonical_url = payload.get(
-        "canonical_url"
-    ) or payload.get("url")
-    existing.title = payload.get("title") or existing.title
-    if "description" in payload:
-        existing.description = payload.get("description")
-    if "content" in payload and payload.get("content") is not None:
-        existing.content = payload.get("content")
-    existing.category = payload.get("category") or existing.category
-    # Only set language on first parse event (immutable)
-    if not existing.language and payload.get("language"):
-        existing.language = payload.get("language")
-    # Only set keywords on first parse event (immutable)
-    keywords_payload = payload.get("keywords")
-    if (
-        not existing.keywords or existing.keywords == []
-    ) and keywords_payload:
-        existing.keywords = keywords_payload
-    # Only set published_at on first parse event (immutable)
-    if not existing.published_at and published_at:
-        existing.published_at = published_at
-    if "image_url" in payload or "image_ref" in payload:
-        existing.image_ref = payload.get("image_url") or payload.get(
-            "image_ref"
-        )
+    existing.source_title = source_title
+    existing.canonical_url = payload["url"]
+    existing.title = payload["title"]
+    existing.description = payload["description"]
+    existing.category = payload["category"]
+    existing.content = payload["content"]
+    existing.author = payload["author"]
+    existing.language = payload["language"]
+    existing.keywords = payload["keywords"]
+    existing.image_ref = payload["image_url"]
+    existing.published_at = published_at
 
 
-def project_user_preferences(
-    db: Session, payload: dict[str, Any]
-) -> None:
+def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
     """Project user preferences update event."""
     payload = payload or {}
     user_id = payload.get("user_id")
@@ -95,7 +91,4 @@ def project_user_preferences(
     prefs.muted_categories = payload.get("muted_categories") or []
     prefs.blocked_source_ids = payload.get("blocked_source_ids") or []
     prefs.languages = payload.get("languages") or []
-    prefs.category_interests = payload.get("category_interests") or []
-    prefs.updated_at = (
-        _parse_dt(payload.get("updated_at")) or prefs.updated_at
-    )
+    prefs.updated_at = _parse_dt(payload.get("updated_at")) or prefs.updated_at

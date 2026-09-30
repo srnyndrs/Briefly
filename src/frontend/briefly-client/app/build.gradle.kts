@@ -24,6 +24,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "connection"
+    productFlavors {
+        create("emulator") {
+            dimension = "connection"
+            buildConfigField("String", "BACKEND_BASE_URL", "\"http://10.0.2.2:8000/\"")
+        }
+        create("device") {
+            dimension = "connection"
+            buildConfigField("String", "BACKEND_BASE_URL", "\"http://127.0.0.1:8000/\"")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -41,16 +53,18 @@ android {
         compose = true
         buildConfig = true
     }
-    kotlin {
-        compilerOptions {
-            freeCompilerArgs.add("-Xannotation-default-target=param-property")
-        }
+}
+
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
 
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -92,6 +106,7 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
+    implementation(libs.coil.svg)
     // Datetime
     implementation(libs.kotlinx.datetime)
     // Fonts

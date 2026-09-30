@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config.settings import settings
 
@@ -33,14 +34,11 @@ def init_db() -> None:
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS crawler;"))
 
-    logger.info("Running database migrations (create_all)...")
+    logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database schema ready.")
 
 
-def get_db():
-    db = SessionLocal()
-    try:
+def get_db() -> Generator[Session, None, None]:
+    with SessionLocal() as db:
         yield db
-    finally:
-        db.close()

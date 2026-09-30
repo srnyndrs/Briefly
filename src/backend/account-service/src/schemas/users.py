@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     EmailStr,
     Field,
     field_serializer,
@@ -11,6 +12,8 @@ from pydantic import (
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: UUID
     email: EmailStr
     display_name: str | None
@@ -46,7 +49,6 @@ class PreferencesUpdateRequest(BaseModel):
     muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
-    category_interests: list[str] = Field(default_factory=list)
 
 
 class PreferencesPatchRequest(BaseModel):
@@ -54,16 +56,16 @@ class PreferencesPatchRequest(BaseModel):
     muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
     languages: list[str] | None = None
-    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: UUID
     muted_keywords: list[str]
     muted_categories: list[str]
     blocked_source_ids: list[UUID]
     languages: list[str]
-    category_interests: list[str]
     updated_at: datetime
 
     @field_serializer("updated_at")
@@ -78,6 +80,8 @@ class SubscriptionCreateRequest(BaseModel):
 
 
 class SubscriptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: UUID
     source_id: UUID
     created_at: datetime

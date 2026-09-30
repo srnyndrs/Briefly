@@ -1,158 +1,186 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
+from src.adapters.service_clients import (
+    account_list_subscriptions,
+    ingestion_list_sources,
+)
 from src.repositories.feed_repository import (
     PostRepository,
     UserPreferencesRepository,
 )
-from src.services.feed_models import PostDTO, UserPreferencesDTO
-from src.services.feed_scoring import FeedScoringService
-from src.services.personalization import (
-    PersonalizationMergeService,
-    PersonalizationQueryOverrides,
+from src.services.feed_models import (
+    EffectiveFeedQuery,
+    FilterOptionsDTO,
+    PostDTO,
 )
 
 
 @dataclass(frozen=True)
-class ListFeedInput:
+class PersonalFeedInput:
     user_id: UUID
     limit: int
     offset: int
-    use_preferences: bool = True
-    categories: list[str] | None = None
-    languages: list[str] | None = None
-    source_ids: list[str] | None = None
-    published_from: datetime | None = None
-    published_to: datetime | None = None
-    sort: str | None = None
+    category: str | None = None
+    include_filter_options: bool = False
 
 
 @dataclass(frozen=True)
-class ListFeedOutput:
-    items: list[PostDTO]
-    total: int
-
-
-@dataclass(frozen=True)
-class SearchFeedInput:
+class ExploreFeedInput:
     user_id: UUID
-    q: str
     limit: int
     offset: int
-    use_preferences: bool = True
     categories: list[str] | None = None
     languages: list[str] | None = None
     source_ids: list[str] | None = None
+    query: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str | None = None
+    include_filter_options: bool = False
 
 
 @dataclass(frozen=True)
-class SearchFeedOutput:
+class FeedOutput:
     items: list[PostDTO]
     total: int
-
-
-@dataclass(frozen=True)
-class GetPostInput:
-    post_id: UUID
+    filter_options: FilterOptionsDTO | None = None
+    headlines: list[PostDTO] | None = None
 
 
 class FeedService:
+    HEADLINE_COUNT = 3
+
     def __init__(
         self,
         post_repository: PostRepository,
         preferences_repository: UserPreferencesRepository,
-        scoring_service: FeedScoringService | None = None,
-        merge_service: PersonalizationMergeService | None = None,
     ) -> None:
         self._post_repository = post_repository
         self._preferences_repository = preferences_repository
-        self._scoring_service = scoring_service or FeedScoringService()
-        self._merge_service = (
-            merge_service or PersonalizationMergeService()
-        )
 
-    def list_feed(self, data: ListFeedInput) -> ListFeedOutput:
-        prefs_dto: UserPreferencesDTO = (
-            self._preferences_repository.get_preferences(data.user_id)
-        )
-        context = self._merge_service.merge(
-            preferences=prefs_dto,
-            use_preferences=data.use_preferences,
-            overrides=PersonalizationQueryOverrides(
-                include_categories=data.categories,
-                include_languages=data.languages,
-                include_source_ids=data.source_ids,
-                published_from=data.published_from,
-                published_to=data.published_to,
-                sort=data.sort,
-            ),
-        )
+    def get_personal_feed(self, data: PersonalFeedInput) -> FeedOutput:
+        preferences = self._preferences_repository.get_preferences(data.user_id)
+        subscriptions = account_list_subscriptions(str(data.user_id))
+        source_ids = [str(item["source_id"]) for item in subscriptions]
+        if not source_ids:
+            return FeedOutput(
+                items=[],
+                total=0,
+                filter_options=(
+                    FilterOptionsDTO(
+                        categories=[],
+                        languages=[],
+                        authors=[],
+                        keywords=[],
+                    )
+                    if data.include_filter_options
+                    else None
+                ),
+                headlines=[] if data.offset == 0 else None,
+            )
 
-        candidates, total = self._post_repository.list_feed_candidates(
-            user_id=data.user_id,
-            languages=context.languages,
-            muted_keywords=context.muted_keywords,
-            muted_categories=context.muted_categories,
-            blocked_source_ids=context.blocked_source_ids,
-            include_languages=context.include_languages,
-            include_source_ids=context.include_source_ids,
-            include_categories=context.include_categories,
-            published_from=context.published_from,
-            published_to=context.published_to,
-            sort=context.sort,
+        base_query = EffectiveFeedQuery(
+            blocked_source_ids=preferences.blocked_source_ids,
+            muted_keywords=preferences.muted_keywords,
+            muted_categories=preferences.muted_categories,
+            languages=preferences.languages,
+            source_ids=source_ids,
             limit=data.limit,
             offset=data.offset,
         )
-        ranked = self._scoring_service.rank(
-            articles=candidates,
-            preferences=prefs_dto,
-            limit=data.limit,
+        headlines = self._post_repository.list_headlines(
+            base_query, self.HEADLINE_COUNT
         )
-        return ListFeedOutput(
-            items=ranked,
-            total=total,
+        content_query = replace(
+            base_query,
+            categories=[data.category] if data.category else None,
+            excluded_post_ids=[post.post_id for post in headlines],
         )
-
-    def search_feed(self, data: SearchFeedInput) -> SearchFeedOutput:
-        prefs = self._preferences_repository.get_preferences(
-            data.user_id
+        items, total = self._post_repository.list_candidates(content_query)
+        options = (
+            self._post_repository.list_personal_filter_options(content_query)
+            if data.include_filter_options
+            else None
         )
-        context = self._merge_service.merge(
-            preferences=prefs,
-            use_preferences=data.use_preferences,
-            overrides=PersonalizationQueryOverrides(
-                include_categories=data.categories,
-                include_languages=data.languages,
-                include_source_ids=data.source_ids,
-                published_from=data.published_from,
-                published_to=data.published_to,
-                sort=data.sort,
-            ),
-        )
-        items, total = self._post_repository.search_feed(
-            user_id=data.user_id,
-            q=data.q,
-            languages=context.languages,
-            muted_keywords=context.muted_keywords,
-            muted_categories=context.muted_categories,
-            blocked_source_ids=context.blocked_source_ids,
-            include_languages=context.include_languages,
-            include_source_ids=context.include_source_ids,
-            include_categories=context.include_categories,
-            published_from=context.published_from,
-            published_to=context.published_to,
-            sort=context.sort,
-            limit=data.limit,
-            offset=data.offset,
-        )
-        return SearchFeedOutput(
+        return FeedOutput(
             items=items,
             total=total,
+            filter_options=options,
+            headlines=headlines if data.offset == 0 else None,
         )
 
-    def get_post(self, data: GetPostInput) -> PostDTO | None:
-        return self._post_repository.get_post(data.post_id)
+    def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
+        verified_sources = ingestion_list_sources(verified_only=True)
+        allowed_source_ids = [
+            str(source["source_id"])
+            for source in verified_sources
+            if source.get("source_id") is not None
+        ]
+        if not allowed_source_ids:
+            options = (
+                FilterOptionsDTO(
+                    categories=[],
+                    languages=[],
+                    authors=[],
+                    keywords=[],
+                    sources=[],
+                )
+                if data.include_filter_options
+                else None
+            )
+            return FeedOutput(items=[], total=0, filter_options=options)
+
+        preferences = self._preferences_repository.get_preferences(data.user_id)
+        query = EffectiveFeedQuery(
+            allowed_source_ids=allowed_source_ids,
+            blocked_source_ids=preferences.blocked_source_ids,
+            muted_keywords=preferences.muted_keywords,
+            muted_categories=preferences.muted_categories,
+            languages=data.languages,
+            source_ids=data.source_ids,
+            categories=data.categories,
+            query=data.query,
+            published_from=data.published_from,
+            published_to=data.published_to,
+            sort=data.sort or "freshness",
+            limit=data.limit,
+            offset=data.offset,
+        )
+        return self._execute(
+            query,
+            data.include_filter_options,
+            include_source_options=True,
+        )
+
+    def get_admin_feed(self, limit: int, offset: int) -> FeedOutput:
+        return self._execute(
+            EffectiveFeedQuery(limit=limit, offset=offset),
+            False,
+        )
+
+    def _execute(
+        self,
+        query: EffectiveFeedQuery,
+        include_options: bool,
+        *,
+        include_source_options: bool = False,
+    ) -> FeedOutput:
+        items, total = self._post_repository.list_candidates(query)
+        options = (
+            self._post_repository.list_filter_options(
+                query,
+                include_sources=include_source_options,
+            )
+            if include_options
+            else None
+        )
+        return FeedOutput(
+            items=items,
+            total=total,
+            filter_options=options,
+        )
+
+    def get_post(self, post_id: UUID) -> PostDTO | None:
+        return self._post_repository.get_post(post_id)

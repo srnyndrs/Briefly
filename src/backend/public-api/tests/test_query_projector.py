@@ -36,14 +36,12 @@ class FakeChannel:
         self.acknowledged.append(delivery_tag)
 
 
-def test_duplicate_delivery_projects_once_and_acknowledges_both() -> (
-    None
-):
+def test_duplicate_delivery_projects_once_and_acknowledges_both() -> None:
     session = FakeSession()
     projector = QueryProjector(lambda: session)
     applied: list[tuple[str, dict]] = []
-    projector._apply_event = lambda db, event_type, payload: (
-        applied.append((event_type, payload))
+    projector._apply_event = lambda db, event_type, payload: applied.append(
+        (event_type, payload)
     )
     channel = FakeChannel()
     method = SimpleNamespace(delivery_tag=1)

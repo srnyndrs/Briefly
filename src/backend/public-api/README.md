@@ -16,7 +16,7 @@ responsible for their own data.
 - Provide the public HTTP API for accounts, sources, posts, and feeds.
 - Forward commands and immediate reads to the service that owns the data.
 - Build local read models from selected asynchronous events.
-- Apply feed filtering, personalization, and ranking to read-model data.
+- Apply feed filtering and chronological ordering to read-model data.
 
 ## Does not own
 
@@ -41,7 +41,68 @@ may become visible to feed queries shortly after the original operation.
 The current public API is available through FastAPI's `/docs` endpoint when
 the service is running.
 
+`GET /feed` returns the newest eligible posts from the caller's subscribed
+sources, subject to saved languages and visibility exclusions. `GET /explore`
+returns posts from verified Sources only, with explicit category, language,
+source, date, and optional full-text search filters; it applies the same
+visibility exclusions without applying saved languages or subscriptions.
+Before each Explore query, public-api fetches current verified Source IDs from
+crawler-service and applies them as a hard allowlist to items, totals, and
+filter options. Repeatable `source_ids` selections intersect that allowlist;
+they cannot expose unverified Sources. An empty verified catalog returns an
+empty result and empty filter options. Personal `/feed` remains subscription-based
+and may include posts from unverified Sources. `source_ids` is repeatable,
+and `query` searches projected title, description, and keywords (not full
+content). Title matches rank ahead of description matches, which rank ahead of
+keyword-only matches. Search uses web-style syntax, has no prefix/autocomplete
+matching, and relevance ordering means `sort` cannot be combined with `query`.
+Both routes
+support page-number pagination. Explore also supports an opt-in
+`include_filter_options=true` response field for available categories,
+languages, authors, and keywords; Explore additionally returns source options.
+
+Source creation is a synchronous gateway operation. `POST /sources` accepts a
+feed URL and optional display metadata; public-api derives the submitter ID
+from the authenticated user. The client cannot set `verified` or submitter ID.
+Crawler-service validates fields without fetching the feed again, and
+user-created Sources are unverified. `POST /sources/discover` returns only
+validated direct or explicitly advertised feed candidates. Overall and
+category feeds can coexist; if they contain the same article, each feed keeps
+its own projected post.
+
+For example:
+
+```text
+/explore?source_ids=...&source_ids=...&query=%22climate+change%22&include_filter_options=true
+```
+
+The disposable PostgreSQL search-index and query-plan verification is a
+deployment validation step; it must be rerun after rebuilding the local schema.
+
+## Testing approach
+
+The default suite runs locally without Docker. HTTP tests use FastAPI's
+`TestClient`, an in-memory SQLite database for query projections, and small
+stand-ins for calls to the owning services. Repository tests check feed query
+rules against stored posts. Projection tests check the two event snapshots;
+the projector test checks duplicate delivery acknowledgement.
+
+Add a test for an observable route, query, or event contract when behavior
+changes. Prefer one representative workflow per responsibility over separate
+tests for every input variant or internal helper call. Keep PostgreSQL and
+RabbitMQ smoke checks separate from the fast default suite.
+
 ## Development
+
+For an existing development database, remove the URL uniqueness constraint
+before processing overlapping feeds:
+
+```sql
+ALTER TABLE query.post_projections
+DROP CONSTRAINT uq_post_projection_canonical_url;
+```
+
+New databases are created with the current schema by `init_db()`.
 
 Install dependencies:
 

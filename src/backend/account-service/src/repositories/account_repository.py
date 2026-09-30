@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -75,7 +75,6 @@ class AccountRepository:
         muted_categories: list[str],
         blocked_source_ids: list[str],
         languages: list[str],
-        category_interests: list[str],
         now: datetime,
     ) -> UserPreferences:
         preferences = self.get_preferences(user_id)
@@ -87,7 +86,6 @@ class AccountRepository:
         preferences.muted_categories = muted_categories
         preferences.blocked_source_ids = blocked_source_ids
         preferences.languages = languages
-        preferences.category_interests = category_interests
         preferences.updated_at = now
 
         user = self.get_user_by_id(user_id)
@@ -110,7 +108,9 @@ class AccountRepository:
         self._db.refresh(subscription)
         return subscription
 
-    def list_subscriptions(self, *, user_id: str) -> Sequence[Any]:
+    def list_subscriptions(
+        self, *, user_id: str
+    ) -> Sequence[UserSubscription]:
         return (
             self._db.execute(
                 select(UserSubscription)
@@ -152,7 +152,9 @@ class AccountRepository:
             )
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(self, user_id: str) -> Sequence[Any]:
+    def list_active_refresh_tokens(
+        self, user_id: str
+    ) -> Sequence[RefreshToken]:
         return (
             self._db.execute(
                 select(RefreshToken).where(

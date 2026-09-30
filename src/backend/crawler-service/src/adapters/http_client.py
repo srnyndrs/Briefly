@@ -1,7 +1,8 @@
+from dataclasses import dataclass
+
 import requests
 
 from src.config.settings import settings
-from dataclasses import dataclass
 
 
 @dataclass
@@ -19,9 +20,10 @@ class HttpFetchResult:
 
 
 class RequestsHttpClient:
-    def fetch(self, url: str, headers: FetchHeaders) -> HttpFetchResult:
+    @staticmethod
+    def fetch(url: str, headers: FetchHeaders) -> HttpFetchResult:
         request_headers: dict[str, str] = {
-            "User-Agent": "briefly-crawler/1.0"
+            "User-Agent": "briefly-crawler",
         }
         if headers.etag:
             request_headers["If-None-Match"] = headers.etag

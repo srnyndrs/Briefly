@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     String,
     Text,
+    Uuid,
     UniqueConstraint,
     func,
 )
@@ -18,13 +19,13 @@ from src.config.database import Base
 class Post(Base):
     __tablename__ = "posts"
 
-    post_id: Mapped[str] = mapped_column(
-        String,
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4()),
+        default=uuid.uuid4,
     )
-    source_id: Mapped[str] = mapped_column(
-        String,
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
         nullable=False,
         index=True,
     )
@@ -37,9 +38,9 @@ class Post(Base):
         String,
         nullable=False,
     )
-    source_title: Mapped[str | None] = mapped_column(
-        String,
-        nullable=True,
+    source_title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
     )
     title: Mapped[str] = mapped_column(
         String,
@@ -89,7 +90,5 @@ class Post(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "source_id", "item_guid", name="uix_source_guid"
-        ),
+        UniqueConstraint("source_id", "item_guid", name="uix_source_guid"),
     )

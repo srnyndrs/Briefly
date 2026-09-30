@@ -11,12 +11,13 @@ from src.models.read_models import (
 class PostDTO:
     post_id: str
     title: str
-    source_id: str | None = None
-    source_title: str | None = None
+    source_id: str
+    source_title: str
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
     category: str | None = None
+    author: str | None = None
     keywords: list[str] = field(default_factory=list)
     content: str | None = None
     image_ref: str | None = None
@@ -33,16 +34,44 @@ class PostDTO:
 
 
 @dataclass(frozen=True)
+class SourceOptionDTO:
+    source_id: str
+    title: str
+
+
+@dataclass(frozen=True)
+class FilterOptionsDTO:
+    categories: list[str]
+    languages: list[str]
+    authors: list[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
+    sources: list[SourceOptionDTO] | None = None
+
+
+@dataclass(frozen=True)
+class EffectiveFeedQuery:
+    allowed_source_ids: list[str] | None = None
+    blocked_source_ids: list[str] = field(default_factory=list)
+    muted_keywords: list[str] = field(default_factory=list)
+    muted_categories: list[str] = field(default_factory=list)
+    languages: list[str] | None = None
+    source_ids: list[str] | None = None
+    categories: list[str] | None = None
+    query: str | None = None
+    published_from: datetime | None = None
+    published_to: datetime | None = None
+    sort: str = "freshness"
+    excluded_post_ids: list[str] = field(default_factory=list)
+    limit: int = 20
+    offset: int = 0
+
+
+@dataclass(frozen=True)
 class UserPreferencesDTO:
     muted_keywords: list[str] = field(default_factory=list)
     muted_categories: list[str] = field(default_factory=list)
     blocked_source_ids: list[str] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
-    category_interests: list[str] = field(default_factory=list)
-
-    @property
-    def has_category_interests(self) -> bool:
-        return bool(self.category_interests)
 
 
 def post_projection_to_dto(model: PostProjection) -> PostDTO:
@@ -55,6 +84,7 @@ def post_projection_to_dto(model: PostProjection) -> PostDTO:
         canonical_url=model.canonical_url,
         language=model.language,
         category=model.category,
+        author=model.author,
         keywords=model.keywords or [],
         content=model.content,
         image_ref=model.image_ref,
@@ -73,5 +103,4 @@ def user_preferences_projection_to_dto(
         muted_categories=model.muted_categories or [],
         blocked_source_ids=model.blocked_source_ids or [],
         languages=model.languages or [],
-        category_interests=model.category_interests or [],
     )

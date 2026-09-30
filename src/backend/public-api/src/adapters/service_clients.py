@@ -23,16 +23,20 @@ def _forward(
     json: dict | None = None,
     params: dict | None = None,
     correlation_id: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> dict:
     headers: dict[str, str] = {}
     if correlation_id:
         headers["x-correlation-id"] = correlation_id
 
     url = f"{base_url}{path}"
+    timeout = (
+        settings.request_timeout_seconds
+        if timeout_seconds is None
+        else timeout_seconds
+    )
     try:
-        with httpx.Client(
-            timeout=settings.request_timeout_seconds
-        ) as client:
+        with httpx.Client(timeout=timeout) as client:
             response = client.request(
                 method=method,
                 url=url,
@@ -71,9 +75,7 @@ def map_service_error(exc: ServiceClientError) -> HTTPException:
 
 
 def account_get_user(user_id: str) -> dict:
-    return _forward(
-        "GET", settings.account_service_url, f"/users/{user_id}"
-    )
+    return _forward("GET", settings.account_service_url, f"/users/{user_id}")
 
 
 def account_register(body: dict) -> dict:
@@ -121,9 +123,7 @@ def account_password_reset_confirm(body: dict) -> dict:
     )
 
 
-def account_logout(
-    body: dict, correlation_id: str | None = None
-) -> None:
+def account_logout(body: dict, correlation_id: str | None = None) -> None:
     _forward(
         "POST",
         settings.account_service_url,
@@ -199,8 +199,11 @@ def ingestion_create_source(body: dict) -> dict:
     )
 
 
-def ingestion_list_sources() -> list[dict]:
-    result = _forward("GET", settings.ingestion_service_url, "/sources")
+def ingestion_list_sources(*, verified_only: bool = False) -> list[dict]:
+    params = {"verified_only": "true"} if verified_only else None
+    result = _forward(
+        "GET", settings.ingestion_service_url, "/sources", params=params
+    )
     if isinstance(result, list):
         return result
     return []
@@ -212,6 +215,7 @@ def ingestion_discover_sources(body: dict) -> list[dict]:
         settings.ingestion_service_url,
         "/sources/discover",
         json=body,
+        timeout_seconds=settings.source_discovery_timeout_seconds,
     )
     if isinstance(result, list):
         return result

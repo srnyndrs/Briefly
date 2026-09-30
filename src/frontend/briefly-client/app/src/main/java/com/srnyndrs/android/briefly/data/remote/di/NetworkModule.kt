@@ -1,20 +1,25 @@
 package com.srnyndrs.android.briefly.data.remote.di
 
-import com.srnyndrs.android.briefly.data.local.auth.TokenManager
+import com.srnyndrs.android.briefly.BuildConfig
+import com.srnyndrs.android.briefly.data.local.auth.AuthSessionManager
 import com.srnyndrs.android.briefly.data.remote.auth.AuthApiService
 import com.srnyndrs.android.briefly.data.remote.auth.dto.RefreshRequestDto
-import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairDto
+import com.srnyndrs.android.briefly.data.remote.auth.dto.TokenPairResponseDto
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
+import com.srnyndrs.android.briefly.data.remote.profile.ProfileApiService
 import com.srnyndrs.android.briefly.data.repository.auth.AuthRepositoryImpl
 import com.srnyndrs.android.briefly.data.repository.content.ContentRepositoryImpl
+import com.srnyndrs.android.briefly.data.repository.profile.ProfileRepositoryImpl
 import com.srnyndrs.android.briefly.domain.repository.auth.AuthRepository
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
+import com.srnyndrs.android.briefly.domain.repository.profile.ProfileRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
@@ -27,6 +32,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -38,7 +44,9 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideKtorClient(tokenManager: TokenManager): HttpClient = HttpClient(OkHttp) {
+    fun provideKtorClient(
+        authSessionManager: AuthSessionManager,
+    ): HttpClient = HttpClient(OkHttp) {
         expectSuccess = true
         install(Logging) {
             level = LogLevel.INFO
@@ -58,8 +66,8 @@ object NetworkModule {
         install(Auth) {
             bearer {
                 loadTokens {
-                    val accessToken = tokenManager.getAccessToken()
-                    val refreshToken = tokenManager.getRefreshToken()
+                    val accessToken = authSessionManager.getAccessToken()
+                    val refreshToken = authSessionManager.getRefreshToken()
                     if (accessToken != null && refreshToken != null) {
                         BearerTokens(accessToken, refreshToken)
                     } else {
@@ -67,26 +75,32 @@ object NetworkModule {
                     }
                 }
                 refreshTokens {
-                    val refreshToken = tokenManager.getRefreshToken() ?: return@refreshTokens null
+                    val refreshToken = authSessionManager.getRefreshToken()
+                        ?: return@refreshTokens null
                     try {
                         val response = client.post("auth/refresh") {
                             markAsRefreshTokenRequest()
                             setBody(RefreshRequestDto(refreshToken))
-                        }.body<TokenPairDto>()
+                        }.body<TokenPairResponseDto>()
                         
-                        tokenManager.saveAccessToken(response.accessToken)
-                        tokenManager.saveRefreshToken(response.refreshToken)
+                        authSessionManager.saveTokens(
+                            accessToken = response.accessToken,
+                            refreshToken = response.refreshToken,
+                        )
                         BearerTokens(response.accessToken, response.refreshToken)
+                    } catch (exception: ClientRequestException) {
+                        if (exception.response.status == HttpStatusCode.Unauthorized) {
+                            authSessionManager.invalidate()
+                        }
+                        null
                     } catch (_: Exception) {
-                        tokenManager.clearTokens()
                         null
                     }
                 }
             }
         }
         defaultRequest {
-            // TODO: use BuildConfig
-            url("http://10.0.2.2:8000/")
+            url(BuildConfig.BACKEND_BASE_URL)
             contentType(ContentType.Application.Json)
         }
     }
@@ -99,9 +113,9 @@ object NetworkModule {
     @Singleton
     fun provideAuthRepository(
         authApiService: AuthApiService,
-        tokenManager: TokenManager
+        authSessionManager: AuthSessionManager,
     ): AuthRepository {
-        return AuthRepositoryImpl(authApiService, tokenManager)
+        return AuthRepositoryImpl(authApiService, authSessionManager)
     }
 
     @Provides
@@ -114,6 +128,16 @@ object NetworkModule {
         contentApiService: ContentApiService
     ): ContentRepository {
         return ContentRepositoryImpl(contentApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideProfileApiService(client: HttpClient): ProfileApiService = ProfileApiService(client)
+
+    @Provides
+    @Singleton
+    fun provideProfileRepository(api: ProfileApiService): ProfileRepository {
+        return ProfileRepositoryImpl(api)
     }
 
 }

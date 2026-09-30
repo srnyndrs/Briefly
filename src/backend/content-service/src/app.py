@@ -2,8 +2,10 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from src.config.database import init_db
 from src.config.settings import settings
@@ -11,11 +13,22 @@ from src.routers import admin, posts
 from src.schemas.common import HealthResponse
 from src.adapters.feed_consumer import FeedConsumer
 
+TAG_NAME = "content-service"
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger("content-service")
+logger = logging.getLogger(TAG_NAME)
+
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
+        enable_logs=True,
+    )
 
 
 @asynccontextmanager
@@ -38,11 +51,10 @@ async def lifespan(application: FastAPI):
 
     yield
 
-    consumer: FeedConsumer | None = getattr(
-        application.state, "consumer", None
-    )
+    consumer: FeedConsumer | None = getattr(application.state, "consumer", None)
     if consumer:
         consumer.stop()
+
     thread: threading.Thread | None = getattr(
         application.state, "consumer_thread", None
     )
@@ -54,10 +66,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Content Service",
-    description=(
-        "Consumes feed.raw_fetched.v1 events, "
-        "extracts posts, stores in PostgreSQL."
-    ),
+    description="Parses RSS feeds and extracts article content.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -65,7 +74,7 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", service="content-service")
+    return HealthResponse(status="ok", service=TAG_NAME)
 
 
 app.include_router(posts.router)

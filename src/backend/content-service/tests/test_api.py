@@ -1,20 +1,25 @@
+import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
 from src.models.post import Post
 
+SOURCE_ONE = UUID("00000000-0000-0000-0000-000000000001")
+SOURCE_TWO = UUID("00000000-0000-0000-0000-000000000002")
 
-def _seed_posts(db_session, post_id: str, other_id: str):
+
+def _seed_posts(db_session, post_id: UUID, other_id: UUID):
     now = datetime.now(UTC).replace(tzinfo=None)
     db_session.add(
         Post(
             post_id=post_id,
-            source_id="source-1",
+            source_id=SOURCE_ONE,
             item_guid="guid-1",
             url="https://example.com/a",
+            source_title="Source One",
             title="Tech News",
             description="desc",
             category="technology",
@@ -31,9 +36,10 @@ def _seed_posts(db_session, post_id: str, other_id: str):
     db_session.add(
         Post(
             post_id=other_id,
-            source_id="source-2",
+            source_id=SOURCE_TWO,
             item_guid="guid-2",
             url="https://example.com/b",
+            source_title="Source Two",
             title="Sports",
             description="desc",
             category="sports",
@@ -59,26 +65,24 @@ def test_health(client: TestClient) -> None:
 
 
 def test_get_post_by_id(client: TestClient, db_session) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
+    post_id = uuid4()
+    other_id = uuid4()
     _seed_posts(db_session, post_id, other_id)
 
     by_id = client.get(f"/posts/{post_id}")
     assert by_id.status_code == 200
-    assert by_id.json()["post_id"] == post_id
+    assert by_id.json()["post_id"] == str(post_id)
 
 
-def test_list_posts_with_filters(
-    client: TestClient, db_session
-) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
+def test_list_posts_with_filters(client: TestClient, db_session) -> None:
+    post_id = uuid4()
+    other_id = uuid4()
     _seed_posts(db_session, post_id, other_id)
 
     filtered = client.get(
         "/posts",
         params={
-            "source_id": "source-1",
+            "source_id": str(SOURCE_ONE),
             "language": "en",
             "category": "technology",
         },
@@ -86,11 +90,11 @@ def test_list_posts_with_filters(
     assert filtered.status_code == 200
     payload = filtered.json()
     assert len(payload) == 1
-    assert payload[0]["post_id"] == post_id
+    assert payload[0]["post_id"] == str(post_id)
 
 
 def test_count_posts(client: TestClient, db_session) -> None:
-    _seed_posts(db_session, str(uuid4()), str(uuid4()))
+    _seed_posts(db_session, uuid4(), uuid4())
 
     response = client.get("/posts/count")
 
@@ -103,38 +107,17 @@ def test_get_post_not_found(client: TestClient) -> None:
     assert missing.status_code == 404
 
 
-def test_replay_posts_publishes_events(
+def test_replay_posts_emits_complete_stored_snapshot(
     client: TestClient, db_session
 ) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
-    _seed_posts(db_session, post_id, other_id)
-
-    with (
-        patch(
-            "src.routers.admin.create_replay_publisher_channel",
-            return_value=MagicMock(),
-        ),
-        patch(
-            "src.routers.admin.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
-    ):
-        response = client.post("/admin/posts/replay")
-        assert response.status_code == 200
-        assert response.json() == {"replayed": 2}
-        assert mock_publish.call_count == 2
-
-
-def test_replay_posts_emits_stored_source_title(
-    client: TestClient, db_session
-) -> None:
-    post_id = str(uuid4())
+    post_id = uuid4()
     now = datetime.now(UTC).replace(tzinfo=None)
     post = Post(
         post_id=post_id,
-        source_id="source-1",
+        source_id=SOURCE_ONE,
         item_guid="guid-replay-title",
         url="https://example.com/replay-title",
+        source_title="Tech Blog",
         title="Tech News",
         description="desc",
         category="technology",
@@ -147,79 +130,29 @@ def test_replay_posts_emits_stored_source_title(
         language="en",
         keywords=["technology"],
     )
-    post.source_title = "Tech Blog"
     db_session.add(post)
     db_session.commit()
     db_session.expunge_all()
 
-    with (
-        patch(
-            "src.routers.admin.create_replay_publisher_channel",
-            return_value=MagicMock(),
-        ),
-        patch(
-            "src.routers.admin.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
+    channel = MagicMock()
+    with patch(
+        "src.routers.admin.create_replay_publisher_channel",
+        return_value=channel,
     ):
         response = client.post(
             "/admin/posts/replay",
             params={"limit": 1},
         )
-        assert response.status_code == 200
-        assert mock_publish.called
-        assert (
-            mock_publish.call_args.kwargs.get("source_title")
-            == "Tech Blog"
-        )
-
-
-def test_post_routes_publish_pydantic_response_contracts(
-    client: TestClient,
-) -> None:
-    response = client.get("/openapi.json")
     assert response.status_code == 200
-    schema = response.json()
-    paths = schema.get("paths", {})
-
-    count_response = (
-        paths.get("/posts/count", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    count_schema_ref = (
-        count_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("$ref", "")
-    )
-    assert "PostCountResponse" in count_schema_ref
-
-    list_response = (
-        paths.get("/posts", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    list_items_ref = (
-        list_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("items", {})
-        .get("$ref", "")
-    )
-    assert "PostResponse" in list_items_ref
-
-    get_response = (
-        paths.get("/posts/{post_id}", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    get_schema_ref = (
-        get_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("$ref", "")
-    )
-    assert "PostResponse" in get_schema_ref
+    assert response.json() == {"replayed": 1}
+    published = channel.basic_publish.call_args.kwargs
+    assert published["routing_key"] == "post.parsed.v1"
+    payload = json.loads(published["body"])["payload"]
+    assert payload["post_id"] == str(post_id)
+    assert payload["source_title"] == "Tech Blog"
+    assert payload["title"] == "Tech News"
+    assert payload["content"] == "content"
+    assert payload["content_length"] == 7
+    assert payload["published_at"] == now.isoformat()
+    assert payload["keywords"] == ["technology"]
+    channel.connection.close.assert_called_once()

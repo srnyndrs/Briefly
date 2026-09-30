@@ -27,9 +27,10 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 
 @router.post("", status_code=201)
 def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
-    _ = user
+    payload = body.model_dump(mode="json")
+    payload["submitted_by_user_id"] = str(user.user_id)
     try:
-        return ingestion_create_source(body.model_dump(mode="json"))
+        return ingestion_create_source(payload)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -37,9 +38,7 @@ def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
 @router.get("", response_model=list[SourceResponse])
 def list_sources(
     user: CurrentUser,
-    query: str = Query(
-        default="", description="Search text to filter sources"
-    ),
+    query: str = Query(default="", description="Search text to filter sources"),
     subscribed_only: bool = Query(
         default=False, description="Filter only subscribed sources"
     ),
@@ -89,9 +88,7 @@ def discover_sources(
 ) -> list[SourceDiscoverResult]:
     _ = user
     try:
-        results = ingestion_discover_sources(
-            body.model_dump(mode="json")
-        )
+        results = ingestion_discover_sources(body.model_dump(mode="json"))
         return [SourceDiscoverResult(**item) for item in results]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -101,9 +98,7 @@ def discover_sources(
     "/{source_id}",
     response_model=SourceResponse,
 )
-def get_source(
-    source_id: uuid.UUID, user: CurrentUser
-) -> SourceResponse:
+def get_source(source_id: uuid.UUID, user: CurrentUser) -> SourceResponse:
     try:
         source_data = ingestion_get_source(str(source_id))
         subscriptions = account_list_subscriptions(str(user.user_id))
@@ -111,8 +106,7 @@ def get_source(
 
         return SourceResponse(
             **source_data,
-            is_subscribed=str(source_data["source_id"])
-            in subscribed_ids,
+            is_subscribed=str(source_data["source_id"]) in subscribed_ids,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

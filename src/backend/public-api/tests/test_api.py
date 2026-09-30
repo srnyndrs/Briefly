@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -15,6 +16,28 @@ from src.models.read_models import (
 )
 from src.schemas.api import AuthContext
 from src.services.auth import get_current_user
+
+
+@pytest.fixture(autouse=True)
+def _use_projected_sources_as_verified_for_existing_explore_tests(
+    monkeypatch,
+) -> None:
+    def list_projected_sources(*, verified_only: bool = False) -> list[dict]:
+        db_dependency = app.dependency_overrides[get_db]()
+        db = next(db_dependency)
+        try:
+            source_ids = db.query(PostProjection.source_id).distinct().all()
+            return [{"source_id": source_id} for (source_id,) in source_ids]
+        finally:
+            try:
+                next(db_dependency)
+            except StopIteration:
+                pass
+
+    monkeypatch.setattr(
+        "src.services.feed_service.ingestion_list_sources",
+        list_projected_sources,
+    )
 
 
 def _build_client() -> TestClient:
@@ -61,189 +84,218 @@ def test_health() -> None:
     assert response.json()["service"] == "public-api"
 
 
-def test_feed_returns_items() -> None:
-    client = _build_client()
+def test_overlapping_feeds_can_project_the_same_article_url() -> None:
+    _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    url = "https://example.com/article"
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=source_id,
+                source_title=source_id,
+                canonical_url=url,
+            )
+            for source_id in ("overall", "category")
+        ]
+    )
+    db.commit()
+    assert db.query(PostProjection).filter_by(canonical_url=url).count() == 2
 
+
+def test_personal_feed_applies_subscriptions_languages_and_category(
+    monkeypatch,
+) -> None:
+    client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
-
-    source_id = str(uuid4())
+    subscribed_source_id = str(uuid4())
+    unsubscribed_source_id = str(uuid4())
+    now = datetime.now(UTC)
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
             muted_keywords=[],
-            muted_categories=[],
+            muted_categories=["sports"],
             blocked_source_ids=[],
             languages=["en"],
-            category_interests=["technology"],
-            updated_at=datetime.now(UTC),
+            updated_at=now,
         )
     )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=source_id,
-            canonical_url="https://example.com/1",
-            title="Tech Story",
-            language="en",
-            keywords=["technology"],
-            published_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
-        )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=subscribed_source_id,
+                source_title="Subscribed Source",
+                canonical_url="https://example.com/technology",
+                title="Technology Story",
+                language="en",
+                category="Technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=subscribed_source_id,
+                source_title="Subscribed Source",
+                canonical_url="https://example.com/sports",
+                title="Muted Sports Story",
+                language="en",
+                category="sports",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=subscribed_source_id,
+                source_title="Subscribed Source",
+                canonical_url="https://example.com/hungarian",
+                title="Hungarian Story",
+                language="hu",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=unsubscribed_source_id,
+                source_title="Unsubscribed Source",
+                canonical_url="https://example.com/unsubscribed",
+                title="Unsubscribed Story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
     )
     db.commit()
 
-    response = client.get("/feed")
+    monkeypatch.setattr(
+        "src.services.feed_service.account_list_subscriptions",
+        lambda _: [{"source_id": subscribed_source_id}],
+    )
+
+    response = client.get(
+        "/feed",
+        params={
+            "category": "business",
+            "include_filter_options": "true",
+        },
+    )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Tech Story"
+    assert [item["title"] for item in payload["headlines"]] == [
+        "Technology Story"
+    ]
+    assert payload["total"] == 0
+    assert payload["items"] == []
+    assert "sources" not in payload["filter_options"]
 
 
-def test_feed_prioritizes_recency_with_preference_ties() -> None:
+def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
     client = _build_client()
-
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
     now = datetime.now(UTC)
+    blocked_source_id = str(uuid4())
 
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
             muted_keywords=[],
-            muted_categories=[],
-            blocked_source_ids=[],
+            muted_categories=["sports"],
+            blocked_source_ids=[blocked_source_id],
             languages=["en"],
-            category_interests=["technology"],
             updated_at=now,
         )
     )
-
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/older",
-            title="Older Preferred",
-            language="en",
-            keywords=["technology"],
-            published_at=now.replace(year=now.year - 1),
-            updated_at=now.replace(year=now.year - 1),
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/newer",
-            title="Newer Preferred",
-            language="en",
-            keywords=["technology"],
-            published_at=now,
-            updated_at=now,
-        )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Older Source",
+                canonical_url="https://example.com/older",
+                title="Older English Story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now.replace(year=now.year - 1),
+                updated_at=now.replace(year=now.year - 1),
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Newer Source",
+                canonical_url="https://example.com/newer",
+                title="Newer English Story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=blocked_source_id,
+                source_title="Blocked Source",
+                canonical_url="https://example.com/blocked",
+                title="Blocked Story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Muted Source",
+                canonical_url="https://example.com/muted",
+                title="Muted Story",
+                language="en",
+                category="sports",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Hungarian Source",
+                canonical_url="https://example.com/hungarian",
+                title="Hungarian Story",
+                language="hu",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
     )
     db.commit()
 
-    response = client.get("/feed")
+    response = client.get(
+        "/explore",
+        params=[
+            ("categories", "technology"),
+            ("languages", "en"),
+            ("sort", "oldest"),
+        ],
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 2
-    assert payload["items"][0]["title"] == "Newer Preferred"
-    assert payload["items"][1]["title"] == "Older Preferred"
-
-
-def test_feed_use_profile_false_ignores_profile_filters() -> None:
-    client = _build_client()
-
-    db = next(app.dependency_overrides[get_db]())
-    user = app.dependency_overrides[get_current_user]()
-    now = datetime.now(UTC)
-
-    db.add(
-        UserPreferencesProjection(
-            user_id=str(user.user_id),
-            muted_keywords=[],
-            muted_categories=[],
-            blocked_source_ids=[],
-            languages=["hu"],
-            category_interests=[],
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/en-story",
-            title="English Story",
-            language="en",
-            keywords=["technology"],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.commit()
-
-    profiled = client.get("/feed")
-    assert profiled.status_code == 200
-    assert profiled.json()["total"] == 0
-
-    unprofiled = client.get("/feed", params={"use_profile": "false"})
-    assert unprofiled.status_code == 200
-    assert unprofiled.json()["total"] == 1
-
-
-def test_feed_override_languages_replaces_profile_value() -> None:
-    client = _build_client()
-
-    db = next(app.dependency_overrides[get_db]())
-    user = app.dependency_overrides[get_current_user]()
-    now = datetime.now(UTC)
-
-    db.add(
-        UserPreferencesProjection(
-            user_id=str(user.user_id),
-            muted_keywords=[],
-            muted_categories=[],
-            blocked_source_ids=[],
-            languages=["hu"],
-            category_interests=[],
-            updated_at=now,
-        )
-    )
-
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/en",
-            title="EN Story",
-            language="en",
-            keywords=["technology"],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/fr",
-            title="FR Story",
-            language="fr",
-            keywords=["technology"],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.commit()
-
-    response = client.get("/feed", params=[("languages", "fr")])
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "FR Story"
+    assert [item["title"] for item in payload["items"]] == [
+        "Older English Story",
+        "Newer English Story",
+    ]
 
 
 def test_auth_login_endpoint(monkeypatch) -> None:
@@ -338,13 +390,10 @@ def test_patch_me_endpoint(monkeypatch) -> None:
             "muted_categories": [],
             "blocked_source_ids": [],
             "languages": [],
-            "category_interests": [],
             "updated_at": datetime.now(UTC).isoformat(),
         }
 
-    monkeypatch.setattr(
-        "src.routers.user.account_patch_user", fake_patch_user
-    )
+    monkeypatch.setattr("src.routers.user.account_patch_user", fake_patch_user)
     monkeypatch.setattr(
         "src.routers.user.account_get_preferences", fake_get_preferences
     )
@@ -372,7 +421,6 @@ def test_patch_preferences_endpoint(monkeypatch) -> None:
             "muted_categories": ["sports"],
             "blocked_source_ids": [],
             "languages": ["en", "hu"],
-            "category_interests": ["tech"],
             "updated_at": datetime.now(UTC).isoformat(),
         }
 
@@ -381,9 +429,7 @@ def test_patch_preferences_endpoint(monkeypatch) -> None:
         fake_patch_preferences,
     )
 
-    response = client.patch(
-        "/me/preferences", json={"languages": ["en", "hu"]}
-    )
+    response = client.patch("/me/preferences", json={"languages": ["en", "hu"]})
     assert response.status_code == 200
     assert response.json()["languages"] == ["en", "hu"]
     assert response.json()["muted_keywords"] == ["crypto"]
@@ -403,6 +449,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "description": "Desc",
             "favicon": None,
             "website_url": "https://example.com",
+            "verified": True,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": True,
@@ -444,6 +491,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -484,6 +532,7 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
                 "content_type": "application/rss+xml",
                 "favicon": "https://example.com/favicon.ico",
                 "description": "Feed description",
+                "website_url": "https://example.com",
             }
         ]
 
@@ -499,6 +548,7 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["title"] == "Discovered"
+    assert payload[0]["website_url"] == "https://example.com"
 
 
 def test_create_source_endpoint_forwards_json_payload(
@@ -517,6 +567,7 @@ def test_create_source_endpoint_forwards_json_payload(
             "description": body["description"],
             "favicon": body["favicon"],
             "website_url": "https://example.com",
+            "verified": False,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": False,
@@ -541,12 +592,27 @@ def test_create_source_endpoint_forwards_json_payload(
     )
 
     assert response.status_code == 201
+    current_user = app.dependency_overrides[get_current_user]()
     assert captured == {
         "url": "https://example.com",
         "title": "Example",
         "description": "Feed description",
         "favicon": "https://example.com/favicon.ico",
+        "submitted_by_user_id": str(current_user.user_id),
     }
+
+
+def test_create_source_rejects_client_policy_fields() -> None:
+    client = _build_client()
+    response = client.post(
+        "/sources",
+        json={
+            "url": "https://example.com/feed.xml",
+            "verified": True,
+            "submitted_by_user_id": str(uuid4()),
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_delete_source_endpoint(monkeypatch) -> None:
@@ -572,36 +638,62 @@ def test_delete_source_endpoint(monkeypatch) -> None:
 def test_patch_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
+    now = datetime.now(UTC).isoformat()
+    captured: dict = {}
 
     def fake_patch_source(sid: str, body: dict) -> dict:
-        now = datetime.now(UTC).isoformat()
         assert sid == source_id
-        assert body == {"title": "Updated"}
+        captured.update(body)
         return {
             "source_id": sid,
             "url": "https://example.com/feed.xml",
-            "title": "Updated",
-            "description": "Desc",
-            "favicon": None,
+            "title": body["title"],
+            "description": "Feed description",
+            "favicon": body["favicon"],
             "website_url": "https://example.com",
+            "verified": False,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
-            "last_crawl_succeeded": True,
+            "last_crawl_succeeded": False,
             "consecutive_failures": 0,
             "created_at": now,
             "updated_at": now,
         }
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_patch_source",
-        fake_patch_source,
+        "src.routers.sources.ingestion_patch_source", fake_patch_source
     )
-
     response = client.patch(
-        f"/sources/{source_id}", json={"title": "Updated"}
+        f"/sources/{source_id}",
+        json={
+            "title": "  Updated  ",
+            "favicon": "https://example.com/icon.png",
+        },
     )
     assert response.status_code == 200
     assert response.json()["title"] == "Updated"
+    assert captured == {
+        "title": "Updated",
+        "favicon": "https://example.com/icon.png",
+    }
+
+
+@pytest.mark.parametrize(
+    "method, payload",
+    [
+        ("post", {}),
+        ("patch", {"title": " "}),
+        ("patch", {"url": None}),
+    ],
+)
+def test_source_metadata_validation(method, payload) -> None:
+    client = _build_client()
+    if method == "post":
+        path = "/sources"
+        payload = {"url": "https://example.com/feed.xml"} | payload
+    else:
+        path = f"/sources/{uuid4()}"
+    assert client.request(method, path, json=payload).status_code == 422
 
 
 def test_admin_feed_returns_items() -> None:
@@ -613,6 +705,7 @@ def test_admin_feed_returns_items() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Admin Source",
             canonical_url="https://example.com/admin",
             title="General Story",
             language="en",
@@ -647,9 +740,7 @@ def test_admin_posts_count_endpoint(monkeypatch) -> None:
     def fake_count() -> dict:
         return {"count": 42}
 
-    monkeypatch.setattr(
-        "src.routers.posts.content_posts_count", fake_count
-    )
+    monkeypatch.setattr("src.routers.posts.content_posts_count", fake_count)
 
     response = client.get("/admin/posts/count")
     assert response.status_code == 200
@@ -669,6 +760,7 @@ def test_admin_posts_list_endpoint(monkeypatch) -> None:
             {
                 "post_id": str(uuid4()),
                 "source_id": "source-1",
+                "source_title": "Admin Source",
                 "item_guid": "guid-1",
                 "url": "https://example.com/article",
                 "title": "Admin Post",
@@ -684,9 +776,7 @@ def test_admin_posts_list_endpoint(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr(
-        "src.routers.posts.content_list_posts", fake_list
-    )
+    monkeypatch.setattr("src.routers.posts.content_list_posts", fake_list)
 
     response = client.get(
         "/admin/posts",
@@ -708,6 +798,7 @@ def test_admin_get_post_endpoint(monkeypatch) -> None:
         return {
             "post_id": target_id,
             "source_id": "source-1",
+            "source_title": "Admin Source",
             "item_guid": "guid-1",
             "url": "https://example.com/article",
             "title": "Admin Post",
@@ -751,13 +842,10 @@ def test_get_me_composite_response(monkeypatch) -> None:
             "muted_categories": ["sports"],
             "blocked_source_ids": [],
             "languages": ["en"],
-            "category_interests": ["tech"],
             "updated_at": now,
         }
 
-    monkeypatch.setattr(
-        "src.routers.user.account_get_user", fake_get_user
-    )
+    monkeypatch.setattr("src.routers.user.account_get_user", fake_get_user)
     monkeypatch.setattr(
         "src.routers.user.account_get_preferences",
         fake_get_preferences,
@@ -769,56 +857,294 @@ def test_get_me_composite_response(monkeypatch) -> None:
     assert payload["user_id"] == str(user.user_id)
     assert payload["email"] == "test@example.com"
     assert payload["display_name"] == "Test User"
-    assert payload["preferences"]["category_interests"] == ["tech"]
     assert payload["preferences"]["muted_keywords"] == ["crypto"]
 
 
-def test_feed_search_query_parameter() -> None:
+def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
+    user = app.dependency_overrides[get_current_user]()
     now = datetime.now(UTC)
 
-    post_id = str(uuid4())
     db.add(
-        PostProjection(
-            post_id=post_id,
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/search-test",
-            title="Antigravity Release Notes",
-            description="Antigravity agent tooling",
-            language="en",
-            keywords=["tech"],
-            published_at=now,
+        UserPreferencesProjection(
+            user_id=str(user.user_id),
+            muted_keywords=[],
+            muted_categories=[],
+            blocked_source_ids=[],
+            languages=["hu"],
             updated_at=now,
         )
+    )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Technology Source",
+                canonical_url="https://example.com/technology-en",
+                title="Technology English",
+                language="en",
+                category="technology",
+                author="Example Author",
+                keywords=["Climate", "policy"],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Business Source",
+                canonical_url="https://example.com/business-hu",
+                title="Business Hungarian",
+                language="hu",
+                category="business",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Business Source",
+                canonical_url="https://example.com/business-en",
+                title="Business English",
+                language="en",
+                category="business",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Technology Source",
+                canonical_url="https://example.com/technology-hu",
+                title="Technology Hungarian",
+                language="hu",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
+    )
+    db.commit()
+
+    without_options = client.get(
+        "/explore", params={"categories": "technology"}
+    )
+    assert without_options.status_code == 200
+    assert "filter_options" not in without_options.json()
+
+    response = client.get(
+        "/explore",
+        params=[
+            ("categories", "technology"),
+            ("languages", "en"),
+            ("include_filter_options", "true"),
+        ],
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["title"] for item in payload["items"]] == [
+        "Technology English"
+    ]
+    assert payload["filter_options"]["categories"] == [
+        "business",
+        "technology",
+    ]
+    assert payload["filter_options"]["languages"] == ["en", "hu"]
+    assert payload["filter_options"]["authors"] == ["Example Author"]
+    assert payload["filter_options"]["keywords"] == [
+        "Climate",
+        "policy",
+    ]
+    assert [
+        option["title"] for option in payload["filter_options"]["sources"]
+    ] == ["Technology Source"]
+
+
+def test_explore_source_ids_are_repeatable_and_options_ignore_selection() -> (
+    None
+):
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    source_ids = [str(uuid4()) for _ in range(3)]
+    now = datetime.now(UTC)
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=source_id,
+                source_title=f"Source {index}",
+                canonical_url=f"https://example.com/source/{index}",
+                title=f"Source {index} story",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            )
+            for index, source_id in enumerate(source_ids)
+        ]
     )
     db.commit()
 
     response = client.get(
-        "/feed",
-        params={"query": "Antigravity", "use_profile": "false"},
+        "/explore",
+        params=[
+            ("source_ids", source_ids[0]),
+            ("source_ids", source_ids[1]),
+            ("include_filter_options", "true"),
+        ],
     )
+
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] >= 1
-    assert payload["items"][0]["title"] == "Antigravity Release Notes"
+    assert payload["total"] == 2
+    assert {item["source_id"] for item in payload["items"]} == set(
+        source_ids[:2]
+    )
+    assert {
+        option["id"] for option in payload["filter_options"]["sources"]
+    } == set(source_ids)
 
 
-def test_get_post_by_id_endpoint() -> None:
+def test_filter_options_openapi_exposes_metadata_arrays() -> None:
+    properties = app.openapi()["components"]["schemas"][
+        "FilterOptionsResponse"
+    ]["properties"]
+
+    for field in ("authors", "keywords"):
+        assert properties[field]["type"] == "array"
+        assert properties[field]["items"] == {"type": "string"}
+
+
+def test_explore_query_searches_fields_and_supports_web_syntax() -> None:
+    client = _build_client()
+    db = next(app.dependency_overrides[get_db]())
+    now = datetime.now(UTC)
+    source_id = str(uuid4())
+    db.add_all(
+        [
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000001",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-title",
+                title="Climate change report",
+                language="en",
+                keywords=["Technology trends"],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000002",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-description",
+                title="Economy outlook",
+                description="Climate policy update",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000003",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-content",
+                title="Research notes",
+                content="Climate adaptation matters",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000004",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-sports",
+                title="Sports climate report",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id="00000000-0000-0000-0000-000000000005",
+                source_id=source_id,
+                source_title="Search Source",
+                canonical_url="https://example.com/search-accent",
+                title="Café review",
+                language="en",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
+    )
+    db.commit()
+
+    climate = client.get("/explore", params={"query": "  CLIMATE "})
+    keyword = client.get("/explore", params={"query": "Technology"})
+    phrase = client.get("/explore", params={"query": '"climate change"'})
+    negated = client.get("/explore", params={"query": "climate -sports"})
+    cafe = client.get("/explore", params={"query": "cafe"})
+    accented = client.get("/explore", params={"query": "Café"})
+
+    assert climate.json()["total"] == 3
+    assert keyword.json()["total"] == 1
+    assert keyword.json()["items"][0]["post_id"] == (
+        "00000000-0000-0000-0000-000000000001"
+    )
+    assert phrase.json()["total"] == 1
+    assert phrase.json()["items"][0]["post_id"] == (
+        "00000000-0000-0000-0000-000000000001"
+    )
+    assert negated.json()["total"] == 2
+    assert cafe.json()["total"] == 0
+    assert accented.json()["total"] == 1
+
+
+def test_explore_query_validation_rejects_empty_and_sort_combinations() -> None:
+    client = _build_client()
+
+    assert client.get("/explore", params={"query": "   "}).status_code == 422
+    assert client.get("/explore", params={"query": "..."}).status_code == 422
+    assert (
+        client.get(
+            "/explore",
+            params={"query": "climate", "sort": "oldest"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get("/explore", params={"query": "x" * 201}).status_code == 422
+    )
+
+
+def test_list_and_detail_post_contracts(monkeypatch) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     now = datetime.now(UTC)
 
     post_id = str(uuid4())
+    source_id = str(uuid4())
     db.add(
         PostProjection(
             post_id=post_id,
-            source_id=str(uuid4()),
+            source_id=source_id,
+            source_title="Single Source",
             canonical_url="https://example.com/single-article",
             title="Single Post",
             description="Detail",
+            author="Example Author",
             language="en",
-            keywords=[],
+            keywords=["climate", "policy"],
             content="Full body text",
             published_at=now,
             updated_at=now,
@@ -826,12 +1152,29 @@ def test_get_post_by_id_endpoint() -> None:
     )
     db.commit()
 
+    monkeypatch.setattr(
+        "src.services.feed_service.account_list_subscriptions",
+        lambda _: [{"source_id": source_id}],
+    )
+
+    for path in ("/feed", "/explore"):
+        list_response = client.get(path)
+        assert list_response.status_code == 200
+        payload = list_response.json()
+        list_item = (
+            payload["headlines"][0] if path == "/feed" else payload["items"][0]
+        )
+        assert list_item["has_content"] is True
+        assert "content" not in list_item
+
     response = client.get(f"/posts/{post_id}")
     assert response.status_code == 200
     payload = response.json()
     assert payload["post_id"] == post_id
     assert payload["title"] == "Single Post"
     assert payload["content"] == "Full body text"
+    assert payload["author"] == "Example Author"
+    assert payload["keywords"] == ["climate", "policy"]
 
 
 def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
@@ -849,6 +1192,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": True,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -863,6 +1207,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "description": "Desc",
                 "favicon": None,
                 "website_url": "https://example.com",
+                "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
                 "last_crawl_succeeded": True,
@@ -902,7 +1247,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
     assert sub_items[0]["is_subscribed"] is True
 
 
-def test_feed_pagination_pages_and_counts() -> None:
+def test_feed_pagination_pages_and_counts(monkeypatch) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
@@ -915,16 +1260,17 @@ def test_feed_pagination_pages_and_counts() -> None:
             muted_categories=[],
             blocked_source_ids=[],
             languages=[],
-            category_interests=[],
             updated_at=now,
         )
     )
 
-    for i in range(5):
+    source_ids = [str(uuid4()) for _ in range(5)]
+    for i, source_id in enumerate(source_ids):
         db.add(
             PostProjection(
                 post_id=str(uuid4()),
-                source_id=str(uuid4()),
+                source_id=source_id,
+                source_title=f"Source {i}",
                 canonical_url=f"https://example.com/{i}",
                 title=f"Post {i}",
                 language="en",
@@ -936,37 +1282,36 @@ def test_feed_pagination_pages_and_counts() -> None:
             )
         )
     db.commit()
+    monkeypatch.setattr(
+        "src.services.feed_service.account_list_subscriptions",
+        lambda _: [{"source_id": source_id} for source_id in source_ids],
+    )
 
     # Page 1 with page_size=2
     res_p1 = client.get("/feed", params={"page": 1, "page_size": 2})
     assert res_p1.status_code == 200
     p1 = res_p1.json()
-    assert p1["total"] == 5
+    assert [item["title"] for item in p1["headlines"]] == [
+        "Post 4",
+        "Post 3",
+        "Post 2",
+    ]
+    assert p1["total"] == 2
     assert p1["page"] == 1
-    assert p1["page_count"] == 3
+    assert p1["page_count"] == 1
     assert p1["page_size"] == 2
     assert len(p1["items"]) == 2
-    assert p1["items"][0]["title"] == "Post 4"
-    assert p1["items"][1]["title"] == "Post 3"
+    assert p1["items"][0]["title"] == "Post 1"
+    assert p1["items"][1]["title"] == "Post 0"
 
     # Page 2 with page_size=2
     res_p2 = client.get("/feed", params={"page": 2, "page_size": 2})
     assert res_p2.status_code == 200
     p2 = res_p2.json()
     assert p2["page"] == 2
-    assert p2["page_count"] == 3
-    assert len(p2["items"]) == 2
-    assert p2["items"][0]["title"] == "Post 2"
-    assert p2["items"][1]["title"] == "Post 1"
-
-    # Page 3 (last page with remaining 1 item)
-    res_p3 = client.get("/feed", params={"page": 3, "page_size": 2})
-    assert res_p3.status_code == 200
-    p3 = res_p3.json()
-    assert p3["page"] == 3
-    assert p3["page_count"] == 3
-    assert len(p3["items"]) == 1
-    assert p3["items"][0]["title"] == "Post 0"
+    assert p2["page_count"] == 1
+    assert p2["items"] == []
+    assert "headlines" not in p2
 
 
 def test_admin_feed_pagination() -> None:
@@ -979,6 +1324,7 @@ def test_admin_feed_pagination() -> None:
             PostProjection(
                 post_id=str(uuid4()),
                 source_id=str(uuid4()),
+                source_title=f"Admin Source {i}",
                 canonical_url=f"https://example.com/admin/{i}",
                 title=f"Admin Post {i}",
                 language="en",
@@ -1121,18 +1467,7 @@ def test_delete_my_subscription_not_found(monkeypatch) -> None:
     assert res.json()["detail"] == "Subscription not found"
 
 
-def test_old_sources_subscription_endpoints_removed() -> None:
-    client = _build_client()
-    src_id = str(uuid4())
-
-    res_post = client.post(f"/sources/{src_id}/subscription", json={})
-    assert res_post.status_code == 404
-
-    res_delete = client.delete(f"/sources/{src_id}/subscription")
-    assert res_delete.status_code == 404
-
-
-def test_feed_filters_muted_keywords() -> None:
+def test_explore_filters_muted_keywords() -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
@@ -1145,7 +1480,6 @@ def test_feed_filters_muted_keywords() -> None:
             muted_categories=[],
             blocked_source_ids=[],
             languages=["en"],
-            category_interests=[],
             updated_at=now,
         )
     )
@@ -1153,6 +1487,7 @@ def test_feed_filters_muted_keywords() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Clean Source",
             canonical_url="https://example.com/clean-article",
             title="Clean Post",
             language="en",
@@ -1165,6 +1500,7 @@ def test_feed_filters_muted_keywords() -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=str(uuid4()),
+            source_title="Crypto Source",
             canonical_url="https://example.com/crypto-article",
             title="Crypto Post",
             language="en",
@@ -1175,171 +1511,243 @@ def test_feed_filters_muted_keywords() -> None:
     )
     db.commit()
 
-    response = client.get("/feed")
+    response = client.get("/explore")
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
     assert payload["items"][0]["title"] == "Clean Post"
 
 
-def test_feed_filters_muted_categories() -> None:
+def test_explore_explicit_source_filter_cannot_include_unverified(
+    monkeypatch,
+) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
-    user = app.dependency_overrides[get_current_user]()
+    verified_source_id = str(uuid4())
+    unverified_source_id = str(uuid4())
     now = datetime.now(UTC)
-
-    db.add(
-        UserPreferencesProjection(
-            user_id=str(user.user_id),
-            muted_keywords=[],
-            muted_categories=["sports", "politics"],
-            blocked_source_ids=[],
-            languages=["en"],
-            category_interests=[],
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/tech",
-            title="Tech Post",
-            language="en",
-            category="technology",
-            keywords=[],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/sports",
-            title="Sports Post",
-            language="en",
-            category="sports",
-            keywords=[],
-            published_at=now,
-            updated_at=now,
-        )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=verified_source_id,
+                source_title="Verified",
+                canonical_url="https://example.com/verified",
+                title="Visible verified article",
+                language="en",
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=unverified_source_id,
+                source_title="Unverified",
+                canonical_url="https://example.com/unverified",
+                title="Hidden unverified article",
+                language="hu",
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
     )
     db.commit()
 
-    response = client.get("/feed")
+    def list_verified_sources(*, verified_only: bool) -> list[dict]:
+        assert verified_only is True
+        return [{"source_id": verified_source_id}]
+
+    monkeypatch.setattr(
+        "src.services.feed_service.ingestion_list_sources",
+        list_verified_sources,
+    )
+
+    response = client.get(
+        "/explore",
+        params=[
+            ("source_ids", verified_source_id),
+            ("source_ids", unverified_source_id),
+        ],
+    )
+
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Tech Post"
+    assert [item["source_id"] for item in payload["items"]] == [
+        verified_source_id
+    ]
+
+    monkeypatch.setattr(
+        "src.services.feed_service.ingestion_list_sources",
+        lambda *, verified_only: [],
+    )
+    empty = client.get("/explore", params={"include_filter_options": "true"})
+    assert empty.status_code == 200
+    assert empty.json()["total"] == 0
+    assert empty.json()["filter_options"]["sources"] == []
 
 
-def test_feed_filters_blocked_source_ids() -> None:
+def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
+    None
+):
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
     now = datetime.now(UTC)
-    blocked_src = str(uuid4())
-    allowed_src = str(uuid4())
 
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
             muted_keywords=[],
-            muted_categories=[],
-            blocked_source_ids=[blocked_src],
+            muted_categories=[" SPORTS "],
+            blocked_source_ids=[],
             languages=["en"],
-            category_interests=[],
             updated_at=now,
         )
     )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=allowed_src,
-            canonical_url="https://example.com/allowed",
-            title="Allowed Source Post",
-            language="en",
-            keywords=[],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=blocked_src,
-            canonical_url="https://example.com/blocked",
-            title="Blocked Source Post",
-            language="en",
-            keywords=[],
-            published_at=now,
-            updated_at=now,
-        )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Technology Source",
+                canonical_url="https://example.com/technology",
+                title="Technology Category",
+                language="en",
+                category=" Technology ",
+                keywords=["business"],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Business Source",
+                canonical_url="https://example.com/business",
+                title="Technology Keyword",
+                language="en",
+                category="business",
+                keywords=["technology"],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Sports Source",
+                canonical_url="https://example.com/sports",
+                title="Muted Sports Category",
+                language="en",
+                category=" Sports ",
+                keywords=["technology"],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
     )
     db.commit()
 
-    response = client.get("/feed")
+    response = client.get("/explore", params={"categories": " TECHNOLOGY "})
+
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 1
-    assert payload["items"][0]["title"] == "Allowed Source Post"
+    assert [item["title"] for item in payload["items"]] == [
+        "Technology Category"
+    ]
 
 
-def test_feed_ranks_by_category_interests() -> None:
+def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
-    user = app.dependency_overrides[get_current_user]()
     now = datetime.now(UTC)
 
-    db.add(
-        UserPreferencesProjection(
-            user_id=str(user.user_id),
-            muted_keywords=[],
-            muted_categories=[],
-            blocked_source_ids=[],
-            languages=["en"],
-            category_interests=["science"],
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/general",
-            title="General Story",
-            language="en",
-            category="general",
-            keywords=["daily"],
-            published_at=now,
-            updated_at=now,
-        )
-    )
-    db.add(
-        PostProjection(
-            post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            canonical_url="https://example.com/science",
-            title="Science Breakthrough",
-            language="en",
-            category="science",
-            keywords=["discovery"],
-            published_at=now.replace(year=now.year - 1),
-            updated_at=now.replace(year=now.year - 1),
-        )
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="One Source",
+                canonical_url="https://example.com/one",
+                title="One",
+                language="en",
+                category="Technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Two Source",
+                canonical_url="https://example.com/two",
+                title="Two",
+                language="en",
+                category="technology",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Three Source",
+                canonical_url="https://example.com/three",
+                title="Three",
+                language="en",
+                category="Business",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+            PostProjection(
+                post_id=str(uuid4()),
+                source_id=str(uuid4()),
+                source_title="Four Source",
+                canonical_url="https://example.com/four",
+                title="Four",
+                language="en",
+                category=" ",
+                keywords=[],
+                published_at=now,
+                updated_at=now,
+            ),
+        ]
     )
     db.commit()
 
-    response = client.get("/feed")
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 2
-    assert payload["items"][0]["title"] == "Science Breakthrough"
-    assert payload["items"][1]["title"] == "General Story"
+    without_options = client.get("/explore", params={"page_size": 1})
+    with_options = client.get(
+        "/explore",
+        params={"page_size": 1, "include_filter_options": "true"},
+    )
+    selected = client.get(
+        "/explore",
+        params={
+            "categories": "TECHNOLOGY",
+            "include_filter_options": "true",
+        },
+    )
+
+    assert without_options.status_code == 200
+    assert "filter_options" not in without_options.json()
+    assert with_options.status_code == 200
+    assert with_options.json()["filter_options"]["categories"] == [
+        "business",
+        "technology",
+    ]
+    assert len(with_options.json()["filter_options"]["sources"]) == 4
+    assert selected.status_code == 200
+    assert selected.json()["total"] == 2
+    assert selected.json()["filter_options"]["categories"] == [
+        "business",
+        "technology",
+    ]
+    assert len(selected.json()["filter_options"]["sources"]) == 2
 
 
-def test_feed_subscribed_only_filter(monkeypatch) -> None:
+def test_personal_feed_returns_empty_page_without_subscriptions(
+    monkeypatch,
+) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
@@ -1355,7 +1763,6 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
             muted_categories=[],
             blocked_source_ids=[],
             languages=["en"],
-            category_interests=[],
             updated_at=now,
         )
     )
@@ -1363,6 +1770,7 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=sub_source_id,
+            source_title="Subscribed Source",
             canonical_url="https://example.com/sub",
             title="Subscribed Post",
             language="en",
@@ -1375,6 +1783,7 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
         PostProjection(
             post_id=str(uuid4()),
             source_id=unsub_source_id,
+            source_title="Unsubscribed Source",
             canonical_url="https://example.com/unsub",
             title="Unsubscribed Post",
             language="en",
@@ -1385,33 +1794,32 @@ def test_feed_subscribed_only_filter(monkeypatch) -> None:
     )
     db.commit()
 
-    subscriptions = [
-        {"user_id": str(user.user_id), "source_id": sub_source_id}
-    ]
+    subscriptions = [{"user_id": str(user.user_id), "source_id": sub_source_id}]
 
     def fake_list_subscriptions(user_id: str) -> list[dict]:
         return subscriptions if user_id == str(user.user_id) else []
 
     monkeypatch.setattr(
-        "src.routers.feed.account_list_subscriptions",
+        "src.services.feed_service.account_list_subscriptions",
         fake_list_subscriptions,
     )
 
-    all_res = client.get("/feed")
-    assert all_res.status_code == 200
-    assert all_res.json()["total"] == 2
-
-    sub_res = client.get("/feed", params={"subscribed_only": "true"})
-    assert sub_res.status_code == 200
-    assert sub_res.json()["total"] == 1
-    assert sub_res.json()["items"][0]["title"] == "Subscribed Post"
+    personal_res = client.get("/feed")
+    assert personal_res.status_code == 200
+    assert personal_res.json()["total"] == 0
+    assert personal_res.json()["items"] == []
+    assert personal_res.json()["headlines"][0]["title"] == "Subscribed Post"
 
     subscriptions.clear()
-    empty_sub_res = client.get(
-        "/feed", params={"subscribed_only": "true"}
-    )
-    assert empty_sub_res.status_code == 200
-    assert empty_sub_res.json()["total"] == 0
+    empty_res = client.get("/feed", params={"include_filter_options": "true"})
+    assert empty_res.status_code == 200
+    assert empty_res.json()["total"] == 0
+    assert empty_res.json()["filter_options"] == {
+        "categories": [],
+        "languages": [],
+        "authors": [],
+        "keywords": [],
+    }
 
 
 def test_upstream_request_error_returns_502(monkeypatch) -> None:
@@ -1430,25 +1838,3 @@ def test_upstream_request_error_returns_502(monkeypatch) -> None:
     response = client.get("/sources")
     assert response.status_code == 502
     assert response.json()["detail"] == "Upstream service unavailable"
-
-
-def test_forward_maps_httpx_request_error_to_service_client_error(
-    monkeypatch,
-) -> None:
-    import httpx
-    import pytest
-    from src.adapters.service_clients import (
-        ServiceClientError,
-        _forward,
-    )
-
-    def fake_request(self, *args, **kwargs):
-        raise httpx.ReadTimeout("Read timed out")
-
-    monkeypatch.setattr(httpx.Client, "request", fake_request)
-
-    with pytest.raises(ServiceClientError) as exc_info:
-        _forward("GET", "http://fake-upstream", "/endpoint")
-
-    assert exc_info.value.status_code == 502
-    assert exc_info.value.detail == "Upstream service unavailable"

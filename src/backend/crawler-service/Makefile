@@ -15,3 +15,6 @@ lint-fix:
 
 test:
 	poetry run pytest -v
+
+seed-sources:
+	poetry run python -m src.scripts.seed_sources

@@ -2,8 +2,10 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from src.adapters.query_projector import QueryProjector
 from src.config.database import SessionLocal, init_db
@@ -21,11 +23,22 @@ from src.routers.sources import router as sources_router
 from src.routers.user import router as user_router
 from src.schemas.api import HealthResponse
 
+TAG_NAME = "public-api"
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger("public-api")
+logger = logging.getLogger(TAG_NAME)
+
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
+        enable_logs=True,
+    )
 
 
 @asynccontextmanager
@@ -67,7 +80,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Public API",
-    description="Gateway API with JWT validation and read-model queries for Briefly.",
+    description="Gateway API with JWT validation and read-model queries.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -75,7 +88,7 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", service="public-api")
+    return HealthResponse(status="ok", service=TAG_NAME)
 
 
 # Include routers

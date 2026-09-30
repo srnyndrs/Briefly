@@ -1,5 +1,6 @@
-from collections.abc import Sequence
-from datetime import datetime
+from collections.abc import Iterable
+from dataclasses import replace
+import re
 from uuid import UUID
 
 from sqlalchemy import String, cast, func, or_, select
@@ -8,9 +9,13 @@ from sqlalchemy.orm import Session
 from src.models.read_models import (
     PostProjection,
     UserPreferencesProjection,
+    post_search_document,
 )
 from src.services.feed_models import (
+    EffectiveFeedQuery,
+    FilterOptionsDTO,
     PostDTO,
+    SourceOptionDTO,
     UserPreferencesDTO,
     post_projection_to_dto,
     user_preferences_projection_to_dto,
@@ -21,108 +26,129 @@ class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def _apply_common_filters(
-        self,
-        query,
-        *,
-        languages: Sequence[str] | None,
-        muted_keywords: Sequence[str] | None,
-        muted_categories: Sequence[str] | None,
-        blocked_source_ids: Sequence[str] | None,
-        include_languages: Sequence[str] | None = None,
-        include_source_ids: Sequence[str] | None = None,
-        include_categories: Sequence[str] | None = None,
-        published_from: datetime | None = None,
-        published_to: datetime | None = None,
-    ):
+    def _apply_query(self, statement, query: EffectiveFeedQuery):
+        normalized_muted_categories = [
+            category.lower().strip()
+            for category in query.muted_categories
+            if category.strip()
+        ]
+
         # 1. Hard Block: Blocked Sources
-        if blocked_source_ids:
-            query = query.where(
-                or_(
-                    PostProjection.source_id.is_(None),
-                    PostProjection.source_id.not_in(blocked_source_ids),
-                )
+        if query.allowed_source_ids is not None:
+            statement = statement.where(
+                PostProjection.source_id.in_(query.allowed_source_ids)
+            )
+
+        if query.blocked_source_ids:
+            statement = statement.where(
+                PostProjection.source_id.not_in(query.blocked_source_ids)
             )
 
         # 2. Hard Block: Muted Categories
-        if muted_categories:
-            query = query.where(
+        if normalized_muted_categories:
+            statement = statement.where(
                 or_(
                     PostProjection.category.is_(None),
-                    PostProjection.category.not_in(muted_categories),
+                    func.lower(func.trim(PostProjection.category)).not_in(
+                        normalized_muted_categories
+                    ),
                 )
             )
 
         # 3. Hard Block: Muted Keywords
-        if muted_keywords:
+        if query.muted_keywords:
             normalized_muted = [
-                k.lower().strip() for k in muted_keywords if k.strip()
+                k.lower().strip() for k in query.muted_keywords if k.strip()
             ]
             if normalized_muted:
-                if (
-                    self._db.bind
-                    and self._db.bind.dialect.name == "sqlite"
-                ):
+                if self._db.bind and self._db.bind.dialect.name == "sqlite":
                     for kw in normalized_muted:
-                        query = query.where(
-                            ~cast(
-                                PostProjection.keywords, String
-                            ).ilike(f"%{kw}%")
+                        statement = statement.where(
+                            ~cast(PostProjection.keywords, String).ilike(
+                                f"%{kw}%"
+                            )
                         )
                 else:
-                    query = query.where(
-                        ~PostProjection.keywords.op("&&")(
-                            normalized_muted
-                        )
+                    statement = statement.where(
+                        ~PostProjection.keywords.op("&&")(normalized_muted)
                     )
 
         # 4. Strict Language Allowlist
-        effective_languages = (
-            include_languages
-            if include_languages is not None
-            else languages
-        )
-        if effective_languages:
-            query = query.where(
-                PostProjection.language.in_(effective_languages)
+        if query.languages:
+            statement = statement.where(
+                PostProjection.language.in_(query.languages)
             )
 
         # 5. Ad-hoc query overrides
-        if include_source_ids:
-            query = query.where(
-                PostProjection.source_id.in_(include_source_ids)
+        if query.source_ids:
+            statement = statement.where(
+                PostProjection.source_id.in_(query.source_ids)
             )
 
-        if include_categories:
-            if self._db.bind and self._db.bind.dialect.name == "sqlite":
-                query = query.where(
-                    or_(
-                        *[
-                            cast(PostProjection.keywords, String).ilike(
-                                f"%{c}%"
-                            )
-                            for c in include_categories
-                        ]
-                    )
+        normalized_include_categories = [
+            category.lower().strip()
+            for category in query.categories or []
+            if category.strip()
+        ]
+        if normalized_include_categories:
+            statement = statement.where(
+                func.lower(func.trim(PostProjection.category)).in_(
+                    normalized_include_categories
                 )
-            else:
-                query = query.where(
-                    PostProjection.keywords.op("&&")(
-                        list(include_categories)
-                    )
-                )
+            )
 
         # 6. Date Range Constraints
-        if published_from is not None:
-            query = query.where(
-                PostProjection.published_at >= published_from
+        if query.published_from is not None:
+            statement = statement.where(
+                PostProjection.published_at >= query.published_from
             )
 
-        if published_to is not None:
-            query = query.where(
-                PostProjection.published_at <= published_to
+        if query.published_to is not None:
+            statement = statement.where(
+                PostProjection.published_at <= query.published_to
             )
 
+        if query.query:
+            statement = self._apply_search_filter(statement, query.query)
+
+        if query.excluded_post_ids:
+            statement = statement.where(
+                PostProjection.post_id.not_in(query.excluded_post_ids)
+            )
+        return statement
+
+    def _apply_search_filter(self, query, search_query: str):
+        document = post_search_document(
+            PostProjection.title,
+            PostProjection.description,
+            PostProjection.keywords,
+        )
+        if self._db.bind and self._db.bind.dialect.name == "postgresql":
+            return query.where(
+                document.op("@@")(
+                    func.websearch_to_tsquery("simple", search_query)
+                )
+            )
+
+        fields = (
+            PostProjection.title,
+            PostProjection.description,
+            cast(PostProjection.keywords, String),
+        )
+        terms = re.findall(r'"([^"]+)"|([^\s]+)', search_query)
+        for phrase, word in terms:
+            token = phrase or word
+            is_negative = token.startswith("-")
+            token = token[1:] if is_negative else token
+            if not token or token.upper() == "OR":
+                continue
+            match = or_(
+                *(
+                    func.coalesce(field, "").ilike(f"%{token}%")
+                    for field in fields
+                )
+            )
+            query = query.where(~match if is_negative else match)
         return query
 
     def _order_by(self, sort: str | None):
@@ -139,102 +165,164 @@ class PostRepository:
             PostProjection.post_id.desc(),
         )
 
-    def list_feed_candidates(
-        self,
-        *,
-        user_id: UUID,
-        languages: Sequence[str] | None,
-        muted_keywords: Sequence[str] | None,
-        muted_categories: Sequence[str] | None,
-        blocked_source_ids: Sequence[str] | None,
-        include_languages: Sequence[str] | None,
-        include_source_ids: Sequence[str] | None,
-        include_categories: Sequence[str] | None,
-        published_from: datetime | None,
-        published_to: datetime | None,
-        sort: str | None,
-        limit: int,
-        offset: int,
+    def list_candidates(
+        self, query: EffectiveFeedQuery
     ) -> tuple[list[PostDTO], int]:
-        _ = user_id
-        query = select(PostProjection)
-        query = self._apply_common_filters(
-            query,
-            languages=languages,
-            muted_keywords=muted_keywords,
-            muted_categories=muted_categories,
-            blocked_source_ids=blocked_source_ids,
-            include_languages=include_languages,
-            include_source_ids=include_source_ids,
-            include_categories=include_categories,
-            published_from=published_from,
-            published_to=published_to,
-        )
-
-        ordered = query.order_by(*self._order_by(sort))
+        statement = self._apply_query(select(PostProjection), query)
         total = (
             self._db.scalar(
-                select(func.count()).select_from(query.subquery())
+                select(func.count()).select_from(statement.subquery())
             )
             or 0
         )
+        if query.query and self._db.bind.dialect.name == "postgresql":
+            document = post_search_document(
+                PostProjection.title,
+                PostProjection.description,
+                PostProjection.keywords,
+            )
+            order_by = (
+                func.ts_rank_cd(
+                    document,
+                    func.websearch_to_tsquery("simple", query.query),
+                ).desc(),
+                PostProjection.published_at.desc().nullslast(),
+                PostProjection.post_id.asc(),
+            )
+        else:
+            order_by = self._order_by(query.sort)
         rows = self._db.scalars(
-            ordered.offset(offset).limit(limit)
+            statement.order_by(*order_by)
+            .offset(query.offset)
+            .limit(query.limit)
         ).all()
-
         return [post_projection_to_dto(row) for row in rows], total
 
-    def search_feed(
+    def list_headlines(
+        self, query: EffectiveFeedQuery, limit: int
+    ) -> list[PostDTO]:
+        statement = self._apply_query(select(PostProjection), query)
+        rows = self._db.scalars(
+            statement.order_by(*self._order_by("freshness")).limit(limit)
+        ).all()
+        return [post_projection_to_dto(row) for row in rows]
+
+    def list_filter_options(
         self,
+        query: EffectiveFeedQuery,
         *,
-        user_id: UUID,
-        q: str,
-        languages: Sequence[str] | None,
-        muted_keywords: Sequence[str] | None,
-        muted_categories: Sequence[str] | None,
-        blocked_source_ids: Sequence[str] | None,
-        include_languages: Sequence[str] | None,
-        include_source_ids: Sequence[str] | None,
-        include_categories: Sequence[str] | None,
-        published_from: datetime | None,
-        published_to: datetime | None,
-        sort: str | None,
-        limit: int,
-        offset: int,
-    ) -> tuple[list[PostDTO], int]:
-        _ = user_id
-        query = select(PostProjection).where(
-            or_(
-                PostProjection.title.ilike(f"%{q}%"),
-                PostProjection.canonical_url.ilike(f"%{q}%"),
+        include_sources: bool = False,
+    ) -> FilterOptionsDTO:
+        category_query = replace(query, categories=None, excluded_post_ids=[])
+        language_query = replace(query, languages=None, excluded_post_ids=[])
+        categories = self._db.scalars(
+            self._apply_query(
+                select(func.lower(func.trim(PostProjection.category))),
+                category_query,
             )
-        )
-
-        query = self._apply_common_filters(
-            query,
-            languages=languages,
-            muted_keywords=muted_keywords,
-            muted_categories=muted_categories,
-            blocked_source_ids=blocked_source_ids,
-            include_languages=include_languages,
-            include_source_ids=include_source_ids,
-            include_categories=include_categories,
-            published_from=published_from,
-            published_to=published_to,
-        )
-
-        ordered = query.order_by(*self._order_by(sort))
-        total = (
-            self._db.scalar(
-                select(func.count()).select_from(query.subquery())
+            .where(
+                PostProjection.category.is_not(None),
+                func.trim(PostProjection.category) != "",
             )
-            or 0
-        )
-        rows = self._db.scalars(
-            ordered.offset(offset).limit(limit)
+            .distinct()
+            .order_by(func.lower(func.trim(PostProjection.category)))
         ).all()
+        languages = self._db.scalars(
+            self._apply_query(select(PostProjection.language), language_query)
+            .where(
+                PostProjection.language.is_not(None),
+                func.trim(PostProjection.language) != "",
+            )
+            .distinct()
+            .order_by(PostProjection.language)
+        ).all()
+        metadata_rows = self._db.execute(
+            self._apply_query(
+                select(PostProjection.author, PostProjection.keywords),
+                query,
+            )
+        ).all()
+        authors = self._normalize_filter_values(
+            author for author, _ in metadata_rows
+        )
+        keywords = self._normalize_filter_values(
+            keyword
+            for _, row_keywords in metadata_rows
+            for keyword in row_keywords or []
+        )
+        sources = None
+        if include_sources:
+            source_query = replace(query, source_ids=None, excluded_post_ids=[])
+            normalized_title = func.lower(
+                func.trim(PostProjection.source_title)
+            ).label("source_title_order")
+            source_rows = self._db.execute(
+                self._apply_query(
+                    select(
+                        PostProjection.source_id,
+                        PostProjection.source_title,
+                        normalized_title,
+                    ),
+                    source_query,
+                )
+                .distinct()
+                .order_by(normalized_title, PostProjection.source_id)
+            ).all()
+            sources = [
+                SourceOptionDTO(source_id=source_id, title=source_title)
+                for source_id, source_title, _ in source_rows
+            ]
 
-        return [post_projection_to_dto(row) for row in rows], total
+        return FilterOptionsDTO(
+            categories=list(categories),
+            languages=list(languages),
+            authors=authors,
+            keywords=keywords,
+            sources=sources,
+        )
+
+    def list_personal_filter_options(
+        self, query: EffectiveFeedQuery
+    ) -> FilterOptionsDTO:
+        category_query = replace(query, categories=None)
+        normalized_category = func.lower(
+            func.trim(PostProjection.category)
+        ).label("category")
+        category_count = func.count(PostProjection.post_id).label("count")
+        category_rows = self._db.execute(
+            self._apply_query(
+                select(normalized_category, category_count),
+                category_query,
+            )
+            .where(
+                PostProjection.category.is_not(None),
+                func.trim(PostProjection.category) != "",
+            )
+            .group_by(normalized_category)
+            .order_by(category_count.desc(), normalized_category.asc())
+        ).all()
+        metadata_options = self.list_filter_options(query)
+        return FilterOptionsDTO(
+            categories=[category for category, _ in category_rows],
+            languages=metadata_options.languages,
+            authors=metadata_options.authors,
+            keywords=metadata_options.keywords,
+        )
+
+    @staticmethod
+    def _normalize_filter_values(
+        values: Iterable[str | None],
+    ) -> list[str]:
+        normalized: dict[str, str] = {}
+        for value in values:
+            if value is None:
+                continue
+            trimmed = value.strip()
+            if not trimmed:
+                continue
+            key = trimmed.casefold()
+            normalized[key] = min(trimmed, normalized.get(key, trimmed))
+        return [normalized[key] for key in sorted(normalized)]
 
     def get_post(self, post_id: UUID) -> PostDTO | None:
         model = self._db.get(PostProjection, str(post_id))
@@ -247,9 +335,6 @@ class UserPreferencesRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_by_user_id(self, user_id: UUID):
-        return self._db.get(UserPreferencesProjection, str(user_id))
-
     def get_preferences(self, user_id: UUID) -> UserPreferencesDTO:
-        model = self.get_by_user_id(user_id)
+        model = self._db.get(UserPreferencesProjection, str(user_id))
         return user_preferences_projection_to_dto(model)

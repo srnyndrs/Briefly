@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pika
+import sentry_sdk
 
 from src.config.settings import settings
 from src.events.envelope import build_envelope
@@ -71,3 +72,7 @@ class AccountEventPublisher:
                 exc,
                 exc_info=True,
             )
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("operation", "publish_account_event")
+                scope.set_tag("event_type", event_type)
+                sentry_sdk.capture_exception(exc)

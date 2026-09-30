@@ -11,7 +11,6 @@ data class LoginRequestDto(
 
 @Serializable
 data class RegisterRequestDto(
-    val username: String,
     val email: String,
     val password: String,
 )
@@ -26,13 +25,18 @@ data class RefreshRequestDto(
 data class LogoutRequestDto(
     @SerialName("refresh_token")
     val refreshToken: String,
+
     val reason: String = "logout",
 )
 
 @Serializable
-data class TokenPairDto(
+data class TokenPairResponseDto(
     @SerialName("access_token")
     val accessToken: String,
+
     @SerialName("refresh_token")
     val refreshToken: String,
+
+    @SerialName("token_type")
+    val tokenType: String,
 )

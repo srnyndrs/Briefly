@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -8,19 +9,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: str = "production"
+    env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8002
     log_level: str = "INFO"
+    sentry_dsn: str | None = None
 
-    database_url: str = (
-        "postgresql://postgres:postgres@localhost:5432/briefly"
-    )
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/briefly"
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     feed_exchange: str = "feed.content"
     feed_queue: str = "feed.raw_fetched.v1.parser"
     parsed_exchange: str = "content.parsed"
+    failed_exchange: str = "content.failed"
+    feed_dlq: str = "feed.raw_fetched.v1.parser.dlq"
+    blocked_timeout_seconds: int = 5
+    article_request_timeout_seconds: float = Field(
+        default=5, gt=0, allow_inf_nan=False
+    )
 
     admin_token: str | None = None
 

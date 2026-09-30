@@ -1,14 +1,17 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class PostResponse(BaseModel):
-    post_id: str
-    source_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    post_id: UUID
+    source_id: UUID
     item_guid: str
     url: str
-    source_title: str | None = None
+    source_title: str
     title: str
     description: str | None = None
     category: str | None = None
@@ -20,8 +23,6 @@ class PostResponse(BaseModel):
     image_url: str | None = None
     language: str | None = None
     keywords: list[str] = Field(default_factory=list)
-
-    model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("published_at", "crawled_at", "parsed_at")
     def serialize_datetime(self, value: datetime | None) -> str | None:

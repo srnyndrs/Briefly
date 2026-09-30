@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_serializer,
+    field_validator,
+)
 
 
 class HealthResponse(BaseModel):
@@ -79,7 +87,6 @@ class PreferencesPatchRequest(BaseModel):
     muted_categories: list[str] | None = None
     blocked_source_ids: list[UUID] | None = None
     languages: list[str] | None = None
-    category_interests: list[str] | None = None
 
 
 class PreferencesResponse(BaseModel):
@@ -88,7 +95,6 @@ class PreferencesResponse(BaseModel):
     muted_categories: list[str] = Field(default_factory=list)
     blocked_source_ids: list[UUID] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
-    category_interests: list[str] = Field(default_factory=list)
     updated_at: datetime
 
     @field_serializer("updated_at")
@@ -103,10 +109,17 @@ class MeDetailsResponse(UserResponse):
 
 
 class SourceCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str
-    title: str | None = None
+    title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    favicon: str | None = None
+    favicon: HttpUrl | None = Field(default=None, max_length=2048)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def trim_title(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class SourceDiscoverRequest(BaseModel):
@@ -119,6 +132,7 @@ class SourceDiscoverResult(BaseModel):
     content_type: str | None = None
     favicon: str | None = None
     description: str | None = None
+    website_url: str | None = None
 
 
 class SubscriptionCreateRequest(BaseModel):
@@ -138,19 +152,34 @@ class SubscriptionResponse(BaseModel):
 
 
 class SourcePatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    favicon: str | None = None
+    favicon: HttpUrl | None = Field(default=None, max_length=2048)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def trim_title(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("url", "title")
+    @classmethod
+    def reject_null(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("URL and title must not be null")
+        return value
 
 
 class SourceResponse(BaseModel):
     source_id: UUID
     url: str
-    title: str | None
+    title: str
     description: str | None
     favicon: str | None
     website_url: str | None
+    verified: bool
     last_crawled_at: datetime | None
     next_crawl_scheduled_at: datetime
     last_crawl_succeeded: bool
@@ -180,6 +209,7 @@ class PostCountResponse(BaseModel):
 class AdminPostResponse(BaseModel):
     post_id: str
     source_id: str
+    source_title: str
     item_guid: str
     url: str
     title: str
@@ -195,11 +225,11 @@ class AdminPostResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
-class PostResponse(BaseModel):
+class PostListItemResponse(BaseModel):
     post_id: UUID
-    source_id: UUID | None = None
+    source_id: UUID
     title: str
-    source_title: str | None = None
+    source_title: str
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
@@ -207,12 +237,9 @@ class PostResponse(BaseModel):
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False
-    content: str | None = None
 
     @field_serializer("published_at")
-    def serialize_published_at(
-        self, value: datetime | None
-    ) -> str | None:
+    def serialize_published_at(self, value: datetime | None) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:
@@ -220,9 +247,33 @@ class PostResponse(BaseModel):
         return value.isoformat()
 
 
+class PostResponse(PostListItemResponse):
+    content: str | None = None
+    author: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+
+
+class SourceOptionResponse(BaseModel):
+    id: UUID
+    title: str
+
+
+class FilterOptionsResponse(BaseModel):
+    categories: list[str]
+    languages: list[str]
+    authors: list[str]
+    keywords: list[str]
+    sources: list[SourceOptionResponse] | None = None
+
+
 class FeedResponse(BaseModel):
-    items: list[PostResponse]
+    items: list[PostListItemResponse]
     total: int
     page: int = 1
     page_count: int = 1
     page_size: int = 20
+    filter_options: FilterOptionsResponse | None = None
+
+
+class PersonalFeedResponse(FeedResponse):
+    headlines: list[PostListItemResponse] | None = None

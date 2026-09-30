@@ -3,7 +3,7 @@ name = "account-service"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Andras Suranyi"}
+    { name = "Andras Suranyi" }
 ]
 requires-python = ">=3.13,<4"
 dependencies = [
@@ -19,7 +19,8 @@ dependencies = [
     "python-multipart (>=0.0.22,<0.0.23)",
     "email-validator (>=2.3.0,<3.0.0)",
     "pika (>=1.3.2,<2.0.0)",
-    "orjson (>=3.11.7,<4.0.0)"
+    "orjson (>=3.11.7,<4.0.0)",
+    "sentry-sdk[fastapi] (>=2.0,<3.0)"
 ]
 
 

@@ -8,15 +8,15 @@ from src.repositories.feed_repository import (
     PostRepository,
     UserPreferencesRepository,
 )
-from src.schemas.api import PostResponse
+from src.schemas.api import PostListItemResponse, PostResponse
 from src.services.feed_models import PostDTO
 from src.services.feed_service import FeedService
 
 
-def to_post_response(item: PostDTO) -> PostResponse:
-    return PostResponse(
+def to_post_list_item_response(item: PostDTO) -> PostListItemResponse:
+    return PostListItemResponse(
         post_id=uuid.UUID(item.post_id),
-        source_id=uuid.UUID(item.source_id) if item.source_id else None,
+        source_id=uuid.UUID(item.source_id),
         title=item.title,
         source_title=item.source_title,
         description=item.description,
@@ -26,7 +26,15 @@ def to_post_response(item: PostDTO) -> PostResponse:
         image_ref=item.image_ref,
         published_at=item.published_at,
         has_content=item.content is not None,
+    )
+
+
+def to_post_response(item: PostDTO) -> PostResponse:
+    return PostResponse(
+        **to_post_list_item_response(item).model_dump(),
         content=item.content,
+        author=item.author,
+        keywords=item.keywords,
     )
 
 

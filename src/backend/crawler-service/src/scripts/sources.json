@@ -1,0 +1,128 @@
+[
+  {
+    "url": "https://telex.hu/rss",
+    "title": "Telex",
+    "content_type": "application/rss+xml",
+    "favicon": "https://telex.hu/favicon.ico",
+    "description": "Kíváncsi, korrekt, kritikus. Pontos és friss hírek a nap 24 órájában a politikától a kiscicákig. Riportok, interjúk, elemzések, tényfeltárások és szórakoztató apróságok egy helyen."
+  },
+  {
+    "url": "https://24.hu/feed/",
+    "title": "24.hu",
+    "content_type": "application/rss+xml",
+    "favicon": "https://s.24.hu/apple-touch-icon.png",
+    "description": "FRISS HÍREK, KÉPEK, VIDEÓK - Gyorsan és tömören. Belföldi és külföldi hírek. Közélet, üzlet, sport, kultúra, tudomány, technika, szórakozás, sztárvilág."
+  },
+  {
+    "url": "https://444.hu/feed",
+    "title": "444.hu",
+    "content_type": "application/rss+xml",
+    "favicon": "https://cdn.444r.cloud/assets/favicon.59a582e6612fdac3b572.svg",
+    "description": "Független híroldal, 9-től 99 éves korig minden magyar ezt olvassa."
+  },
+  {
+    "url": "https://hvg.hu/rss",
+    "title": "HVG",
+    "content_type": "application/xml",
+    "favicon": "https://cdn.hvg.hu/assets/hvghu/images/hvg-logo.png",
+    "description": "Friss hírek a HVG.hu hírportálról."
+  },
+  {
+    "url": "https://index.hu/24ora/rss/",
+    "title": "Index",
+    "content_type": "application/rss+xml",
+    "favicon": "https://index.hu/assets/images/favicons/apple-touch-icon.png",
+    "description": "Friss hírek és információk az Indexen."
+  },
+  {
+    "url": "https://www.origo.hu/publicapi/hu/rss/origo/articles",
+    "title": "ORIGO",
+    "content_type": "application/rss+xml",
+    "favicon": "https://www.origo.hu/apple-touch-icon.png",
+    "description": "Friss hírek Magyarországról és a nagyvilágból, sport, technika, szórakozás, tudomány, kultúra. Az ORIGO a legfrissebb hazai és nemzetközi hírekkel szolgál olvasói számára."
+  },
+  {
+    "url": "https://mandiner.hu/publicapi/hu/rss/mandiner/articles",
+    "title": "Mandiner",
+    "content_type": "application/rss+xml",
+    "favicon": "https://mandiner.hu/new-favicon.png",
+    "description": "Friss hírek a Mandiner.hu oldalán. Belföld, Külföld, Sport, Kultúra. A magyarországi nyilvánosságban megjelenő legújabb és legfontosabb véleménycikkek."
+  },
+  {
+    "url": "https://magyarnemzet.hu/publicapi/hu/rss/magyar_nemzet/articles",
+    "title": "Magyar Nemzet",
+    "content_type": "application/rss+xml",
+    "favicon": "https://magyarnemzet.hu/favicon.png",
+    "description": "Szellemi honvédelem 1938 óta."
+  },
+  {
+    "url": "https://www.portfolio.hu/rss/all.xml",
+    "title": "Portfolio.hu",
+    "content_type": "application/rss+xml",
+    "favicon": "https://assets.portfolio.hu/images/favicon/apple-icon-57x57.png",
+    "description": "Pénzügyi és gazdasági online hírportál. Mikro- és makrogazdasági hírek, elemzések, életrevaló fórumok a szakembereket foglalkoztató kérdésekről. Pénzügyi konferenciák, iparági fórumok, befektetői klubok, Trader tanfolyamok."
+  },
+  {
+    "url": "https://www.penzcentrum.hu/rss/all.xml",
+    "title": "Pénzcentrum",
+    "content_type": "application/rss+xml",
+    "favicon": "https://www.penzcentrum.hu/assets/images/apple-icon-57x57.png",
+    "description": "Minden, amit a család pénzügyeiről tudni kell. Hitelekről, megtakarításról, lakásról, nyugdíjról, fizetésről, rezsiről, adózásról, biztosításokról egyszerűen."
+  },
+  {
+    "url": "https://www.nemzetisport.hu/publicapi/hu/rss/nso/articles",
+    "title": "Nemzeti Sport",
+    "content_type": "application/rss+xml",
+    "favicon": "https://www.nemzetisport.hu/assets/favicon/favicon.ico",
+    "description": "Magyarország vezető sportportálja: a legfrissebb sporteredményekkel, hírekkel."
+  },
+  {
+    "url": "https://www.blikk.hu/rss-articles.xml",
+    "title": "Blikk",
+    "content_type": "application/rss+xml",
+    "favicon": "https://ocdn.eu/blikk_static/resource/icons/new/favicon.ico",
+    "description": "Blikk - friss hírek első kézből, hitelesen. Percről-percre a legfontosabb belföldi és külföldi hírek, sztárhírek és a legfontosabb hírek ma. Aktuális sport és gazdasági hírek egy helyen."
+  },
+  {
+    "url": "https://borsonline.origo.hu/publicapi/hu/rss/bors/articles",
+    "title": "Bors",
+    "content_type": "application/rss+xml",
+    "favicon": "https://borsonline.origo.hu/safari-pinned-tab.svg",
+    "description": "Friss bulvár hírek mellett, nálunk megtalál mindent ami érdekes - Borsonline.origo.hu"
+  },
+  {
+    "url": "https://the-zone.hu/feed/",
+    "title": "the Zone",
+    "content_type": "application/rss+xml",
+    "favicon": "https://the-zone.hu/wp-content/uploads/2025/01/cropped-thezone-32x32.jpg",
+    "description": "Végtelen kalandok autózáson innen és túl."
+  },
+  {
+    "url": "https://www.automotor.hu/feed/",
+    "title": "Autó-Motor",
+    "content_type": "application/rss+xml",
+    "favicon": "https://www.automotor.hu/wp-content/uploads/2019/02/automotor.png?x88250",
+    "description": "Autó-Motor"
+  },
+  {
+    "url": "https://met.hu/methu/rss/rss.php",
+    "title": "HungaroMet",
+    "content_type": "application/rss+xml",
+    "favicon": "https://met.hu/apple-touch-icon.png?v=2bBRvozOrO",
+    "description": "Időjárás, Megfigyelések, Előrejelzés, Éghajlat, Balatoni széladatok, Balatoni viharjelzés, Vízhőmérsékletek, METAR, TAF, UV-B sugárzás, Műhold, Radar, Égkép, Napkelte, Napnyugta, Holdkelte, Holdnyugta, Meteorológia, Orvosmeteorológia, Levegőkörnyezet, Levegőkörnyezeti tájékoztató"
+  },
+  {
+    "url": "https://www.police.hu/hu/rss/feed",
+    "title": "Rendőrség",
+    "content_type": "application/rss+xml",
+    "favicon": "https://www.police.hu/sites/default/files/logo_favicon.png",
+    "description": "Friss hírek a Teljes hírcsatornából"
+  },
+  {
+    "url": "https://nki.gov.hu/feed/hirek/",
+    "title": "NKI",
+    "content_type": "application/rss+xml",
+    "favicon": "https://nki.gov.hu/wp-content/uploads/2022/06/cropped-NKI_grafika_transparent-32x32.png",
+    "description": "Nemzeti Kiberbiztonsági Intézet, IT Biztonsági hírei."
+  }
+]

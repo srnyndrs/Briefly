@@ -20,7 +20,7 @@ sealed class Screen {
     data object Auth: Screen()
 
     @Serializable
-    data object Content: Screen()
+    data object Main: Screen()
 
     @Serializable
     data object Profile: Screen()
