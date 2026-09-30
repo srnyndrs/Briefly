@@ -14,10 +14,10 @@ from src.routers.deps import (
     get_account_service,
 )
 from src.schemas.users import (
+    AccountPatchRequest,
     PreferencesPatchRequest,
     PreferencesResponse,
     PreferencesUpdateRequest,
-    AccountPatchRequest,
     SubscriptionCreateRequest,
     SubscriptionResponse,
     UserResponse,
@@ -42,12 +42,7 @@ def get_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    return UserResponse(
-        user_id=uuid.UUID(user.user_id),
-        email=user.email,
-        display_name=user.display_name,
-        created_at=user.created_at,
-    )
+    return UserResponse.model_validate(user)
 
 
 @router.patch("/{user_id}", response_model=UserResponse)
@@ -65,17 +60,10 @@ def patch_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    return UserResponse(
-        user_id=user_id,
-        email=user.email,
-        display_name=user.display_name,
-        created_at=user.created_at,
-    )
+    return UserResponse.model_validate(user)
 
 
-@router.get(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.get("/{user_id}/preferences", response_model=PreferencesResponse)
 def get_preferences(
     user_id: uuid.UUID,
     service: AccountService = Depends(get_account_service),
@@ -86,22 +74,10 @@ def get_preferences(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    return PreferencesResponse(
-        user_id=user_id,
-        muted_keywords=preferences.muted_keywords,
-        muted_categories=preferences.muted_categories,
-        blocked_source_ids=[
-            uuid.UUID(value) for value in preferences.blocked_source_ids
-        ],
-        languages=preferences.languages,
-        category_interests=preferences.category_interests,
-        updated_at=preferences.updated_at,
-    )
+    return PreferencesResponse.model_validate(preferences)
 
 
-@router.put(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.put("/{user_id}/preferences", response_model=PreferencesResponse)
 def update_preferences(
     user_id: uuid.UUID,
     body: PreferencesUpdateRequest,
@@ -118,7 +94,6 @@ def update_preferences(
                 str(value) for value in body.blocked_source_ids
             ],
             languages=body.languages,
-            category_interests=body.category_interests,
             correlation_id=request_id,
         )
     except NotFoundError as exc:
@@ -126,22 +101,10 @@ def update_preferences(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
-    return PreferencesResponse(
-        user_id=user_id,
-        muted_keywords=preferences.muted_keywords,
-        muted_categories=preferences.muted_categories,
-        blocked_source_ids=[
-            uuid.UUID(value) for value in preferences.blocked_source_ids
-        ],
-        languages=preferences.languages,
-        category_interests=preferences.category_interests,
-        updated_at=preferences.updated_at,
-    )
+    return PreferencesResponse.model_validate(preferences)
 
 
-@router.patch(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.patch("/{user_id}/preferences", response_model=PreferencesResponse)
 def patch_preferences(
     user_id: uuid.UUID,
     body: PreferencesPatchRequest,
@@ -161,17 +124,7 @@ def patch_preferences(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
-    return PreferencesResponse(
-        user_id=user_id,
-        muted_keywords=preferences.muted_keywords,
-        muted_categories=preferences.muted_categories,
-        blocked_source_ids=[
-            uuid.UUID(value) for value in preferences.blocked_source_ids
-        ],
-        languages=preferences.languages,
-        category_interests=preferences.category_interests,
-        updated_at=preferences.updated_at,
-    )
+    return PreferencesResponse.model_validate(preferences)
 
 
 @router.post(
@@ -198,11 +151,7 @@ def create_subscription(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
 
-    return SubscriptionResponse(
-        user_id=user_id,
-        source_id=body.source_id,
-        created_at=subscription.created_at,
-    )
+    return SubscriptionResponse.model_validate(subscription)
 
 
 @router.get(
@@ -220,14 +169,7 @@ def list_subscriptions(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
-    return [
-        SubscriptionResponse(
-            user_id=uuid.UUID(item.user_id),
-            source_id=uuid.UUID(item.source_id),
-            created_at=item.created_at,
-        )
-        for item in subscriptions
-    ]
+    return [SubscriptionResponse.model_validate(item) for item in subscriptions]
 
 
 @router.delete(

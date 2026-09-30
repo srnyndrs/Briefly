@@ -28,9 +28,7 @@ from src.schemas.api import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post(
-    "/register", response_model=TokenPairResponse, status_code=201
-)
+@router.post("/register", response_model=TokenPairResponse, status_code=201)
 def register(body: RegisterRequest) -> TokenPairResponse:
     try:
         return TokenPairResponse(
@@ -43,9 +41,7 @@ def register(body: RegisterRequest) -> TokenPairResponse:
 @router.post("/login", response_model=TokenPairResponse)
 def login(body: LoginRequest) -> TokenPairResponse:
     try:
-        return TokenPairResponse(
-            **account_login(body.model_dump(mode="json"))
-        )
+        return TokenPairResponse(**account_login(body.model_dump(mode="json")))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -70,9 +66,7 @@ def password_reset_request(
 ) -> PasswordResetRequestResponse:
     try:
         return PasswordResetRequestResponse(
-            **account_password_reset_request(
-                body.model_dump(mode="json")
-            )
+            **account_password_reset_request(body.model_dump(mode="json"))
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -83,9 +77,7 @@ def password_reset_confirm(
     body: PasswordResetConfirmRequest,
 ) -> StatusResponse:
     try:
-        result = account_password_reset_confirm(
-            body.model_dump(mode="json")
-        )
+        result = account_password_reset_confirm(body.model_dump(mode="json"))
         return StatusResponse(**result)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

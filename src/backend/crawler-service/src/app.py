@@ -1,9 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import (
+    LoggingIntegration,
+    ignore_logger,
+    ignore_logger_for_sentry_logs,
+)
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
@@ -11,62 +17,75 @@ from src.routers import sources
 from src.schemas.common import HealthResponse
 from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 
+TAG_NAME = "crawler-service"
+
 logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger("crawler-service")
+logger = logging.getLogger(__name__)
+
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
+        enable_logs=True,
+    )
+    for name in (
+        "pika.adapters.utils.connection_workflow",
+        "pika.adapters.blocking_connection",
+        "pika.adapters.utils.io_services_utils",
+        "pika.adapters.utils.selector_ioloop_adapter",
+    ):
+        ignore_logger(name)
+        ignore_logger_for_sentry_logs(name)
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if not getattr(application.state, "testing", False):
-        init_db()
-        orchestrator = CrawlCycleOrchestrator(
-            session_factory=SessionLocal
-        )
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(
-            func=orchestrator.run_crawl_cycle,
-            trigger="interval",
-            seconds=settings.crawl_interval_seconds,
-            id="crawl_cycle",
-            replace_existing=True,
-        )
-        scheduler.start()
-        application.state.scheduler = scheduler
-        logger.info(
-            "Crawler Service started crawl interval=%ds, port=%d",
-            settings.crawl_interval_seconds,
-            settings.app_port,
-        )
+    scheduler = None
+    try:
+        if not getattr(application.state, "testing", False):
+            init_db()
+            orchestrator = CrawlCycleOrchestrator(session_factory=SessionLocal)
+            scheduler = BackgroundScheduler()
+            application.state.scheduler = scheduler
+            scheduler.add_job(
+                func=orchestrator.run_crawl_cycle,
+                trigger="interval",
+                seconds=settings.crawl_interval_seconds,
+                id="crawl_cycle",
+                replace_existing=True,
+            )
+            scheduler.start()
+            logger.info(
+                "Crawler Service started crawl interval=%ds, port=%d",
+                settings.crawl_interval_seconds,
+                settings.app_port,
+            )
 
-    yield
+        yield
+    finally:
+        if scheduler and scheduler.running:
+            scheduler.shutdown(wait=True)
+            logger.info("Scheduler stopped.")
 
-    scheduler: BackgroundScheduler | None = getattr(
-        application.state, "scheduler", None
-    )
-    if scheduler and scheduler.running:
-        scheduler.shutdown(wait=True)
-        logger.info("Scheduler stopped.")
-
-    logger.info("Crawler Service stopped.")
+        logger.info("Crawler Service stopped.")
 
 
 app = FastAPI(
     title="Crawler Service",
-    description=(
-        "Periodically crawls RSS/Atom sources and publishes events to RabbitMQ. "
-        "Part of the Briefly news aggregator platform."
-    ),
+    description="Periodically crawls RSS/Atom sources and publishes events to RabbitMQ.",
     version="0.1.0",
     lifespan=lifespan,
 )
 
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
-def health_check() -> HealthResponse:
-    return HealthResponse(status="ok", service="crawler-service")
+def health() -> HealthResponse:
+    return HealthResponse(status="ok", service=TAG_NAME)
 
 
 app.include_router(sources.router)

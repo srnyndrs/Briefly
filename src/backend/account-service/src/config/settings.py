@@ -11,10 +11,11 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8003
     log_level: str = "INFO"
-    env: str = "production"
+    env: str = "development"
+    sentry_dsn: str | None = None
 
     database_url: str = (
-        "postgresql://postgres:postgres@localhost:5432/briefly"
+        "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
     )
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     account_exchange: str = "account.events"
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_from: str = ""
-    admin_emails_csv: str = "alice@example.com"
+    admin_user_ids_csv: str = ""
 
 
 settings = Settings()

@@ -1,26 +1,18 @@
 package com.srnyndrs.android.briefly.ui.screen.auth.components
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -30,6 +22,7 @@ import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Eye
 import com.composables.icons.heroicons.outline.EyeSlash
 import com.composables.icons.heroicons.outline.LockClosed
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -37,59 +30,49 @@ fun PasswordTextField(
     modifier: Modifier = Modifier,
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Password",
-    leadingIcon: Painter? = rememberVectorPainter(image = Heroicons.Outline.LockClosed),
     passwordVisible: Boolean,
     onPasswordVisibilityChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    error: String? = null,
+    onSubmit: () -> Unit = {},
 ) {
-    val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
-    val textFieldIsFocused = interactionSource.collectIsFocusedAsState()
-
-    val actualVisualTransformation = if (passwordVisible) {
-        VisualTransformation.None
-    } else {
-        PasswordVisualTransformation()
-    }
-
-    val trailingIcon = rememberVectorPainter(
-        image = if (passwordVisible) Heroicons.Outline.Eye else Heroicons.Outline.EyeSlash
-    )
-
     OutlinedTextField(
         modifier = Modifier.then(modifier),
         colors = AuthTextFieldColors,
         value = value,
         onValueChange = onValueChange,
-        label = {
-            val style =
-                if (textFieldIsFocused.value) MaterialTheme.typography.titleSmall
-                else MaterialTheme.typography.bodyMedium
-
-            Text(text = label, style = style)
-        },
-        leadingIcon = leadingIcon?.let {
-            @Composable {
-                Icon(
-                    modifier = Modifier.size(24.dp),
-                    painter = leadingIcon,
-                    contentDescription = null
-                )
-            }
+        enabled = enabled,
+        singleLine = true,
+        isError = error != null,
+        label = { Text(text = stringResource(R.string.auth_password)) },
+        supportingText = error?.let { message -> { Text(text = message) } },
+        leadingIcon = {
+            Icon(
+                imageVector = Heroicons.Outline.LockClosed,
+                contentDescription = null,
+            )
         },
         trailingIcon = {
-            IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }) {
+            IconButton(
+                enabled = enabled,
+                onClick = { onPasswordVisibilityChange(!passwordVisible) },
+            ) {
                 Icon(
-                    modifier = Modifier.size(24.dp),
-                    painter = trailingIcon,
-                    contentDescription = null
+                    imageVector = if (passwordVisible) Heroicons.Outline.EyeSlash else Heroicons.Outline.Eye,
+                    contentDescription = stringResource(
+                        if (passwordVisible) R.string.auth_hide_password else R.string.auth_show_password,
+                    ),
                 )
             }
         },
-        interactionSource = interactionSource,
-        visualTransformation = actualVisualTransformation,
-        keyboardOptions = KeyboardOptions.Default.copy(
-            keyboardType = KeyboardType.Password
-        )
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { if (enabled) onSubmit() }
+        ),
     )
 }
 
@@ -97,26 +80,16 @@ fun PasswordTextField(
 @Composable
 private fun PasswordTextFieldPreview() {
     BrieflyTheme {
-        var password by remember { mutableStateOf("") }
-        var passwordVisible by remember { mutableStateOf(false) }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(12.dp)
-            ) {
-                PasswordTextField(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    value = password,
-                    onValueChange = {
-                        password = it
-                    },
-                    passwordVisible = passwordVisible,
-                    onPasswordVisibilityChange = { passwordVisible = it }
-                )
-            }
+        Surface {
+            PasswordTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                value = "example-password",
+                onValueChange = {},
+                passwordVisible = false,
+                onPasswordVisibilityChange = {},
+            )
         }
     }
 }

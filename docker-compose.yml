@@ -20,7 +20,8 @@ services:
   rabbitmq:
     # 'management' variant ships with the web UI at http://localhost:15672
     # Default credentials: guest / guest
-    image: rabbitmq:3-management-alpine
+    build:
+      context: ./scripts/rabbitmq
     restart: unless-stopped
     ports:
       - "5672:5672"    # AMQP
@@ -31,7 +32,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -48,17 +49,21 @@ services:
       context: ./src/backend/crawler-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/crawler-service/.env
+        required: false
     ports:
       - "8001:8001"
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8001
-      ENV: production
+      ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
-      BASE_CRAWL_INTERVAL_SECONDS: 300
+      VERIFIED_CRAWL_INTERVAL_SECONDS: 300
+      UNVERIFIED_CRAWL_INTERVAL_SECONDS: 1800
       CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
       FETCH_TIMEOUT_SECONDS: 30
       MAX_RETRIES: 5
@@ -88,17 +93,22 @@ services:
       context: ./src/backend/content-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/content-service/.env
+        required: false
     ports:
       - "8002:8002"
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8002
-      ENV: production
+      ENV: development
       LOG_LEVEL: INFO
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
       PARSED_EXCHANGE: content.parsed
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      ARTICLE_REQUEST_TIMEOUT_SECONDS: 5
+      BLOCKED_TIMEOUT_SECONDS: 15
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -111,19 +121,72 @@ services:
       start_period: 30s
       retries: 3
 
+  enrichment-service:
+    profiles: ["enrichment"]
+    build:
+      context: ./src/backend/enrichment-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ./src/backend/enrichment-service/.env
+        required: false
+    ports:
+      - "8005:8005"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8005
+      ENV: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      public-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8005/health')\""]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  ollama:
+    profiles: ["enrichment", "ollama"]
+    image: ollama/ollama:0.35.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
   account-service:
     build:
       context: ./src/backend/account-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/account-service/.env
+        required: false
     ports:
       - "8003:8003"
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8003
-      ENV: production
+      ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ACCOUNT_EXCHANGE: account.events
       JWT_SECRET: local-dev-secret-change-me
@@ -155,14 +218,17 @@ services:
       context: ./src/backend/public-api
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/public-api/.env
+        required: false
     ports:
       - "8000:8000"
     environment:
       APP_HOST: 0.0.0.0
       APP_PORT: 8000
-      ENV: production
+      ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ACCOUNT_EXCHANGE: account.events
       CONTENT_EXCHANGE: content.parsed
@@ -172,9 +238,10 @@ services:
       JWT_ISSUER: briefly-account-service
       JWT_AUDIENCE: briefly-public-api
       ACCOUNT_SERVICE_URL: http://account-service:8003
-      INGESTION_SERVICE_URL: http://crawler-service:8001
+      CRAWLER_SERVICE_URL: http://crawler-service:8001
       CONTENT_SERVICE_URL: http://content-service:8002
       REQUEST_TIMEOUT_SECONDS: 10
+      SOURCE_DISCOVERY_TIMEOUT_SECONDS: 15
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -194,3 +261,4 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  ollama_data:

@@ -1,88 +1,64 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
-import com.srnyndrs.android.briefly.data.remote.content.dto.ArticleDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedResultItemDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDetailsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceResultItemDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedSourceSubscribeResponseDto
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
+import com.srnyndrs.android.briefly.domain.model.content.Category
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.FilterSource
 import kotlin.time.ExperimentalTime
 
-fun FeedResultItemDto.toDomain(): ArticleItem {
-    return ArticleItem(
-        id = articleId,
+@OptIn(ExperimentalTime::class)
+fun PostSummaryResponseDto.toDomain(): Post {
+    return Post(
+        id = postId,
         title = title,
-        url = canonicalURL,
+        url = canonicalUrl,
         description = description,
-        source = sourceTitle,
-        category = category,
+        sourceTitle = sourceTitle,
+        categories = categories.orEmpty().map { rawCategory ->
+            Category.valueOf(rawCategory.uppercase())
+        },
         imageUrl = imageRef,
-        hasContent = hasContent
-    )
-}
-
-fun FeedSourceResultItemDto.toDomain(): FeedSourceResultItem {
-    return FeedSourceResultItem(
-        id = feedId,
-        url = url,
-        title = title,
-        favicon = favicon,
-        description = description,
-        isSubscribed = isSubscribed,
+        publishedAt = publishedAt,
+        hasContent = hasContent,
     )
 }
 
 @OptIn(ExperimentalTime::class)
-fun ArticleDetailsDto.toDomain(): ArticleDetails {
-    return ArticleDetails(
-        id = articleId,
+fun PostResponseDto.toDomain(): PostDetails {
+    return PostDetails(
+        id = postId,
         sourceId = sourceId,
         title = title,
         content = content,
+        author = author,
+        keywords = keywords,
         imageUrl = imageRef,
-        category = category,
-        url = canonicalURL,
+        categories = categories.orEmpty().map { rawCategory ->
+            Category.valueOf(rawCategory.uppercase())
+        },
+        url = canonicalUrl,
         publishedAt = publishedAt,
         language = language,
-        source = sourceTitle
+        sourceTitle = sourceTitle,
     )
 }
 
-fun FeedSourceDto.toDomain(): FeedSourceResultItem {
-    return FeedSourceResultItem(
-        id = feedId,
-        url = url,
-        title = title ?: "",
-        favicon = favicon,
-        description = description,
-        isSubscribed = isSubscribed,
-    )
-}
-
-@OptIn(ExperimentalTime::class)
-fun FeedSourceSubscribeResponseDto.toDomain(): FeedSubscription {
-    return FeedSubscription(
-        userId = userId,
-        sourceId = sourceId,
-        createdAt = createdAt
-    )
-}
-
-@OptIn(ExperimentalTime::class)
-fun FeedSourceDetailsDto.toDomain(): FeedSourceDetails {
-    return FeedSourceDetails(
-        id = feedId,
+fun SourceEntry.toDomain(): FilterSource {
+    return FilterSource(
+        id = id,
         title = title,
-        description = description,
-        websiteUrl = websiteUrl,
-        imageUrl = favicon,
-        subscribed = isSubscribed,
-        followed = false, // TODO
-        lastUpdatedAt = updatedAt
+    )
+}
+
+fun FilterOptionsDto.toDomain(): ExploreFilterOptions {
+    return ExploreFilterOptions(
+        categories = categories,
+        languages = languages,
+        authors = authors,
+        keywords = keywords,
+        sources = sources.map { source ->
+            source.toDomain()
+        },
     )
 }

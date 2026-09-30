@@ -1,136 +1,112 @@
 import logging
-from urllib.parse import urljoin
+import warnings
+from urllib.parse import urlsplit, urlunsplit
 
-import feedparser
-import requests
-from bs4 import BeautifulSoup
+from bs4 import XMLParsedAsHTMLWarning
+from feedsearch_crawler import search_with_info
 
-from src.schemas.sources import SourceDiscoverResult
+from src.config.settings import settings
+from src.schemas.sources import SourceDiscoverResponse
 
 logger = logging.getLogger(__name__)
 
-FEED_TYPES = {
-    "application/rss+xml": "RSS",
-    "application/atom+xml": "Atom",
-    "application/feed+json": "JSON Feed",
-    "application/json": "JSON Feed",
-    "text/xml": "XML",
-}
+
+def normalize_feed_url(url: str) -> str:
+    parts = urlsplit(url.strip())
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").encode("idna").decode("ascii").lower()
+
+    if scheme not in {"http", "https"} or not host:
+        raise ValueError("A valid HTTP(S) URL is required")
+
+    if parts.username is not None or parts.password is not None:
+        raise ValueError("URL credentials are not allowed")
+
+    port = parts.port
+    netloc = f"[{host}]" if ":" in host else host
+
+    if port is not None and not (
+        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    ):
+        netloc = f"{netloc}:{port}"
+
+    return urlunsplit((scheme, netloc, parts.path, parts.query, ""))
+
+
+def _discovery_input(url: str) -> str:
+    value = url.strip()
+    if "://" in value:
+        return normalize_feed_url(value)
+
+    normalized = normalize_feed_url(f"https://{value}")
+    if "." not in (urlsplit(normalized).hostname or ""):
+        raise ValueError("A domain is required")
+    return value
+
+
+def _valid_url(value: object) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return normalize_feed_url(value)
+    except ValueError:
+        return None
 
 
 class SourceDiscoveryAdapter:
-    def extract_website_url(self, source_url: str) -> str | None:
+    @staticmethod
+    def discover(url: str) -> list[SourceDiscoverResponse]:
         try:
-            response = requests.get(source_url, timeout=10)
-            response.raise_for_status()
-            feed = feedparser.parse(response.content)
-            return getattr(feed.feed, "link", None) or None
-        except Exception:  # noqa: BLE001
-            return None
-
-    def discover(self, url: str) -> list[SourceDiscoverResult]:
-        if not url:
-            logger.warning("URL is empty or None")
+            normalized_url = _discovery_input(url)
+        except (ValueError, UnicodeError):
             return []
 
         try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            base_url = response.url
-
-            direct_feed = self._direct_feed_result(response)
-            if direct_feed is not None:
-                return [direct_feed]
-
-            soup = BeautifulSoup(response.text, "html.parser")
-
-            sources: list[SourceDiscoverResult] = []
-            feed_links = soup.find_all(
-                "link",
-                {
-                    "type": lambda t: (
-                        t and any(ft in t for ft in FEED_TYPES.keys())
-                    )
-                },
-            )
-
-            for link in feed_links:
-                href = link.get("href")
-                if href:
-                    feed_url = urljoin(base_url, href)
-                    sources.append(
-                        SourceDiscoverResult(
-                            url=feed_url,
-                            title=link.get("title")
-                            or self._extract_site_title(soup),
-                            content_type=link.get("type"),
-                            favicon=self._extract_favicon(
-                                soup, base_url
-                            ),
-                            description=self._extract_description(soup),
-                        )
-                    )
-
-            return sources
-        except requests.exceptions.Timeout:
-            logger.error("Request timeout for URL: %s", url)
-            return []
-
-        except requests.exceptions.RequestException as exc:
-            logger.error("Failed to fetch URL %s: %s", url, str(exc))
-            return []
-        except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "Unexpected error discovering feeds for %s: %s",
-                url,
-                str(exc),
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
+                result = search_with_info(
+                    normalized_url,
+                    try_urls=False,
+                    crawl_hosts=True,
+                    total_timeout=settings.source_validation_timeout_seconds,
+                    max_content_length=settings.source_validation_max_bytes,
+                    favicon_data_uri=False,
+                )
+        except (ValueError, OSError) as exc:
+            logger.info(
+                "Source discovery failed for %s: %s", normalized_url, exc
             )
             return []
 
-    def _direct_feed_result(
-        self, response: requests.Response
-    ) -> SourceDiscoverResult | None:
-        parsed = feedparser.parse(response.content)
-        if not parsed.version:
-            return None
+        if result.root_error:
+            logger.info(
+                "Source discovery failed for %s: %s",
+                normalized_url,
+                result.root_error,
+            )
 
-        feed = parsed.feed
-        content_type = response.headers.get("Content-Type", "")
-        content_type = content_type.split(";", 1)[0].strip() or None
-        return SourceDiscoverResult(
-            url=response.url,
-            title=getattr(feed, "title", None),
-            content_type=content_type,
-            favicon=getattr(getattr(feed, "image", None), "href", None),
-            description=getattr(feed, "subtitle", None),
-        )
+        discovered: list[SourceDiscoverResponse] = []
+        seen_urls: set[str] = set()
+        for feed in result.feeds:
+            data = feed.serialize()
+            feed_url = _valid_url(data.get("url"))
+            if feed_url is None or feed_url in seen_urls:
+                continue
+            seen_urls.add(feed_url)
+            content_type = (data.get("content_type") or "").split(";", 1)[0]
+            discovered.append(
+                SourceDiscoverResponse(
+                    url=feed_url,
+                    title=data.get("title"),
+                    description=data.get("description"),
+                    content_type=content_type or None,
+                    favicon=_valid_url(data.get("favicon"))
+                    or _valid_url(data.get("image")),
+                    site_url=_valid_url(data.get("site_url"))
+                    or _valid_url(data.get("link")),
+                    site_name=data.get("site_name"),
+                    language=data.get("language"),
+                )
+            )
 
-    def _extract_site_title(self, soup: BeautifulSoup) -> str | None:
-        title_tag = soup.find("title")
-        if title_tag:
-            return title_tag.get_text(strip=True)
-        h1_tag = soup.find("h1")
-        if h1_tag:
-            return h1_tag.get_text(strip=True)
-        return None
-
-    def _extract_favicon(
-        self, soup: BeautifulSoup, base_url: str
-    ) -> str | None:
-        favicon_link = soup.find(
-            "link", {"rel": lambda r: r and "icon" in r.lower()}
-        )
-        if favicon_link:
-            href = favicon_link.get("href")
-            if href:
-                return urljoin(base_url, href)
-        return None
-
-    def _extract_description(self, soup: BeautifulSoup) -> str | None:
-        meta_desc = soup.find("meta", {"name": "description"})
-        if meta_desc:
-            return meta_desc.get("content")
-        meta_og_desc = soup.find("meta", {"property": "og:description"})
-        if meta_og_desc:
-            return meta_og_desc.get("content")
-        return None
+        return discovered

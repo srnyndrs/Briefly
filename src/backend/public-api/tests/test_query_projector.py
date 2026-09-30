@@ -1,7 +1,18 @@
+import json
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.adapters.query_projector import QueryProjector
-from src.models.read_models import ProcessedEvent
+from src.config.database import Base
+from src.config.settings import settings
+from src.models.read_models import PostProjection, ProcessedEvent
+from src.repositories.feed_repository import PostRepository
+from src.services.feed_models import EffectiveFeedQuery
 
 
 class FakeSession:
@@ -36,14 +47,12 @@ class FakeChannel:
         self.acknowledged.append(delivery_tag)
 
 
-def test_duplicate_delivery_projects_once_and_acknowledges_both() -> (
-    None
-):
+def test_duplicate_delivery_projects_once_and_acknowledges_both() -> None:
     session = FakeSession()
     projector = QueryProjector(lambda: session)
     applied: list[tuple[str, dict]] = []
-    projector._apply_event = lambda db, event_type, payload: (
-        applied.append((event_type, payload))
+    projector._apply_event = lambda db, event_type, payload: applied.append(
+        (event_type, payload)
     )
     channel = FakeChannel()
     method = SimpleNamespace(delivery_tag=1)
@@ -57,3 +66,213 @@ def test_duplicate_delivery_projects_once_and_acknowledges_both() -> (
     assert len(session.added) == 1
     assert session.commits == 1
     assert channel.acknowledged == [1, 2]
+
+
+def test_query_queue_binds_enrichment_results() -> None:
+    connection = MagicMock()
+    channel = connection.channel.return_value
+    projector = QueryProjector(lambda: None)
+
+    with patch(
+        "src.adapters.query_projector.pika.BlockingConnection",
+        return_value=connection,
+    ):
+        projector._connect_and_consume()
+
+    channel.queue_bind.assert_any_call(
+        queue=settings.query_queue,
+        exchange=settings.enrichment_exchange,
+        routing_key="post.enriched.v1",
+    )
+
+
+def test_projector_closes_and_clears_connection_when_setup_fails() -> None:
+    connection = MagicMock()
+    connection.is_open = True
+    connection.channel.side_effect = RuntimeError("channel setup failed")
+    projector = QueryProjector(lambda: None)
+
+    with (
+        patch(
+            "src.adapters.query_projector.pika.BlockingConnection",
+            return_value=connection,
+        ),
+        pytest.raises(RuntimeError, match="channel setup failed"),
+    ):
+        projector._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert projector._connection is None
+    assert projector._channel is None
+
+
+def test_projector_closes_and_clears_connection_when_consumption_fails() -> (
+    None
+):
+    connection = MagicMock(is_open=True)
+    channel = connection.channel.return_value
+    channel.start_consuming.side_effect = RuntimeError("consume failed")
+    projector = QueryProjector(lambda: None)
+
+    with (
+        patch(
+            "src.adapters.query_projector.pika.BlockingConnection",
+            return_value=connection,
+        ),
+        pytest.raises(RuntimeError, match="consume failed"),
+    ):
+        projector._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert projector._connection is None
+    assert projector._channel is None
+
+
+def test_projector_backoff_wait_exits_when_stopped(monkeypatch) -> None:
+    projector = QueryProjector(lambda: None)
+    connect = MagicMock(side_effect=RuntimeError("broker unavailable"))
+    wait = MagicMock(return_value=True)
+    monkeypatch.setattr(projector, "_connect_and_consume", connect)
+    monkeypatch.setattr(projector._stop_event, "wait", wait)
+
+    projector.run()
+
+    connect.assert_called_once_with()
+    wait.assert_called_once_with(1)
+
+
+def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
+    None
+):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        execution_options={"schema_translate_map": {"query": None}},
+    )
+    Base.metadata.create_all(bind=engine)
+    factory = sessionmaker(bind=engine, class_=Session, autoflush=False)
+    projector = QueryProjector(factory)
+    channel = FakeChannel()
+    result_event = {
+        "event_id": "result-1",
+        "event_type": "post.enriched.v1",
+        "schema_version": 1,
+        "payload": {
+            "post_id": "post-1",
+            "post_revision": 2,
+            "taxonomy_version": "categories-v2",
+            "status": "completed",
+            "category_ids": ["science"],
+            "enrichment_revision": 1,
+            "input_hash": "a" * 64,
+            "enrichment_version": "test",
+            "processed_at": "2026-10-09T00:00:00Z",
+        },
+    }
+    post_event = {
+        "event_id": "post-1-event",
+        "event_type": "post.parsed.v1",
+        "payload": {
+            "post_id": "post-1",
+            "post_revision": 2,
+            "source_id": "source-1",
+            "source_title": "Publisher",
+            "url": "https://example.com/post-1",
+            "title": "Article",
+            "description": None,
+            "category": "Publisher label",
+            "content": "Body",
+            "author": None,
+            "language": "en",
+            "keywords": [],
+            "image_url": None,
+            "published_at": None,
+        },
+    }
+
+    projector._on_message(
+        channel,
+        SimpleNamespace(delivery_tag=1),
+        None,
+        json.dumps(result_event).encode(),
+    )
+    with factory() as db:
+        assert db.get(PostProjection, "post-1") is None
+    projector._on_message(
+        channel,
+        SimpleNamespace(delivery_tag=2),
+        None,
+        json.dumps(post_event).encode(),
+    )
+    projector._on_message(
+        channel,
+        SimpleNamespace(delivery_tag=3),
+        None,
+        json.dumps(result_event).encode(),
+    )
+
+    with factory() as db:
+        post = db.get(PostProjection, "post-1")
+        assert post is not None
+        assert post.categories == ["science"]
+        assert post.source_category == "Publisher label"
+
+    post_event["event_id"] = "post-1-repeat-event"
+    projector._on_message(
+        channel,
+        SimpleNamespace(delivery_tag=4),
+        None,
+        json.dumps(post_event).encode(),
+    )
+
+    with factory() as db:
+        post = db.get(PostProjection, "post-1")
+        assert post is not None
+        assert post.categories == ["science"]
+        repository = PostRepository(db)
+        filtered, filtered_count = repository.list_candidates(
+            EffectiveFeedQuery(categories=["science"])
+        )
+        muted, muted_count = repository.list_candidates(
+            EffectiveFeedQuery(muted_categories=["science"])
+        )
+        assert filtered_count == 1 and filtered[0].post_id == "post-1"
+        assert muted_count == 0 and muted == []
+    assert channel.acknowledged == [1, 2, 3, 4]
+    engine.dispose()
+
+
+def test_projector_rejects_invalid_enrichment_without_recording_receipt():
+    engine = create_engine(
+        "sqlite://", execution_options={"schema_translate_map": {"query": None}}
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+    projector = QueryProjector(factory)
+    for changes in [
+        {"schema_version": True},
+        {"schema_version": None},
+        {"payload": {"category_id": "science"}},
+    ]:
+        channel = MagicMock()
+        event = {
+            "event_id": "invalid",
+            "event_type": "post.enriched.v1",
+            "schema_version": 1,
+            "payload": {},
+            **changes,
+        }
+        projector._on_message(
+            channel,
+            SimpleNamespace(delivery_tag=1),
+            None,
+            json.dumps(event).encode(),
+        )
+        channel.basic_nack.assert_called_once_with(
+            delivery_tag=1, requeue=False
+        )
+        channel.basic_ack.assert_not_called()
+        with factory() as db:
+            assert db.get(ProcessedEvent, "invalid") is None
+    engine.dispose()

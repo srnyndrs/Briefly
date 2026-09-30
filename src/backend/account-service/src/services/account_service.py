@@ -1,7 +1,10 @@
 import logging
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
+
+import sentry_sdk
 
 from src.adapters.account_event_publisher import (
     AccountEventPublisher,
@@ -10,6 +13,7 @@ from src.adapters.password_reset_mailer import (
     PasswordResetDeliveryError,
     PasswordResetMailer,
 )
+from src.models.account import User, UserPreferences, UserSubscription
 from src.repositories.account_repository import AccountRepository
 from src.services.auth_service import AuthService
 
@@ -56,14 +60,15 @@ class AccountService:
             password_hash=password_hash,
             now=now,
         )
-        self._repo.create_default_preferences(user.user_id)
-        return self._auth_service.issue_token_pair(user_id=user.user_id)
-
-    def login(self, *, email: str, password: str) -> tuple[str, str]:
-        return self._auth_service.login(email=email, password=password)
-
-    def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
-        return self._auth_service.refresh_tokens(refresh_token)
+        try:
+            self._repo.flush()
+            self._repo.create_default_preferences(user.user_id)
+            tokens = self._auth_service.issue_token_pair(user_id=user.user_id)
+            self._repo.commit()
+            return tokens
+        except Exception:
+            self._repo.rollback()
+            raise
 
     def password_reset_request(self, email: str) -> None:
         reset = self._auth_service.create_password_reset(email=email)
@@ -73,57 +78,38 @@ class AccountService:
         user_email, reset_token = reset
         try:
             self._mailer.send(email=user_email, reset_token=reset_token)
-        except PasswordResetDeliveryError:
-            logger.exception(
-                "Password reset delivery failed",
-                extra={"email": user_email},
-            )
+        except PasswordResetDeliveryError as exc:
+            logger.exception("Password reset delivery failed")
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("operation", "password_reset_delivery")
+                sentry_sdk.capture_exception(exc)
 
-    def password_reset_confirm(
-        self, *, reset_token: str, new_password: str
-    ) -> None:
-        self._auth_service.reset_password(
-            reset_token=reset_token, new_password=new_password
-        )
-
-    def logout(
-        self,
-        *,
-        refresh_token: str,
-        reason: str = "logout",
-    ) -> None:
-        _ = reason
-        self._auth_service.revoke_refresh_token(refresh_token)
-
-    def get_user(self, user_id: str):
+    def get_user(self, user_id: str) -> User:
         user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User not found")
-        return user
-
-    def update_display_name(
-        self, *, user_id: str, display_name: str | None
-    ):
-        user = self._repo.update_display_name(
-            user_id=user_id,
-            display_name=display_name,
-            now=utc_now_naive(),
-        )
         if user is None:
             raise NotFoundError("User not found")
         return user
 
     def patch_display_name(
         self, *, user_id: str, fields: dict[str, Any]
-    ):
-        user = self.get_user(user_id)
+    ) -> User:
         if "display_name" not in fields:
-            return user
-        return self.update_display_name(
-            user_id=user_id, display_name=fields["display_name"]
+            return self.get_user(user_id)
+        user = self._repo.update_display_name(
+            user_id=user_id,
+            display_name=fields["display_name"],
+            now=utc_now_naive(),
         )
+        if user is None:
+            raise NotFoundError("User not found")
+        try:
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
+        return user
 
-    def get_preferences(self, user_id: str):
+    def get_preferences(self, user_id: str) -> UserPreferences:
         preferences = self._repo.get_preferences(user_id)
         if preferences is None:
             raise NotFoundError("User preferences not found")
@@ -137,22 +123,23 @@ class AccountService:
         muted_categories: list[str],
         blocked_source_ids: list[str],
         languages: list[str],
-        category_interests: list[str],
         correlation_id: str,
-    ):
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User not found")
+    ) -> UserPreferences:
+        self.get_user(user_id)
 
-        preferences = self._repo.upsert_preferences(
-            user_id=user_id,
-            muted_keywords=muted_keywords,
-            muted_categories=muted_categories,
-            blocked_source_ids=blocked_source_ids,
-            languages=languages,
-            category_interests=category_interests,
-            now=utc_now_naive(),
-        )
+        try:
+            preferences = self._repo.upsert_preferences(
+                user_id=user_id,
+                muted_keywords=muted_keywords,
+                muted_categories=muted_categories,
+                blocked_source_ids=blocked_source_ids,
+                languages=languages,
+                now=utc_now_naive(),
+            )
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
         self._publisher.publish(
             event_type="preferences.updated.v1",
@@ -165,7 +152,6 @@ class AccountService:
                 "muted_categories": preferences.muted_categories,
                 "blocked_source_ids": preferences.blocked_source_ids,
                 "languages": preferences.languages,
-                "category_interests": preferences.category_interests,
             },
         )
 
@@ -177,10 +163,8 @@ class AccountService:
         user_id: str,
         fields: dict[str, Any],
         correlation_id: str,
-    ):
-        preferences = self._repo.get_preferences(user_id)
-        if preferences is None:
-            raise NotFoundError("User preferences not found")
+    ) -> UserPreferences:
+        preferences = self.get_preferences(user_id)
 
         return self.update_preferences(
             user_id=user_id,
@@ -200,12 +184,7 @@ class AccountService:
                 )
                 or []
             ],
-            languages=fields.get("languages", preferences.languages)
-            or [],
-            category_interests=fields.get(
-                "category_interests", preferences.category_interests
-            )
-            or [],
+            languages=fields.get("languages", preferences.languages) or [],
             correlation_id=correlation_id,
         )
 
@@ -214,26 +193,26 @@ class AccountService:
         *,
         user_id: str,
         source_id: str,
-    ):
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User not found")
-        if self._repo.has_subscription(
-            user_id=user_id, source_id=source_id
-        ):
+    ) -> UserSubscription:
+        self.get_user(user_id)
+        if self._repo.has_subscription(user_id=user_id, source_id=source_id):
             raise ConflictError("Subscription already exists")
 
-        return self._repo.create_subscription(
-            user_id=user_id,
-            source_id=source_id,
-            now=utc_now_naive(),
-        )
+        try:
+            subscription = self._repo.create_subscription(
+                user_id=user_id,
+                source_id=source_id,
+                now=utc_now_naive(),
+            )
+            self._repo.flush()
+            self._repo.commit()
+            return subscription
+        except Exception:
+            self._repo.rollback()
+            raise
 
-    def list_subscriptions(self, user_id: str):
-        user = self._repo.get_user_by_id(user_id)
-        if user is None:
-            raise NotFoundError("User not found")
-
+    def list_subscriptions(self, user_id: str) -> Sequence[UserSubscription]:
+        self.get_user(user_id)
         return self._repo.list_subscriptions(user_id=user_id)
 
     def delete_subscription(
@@ -247,6 +226,11 @@ class AccountService:
         )
         if not deleted:
             raise NotFoundError("Subscription not found")
+        try:
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
 
 def utc_now_naive() -> datetime:

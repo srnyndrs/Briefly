@@ -1,21 +1,22 @@
 package com.srnyndrs.android.briefly.domain.repository.content
 
-import com.srnyndrs.android.briefly.domain.model.content.ArticleDetails
-import com.srnyndrs.android.briefly.domain.model.content.ArticleItem
-import com.srnyndrs.android.briefly.domain.model.content.ArticlePagingResult
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.FeedSourceResultItem
-import com.srnyndrs.android.briefly.domain.model.content.FeedSubscription
-import androidx.paging.PagingData
-import kotlinx.coroutines.flow.Flow
+import com.srnyndrs.android.briefly.domain.model.content.post.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.post.PostPagingResult
+import com.srnyndrs.android.briefly.domain.model.content.feed.ExploreFeed
+import com.srnyndrs.android.briefly.domain.model.content.feed.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.HomePostFilter
 
 interface ContentRepository {
-    fun getArticlePagingFlow(sourceIds: List<String>? = null): Flow<PagingData<ArticleItem>>
-    suspend fun fetchArticles(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): Result<ArticlePagingResult>
-    suspend fun fetchFeedSources(query: String? = null): Result<List<FeedSourceResultItem>>
-    suspend fun getFeedSourceSubscriptions(): Result<List<FeedSubscription>>
-    suspend fun getFeedSourceDetails(sourceId: String): Result<FeedSourceDetails>
-    suspend fun subscribeFeedSource(sourceId: String): Result<FeedSubscription>
-    suspend fun unsubscribeFeedSource(sourceId: String): Result<String>
-    suspend fun getArticleById(articleId: String): Result<ArticleDetails>
+    fun getHomeFeed(filter: HomePostFilter): HomeFeed
+    fun getExploreFeed(filter: ExplorePostFilter): ExploreFeed
+    suspend fun fetchArticles(
+        page: Int? = 1,
+        pageSize: Int? = 20,
+        sourceIds: List<String>? = null,
+        applyUserPreferences: Boolean = true,
+    ): Result<PostPagingResult>
+    suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions>
+    suspend fun getArticleById(postId: String): Result<PostDetails>
 }

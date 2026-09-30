@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://telex.hu/rss",
+    "title": "Telex RSS: Legfrissebb",
+    "description": "Articles from https://telex.hu",
+    "content_type": "text/xml",
+    "favicon": "https://telex.hu/favicon.ico",
+    "site_url": "https://telex.hu",
+    "site_name": "telex",
+    "language": null
+  }
+]

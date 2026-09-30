@@ -24,9 +24,7 @@ def require_admin_token(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@router.post(
-    "/posts/replay", dependencies=[Depends(require_admin_token)]
-)
+@router.post("/posts/replay", dependencies=[Depends(require_admin_token)])
 def replay_posts(
     since: datetime | None = Query(None),
     limit: int = Query(500, ge=1, le=5000),
@@ -53,19 +51,20 @@ def replay_posts(
                 channel,
                 post_id=str(post.post_id),
                 source_id=str(post.source_id),
+                post_revision=post.post_revision,
                 item_guid=post.item_guid,
                 url=post.url,
                 title=post.title,
                 correlation_id=correlation_id,
                 category=post.category,
                 content=post.content,
-                content_length=len(post.content or ""),
                 description=post.description,
                 published_at=post.published_at.isoformat()
                 if post.published_at
                 else None,
                 language=post.language,
                 keywords=keywords_val,
+                author=post.author,
                 source_title=post.source_title,
                 image_url=post.image_url,
             )

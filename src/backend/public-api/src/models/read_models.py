@@ -5,13 +5,48 @@ from sqlalchemy import (
     JSON,
     DateTime,
     Index,
+    Integer,
     String,
     Text,
-    UniqueConstraint,
+    func,
+    literal_column,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.config.database import Base
+
+
+def post_search_document(
+    title: ColumnElement,
+    description: ColumnElement,
+    keywords: ColumnElement,
+) -> ColumnElement:
+    configuration = literal_column("'simple'")
+    title_vector = func.setweight(
+        func.to_tsvector(
+            configuration, func.coalesce(title, literal_column("''"))
+        ),
+        literal_column("'A'"),
+    )
+    description_vector = func.setweight(
+        func.to_tsvector(
+            configuration,
+            func.coalesce(description, literal_column("''")),
+        ),
+        literal_column("'B'"),
+    )
+    keywords_vector = func.setweight(
+        func.to_tsvector(
+            configuration,
+            func.coalesce(
+                func.query.keywords_to_search_text(keywords),
+                literal_column("''"),
+            ),
+        ),
+        literal_column("'C'"),
+    )
+    return title_vector.op("||")(description_vector).op("||")(keywords_vector)
 
 
 class ProcessedEvent(Base):
@@ -27,30 +62,33 @@ class PostProjection(Base):
     __tablename__ = "post_projections"
 
     post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    source_id: Mapped[str | None] = mapped_column(
-        String(64), index=True
+    source_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
     )
-    source_title: Mapped[str | None] = mapped_column(
-        String(1024), nullable=True
-    )
+    source_title: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical_url: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    category: Mapped[str | None] = mapped_column(
+    categories: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+    )
+    source_category: Mapped[str | None] = mapped_column(
         String(128), nullable=True
+    )
+    post_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
     )
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
+    author: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_ref: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
+    image_ref: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -59,10 +97,6 @@ class PostProjection(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "canonical_url",
-            name="uq_post_projection_canonical_url",
-        ),
         Index(
             "ix_post_projections_published_updated",
             "published_at",
@@ -102,9 +136,31 @@ class UserPreferencesProjection(Base):
     languages: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
-    category_interests: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
-    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class PostEnrichmentProjection(Base):
+    __tablename__ = "post_enrichments"
+
+    post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    taxonomy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    enrichment_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    category_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+    )
+
+
+POST_SEARCH_INDEX = Index(
+    "ix_post_projections_search_vector",
+    post_search_document(
+        PostProjection.__table__.c.title,
+        PostProjection.__table__.c.description,
+        PostProjection.__table__.c.keywords,
+    ),
+    postgresql_using="gin",
+).ddl_if(dialect="postgresql")
+PostProjection.__table__.append_constraint(POST_SEARCH_INDEX)

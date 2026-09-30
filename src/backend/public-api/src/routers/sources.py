@@ -1,16 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query
 
 from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
-    ingestion_create_source,
-    ingestion_delete_source,
-    ingestion_discover_sources,
-    ingestion_get_source,
-    ingestion_list_sources,
-    ingestion_patch_source,
+    crawler_create_source,
+    crawler_discover_sources,
+    crawler_get_source,
+    crawler_list_sources,
+    crawler_patch_source,
     map_service_error,
 )
 from src.schemas.api import (
@@ -20,16 +19,17 @@ from src.schemas.api import (
     SourcePatchRequest,
     SourceResponse,
 )
-from src.services.auth import CurrentUser
+from src.services.auth import CurrentAdminUser, CurrentUser
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
 @router.post("", status_code=201)
 def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
-    _ = user
+    payload = body.model_dump(mode="json")
+    payload["submitted_by_user_id"] = str(user.user_id)
     try:
-        return ingestion_create_source(body.model_dump(mode="json"))
+        return crawler_create_source(payload)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -37,15 +37,13 @@ def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
 @router.get("", response_model=list[SourceResponse])
 def list_sources(
     user: CurrentUser,
-    query: str = Query(
-        default="", description="Search text to filter sources"
-    ),
+    query: str = Query(default="", description="Search text to filter sources"),
     subscribed_only: bool = Query(
         default=False, description="Filter only subscribed sources"
     ),
 ) -> list[SourceResponse]:
     try:
-        sources = ingestion_list_sources()
+        sources = crawler_list_sources()
         subscriptions = account_list_subscriptions(str(user.user_id))
         subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
@@ -89,9 +87,7 @@ def discover_sources(
 ) -> list[SourceDiscoverResult]:
     _ = user
     try:
-        results = ingestion_discover_sources(
-            body.model_dump(mode="json")
-        )
+        results = crawler_discover_sources(body.model_dump(mode="json"))
         return [SourceDiscoverResult(**item) for item in results]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -101,18 +97,15 @@ def discover_sources(
     "/{source_id}",
     response_model=SourceResponse,
 )
-def get_source(
-    source_id: uuid.UUID, user: CurrentUser
-) -> SourceResponse:
+def get_source(source_id: uuid.UUID, user: CurrentUser) -> SourceResponse:
     try:
-        source_data = ingestion_get_source(str(source_id))
+        source_data = crawler_get_source(str(source_id))
         subscriptions = account_list_subscriptions(str(user.user_id))
         subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
         return SourceResponse(
             **source_data,
-            is_subscribed=str(source_data["source_id"])
-            in subscribed_ids,
+            is_subscribed=str(source_data["source_id"]) in subscribed_ids,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -125,24 +118,14 @@ def get_source(
 def patch_source(
     source_id: uuid.UUID,
     body: SourcePatchRequest,
-    user: CurrentUser,
+    admin_user: CurrentAdminUser,
 ) -> SourceResponse:
-    _ = user
+    _ = admin_user
     try:
-        updated = ingestion_patch_source(
+        updated = crawler_patch_source(
             str(source_id),
             body.model_dump(mode="json", exclude_unset=True),
         )
         return SourceResponse(**updated)
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@router.delete("/{source_id}", status_code=204)
-def delete_source(source_id: uuid.UUID, user: CurrentUser) -> Response:
-    _ = user
-    try:
-        ingestion_delete_source(str(source_id))
-        return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

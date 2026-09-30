@@ -1,7 +1,6 @@
 import json
 import logging
 import threading
-import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,11 +10,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.config.settings import settings
 from src.models.read_models import ProcessedEvent
 from src.services.projection_handlers import (
+    project_enrichment,
     project_post,
     project_user_preferences,
 )
 
-logger = logging.getLogger("public-api.query-projector")
+logger = logging.getLogger(__name__)
 
 
 class QueryProjector:
@@ -41,7 +41,8 @@ class QueryProjector:
                     exc,
                     delay,
                 )
-                time.sleep(delay)
+                if self._stop_event.wait(delay):
+                    break
                 delay = min(delay * 2, 60)
 
     def stop(self) -> None:
@@ -62,48 +63,68 @@ class QueryProjector:
 
     def _connect_and_consume(self) -> None:
         params = pika.URLParameters(settings.rabbitmq_url)
-        self._connection = pika.BlockingConnection(params)
-        self._channel = self._connection.channel()
-        self._channel.basic_qos(prefetch_count=20)
+        connection = pika.BlockingConnection(params)
+        self._connection = connection
+        try:
+            self._channel = connection.channel()
+            self._channel.basic_qos(prefetch_count=20)
 
-        self._channel.exchange_declare(
-            exchange=settings.account_exchange,
-            exchange_type="topic",
-            durable=True,
-        )
-        self._channel.exchange_declare(
-            exchange=settings.content_exchange,
-            exchange_type="topic",
-            durable=True,
-        )
-
-        self._channel.queue_declare(
-            queue=settings.query_queue, durable=True
-        )
-
-        for key in ("preferences.updated.v1",):
-            self._channel.queue_bind(
-                queue=settings.query_queue,
+            self._channel.exchange_declare(
                 exchange=settings.account_exchange,
-                routing_key=key,
+                exchange_type="topic",
+                durable=True,
+            )
+            self._channel.exchange_declare(
+                exchange=settings.content_exchange,
+                exchange_type="topic",
+                durable=True,
+            )
+            self._channel.exchange_declare(
+                exchange=settings.enrichment_exchange,
+                exchange_type="topic",
+                durable=True,
             )
 
-        for key in ("post.parsed.v1",):
+            self._channel.queue_declare(
+                queue=settings.query_queue, durable=True
+            )
+
+            for key in ("preferences.updated.v1",):
+                self._channel.queue_bind(
+                    queue=settings.query_queue,
+                    exchange=settings.account_exchange,
+                    routing_key=key,
+                )
+
+            for key in ("post.parsed.v1",):
+                self._channel.queue_bind(
+                    queue=settings.query_queue,
+                    exchange=settings.content_exchange,
+                    routing_key=key,
+                )
             self._channel.queue_bind(
                 queue=settings.query_queue,
-                exchange=settings.content_exchange,
-                routing_key=key,
+                exchange=settings.enrichment_exchange,
+                routing_key="post.enriched.v1",
             )
 
-        self._channel.basic_consume(
-            queue=settings.query_queue,
-            on_message_callback=self._on_message,
-        )
-        logger.info(
-            "Query projector consuming queue=%s",
-            settings.query_queue,
-        )
-        self._channel.start_consuming()
+            self._channel.basic_consume(
+                queue=settings.query_queue,
+                on_message_callback=self._on_message,
+            )
+            logger.info(
+                "Query projector consuming queue=%s",
+                settings.query_queue,
+            )
+            self._channel.start_consuming()
+        finally:
+            try:
+                if connection.is_open:
+                    connection.close()
+            finally:
+                if self._connection is connection:
+                    self._channel = None
+                    self._connection = None
 
     def _on_message(
         self,
@@ -122,6 +143,12 @@ class QueryProjector:
             event_id = event.get("event_id")
             event_type = event.get("event_type")
             payload = event.get("payload") or {}
+
+            if event_type == "post.enriched.v1" and (
+                type(event.get("schema_version")) is not int
+                or event["schema_version"] != 1
+            ):
+                raise ValueError("Invalid enrichment schema version")
 
             if not event_id or not event_type:
                 logger.warning("Dropping event with missing id/type")
@@ -159,16 +186,15 @@ class QueryProjector:
                 db.close()
         except Exception:
             logger.exception("Unhandled projector message error")
-            ch.basic_nack(
-                delivery_tag=method.delivery_tag, requeue=False
-            )
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     def _apply_event(
         self, db: Session, event_type: str, payload: dict[str, Any]
     ) -> None:
-        """Route event to appropriate projection handler."""
         if event_type == "post.parsed.v1":
             project_post(db, payload)
+        elif event_type == "post.enriched.v1":
+            project_enrichment(db, payload)
         elif event_type == "preferences.updated.v1":
             project_user_preferences(db, payload)
 

@@ -15,3 +15,9 @@ lint-fix:
 
 test:
 	poetry run pytest -v
+
+seed-sources:
+	poetry run python -m src.scripts.seed_sources
+
+check-feed:
+	poetry run python -m src.scripts.check_feed "$(URL)"

@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -54,7 +54,6 @@ class AccountRepository:
 
         user.display_name = display_name
         user.updated_at = now
-        self._db.commit()
         return user
 
     def create_default_preferences(self, user_id: str) -> None:
@@ -62,9 +61,7 @@ class AccountRepository:
 
     def get_preferences(self, user_id: str) -> UserPreferences | None:
         return self._db.execute(
-            select(UserPreferences).where(
-                UserPreferences.user_id == user_id
-            )
+            select(UserPreferences).where(UserPreferences.user_id == user_id)
         ).scalar_one_or_none()
 
     def upsert_preferences(
@@ -75,7 +72,6 @@ class AccountRepository:
         muted_categories: list[str],
         blocked_source_ids: list[str],
         languages: list[str],
-        category_interests: list[str],
         now: datetime,
     ) -> UserPreferences:
         preferences = self.get_preferences(user_id)
@@ -87,14 +83,12 @@ class AccountRepository:
         preferences.muted_categories = muted_categories
         preferences.blocked_source_ids = blocked_source_ids
         preferences.languages = languages
-        preferences.category_interests = category_interests
         preferences.updated_at = now
 
         user = self.get_user_by_id(user_id)
         if user is not None:
             user.updated_at = now
 
-        self._db.commit()
         return preferences
 
     def create_subscription(
@@ -106,11 +100,9 @@ class AccountRepository:
             created_at=now,
         )
         self._db.add(subscription)
-        self._db.commit()
-        self._db.refresh(subscription)
         return subscription
 
-    def list_subscriptions(self, *, user_id: str) -> Sequence[Any]:
+    def list_subscriptions(self, *, user_id: str) -> Sequence[UserSubscription]:
         return (
             self._db.execute(
                 select(UserSubscription)
@@ -130,9 +122,7 @@ class AccountRepository:
         ).scalar_one_or_none()
         return subscription is not None
 
-    def delete_subscription(
-        self, *, user_id: str, source_id: str
-    ) -> bool:
+    def delete_subscription(self, *, user_id: str, source_id: str) -> bool:
         subscription = self._db.execute(
             select(UserSubscription).where(
                 UserSubscription.user_id == user_id,
@@ -142,17 +132,16 @@ class AccountRepository:
         if subscription is None:
             return False
         self._db.delete(subscription)
-        self._db.commit()
         return True
 
     def get_refresh_token(self, token_id: str) -> RefreshToken | None:
         return self._db.execute(
-            select(RefreshToken).where(
-                RefreshToken.token_id == token_id
-            )
+            select(RefreshToken).where(RefreshToken.token_id == token_id)
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(self, user_id: str) -> Sequence[Any]:
+    def list_active_refresh_tokens(
+        self, user_id: str
+    ) -> Sequence[RefreshToken]:
         return (
             self._db.execute(
                 select(RefreshToken).where(
@@ -166,7 +155,6 @@ class AccountRepository:
 
     def add_refresh_token(self, token: RefreshToken) -> None:
         self._db.add(token)
-        self._db.commit()
 
     def replace_password_reset_token(
         self,
@@ -184,7 +172,6 @@ class AccountRepository:
         token.token_hash = token_hash
         token.expires_at = expires_at
         token.created_at = created_at
-        self._db.commit()
         return token
 
     def get_password_reset_token(
@@ -204,9 +191,7 @@ class AccountRepository:
         self._db.delete(token)
         return True
 
-    def revoke_active_refresh_tokens(
-        self, user_id: str, now: datetime
-    ) -> int:
+    def revoke_active_refresh_tokens(self, user_id: str, now: datetime) -> int:
         tokens = self.list_active_refresh_tokens(user_id)
         for token in tokens:
             token.revoked_at = now
@@ -214,3 +199,9 @@ class AccountRepository:
 
     def commit(self) -> None:
         self._db.commit()
+
+    def flush(self) -> None:
+        self._db.flush()
+
+    def rollback(self) -> None:
+        self._db.rollback()
