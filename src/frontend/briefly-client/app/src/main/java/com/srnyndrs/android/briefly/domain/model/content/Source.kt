@@ -6,5 +6,6 @@ data class Source(
     val title: String,
     val favicon: String? = null,
     val description: String? = null,
+    val verified: Boolean = false,
     val isSubscribed: Boolean = false
 )

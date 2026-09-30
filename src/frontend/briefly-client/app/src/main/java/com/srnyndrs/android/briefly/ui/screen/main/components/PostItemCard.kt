@@ -48,6 +48,7 @@ fun PostItemCard(
     modifier: Modifier = Modifier,
     title: String,
     category: String,
+    description: String,
     imageUrl: String? = null,
     publishDate: Instant? = null,
     isLoading: Boolean = false,
@@ -76,25 +77,33 @@ fun PostItemCard(
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.Start
             ) {
+                // Category
+                if(category.isNotBlank()) {
+                    Column(
+                        modifier = Modifier.weight(0.3f).fillMaxWidth(),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .clip(RoundedCornerShape(5.dp))
+                                .shimmer(isLoading)
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(0.3f))
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = category,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+                // Title
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(0.4f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .wrapContentSize()
-                            .clip(RoundedCornerShape(5.dp))
-                            .shimmer(isLoading)
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(0.3f))
-                            .padding(6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = category,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
                     ShimmerItem(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -112,8 +121,23 @@ fun PostItemCard(
                         )
                     }
                 }
+                // Description
+                if(category.isBlank()) {
+                    Column(
+                        modifier = Modifier.weight(0.3f).fillMaxWidth()
+                    ) {
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodySmall,
+                            overflow = TextOverflow.Ellipsis,
+                            minLines = 1,
+                            maxLines = 3,
+                            softWrap = true
+                        )
+                    }
+                }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(0.2f).fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -183,11 +207,11 @@ fun PostItemCard(
 fun PostItemCardPreview() {
     BrieflyTheme {
         Surface {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(vertical = 12.dp, horizontal = 6.dp)
+                    .padding(vertical = 12.dp, horizontal = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 PostItemCard(
                     modifier = Modifier
@@ -196,7 +220,19 @@ fun PostItemCardPreview() {
                     title = "A magyar néptánc még ma is tömegeket mozgat meg!",
                     category = "Kultúra",
                     imageUrl = "",
+                    description = "",
                     publishDate = Instant.parse("2026-09-15T18:36:11Z"),
+                    isLoading = false
+                ) {}
+                PostItemCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .requiredHeight(128.dp),
+                    title = "A nap hírei összefoglalva",
+                    category = "",
+                    imageUrl = "",
+                    description = "Idén lett 100 éves a szakmai bizottságok meghatározó szerepét betöltő elnökség",
+                    publishDate = Instant.parse("2026-09-12T18:36:11Z"),
                     isLoading = false
                 ) {}
             }

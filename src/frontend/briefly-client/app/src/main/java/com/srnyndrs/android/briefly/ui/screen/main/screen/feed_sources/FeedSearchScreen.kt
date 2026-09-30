@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
@@ -31,9 +32,12 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.heroicons.Heroicons
+import com.composables.icons.heroicons.outline.CheckBadge
 import com.composables.icons.heroicons.outline.Heart
+import com.composables.icons.heroicons.outline.ShieldCheck
 import com.composables.icons.heroicons.solid.Heart
 import com.composables.icons.heroicons.solid.Photo
+import com.composables.icons.heroicons.solid.ShieldCheck
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.SearchTextField
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
@@ -178,18 +182,33 @@ fun FeedSourcesScreen(
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(3.dp),
                                     ) {
-                                        // Title
-                                        Text(
+                                        Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            text = feedSource.title,
-                                            minLines = 1,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                fontSize = 20.sp,
-                                                fontWeight = FontWeight.Medium
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // Title
+                                            Text(
+                                                modifier = Modifier.wrapContentWidth(),
+                                                text = feedSource.title,
+                                                minLines = 1,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    fontSize = 20.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
                                             )
-                                        )
+                                            // Verified badge
+                                            if(feedSource.verified) {
+                                                Icon(
+                                                    modifier = Modifier.size(22.dp),
+                                                    imageVector = Heroicons.Outline.CheckBadge,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        }
                                         // URL
                                         Text(
                                             modifier = Modifier.fillMaxWidth(),
@@ -206,6 +225,7 @@ fun FeedSourcesScreen(
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    /*
                                     IconButton(
                                         modifier = Modifier.size(48.dp),
                                         onClick = {
@@ -227,6 +247,7 @@ fun FeedSourcesScreen(
                                             contentDescription = null
                                         )
                                     }
+                                     */
                                 }
                             }
                         }
@@ -258,9 +279,7 @@ fun FeedSourcesScreenPreview(
                     .padding(6.dp),
                 state = state,
                 onNavigationEvent = {}
-            ) {
-
-            }
+            ) { }
         }
     }
 }

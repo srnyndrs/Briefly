@@ -138,7 +138,7 @@ fun HomeScreen(
 
         else -> {
             LazyColumn(
-                modifier = modifier.padding(horizontal = 8.dp),
+                modifier = modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 if (state.headlines.isNotEmpty()) {

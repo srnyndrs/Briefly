@@ -11,6 +11,7 @@ data class SourceDetails(
     val websiteUrl: String? = null,
     val imageUrl: String? = null,
     val subscribed: Boolean = false,
+    val verified: Boolean = false,
     val followed: Boolean = false, // NOT YET IMPLEMENTED
     val lastUpdatedAt: Instant
 )

@@ -18,12 +18,21 @@ class FeedSourcesStateProvider: PreviewParameterProvider<FeedSourcesState> {
                             id = "1",
                             title = "Telex.hu",
                             url = "https://telex.hu/rss",
+                            verified = true,
                             favicon = null
                         ),
                         Source(
                             id = "2",
                             title = "24.hu",
                             url = "https://24.hu/feed",
+                            verified = true,
+                            favicon = null
+                        ),
+                        Source(
+                            id = "3",
+                            title = "Example",
+                            url = "https://example.com/feed",
+                            verified = false,
                             favicon = null
                         )
                     )

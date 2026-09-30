@@ -1,6 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.source_details
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,10 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,10 +28,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,10 +51,10 @@ import com.composables.icons.heroicons.outline.ChevronLeft
 import com.composables.icons.heroicons.outline.CloudArrowDown
 import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.solid.Heart
+import com.srnyndrs.android.briefly.ui.components.OutlinedVerifiedBadge
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.UiStateContainer
-import com.srnyndrs.android.briefly.ui.screen.main.components.PostCard
 import com.srnyndrs.android.briefly.ui.screen.main.components.PostItemCard
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.preview.SourceDetailsStateProvider
@@ -99,7 +103,7 @@ fun SourceDetailsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp)
-                                .defaultMinSize(minHeight = 36.dp),
+                                .defaultMinSize(minHeight = 56.dp),
                             isLoading = isLoading,
                             cornerRadius = 5.dp
                         ) {
@@ -109,10 +113,9 @@ fun SourceDetailsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(0.5f)
+                                    modifier = Modifier.weight(0.7f)
                                         .requiredHeight(42.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     // Picture
                                     RemoteImageContainer(
@@ -120,6 +123,7 @@ fun SourceDetailsScreen(
                                         imageUrl = feedDetails?.imageUrl ?: "",
                                         contentScale = ContentScale.Fit
                                     )
+                                    Spacer(modifier = Modifier.requiredWidth(4.dp))
                                     // Title
                                     Text(
                                         modifier = Modifier.padding(horizontal = 8.dp),
@@ -130,9 +134,25 @@ fun SourceDetailsScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
+                                    // Verified badge
+                                    if(feedDetails?.verified == true) {
+                                        /*Icon(
+                                            modifier = Modifier.size(28.dp),
+                                            imageVector = Heroicons.Outline.CheckBadge,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            contentDescription = null
+                                        )*/
+                                        OutlinedVerifiedBadge(
+                                            modifier = Modifier.size(20.dp),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(0.7f),
+                                            innerPadding = 4.dp,
+                                            wavesCount = 8,
+                                            waveAmplitude = 3f
+                                        )
+                                    }
                                 }
                                 Row(
-                                    modifier = Modifier.weight(0.5f),
+                                    modifier = Modifier.weight(0.3f),
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -221,50 +241,72 @@ fun SourceDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(
-                                    modifier = Modifier.wrapContentWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                TextButton(
+                                    shape = RoundedCornerShape(8.dp),
+                                    enabled = !isLoading,
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
+                                    ),
+                                    onClick = {},
                                 ) {
-                                    Icon(
-                                        modifier = Modifier.size(28.dp),
-                                        imageVector = Heroicons.Outline.CloudArrowDown,
-                                        contentDescription = null
-                                    )
-                                    Text(
-                                        text = feedDetails?.lastUpdatedAt?.toRelativeArticleTime()
-                                            ?: "",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 1,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.size(22.dp),
+                                            imageVector = Heroicons.Outline.CloudArrowDown,
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            text = feedDetails?.lastUpdatedAt?.toRelativeArticleTime()
+                                                ?: "",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
-                                Row(
-                                    modifier = Modifier.wrapContentWidth()
-                                        .clickable(
-                                            enabled = !isLoading && feedDetails?.websiteUrl != null
-                                        ) {
-                                            onNavigationEvent(
-                                                MainNavigationEvent.OpenCustomTab(
-                                                    url = feedDetails?.websiteUrl
-                                                )
+                                TextButton(
+                                    shape = RoundedCornerShape(8.dp),
+                                    enabled = !isLoading && feedDetails?.websiteUrl != null,
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    border = BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
+                                    ),
+                                    onClick = {
+                                        onNavigationEvent(
+                                            MainNavigationEvent.OpenCustomTab(
+                                                url = feedDetails?.websiteUrl
                                             )
-                                        },
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        )
+                                    },
                                 ) {
-                                    Text(
-                                        text = "Visit website",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 1,
-                                    )
-                                    Box(
-                                        modifier = Modifier.size(28.dp),
-                                        contentAlignment = Alignment.Center
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Icon(
                                             modifier = Modifier.size(22.dp),
                                             imageVector = Heroicons.Outline.ArrowTopRightOnSquare,
-                                            contentDescription = null
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            text = "Visit website",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
                                         )
                                     }
                                 }
@@ -283,7 +325,7 @@ fun SourceDetailsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Latest articles",
+                        text = "Latest articles", // TODO: stringResource
                         style = MaterialTheme.typography.titleLarge,
                     )
                     HorizontalDivider(
@@ -302,6 +344,7 @@ fun SourceDetailsScreen(
                                 title = "Title",
                                 category = "Category",
                                 imageUrl = "",
+                                description = "",
                                 isLoading = true
                             )
                         }
@@ -322,6 +365,7 @@ fun SourceDetailsScreen(
                                 category = article.category ?: "", // TODO
                                 imageUrl = article.imageUrl,
                                 publishDate = article.publishDate,
+                                description = article.description ?: "",
                                 isLoading = false,
                             ) {
                                 if (article.hasContent) {
@@ -350,30 +394,55 @@ fun SourceDetailsScreen(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Back button
-            IconButton(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
-                onClick = { onNavigationEvent(MainNavigationEvent.NavigateBack) },
-                colors = IconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    disabledContainerColor = MaterialTheme.colorScheme.surface,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface
-                )
+            Row(
+                modifier = Modifier.weight(0.7f),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    modifier = Modifier.size(28.dp),
-                    imageVector = Heroicons.Outline.ChevronLeft,
-                    contentDescription = null
+                // Back button
+                IconButton(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape),
+                    onClick = { onNavigationEvent(MainNavigationEvent.NavigateBack) },
+                    colors = IconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Icon(
+                        modifier = Modifier.size(28.dp),
+                        imageVector = Heroicons.Outline.ChevronLeft,
+                        contentDescription = null
+                    )
+                }
+                // Title
+                Text(
+                    text = "Feed Details",
+                    style = MaterialTheme.typography.headlineSmall
                 )
             }
-            // Title
-            Text(
-                text = "Feed Details",
-                style = MaterialTheme.typography.headlineSmall
-            )
+            IconButton(
+                onClick = {
+                    // TODO
+                }
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onSurface)
+                        )
+                    }
+                }
+            }
         }
     }
 }

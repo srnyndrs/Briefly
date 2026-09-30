@@ -39,7 +39,7 @@ fun TopAppBar(
     Column(
         modifier = Modifier.then(modifier)
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

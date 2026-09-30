@@ -67,9 +67,7 @@ fun SettingsScreen(
                     item {
                         Text(
                             text = stringResource(R.string.settings_title),
-                            style = MaterialTheme.typography.headlineMedium)
-                        Text(
-                            text = stringResource(R.string.settings_subtitle)
+                            style = MaterialTheme.typography.headlineMedium
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(top = 16.dp),
@@ -86,7 +84,9 @@ fun SettingsScreen(
                             options = model.languageOptions,
                             selectedCodes = model.selectedLanguageCodes,
                             enabled = !model.isUpdating
-                        ) { onEvent(SettingsEvent.ToggleLanguage(it)) }
+                        ) {
+                            onEvent(SettingsEvent.ToggleLanguage(it))
+                        }
                     }
                     item {
                         SectionHeader(

@@ -70,6 +70,7 @@ fun SourceResponseDto.toDomain(): Source {
         title = title ?: "",
         favicon = favicon,
         description = description,
+        verified = verified,
         isSubscribed = isSubscribed,
     )
 }
@@ -92,6 +93,7 @@ fun SourceDetailsResponseDto.toDomain(): SourceDetails {
         websiteUrl = websiteUrl,
         imageUrl = favicon,
         subscribed = isSubscribed,
+        verified = verified,
         followed = false, // TODO
         lastUpdatedAt = updatedAt
     )
