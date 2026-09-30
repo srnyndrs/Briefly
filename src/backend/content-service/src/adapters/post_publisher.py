@@ -9,6 +9,7 @@ from src.events.envelope import build_envelope
 
 _EVENT_NAME = "post.parsed.v1"
 
+
 def publish_post_parsed_success(
     channel: Any,
     *,
@@ -56,9 +57,9 @@ def publish_post_parsed_success(
     channel.basic_publish(
         exchange=settings.parsed_exchange,
         routing_key=_EVENT_NAME,
-        body=json.dumps(
-            envelope, default=str, ensure_ascii=False
-        ).encode("utf-8"),
+        body=json.dumps(envelope, default=str, ensure_ascii=False).encode(
+            "utf-8"
+        ),
         mandatory=True,
         properties=pika.BasicProperties(
             delivery_mode=pika.DeliveryMode.Persistent,

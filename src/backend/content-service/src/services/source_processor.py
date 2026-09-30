@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any
 from urllib.parse import urlsplit
+from uuid import UUID
 
 import feedparser
 import langcodes
@@ -39,20 +40,14 @@ def _normalize_language(value: Any) -> str | None:
     if not language.is_valid() or not language.language:
         return None
     primary = language.language.lower()
-    return (
-        None
-        if primary == "und" or primary.startswith("x-")
-        else primary
-    )
+    return None if primary == "und" or primary.startswith("x-") else primary
 
 
 def _clean_description(value: Any) -> str | None:
     description = _clean_text(value)
     if description is None:
         return None
-    return _clean_text(
-        content_extractor.normalize_html_text(description)
-    )
+    return _clean_text(content_extractor.normalize_html_text(description))
 
 
 def _require_source_value(value: Any, field_name: str) -> str:
@@ -60,6 +55,14 @@ def _require_source_value(value: Any, field_name: str) -> str:
     if normalized is None:
         raise ValueError(f"{field_name} must be nonblank")
     return normalized
+
+
+def _require_uuid(value: Any, field_name: str) -> UUID:
+    normalized = _require_source_value(value, field_name)
+    try:
+        return UUID(normalized)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a valid UUID") from exc
 
 
 def _require_source_title(value: Any) -> str:
@@ -95,9 +98,7 @@ def _entry_tags(entry: Any) -> list[str]:
 
 def _entry_image(entry: Any) -> str | None:
     for enclosure in entry.get("enclosures") or []:
-        image_url = _clean_text(
-            enclosure.get("href") or enclosure.get("url")
-        )
+        image_url = _clean_text(enclosure.get("href") or enclosure.get("url"))
         if image_url:
             return image_url
 
@@ -114,20 +115,14 @@ def _parse_dt(value: str | None) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return (
-            parsed
-            if parsed.tzinfo
-            else parsed.replace(tzinfo=timezone.utc)
-        )
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
     except Exception:
         return None
 
 
 def _entry_published_at(entry: Any) -> datetime | None:
     if entry.get("published_parsed"):
-        return datetime(
-            *entry.published_parsed[:6], tzinfo=timezone.utc
-        )
+        return datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
     return None
 
 
@@ -155,7 +150,7 @@ def _stored_post_data(post: Post) -> dict[str, Any]:
 
 
 def _build_post_data(
-    source_id: str,
+    source_id: UUID,
     entry: Any,
     crawled_at: datetime | None,
     source_title: str,
@@ -173,9 +168,7 @@ def _build_post_data(
         entry.get("description")
     ) or _clean_description(entry.get("summary"))
     author = _clean_text(entry.get("author"))
-    category = _clean_text(entry.get("category")) or (
-        tags[0] if tags else None
-    )
+    category = _clean_text(entry.get("category")) or (tags[0] if tags else None)
     published_at = _entry_published_at(entry)
 
     extracted_title = _clean_title(extracted.get("title"))
@@ -231,8 +224,7 @@ def _build_post_data(
                 extracted.get("language"),
                 stored.get("language"),
             )
-            if (normalized := _normalize_language(candidate))
-            is not None
+            if (normalized := _normalize_language(candidate)) is not None
         ),
         None,
     )
@@ -260,9 +252,9 @@ class SourceProcessorService:
     def __init__(self, db: Session) -> None:
         self._repo = PostRepository(db)
 
-    def reextract_post(self, channel: Any, post_id: str) -> bool:
+    def reextract_post(self, channel: Any, post_id: UUID) -> bool:
         """Refresh one post body while preserving stored metadata and identity."""
-        post = self._repo.get_by_id(post_id)
+        post = self._repo.get_post_by_id(post_id)
         if post is None:
             raise ValueError("Post not found")
         extracted = content_extractor.extract_article(post.url)
@@ -282,7 +274,7 @@ class SourceProcessorService:
             "parsed_at": datetime.now(timezone.utc),
             "content": content.strip(),
         }
-        saved_id = self._repo.save(data)
+        saved_id = self._repo.create_post(data)
         if not saved_id:
             raise RuntimeError("Post save returned no ID")
         _publish_success_events(
@@ -310,16 +302,10 @@ class SourceProcessorService:
         raw_xml = payload.get("raw_xml")
         if not isinstance(raw_xml, str) or not raw_xml.strip():
             raise ValueError("raw_xml must be nonblank XML")
-        source_id = _require_source_value(
-            payload.get("source_id"), "source_id"
-        )
-        source_title = _require_source_title(
-            payload.get("source_title")
-        )
+        source_id = _require_uuid(payload.get("source_id"), "source_id")
+        source_title = _require_source_title(payload.get("source_title"))
         crawled_at = _parse_dt(event.get("occurred_at"))
-        correlation_id = event.get("correlation_id") or str(
-            uuid.uuid4()
-        )
+        correlation_id = event.get("correlation_id") or str(uuid.uuid4())
         age_seconds = (
             max(0, (processing_at - crawled_at).total_seconds())
             if crawled_at
@@ -331,9 +317,7 @@ class SourceProcessorService:
             raise ValueError("raw_xml is not a usable RSS/Atom feed")
         feed_data = feed.feed if hasattr(feed, "feed") else {}
         feed_language = feed_data.get("language")
-        entries = [
-            (_entry_guid(entry), entry) for entry in feed.entries
-        ]
+        entries = [(_entry_guid(entry), entry) for entry in feed.entries]
         stored_posts = {
             post.item_guid: _stored_post_data(post)
             for post in self._repo.get_by_guids(
@@ -349,9 +333,7 @@ class SourceProcessorService:
             for item_guid, entry in entries:
                 stored = stored_posts.get(item_guid)
                 url = (
-                    content_extractor.normalize_article_url(
-                        entry.get("link")
-                    )
+                    content_extractor.normalize_article_url(entry.get("link"))
                     or ""
                 )
                 extracted = {}
@@ -377,7 +359,7 @@ class SourceProcessorService:
                     or not post_data["content"]
                 )
 
-                post_id = self._repo.save(post_data)
+                post_id = self._repo.create_post(post_data)
                 if not post_id:
                     raise RuntimeError("Post save returned no ID")
                 stored_posts[item_guid] = post_data
@@ -408,15 +390,15 @@ class SourceProcessorService:
 
 def _publish_success_events(
     channel: Any,
-    post_id: str,
+    post_id: UUID,
     data: dict[str, Any],
     correlation_id: str,
 ) -> None:
     source_id = data["source_id"]
     post_publisher.publish_post_parsed_success(
         channel,
-        post_id=post_id,
-        source_id=source_id,
+        post_id=str(post_id),
+        source_id=str(source_id),
         item_guid=data["item_guid"],
         url=data["url"],
         title=data["title"],

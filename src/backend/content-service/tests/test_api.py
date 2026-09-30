@@ -1,19 +1,22 @@
 import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
 from src.models.post import Post
 
+SOURCE_ONE = UUID("00000000-0000-0000-0000-000000000001")
+SOURCE_TWO = UUID("00000000-0000-0000-0000-000000000002")
 
-def _seed_posts(db_session, post_id: str, other_id: str):
+
+def _seed_posts(db_session, post_id: UUID, other_id: UUID):
     now = datetime.now(UTC).replace(tzinfo=None)
     db_session.add(
         Post(
             post_id=post_id,
-            source_id="source-1",
+            source_id=SOURCE_ONE,
             item_guid="guid-1",
             url="https://example.com/a",
             source_title="Source One",
@@ -33,7 +36,7 @@ def _seed_posts(db_session, post_id: str, other_id: str):
     db_session.add(
         Post(
             post_id=other_id,
-            source_id="source-2",
+            source_id=SOURCE_TWO,
             item_guid="guid-2",
             url="https://example.com/b",
             source_title="Source Two",
@@ -62,26 +65,24 @@ def test_health(client: TestClient) -> None:
 
 
 def test_get_post_by_id(client: TestClient, db_session) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
+    post_id = uuid4()
+    other_id = uuid4()
     _seed_posts(db_session, post_id, other_id)
 
     by_id = client.get(f"/posts/{post_id}")
     assert by_id.status_code == 200
-    assert by_id.json()["post_id"] == post_id
+    assert by_id.json()["post_id"] == str(post_id)
 
 
-def test_list_posts_with_filters(
-    client: TestClient, db_session
-) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
+def test_list_posts_with_filters(client: TestClient, db_session) -> None:
+    post_id = uuid4()
+    other_id = uuid4()
     _seed_posts(db_session, post_id, other_id)
 
     filtered = client.get(
         "/posts",
         params={
-            "source_id": "source-1",
+            "source_id": str(SOURCE_ONE),
             "language": "en",
             "category": "technology",
         },
@@ -89,11 +90,11 @@ def test_list_posts_with_filters(
     assert filtered.status_code == 200
     payload = filtered.json()
     assert len(payload) == 1
-    assert payload[0]["post_id"] == post_id
+    assert payload[0]["post_id"] == str(post_id)
 
 
 def test_count_posts(client: TestClient, db_session) -> None:
-    _seed_posts(db_session, str(uuid4()), str(uuid4()))
+    _seed_posts(db_session, uuid4(), uuid4())
 
     response = client.get("/posts/count")
 
@@ -109,11 +110,11 @@ def test_get_post_not_found(client: TestClient) -> None:
 def test_replay_posts_emits_complete_stored_snapshot(
     client: TestClient, db_session
 ) -> None:
-    post_id = str(uuid4())
+    post_id = uuid4()
     now = datetime.now(UTC).replace(tzinfo=None)
     post = Post(
         post_id=post_id,
-        source_id="source-1",
+        source_id=SOURCE_ONE,
         item_guid="guid-replay-title",
         url="https://example.com/replay-title",
         source_title="Tech Blog",
@@ -147,7 +148,7 @@ def test_replay_posts_emits_complete_stored_snapshot(
     published = channel.basic_publish.call_args.kwargs
     assert published["routing_key"] == "post.parsed.v1"
     payload = json.loads(published["body"])["payload"]
-    assert payload["post_id"] == post_id
+    assert payload["post_id"] == str(post_id)
     assert payload["source_title"] == "Tech Blog"
     assert payload["title"] == "Tech News"
     assert payload["content"] == "content"

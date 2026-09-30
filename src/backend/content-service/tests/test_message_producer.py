@@ -39,14 +39,11 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
     assert envelope["payload"]["description"] == "A short description"
     assert envelope["payload"]["author"] == "Example Author"
     assert (
-        envelope["payload"]["image_url"]
-        == "https://example.com/images/a1.png"
+        envelope["payload"]["image_url"] == "https://example.com/images/a1.png"
     )
 
 
-def test_publish_post_parsed_success_includes_complete_snapshot() -> (
-    None
-):
+def test_publish_post_parsed_success_includes_complete_snapshot() -> None:
     channel = MagicMock()
 
     post_publisher.publish_post_parsed_success(

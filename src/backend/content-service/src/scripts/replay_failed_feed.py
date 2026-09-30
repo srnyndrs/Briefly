@@ -8,17 +8,12 @@ from src.config.settings import settings
 
 
 def replay_failed_feed(channel: Any, event_id: str) -> bool:
-    method, properties, body = channel.basic_get(
-        queue=settings.feed_dlq
-    )
+    method, properties, body = channel.basic_get(queue=settings.feed_dlq)
     if method is None:
         return False
     try:
         event = json.loads(body)
-        if (
-            not isinstance(event, dict)
-            or event.get("event_id") != event_id
-        ):
+        if not isinstance(event, dict) or event.get("event_id") != event_id:
             raise ValueError(
                 "Next failed feed does not match the requested event ID"
             )
@@ -35,9 +30,7 @@ def replay_failed_feed(channel: Any, event_id: str) -> bool:
         )
     except Exception:
         if channel.is_open:
-            channel.basic_nack(
-                delivery_tag=method.delivery_tag, requeue=True
-            )
+            channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
         raise
     channel.basic_ack(delivery_tag=method.delivery_tag)
     return True
@@ -50,9 +43,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     params = pika.URLParameters(settings.rabbitmq_url)
-    params.blocked_connection_timeout = (
-        settings.blocked_timeout_seconds
-    )
+    params.blocked_connection_timeout = settings.blocked_timeout_seconds
     with pika.BlockingConnection(params) as connection:
         channel = connection.channel()
         channel.confirm_delivery()

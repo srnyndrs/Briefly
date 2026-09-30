@@ -24,9 +24,7 @@ def require_admin_token(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@router.post(
-    "/posts/replay", dependencies=[Depends(require_admin_token)]
-)
+@router.post("/posts/replay", dependencies=[Depends(require_admin_token)])
 def replay_posts(
     since: datetime | None = Query(None),
     limit: int = Query(500, ge=1, le=5000),

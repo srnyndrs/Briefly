@@ -22,9 +22,7 @@ _IMAGE_METADATA_XPATH = (
 class _MetadataArticle(Article):
     def fetch_images(self) -> None:
         images = self.doc.xpath(_IMAGE_METADATA_XPATH)
-        image = next(
-            (value.strip() for value in images if value.strip()), None
-        )
+        image = next((value.strip() for value in images if value.strip()), None)
         self.top_image = urljoin(self.url, image) if image else None
 
 
@@ -40,9 +38,7 @@ def normalize_article_url(value: Any) -> str | None:
             and parts.username is None
             and parts.password is None
             and (parts.port is None or parts.port > 0)
-            and not any(
-                char.isspace() or ord(char) < 32 for char in url
-            )
+            and not any(char.isspace() or ord(char) < 32 for char in url)
         ):
             return url
     except ValueError:
@@ -93,9 +89,7 @@ def extract_article(url: str) -> dict[str, Any]:
 
     try:
         config = Config()
-        config.request_timeout = (
-            settings.article_request_timeout_seconds
-        )
+        config.request_timeout = settings.article_request_timeout_seconds
         config.fetch_images = False
         article = _MetadataArticle(url, config=config)
         article.download()

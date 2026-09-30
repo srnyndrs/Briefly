@@ -3,7 +3,7 @@ name = "content-service"
 version = "0.1.0"
 description = "Parses RSS feeds and extracts article content."
 authors = [
-    {name = "Andras Suranyi"}
+    { name = "Andras Suranyi" }
 ]
 requires-python = ">=3.13,<4"
 dependencies = [
@@ -16,7 +16,8 @@ dependencies = [
     "uvicorn[standard] (>=0.34.0,<1.0.0)",
     "pydantic-settings (>=2.0.0,<3.0.0)",
     "lxml (>=6.0.2,<7.0.0)",
-    "langcodes (>=3.5.1,<4.0.0)"
+    "langcodes (>=3.5.1,<4.0.0)",
+    "sentry-sdk[fastapi] (>=2.0,<3.0)"
 ]
 
 [dependency-groups]

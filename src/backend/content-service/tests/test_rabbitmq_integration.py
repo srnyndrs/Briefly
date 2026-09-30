@@ -95,25 +95,21 @@ def _event(xml: str) -> dict:
         "event_type": "feed.raw_fetched.v1",
         "correlation_id": "integration-correlation",
         "payload": {
-            "source_id": "integration-source",
+            "source_id": "00000000-0000-0000-0000-000000000001",
             "source_title": "Example Source",
             "raw_xml": xml,
         },
     }
 
 
-def _process(
-    connection, channel, db_session: Session, body: bytes
-) -> None:
+def _process(connection, channel, db_session: Session, body: bytes) -> None:
     channel.basic_publish(
         exchange=settings.feed_exchange,
         routing_key="feed.raw_fetched.v1",
         body=body,
         mandatory=True,
     )
-    method, properties, delivered = channel.basic_get(
-        queue=settings.feed_queue
-    )
+    method, properties, delivered = channel.basic_get(queue=settings.feed_queue)
     assert method is not None
     consumer = FeedConsumer()
     consumer._connection = connection
@@ -127,9 +123,7 @@ def _process(
 def _get(channel, queue: str):
     deadline = monotonic() + 3
     while monotonic() < deadline:
-        method, properties, body = channel.basic_get(
-            queue=queue, auto_ack=True
-        )
+        method, properties, body = channel.basic_get(queue=queue, auto_ack=True)
         if method:
             return properties, body
         channel.connection.sleep(0.05)
@@ -173,10 +167,7 @@ def test_guarded_dlq_replay_preserves_original_body_and_correlation(
     assert replay_failed_feed(channel, "integration-feed")
     _, replayed = _get(channel, settings.feed_queue)
     assert replayed == body
-    assert (
-        json.loads(replayed)["correlation_id"]
-        == "integration-correlation"
-    )
+    assert json.loads(replayed)["correlation_id"] == "integration-correlation"
     assert (
         channel.queue_declare(
             queue=settings.feed_dlq, passive=True
@@ -244,13 +235,10 @@ def test_unroutable_publication_dead_letters_feed_and_replay_reuses_post(
         "src.adapters.content_extractor.extract_article",
         return_value={"content": "Body"},
     ) as extract:
-        _process(
-            connection, channel, db_session, json.dumps(event).encode()
-        )
+        _process(connection, channel, db_session, json.dumps(event).encode())
         _, rejected = _get(channel, settings.feed_dlq)
         assert (
-            json.loads(rejected)["correlation_id"]
-            == "integration-correlation"
+            json.loads(rejected)["correlation_id"] == "integration-correlation"
         )
         extract.reset_mock()
         channel.queue_bind(

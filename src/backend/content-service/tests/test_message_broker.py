@@ -28,5 +28,5 @@ def test_replay_publisher_channel_declares_only_parsed_exchange(
     mock_channel.confirm_delivery.assert_called_once()
     assert (
         mock_connection_cls.call_args.args[0].blocked_connection_timeout
-        == 15
+        == settings.blocked_timeout_seconds
     )

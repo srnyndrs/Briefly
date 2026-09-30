@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Any
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 from feedparser import FeedParserDict
 import pytest
@@ -29,7 +30,7 @@ def test_normalize_language(raw: str, expected: str | None) -> None:
 
 
 def _make_event(
-    source_id: str = "s1",
+    source_id: str = "00000000-0000-0000-0000-000000000001",
     source_title: str = "Crawler Source",
     raw_xml: str = '<rss version="2.0"><channel/></rss>',
     correlation_id: str = "test-corr-id",
@@ -68,10 +69,8 @@ def _capture_saved_payload(
             return_value=extracted,
         ),
         patch(
-            "src.repositories.post_repository.PostRepository.save",
-            side_effect=lambda data: (
-                saved_payloads.append(dict(data)) or "p1"
-            ),
+            "src.repositories.post_repository.PostRepository.create_post",
+            side_effect=lambda data: saved_payloads.append(dict(data)) or "p1",
         ),
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
@@ -119,9 +118,7 @@ def test_process_source_uses_feed_metadata_as_baseline() -> None:
             "authors": ["Extracted author"],
             "language": "en",
             "keywords": ["extracted"],
-            "publish_date": datetime(
-                2026, 9, 12, 0, 0, tzinfo=timezone.utc
-            ),
+            "publish_date": datetime(2026, 9, 12, 0, 0, tzinfo=timezone.utc),
         },
         {"title": "Publisher", "language": "hu"},
     )
@@ -218,7 +215,7 @@ def test_process_source_persists_source_title(
         SourceProcessorService(db_session).process(
             channel,
             _make_event(
-                source_id="source-1",
+                source_id="00000000-0000-0000-0000-000000000001",
                 source_title="  Registered Source  ",
             ),
         )
@@ -230,15 +227,10 @@ def test_process_source_persists_source_title(
         .one()
     )
     assert post.source_title == "Registered Source"
-    assert (
-        mock_publish.call_args.kwargs["source_title"]
-        == "Registered Source"
-    )
+    assert mock_publish.call_args.kwargs["source_title"] == "Registered Source"
 
 
-def test_process_source_propagates_unexpected_extraction_error() -> (
-    None
-):
+def test_process_source_propagates_unexpected_extraction_error() -> None:
     db = MagicMock()
     channel = MagicMock()
 
@@ -260,7 +252,7 @@ def test_process_source_propagates_unexpected_extraction_error() -> (
             side_effect=RuntimeError("network error"),
         ),
         patch(
-            "src.repositories.post_repository.PostRepository.save"
+            "src.repositories.post_repository.PostRepository.create_post"
         ) as mock_save,
     ):
         with pytest.raises(RuntimeError, match="network error"):
@@ -300,9 +292,7 @@ def test_process_source_rejects_missing_entry_identity() -> None:
     with pytest.raises(ValueError, match="item_guid"):
         SourceProcessorService(MagicMock()).process(
             MagicMock(),
-            _make_event(
-                raw_xml="<rss><channel><item/></channel></rss>"
-            ),
+            _make_event(raw_xml="<rss><channel><item/></channel></rss>"),
         )
 
 
@@ -339,9 +329,9 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         service.process(MagicMock(), event)
         first_snapshot = publish.call_args.kwargs
         extract.reset_mock()
-        event["payload"]["raw_xml"] = event["payload"][
-            "raw_xml"
-        ].replace("Original RSS", "Updated RSS")
+        event["payload"]["raw_xml"] = event["payload"]["raw_xml"].replace(
+            "Original RSS", "Updated RSS"
+        )
         event["payload"]["source_title"] = "Updated Source"
         event["occurred_at"] = "2026-09-28T10:00:00Z"
 
@@ -362,7 +352,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         assert snapshot["correlation_id"] == "test-corr-id"
 
     db_session.expire_all()
-    post = db_session.get(Post, first_snapshot["post_id"])
+    post = db_session.get(Post, UUID(first_snapshot["post_id"]))
     assert post is not None
     assert post.title == "Updated RSS title"
     assert post.content == content
@@ -430,7 +420,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
         assert snapshot["published_at"].startswith("2026-09-20")
 
     db_session.expire_all()
-    post = db_session.get(Post, first_id)
+    post = db_session.get(Post, UUID(first_id))
     assert post is not None
     assert post.url == "https://example.com/updated"
     assert post.content == "Original body"
@@ -445,9 +435,7 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
         "<link>https://example.com/duplicate</link>"
         "<title>RSS title</title></item>"
     )
-    event = _make_event(
-        raw_xml=f"<rss><channel>{item}{item}</channel></rss>"
-    )
+    event = _make_event(raw_xml=f"<rss><channel>{item}{item}</channel></rss>")
     service = SourceProcessorService(db_session)
     with (
         patch(
@@ -492,16 +480,12 @@ def test_invalid_article_link_preserves_rss_metadata_without_request(
             "src.services.source_processor.feedparser.parse",
             return_value=feed,
         ),
-        patch(
-            "src.adapters.content_extractor.extract_article"
-        ) as extract,
+        patch("src.adapters.content_extractor.extract_article") as extract,
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        SourceProcessorService(db_session).process(
-            MagicMock(), _make_event()
-        )
+        SourceProcessorService(db_session).process(MagicMock(), _make_event())
 
     extract.assert_not_called()
     assert publish.call_args.kwargs["title"] == "RSS title"
@@ -552,7 +536,7 @@ def test_save_without_id_does_not_publish() -> None:
     service = SourceProcessorService(MagicMock())
     service._repo = MagicMock()
     service._repo.get_by_guids.return_value = []
-    service._repo.save.return_value = None
+    service._repo.create_post.return_value = None
     with (
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"

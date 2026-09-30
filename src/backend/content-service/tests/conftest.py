@@ -1,4 +1,7 @@
+import os
 from typing import Any, Generator
+
+os.environ["SENTRY_DSN"] = ""
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -28,9 +31,7 @@ def _session_factory(engine):
 
 
 @pytest.fixture()
-def db_session(
-    engine, _session_factory
-) -> Generator[Session, None, None]:
+def db_session(engine, _session_factory) -> Generator[Session, None, None]:
     connection = engine.connect()
     transaction = connection.begin()
     session = _session_factory(bind=connection)

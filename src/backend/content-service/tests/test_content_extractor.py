@@ -15,9 +15,7 @@ from src.config.settings import Settings, settings
 @pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan")])
 def test_article_timeout_must_be_positive(timeout: float) -> None:
     with pytest.raises(ValidationError):
-        Settings(
-            _env_file=None, article_request_timeout_seconds=timeout
-        )
+        Settings(_env_file=None, article_request_timeout_seconds=timeout)
 
 
 @pytest.mark.parametrize(
@@ -47,9 +45,7 @@ def test_article_url_trims_whitespace_and_preserves_punctuation(
     ],
 )
 def test_invalid_article_url_never_starts_download(url: str) -> None:
-    with patch(
-        "src.adapters.content_extractor._MetadataArticle"
-    ) as article:
+    with patch("src.adapters.content_extractor._MetadataArticle") as article:
         result = extract_article(url)
 
     article.assert_not_called()
@@ -60,9 +56,7 @@ def test_invalid_link_log_escapes_controls_and_omits_query_values(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     normalize_article_url("https://example.com/a\nb?secret=value")
-    normalize_article_url(
-        "https://user:password@example.com/?secret=value"
-    )
+    normalize_article_url("https://user:password@example.com/?secret=value")
 
     assert "a\\nb" in caplog.text
     assert "secret" not in caplog.text
@@ -125,9 +119,7 @@ def test_download_failure_logs_compact_outcome_without_response_or_url(
                 else "<html>secret-response-body</html>"
             )
             download.return_value = (html, 502, [])
-        result = extract_article(
-            "https://example.com/article?secret=value"
-        )
+        result = extract_article("https://example.com/article?secret=value")
 
     assert result["outcome"] == "failed"
     assert result["error"] == "ArticleException"

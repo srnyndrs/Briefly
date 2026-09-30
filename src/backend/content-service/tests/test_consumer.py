@@ -36,7 +36,7 @@ def test_feed_consumer_safe_stop_consuming_closes_channels() -> None:
     mock_conn.close.assert_called_once()
 
 
-@patch("src.adapters.feed_consumer.pika.BlockingConnection")
+@patch("src.adapters.feed_consumer.BlockingConnection")
 def test_consumer_startup_declares_both_exchanges_before_consuming(
     mock_connection_cls: MagicMock,
 ) -> None:
@@ -88,7 +88,7 @@ def test_consumer_startup_declares_both_exchanges_before_consuming(
     )
     assert (
         mock_connection_cls.call_args.args[0].blocked_connection_timeout
-        == 15
+        == settings.blocked_timeout_seconds
     )
     mock_conn.close.assert_called_once()
 
@@ -118,19 +118,13 @@ def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
     order: list[str] = []
     with (
         patch("src.adapters.feed_consumer.SessionLocal") as session,
-        patch(
-            "src.adapters.feed_consumer.SourceProcessorService"
-        ) as service,
+        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
     ):
-        service.return_value.process.side_effect = (
-            lambda *args, **kwargs: order.append("process")
+        service.return_value.process.side_effect = lambda *args, **kwargs: (
+            order.append("process")
         )
-        session.return_value.close.side_effect = lambda: order.append(
-            "close"
-        )
-        channel.basic_ack.side_effect = lambda **kwargs: order.append(
-            "ack"
-        )
+        session.return_value.close.side_effect = lambda: order.append("close")
+        channel.basic_ack.side_effect = lambda **kwargs: order.append("ack")
         consumer._on_message(
             channel,
             method,
@@ -153,18 +147,14 @@ def test_invalid_message_is_rejected_without_requeue() -> None:
             channel, MagicMock(delivery_tag=7), None, b"not JSON"
         )
     channel.basic_ack.assert_not_called()
-    channel.basic_nack.assert_called_once_with(
-        delivery_tag=7, requeue=False
-    )
+    channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
 
 
 def test_processing_failure_is_rejected_without_ack() -> None:
     channel = MagicMock(is_open=True)
     with (
         patch("src.adapters.feed_consumer.SessionLocal") as session,
-        patch(
-            "src.adapters.feed_consumer.SourceProcessorService"
-        ) as service,
+        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
     ):
         service.return_value.process.side_effect = RuntimeError(
             "Database unavailable"
@@ -177,20 +167,14 @@ def test_processing_failure_is_rejected_without_ack() -> None:
         )
         session.return_value.close.assert_called_once()
     channel.basic_ack.assert_not_called()
-    channel.basic_nack.assert_called_once_with(
-        delivery_tag=7, requeue=False
-    )
+    channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
 
 
-def test_closed_channel_failure_propagates_for_broker_redelivery() -> (
-    None
-):
+def test_closed_channel_failure_propagates_for_broker_redelivery() -> None:
     channel = MagicMock(is_open=False)
     with (
         patch("src.adapters.feed_consumer.SessionLocal"),
-        patch(
-            "src.adapters.feed_consumer.SourceProcessorService"
-        ) as service,
+        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
     ):
         service.return_value.process.side_effect = RuntimeError(
             "Channel closed"

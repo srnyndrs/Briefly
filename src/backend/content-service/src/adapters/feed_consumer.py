@@ -5,7 +5,10 @@ import time
 from typing import Any
 
 import pika
-from pika.adapters.blocking_connection import BlockingConnection, BlockingChannel
+from pika.adapters.blocking_connection import (
+    BlockingConnection,
+    BlockingChannel,
+)
 from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 
 from src.config.database import SessionLocal
@@ -77,19 +80,13 @@ class FeedConsumer:
                 exchange_type="direct",
                 durable=True,
             )
-            self._channel.queue_declare(
-                queue=settings.feed_dlq,
-                durable=True
-            )
+            self._channel.queue_declare(queue=settings.feed_dlq, durable=True)
             self._channel.queue_bind(
                 queue=settings.feed_dlq,
                 exchange=settings.failed_exchange,
                 routing_key="feed.failed",
             )
-            self._channel.queue_declare(
-                queue=settings.feed_queue,
-                durable=True
-            )
+            self._channel.queue_declare(queue=settings.feed_queue, durable=True)
             self._channel.queue_bind(
                 queue=settings.feed_queue,
                 exchange=settings.feed_exchange,
@@ -97,9 +94,7 @@ class FeedConsumer:
             )
             self._channel.confirm_delivery()
 
-            logger.info(
-                "Waiting for messages on '%s'...", settings.feed_queue
-            )
+            logger.info("Waiting for messages on '%s'...", settings.feed_queue)
             self._channel.basic_consume(
                 queue=settings.feed_queue,
                 on_message_callback=self._on_message,

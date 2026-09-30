@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -17,18 +18,11 @@ def get_post_repository(
     return PostRepository(db)
 
 
-@router.get("/count", response_model=PostCountResponse)
-def post_count(
-    repo: PostRepository = Depends(get_post_repository),
-) -> PostCountResponse:
-    return PostCountResponse(count=repo.count())
-
-
 @router.get("", response_model=list[PostResponse])
 def list_posts(
     limit: int = 20,
     skip: int = 0,
-    source_id: str | None = None,
+    source_id: UUID | None = None,
     language: str | None = None,
     category: str | None = None,
     published_from: datetime | None = None,
@@ -37,7 +31,7 @@ def list_posts(
     parsed_to: datetime | None = None,
     repo: PostRepository = Depends(get_post_repository),
 ) -> list[Post]:
-    return repo.list(
+    return repo.get_posts(
         limit=max(1, min(limit, 200)),
         skip=max(0, skip),
         source_id=source_id,
@@ -50,12 +44,20 @@ def list_posts(
     )
 
 
+@router.get("/count", response_model=PostCountResponse)
+def post_count(
+    repo: PostRepository = Depends(get_post_repository),
+) -> PostCountResponse:
+    return PostCountResponse(count=repo.get_posts_count())
+
+
 @router.get("/{post_id}", response_model=PostResponse)
 def get_post(
-    post_id: str,
+    post_id: UUID,
     repo: PostRepository = Depends(get_post_repository),
 ) -> Post:
-    post = repo.get_by_id(post_id)
+    post = repo.get_post_by_id(post_id)
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
+
     return post

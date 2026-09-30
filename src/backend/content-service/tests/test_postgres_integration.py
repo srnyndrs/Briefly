@@ -18,9 +18,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> (
-    None
-):
+def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> None:
     engine = create_engine(
         "postgresql://content_check:content_check@127.0.0.1:5433/content_check"
     )
@@ -30,16 +28,14 @@ def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> (
                 connection.scalar(text("SELECT current_database()"))
                 == "content_check"
             )
-            connection.execute(
-                text("CREATE SCHEMA IF NOT EXISTS content")
-            )
+            connection.execute(text("CREATE SCHEMA IF NOT EXISTS content"))
         Base.metadata.create_all(engine)
-        source_id = f"integration-{uuid.uuid4()}"
+        source_id = uuid.uuid4()
         event = {
             "event_type": "feed.raw_fetched.v1",
             "correlation_id": "postgres-check",
             "payload": {
-                "source_id": source_id,
+                "source_id": str(source_id),
                 "source_title": "Source",
                 "raw_xml": '<rss version="2.0"><channel><item><guid>item</guid><title>RSS title</title><link>https://example.com/original</link></item></channel></rss>',
             },
@@ -59,9 +55,9 @@ def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> (
             with Session(engine) as db, pytest.raises(RuntimeError):
                 SourceProcessorService(db).process(MagicMock(), event)
             with Session(engine) as db:
-                original = PostRepository(db).get_by_guids(
-                    source_id, ["item"]
-                )[0]
+                original = PostRepository(db).get_by_guids(source_id, ["item"])[
+                    0
+                ]
                 original_id = original.post_id
                 assert original.content == "Body"
             extract.reset_mock()
@@ -69,7 +65,7 @@ def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> (
             with Session(engine) as db:
                 SourceProcessorService(db).process(MagicMock(), event)
             extract.assert_not_called()
-            assert publish.call_args.kwargs["post_id"] == original_id
+            assert publish.call_args.kwargs["post_id"] == str(original_id)
             event["payload"]["raw_xml"] = (
                 event["payload"]["raw_xml"]
                 .replace("RSS title", "Updated RSS title")
@@ -78,20 +74,14 @@ def test_committed_upsert_and_feed_replay_reuse_original_post_id() -> (
             extract.return_value = {"error": "Blocked"}
             with Session(engine) as db:
                 SourceProcessorService(db).process(MagicMock(), event)
-            extract.assert_called_once_with(
-                "https://example.com/changed"
-            )
+            extract.assert_called_once_with("https://example.com/changed")
             with Session(engine) as db:
-                post = PostRepository(db).get_by_id(original_id)
+                post = PostRepository(db).get_post_by_id(original_id)
                 assert post.title == "Updated RSS title"
                 assert post.content == "Body"
                 assert post.url == "https://example.com/changed"
                 assert (
-                    len(
-                        PostRepository(db).get_by_guids(
-                            source_id, ["item"]
-                        )
-                    )
+                    len(PostRepository(db).get_by_guids(source_id, ["item"]))
                     == 1
                 )
     finally:

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -7,7 +8,7 @@ from src.repositories.post_repository import PostRepository
 
 def _make_post_data(**overrides) -> dict:
     return {
-        "source_id": "source-1",
+        "source_id": UUID("00000000-0000-0000-0000-000000000001"),
         "item_guid": "guid-1",
         "url": "https://example.com/1",
         "source_title": "Test Source",
@@ -31,24 +32,24 @@ def test_save_repeated_guid_with_changed_url_updates_persisted_post(
 ) -> None:
     repo = PostRepository(db_session)
     first_data = _make_post_data(
-        source_id="source-1",
+        source_id=UUID("00000000-0000-0000-0000-000000000001"),
         item_guid="guid-1",
         url="https://example.com/original-url",
         title="Original Title",
     )
-    first_id = repo.save(first_data)
+    first_id = repo.create_post(first_data)
     assert first_id is not None
 
     second_data = _make_post_data(
-        source_id="source-1",
+        source_id=UUID("00000000-0000-0000-0000-000000000001"),
         item_guid="guid-1",
         url="https://example.com/updated-url",
         title="Updated Title",
     )
-    second_id = repo.save(second_data)
+    second_id = repo.create_post(second_data)
 
     assert second_id == first_id
-    saved = repo.get_by_id(first_id)
+    saved = repo.get_post_by_id(first_id)
     assert saved is not None
     assert saved.url == "https://example.com/updated-url"
     assert saved.title == "Updated Title"
@@ -58,7 +59,7 @@ def test_list_filters_by_category_not_by_keyword(
     db_session: Session,
 ) -> None:
     repo = PostRepository(db_session)
-    repo.save(
+    repo.create_post(
         _make_post_data(
             item_guid="guid-category-match",
             url="https://example.com/item1",
@@ -66,7 +67,7 @@ def test_list_filters_by_category_not_by_keyword(
             keywords=["science", "computing"],
         )
     )
-    repo.save(
+    repo.create_post(
         _make_post_data(
             item_guid="guid-keyword-only-match",
             url="https://example.com/item2",
@@ -75,7 +76,7 @@ def test_list_filters_by_category_not_by_keyword(
         )
     )
 
-    results = repo.list(limit=10, skip=0, category="technology")
+    results = repo.get_posts(limit=10, skip=0, category="technology")
     result_guids = [post.item_guid for post in results]
 
     assert "guid-category-match" in result_guids
@@ -86,16 +87,20 @@ def test_get_by_guids_filters_by_source_and_requested_items(
     db_session: Session,
 ) -> None:
     repo = PostRepository(db_session)
-    repo.save(_make_post_data(item_guid="requested"))
-    repo.save(_make_post_data(item_guid="other-item"))
-    repo.save(
-        _make_post_data(source_id="source-2", item_guid="requested")
+    repo.create_post(_make_post_data(item_guid="requested"))
+    repo.create_post(_make_post_data(item_guid="other-item"))
+    repo.create_post(
+        _make_post_data(
+            source_id=UUID("00000000-0000-0000-0000-000000000002"),
+            item_guid="requested",
+        )
     )
 
     posts = repo.get_by_guids(
-        "source-1", ["requested", "requested", "missing"]
+        UUID("00000000-0000-0000-0000-000000000001"),
+        ["requested", "requested", "missing"],
     )
 
     assert len(posts) == 1
-    assert posts[0].source_id == "source-1"
+    assert posts[0].source_id == UUID("00000000-0000-0000-0000-000000000001")
     assert posts[0].item_guid == "requested"

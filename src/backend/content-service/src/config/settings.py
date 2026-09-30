@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -23,7 +24,9 @@ class Settings(BaseSettings):
     failed_exchange: str = "content.failed"
     feed_dlq: str = "feed.raw_fetched.v1.parser.dlq"
     blocked_timeout_seconds: int = 5
-    article_request_timeout_seconds: int = 5
+    article_request_timeout_seconds: float = Field(
+        default=5, gt=0, allow_inf_nan=False
+    )
 
     admin_token: str | None = None
 
