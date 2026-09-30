@@ -20,7 +20,7 @@ from src.schemas.api import (
     PostResponse,
 )
 from src.services.auth import CurrentAdminUser, CurrentUser
-from src.services.feed_service import FeedService, GetPostInput
+from src.services.feed_service import FeedService
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
@@ -36,7 +36,7 @@ def get_post_by_id(
     service: FeedService = Depends(get_feed_service),
 ) -> PostResponse:
     _ = user
-    item = service.get_post(GetPostInput(post_id=post_id))
+    item = service.get_post(post_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Post not found")
     return to_post_response(item)

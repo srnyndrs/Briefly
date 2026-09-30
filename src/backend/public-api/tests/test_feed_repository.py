@@ -50,22 +50,16 @@ def test_filter_options_ignore_their_own_active_dimension():
     other_source = str(uuid4())
     session.add_all(
         [
-            _post(
-                category=" Technology ", language="en", source_id=source
-            ),
+            _post(category=" Technology ", language="en", source_id=source),
             _post(category="business", language="hu", source_id=source),
             _post(category=None, language="en", source_id=source),
-            _post(
-                category="sports", language="de", source_id=other_source
-            ),
+            _post(category="sports", language="de", source_id=other_source),
         ]
     )
     session.commit()
 
     category_options = repository.list_filter_options(
-        EffectiveFeedQuery(
-            source_ids=[source], categories=["technology"]
-        )
+        EffectiveFeedQuery(source_ids=[source], categories=["technology"])
     )
     language_options = repository.list_filter_options(
         EffectiveFeedQuery(source_ids=[source], languages=["en"])
@@ -93,9 +87,7 @@ def test_candidates_apply_exclusions_and_order_before_pagination():
     allowed = str(uuid4())
     blocked = str(uuid4())
     now = datetime.now(UTC)
-    visible = _post(
-        category="technology", language="en", source_id=allowed
-    )
+    visible = _post(category="technology", language="en", source_id=allowed)
     visible.published_at = now
     muted = _post(category="sports", language="en", source_id=allowed)
     blocked_post = _post(
@@ -150,9 +142,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
         keywords=["unverified-keyword"],
     )
     unverified_post.source_title = "Unverified Source"
-    session.add_all(
-        [verified_post, verified_other_post, unverified_post]
-    )
+    session.add_all([verified_post, verified_other_post, unverified_post])
     session.commit()
 
     query = EffectiveFeedQuery(
@@ -161,9 +151,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
         limit=20,
     )
     items, total = repository.list_candidates(query)
-    options = repository.list_filter_options(
-        query, include_sources=True
-    )
+    options = repository.list_filter_options(query, include_sources=True)
 
     assert [item.post_id for item in items] == [verified_post.post_id]
     assert total == 1
@@ -196,11 +184,11 @@ def test_personal_category_options_rank_normalized_categories():
         EffectiveFeedQuery(
             source_ids=[source],
             categories=["technology"],
-            excluded_post_ids=[posts[0].post_id],
+            excluded_post_ids=[posts[3].post_id],
         )
     )
 
-    assert options.categories == ["business", "technology", "world"]
+    assert options.categories == ["technology", "business"]
 
 
 def test_filter_options_normalize_authors_and_keywords_from_all_rows():

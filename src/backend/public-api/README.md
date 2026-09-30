@@ -79,6 +79,19 @@ For example:
 The disposable PostgreSQL search-index and query-plan verification is a
 deployment validation step; it must be rerun after rebuilding the local schema.
 
+## Testing approach
+
+The default suite runs locally without Docker. HTTP tests use FastAPI's
+`TestClient`, an in-memory SQLite database for query projections, and small
+stand-ins for calls to the owning services. Repository tests check feed query
+rules against stored posts. Projection tests check the two event snapshots;
+the projector test checks duplicate delivery acknowledgement.
+
+Add a test for an observable route, query, or event contract when behavior
+changes. Prefer one representative workflow per responsibility over separate
+tests for every input variant or internal helper call. Keep PostgreSQL and
+RabbitMQ smoke checks separate from the fast default suite.
+
 ## Development
 
 For an existing development database, remove the URL uniqueness constraint

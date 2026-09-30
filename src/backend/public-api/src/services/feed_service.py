@@ -49,17 +49,6 @@ class FeedOutput:
     headlines: list[PostDTO] | None = None
 
 
-@dataclass(frozen=True)
-class AdminFeedInput:
-    limit: int
-    offset: int
-
-
-@dataclass(frozen=True)
-class GetPostInput:
-    post_id: UUID
-
-
 class FeedService:
     HEADLINE_COUNT = 3
 
@@ -72,9 +61,7 @@ class FeedService:
         self._preferences_repository = preferences_repository
 
     def get_personal_feed(self, data: PersonalFeedInput) -> FeedOutput:
-        preferences = self._preferences_repository.get_preferences(
-            data.user_id
-        )
+        preferences = self._preferences_repository.get_preferences(data.user_id)
         subscriptions = account_list_subscriptions(str(data.user_id))
         source_ids = [str(item["source_id"]) for item in subscriptions]
         if not source_ids:
@@ -111,13 +98,9 @@ class FeedService:
             categories=[data.category] if data.category else None,
             excluded_post_ids=[post.post_id for post in headlines],
         )
-        items, total = self._post_repository.list_candidates(
-            content_query
-        )
+        items, total = self._post_repository.list_candidates(content_query)
         options = (
-            self._post_repository.list_personal_filter_options(
-                content_query
-            )
+            self._post_repository.list_personal_filter_options(content_query)
             if data.include_filter_options
             else None
         )
@@ -149,9 +132,7 @@ class FeedService:
             )
             return FeedOutput(items=[], total=0, filter_options=options)
 
-        preferences = self._preferences_repository.get_preferences(
-            data.user_id
-        )
+        preferences = self._preferences_repository.get_preferences(data.user_id)
         query = EffectiveFeedQuery(
             allowed_source_ids=allowed_source_ids,
             blocked_source_ids=preferences.blocked_source_ids,
@@ -173,9 +154,9 @@ class FeedService:
             include_source_options=True,
         )
 
-    def get_admin_feed(self, data: AdminFeedInput) -> FeedOutput:
+    def get_admin_feed(self, limit: int, offset: int) -> FeedOutput:
         return self._execute(
-            EffectiveFeedQuery(limit=data.limit, offset=data.offset),
+            EffectiveFeedQuery(limit=limit, offset=offset),
             False,
         )
 
@@ -201,5 +182,5 @@ class FeedService:
             filter_options=options,
         )
 
-    def get_post(self, data: GetPostInput) -> PostDTO | None:
-        return self._post_repository.get_post(data.post_id)
+    def get_post(self, post_id: UUID) -> PostDTO | None:
+        return self._post_repository.get_post(post_id)

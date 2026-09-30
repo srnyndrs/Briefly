@@ -45,9 +45,7 @@ def post_search_document(
         ),
         literal_column("'C'"),
     )
-    return title_vector.op("||")(description_vector).op("||")(
-        keywords_vector
-    )
+    return title_vector.op("||")(description_vector).op("||")(keywords_vector)
 
 
 class ProcessedEvent(Base):
@@ -66,17 +64,13 @@ class PostProjection(Base):
     source_id: Mapped[str] = mapped_column(
         String(64), nullable=False, index=True
     )
-    source_title: Mapped[str] = mapped_column(
-        String(255), nullable=False
-    )
+    source_title: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical_url: Mapped[str | None] = mapped_column(
         String(2048), nullable=True
     )
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    category: Mapped[str | None] = mapped_column(
-        String(128), nullable=True
-    )
+    category: Mapped[str | None] = mapped_column(String(128), nullable=True)
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
@@ -85,9 +79,7 @@ class PostProjection(Base):
         ARRAY(Text).with_variant(JSON, "sqlite"), default=list
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_ref: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
+    image_ref: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )

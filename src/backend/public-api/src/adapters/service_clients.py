@@ -75,9 +75,7 @@ def map_service_error(exc: ServiceClientError) -> HTTPException:
 
 
 def account_get_user(user_id: str) -> dict:
-    return _forward(
-        "GET", settings.account_service_url, f"/users/{user_id}"
-    )
+    return _forward("GET", settings.account_service_url, f"/users/{user_id}")
 
 
 def account_register(body: dict) -> dict:
@@ -125,9 +123,7 @@ def account_password_reset_confirm(body: dict) -> dict:
     )
 
 
-def account_logout(
-    body: dict, correlation_id: str | None = None
-) -> None:
+def account_logout(body: dict, correlation_id: str | None = None) -> None:
     _forward(
         "POST",
         settings.account_service_url,
@@ -203,9 +199,7 @@ def ingestion_create_source(body: dict) -> dict:
     )
 
 
-def ingestion_list_sources(
-    *, verified_only: bool = False
-) -> list[dict]:
+def ingestion_list_sources(*, verified_only: bool = False) -> list[dict]:
     params = {"verified_only": "true"} if verified_only else None
     result = _forward(
         "GET", settings.ingestion_service_url, "/sources", params=params

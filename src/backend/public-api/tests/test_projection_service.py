@@ -23,9 +23,7 @@ def test_project_post_persists_content() -> None:
         execution_options={"schema_translate_map": {"query": None}},
     )
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(
-        bind=engine, autoflush=False, autocommit=False
-    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     db = SessionLocal()
     try:
@@ -83,9 +81,7 @@ def test_project_post_replaces_snapshot_fields_on_update() -> None:
         execution_options={"schema_translate_map": {"query": None}},
     )
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(
-        bind=engine, autoflush=False, autocommit=False
-    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     db = SessionLocal()
     try:
@@ -153,9 +149,7 @@ def test_project_user_preferences() -> None:
         execution_options={"schema_translate_map": {"query": None}},
     )
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(
-        bind=engine, autoflush=False, autocommit=False
-    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     db = SessionLocal()
     try:
@@ -188,9 +182,7 @@ def test_project_user_preferences_updates_existing() -> None:
         execution_options={"schema_translate_map": {"query": None}},
     )
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(
-        bind=engine, autoflush=False, autocommit=False
-    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     db = SessionLocal()
     try:

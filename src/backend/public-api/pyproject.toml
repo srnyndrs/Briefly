@@ -1,7 +1,7 @@
 [project]
 name = "public-api"
 version = "0.1.0"
-description = "Public gateway API with JWT auth and query projections for Briefly"
+description = "Public gateway API with JWT auth and query projections"
 authors = [
     { name = "Andras Suranyi" }
 ]
@@ -17,7 +17,8 @@ dependencies = [
     "authlib (>=1.6.9,<2.0.0)",
     "pika (>=1.3.2,<2.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
-    "orjson (>=3.11.7,<4.0.0)"
+    "orjson (>=3.11.7,<4.0.0)",
+    "sentry-sdk[fastapi] (>=2.0,<3.0)"
 ]
 
 [dependency-groups]
@@ -41,7 +42,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 72
+line-length = 80
 
 [tool.ruff.format]
 quote-style = "double"

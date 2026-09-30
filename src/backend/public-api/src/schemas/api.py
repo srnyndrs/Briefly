@@ -155,9 +155,7 @@ class SourcePatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str | None = None
-    title: str | None = Field(
-        default=None, min_length=1, max_length=255
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     favicon: HttpUrl | None = Field(default=None, max_length=2048)
 
@@ -241,9 +239,7 @@ class PostListItemResponse(BaseModel):
     has_content: bool = False
 
     @field_serializer("published_at")
-    def serialize_published_at(
-        self, value: datetime | None
-    ) -> str | None:
+    def serialize_published_at(self, value: datetime | None) -> str | None:
         if value is None:
             return None
         if value.tzinfo is None:

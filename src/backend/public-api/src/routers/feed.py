@@ -20,7 +20,6 @@ from src.schemas.api import (
 )
 from src.services.auth import CurrentAdminUser, CurrentUser
 from src.services.feed_service import (
-    AdminFeedInput,
     ExploreFeedInput,
     FeedOutput,
     FeedService,
@@ -36,9 +35,7 @@ def _normalize_search_query(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     if not normalized:
-        raise HTTPException(
-            status_code=422, detail="query must not be blank"
-        )
+        raise HTTPException(status_code=422, detail="query must not be blank")
     terms = re.findall(r'"([^"]+)"|([^\s]+)', normalized)
     has_term = any(
         re.search(r"[^\W_]", phrase or word, flags=re.UNICODE)
@@ -52,13 +49,9 @@ def _normalize_search_query(value: str | None) -> str | None:
     return normalized
 
 
-def _response(
-    output: FeedOutput, page: int, page_size: int
-) -> FeedResponse:
+def _response(output: FeedOutput, page: int, page_size: int) -> FeedResponse:
     total_pages = (
-        (output.total + page_size - 1) // page_size
-        if output.total > 0
-        else 0
+        (output.total + page_size - 1) // page_size if output.total > 0 else 0
     )
     options = (
         FilterOptionsResponse(
@@ -81,9 +74,7 @@ def _response(
         else None
     )
     return FeedResponse(
-        items=[
-            to_post_list_item_response(item) for item in output.items
-        ],
+        items=[to_post_list_item_response(item) for item in output.items],
         total=output.total,
         page=page,
         page_count=total_pages,
@@ -99,10 +90,7 @@ def _personal_response(
     return PersonalFeedResponse(
         **response.model_dump(),
         headlines=(
-            [
-                to_post_list_item_response(item)
-                for item in output.headlines
-            ]
+            [to_post_list_item_response(item) for item in output.headlines]
             if output.headlines is not None
             else None
         ),
@@ -151,9 +139,7 @@ def get_explore(
     query: str | None = Query(default=None, max_length=200),
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
-    sort: str | None = Query(
-        default=None, pattern="^(freshness|oldest)$"
-    ),
+    sort: str | None = Query(default=None, pattern="^(freshness|oldest)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     include_filter_options: bool = False,
@@ -201,7 +187,5 @@ def get_general_feed(
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> FeedResponse:
     _ = admin_user
-    output = service.get_admin_feed(
-        AdminFeedInput(limit=page_size, offset=(page - 1) * page_size)
-    )
+    output = service.get_admin_feed(page_size, (page - 1) * page_size)
     return _response(output, page, page_size)

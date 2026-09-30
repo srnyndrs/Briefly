@@ -40,9 +40,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 def project_post(db: Session, payload: dict[str, Any]) -> None:
     """Project parsed post event into read model."""
     payload = payload or {}
-    source_id = _require_source_value(
-        payload.get("source_id"), "source_id"
-    )
+    source_id = _require_source_value(payload.get("source_id"), "source_id")
     source_title = _require_source_title(payload.get("source_title"))
     post_id = payload.get("post_id")
     if not post_id:
@@ -77,9 +75,7 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
     existing.published_at = published_at
 
 
-def project_user_preferences(
-    db: Session, payload: dict[str, Any]
-) -> None:
+def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
     """Project user preferences update event."""
     payload = payload or {}
     user_id = payload.get("user_id")
@@ -95,6 +91,4 @@ def project_user_preferences(
     prefs.muted_categories = payload.get("muted_categories") or []
     prefs.blocked_source_ids = payload.get("blocked_source_ids") or []
     prefs.languages = payload.get("languages") or []
-    prefs.updated_at = (
-        _parse_dt(payload.get("updated_at")) or prefs.updated_at
-    )
+    prefs.updated_at = _parse_dt(payload.get("updated_at")) or prefs.updated_at

@@ -12,10 +12,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "INFO"
     env: str = "production"
+    sentry_dsn: str = ""
 
-    database_url: str = (
-        "postgresql://postgres:postgres@localhost:5432/briefly"
-    )
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/briefly"
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     account_exchange: str = "account.events"
