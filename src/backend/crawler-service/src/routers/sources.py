@@ -1,4 +1,4 @@
-import uuid
+from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,13 +24,18 @@ from src.schemas.sources import (
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
+def get_source_repository(
+    db: Session = Depends(get_db),
+) -> SourceRepository:
+    return SourceRepository(db)
+
+
 @router.get("", response_model=list[SourceResponse])
 def list_sources(
     active_only: bool = False,
     verified_only: bool = False,
-    db: Session = Depends(get_db),
+    repository: SourceRepository = Depends(get_source_repository),
 ) -> list[SourceResponse]:
-    repository = SourceRepository(db)
     sources = (
         repository.get_active_sources(
             now=datetime.now(timezone.utc),
@@ -54,14 +59,13 @@ def discover_sources_endpoint(
 @router.post("", response_model=SourceResponse, status_code=201)
 def register_source(
     body: SourceCreateRequest,
-    db: Session = Depends(get_db),
+    repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
     try:
         final_url = normalize_feed_url(str(body.url))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    repository = SourceRepository(db)
     if repository.get_source_by_url(final_url) is not None:
         raise HTTPException(
             status_code=409, detail="Source URL already registered."
@@ -81,10 +85,9 @@ def register_source(
 
 @router.delete("/{source_id}", status_code=204)
 def delete_source(
-    source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    source_id: UUID,
+    repository: SourceRepository = Depends(get_source_repository),
 ) -> None:
-    repository = SourceRepository(db)
     deleted = repository.delete_source(source_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Source not found.")
@@ -92,10 +95,9 @@ def delete_source(
 
 @router.get("/{source_id}", response_model=SourceResponse)
 def get_source(
-    source_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    source_id: UUID,
+    repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
-    repository = SourceRepository(db)
     source = repository.get_source_by_id(source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
@@ -105,11 +107,10 @@ def get_source(
 
 @router.patch("/{source_id}", response_model=SourceResponse)
 def patch_source(
-    source_id: uuid.UUID,
+    source_id: UUID,
     body: SourcePatchRequest,
-    db: Session = Depends(get_db),
+    repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
-    repository = SourceRepository(db)
     current = repository.get_source_by_id(source_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Source not found.")

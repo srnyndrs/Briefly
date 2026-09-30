@@ -7,11 +7,11 @@
     "description": "Kíváncsi, korrekt, kritikus. Pontos és friss hírek a nap 24 órájában a politikától a kiscicákig. Riportok, interjúk, elemzések, tényfeltárások és szórakoztató apróságok egy helyen."
   },
   {
-      "url": "https://24.hu/feed/",
-      "title": "24.hu",
-      "content_type": "application/rss+xml",
-      "favicon": "https://s.24.hu/apple-touch-icon.png",
-      "description": "FRISS HÍREK, KÉPEK, VIDEÓK - Gyorsan és tömören. Belföldi és külföldi hírek. Közélet, üzlet, sport, kultúra, tudomány, technika, szórakozás, sztárvilág."
+    "url": "https://24.hu/feed/",
+    "title": "24.hu",
+    "content_type": "application/rss+xml",
+    "favicon": "https://s.24.hu/apple-touch-icon.png",
+    "description": "FRISS HÍREK, KÉPEK, VIDEÓK - Gyorsan és tömören. Belföldi és külföldi hírek. Közélet, üzlet, sport, kultúra, tudomány, technika, szórakozás, sztárvilág."
   },
   {
     "url": "https://444.hu/feed",

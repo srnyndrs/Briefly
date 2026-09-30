@@ -35,14 +35,17 @@ class SourceRepository:
             Source.next_crawl_scheduled_at <= now,
             Source.consecutive_failures < max_retries,
         )
+
         if verified_only:
             query = query.filter(Source.verified.is_(True))
 
-        return query.order_by(
+        query = query.order_by(
             Source.verified.desc(),
             Source.next_crawl_scheduled_at,
             Source.source_id,
-        ).all()
+        )
+
+        return query.all()
 
     def get_source_by_id(self, source_id: UUID) -> Source | None:
         return (

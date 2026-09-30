@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -51,7 +50,7 @@ class SourcePatchRequest(BaseModel):
 class SourceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    source_id: uuid.UUID
+    source_id: UUID
     url: str
     title: str
     description: str | None = None
