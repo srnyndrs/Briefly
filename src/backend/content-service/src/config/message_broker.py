@@ -1,20 +1,16 @@
 import logging
 
 import pika
-import pika.adapters.blocking_connection
+from pika.adapters.blocking_connection import BlockingChannel
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
-def create_replay_publisher_channel() -> (
-    pika.adapters.blocking_connection.BlockingChannel
-):
+def create_replay_publisher_channel() -> BlockingChannel:
     params = pika.URLParameters(settings.rabbitmq_url)
-    params.blocked_connection_timeout = (
-        settings.rabbitmq_blocked_timeout_seconds
-    )
+    params.blocked_connection_timeout = settings.blocked_timeout_seconds
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
 
@@ -25,8 +21,6 @@ def create_replay_publisher_channel() -> (
     )
     channel.confirm_delivery()
 
-    logger.info(
-        "RabbitMQ channel ready - exchange='%s'",
-        settings.parsed_exchange,
-    )
+    logger.info("RabbitMQ exchange='%s' ready", settings.parsed_exchange)
+
     return channel

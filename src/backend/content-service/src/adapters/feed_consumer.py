@@ -5,20 +5,20 @@ import time
 from typing import Any
 
 import pika
+from pika.adapters.blocking_connection import BlockingConnection, BlockingChannel
+from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 
 from src.config.database import SessionLocal
 from src.config.settings import settings
 from src.services.source_processor import SourceProcessorService
 
-logger = logging.getLogger("content-service.consumer")
+logger = logging.getLogger(__name__)
 
 
 class FeedConsumer:
     def __init__(self) -> None:
-        self._connection: pika.BlockingConnection | None = None
-        self._channel: (
-            pika.adapters.blocking_connection.BlockingChannel | None
-        ) = None
+        self._connection: BlockingConnection | None = None
+        self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
 
     def run(self) -> None:
@@ -56,10 +56,8 @@ class FeedConsumer:
 
     def _connect_and_consume(self) -> None:
         params = pika.URLParameters(settings.rabbitmq_url)
-        params.blocked_connection_timeout = (
-            settings.rabbitmq_blocked_timeout_seconds
-        )
-        self._connection = pika.BlockingConnection(params)
+        params.blocked_connection_timeout = settings.blocked_timeout_seconds
+        self._connection = BlockingConnection(params)
         try:
             self._channel = self._connection.channel()
             self._channel.basic_qos(prefetch_count=1)
@@ -80,7 +78,8 @@ class FeedConsumer:
                 durable=True,
             )
             self._channel.queue_declare(
-                queue=settings.feed_dlq, durable=True
+                queue=settings.feed_dlq,
+                durable=True
             )
             self._channel.queue_bind(
                 queue=settings.feed_dlq,
@@ -88,7 +87,8 @@ class FeedConsumer:
                 routing_key="feed.failed",
             )
             self._channel.queue_declare(
-                queue=settings.feed_queue, durable=True
+                queue=settings.feed_queue,
+                durable=True
             )
             self._channel.queue_bind(
                 queue=settings.feed_queue,
@@ -111,9 +111,7 @@ class FeedConsumer:
 
     def _service_connection(self) -> None:
         if self._connection is None or not self._connection.is_open:
-            raise pika.exceptions.ConnectionWrongStateError(
-                "Consumer connection is closed"
-            )
+            raise ConnectionWrongStateError("Consumer connection is closed")
         self._connection.process_data_events(time_limit=0)
 
     def _on_message(
@@ -135,10 +133,6 @@ class FeedConsumer:
                 method.delivery_tag,
                 type(exc).__name__,
             )
-            if not ch.is_open or isinstance(
-                exc, pika.exceptions.AMQPConnectionError
-            ):
+            if not ch.is_open or isinstance(exc, AMQPConnectionError):
                 raise
-            ch.basic_nack(
-                delivery_tag=method.delivery_tag, requeue=False
-            )
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

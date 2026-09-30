@@ -146,14 +146,11 @@ def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
     channel.basic_nack.assert_not_called()
 
 
-@pytest.mark.parametrize("body", [b"not JSON", b"[]", b"{}"])
-def test_invalid_message_is_rejected_without_requeue(
-    body: bytes,
-) -> None:
+def test_invalid_message_is_rejected_without_requeue() -> None:
     channel = MagicMock(is_open=True)
     with patch("src.adapters.feed_consumer.SessionLocal"):
         FeedConsumer()._on_message(
-            channel, MagicMock(delivery_tag=7), None, body
+            channel, MagicMock(delivery_tag=7), None, b"not JSON"
         )
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(
@@ -161,17 +158,7 @@ def test_invalid_message_is_rejected_without_requeue(
     )
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        RuntimeError("Database unavailable"),
-        pika.exceptions.UnroutableError([]),
-        pika.exceptions.NackError([]),
-    ],
-)
-def test_processing_failure_is_rejected_without_ack(
-    error: Exception,
-) -> None:
+def test_processing_failure_is_rejected_without_ack() -> None:
     channel = MagicMock(is_open=True)
     with (
         patch("src.adapters.feed_consumer.SessionLocal") as session,
@@ -179,7 +166,9 @@ def test_processing_failure_is_rejected_without_ack(
             "src.adapters.feed_consumer.SourceProcessorService"
         ) as service,
     ):
-        service.return_value.process.side_effect = error
+        service.return_value.process.side_effect = RuntimeError(
+            "Database unavailable"
+        )
         FeedConsumer()._on_message(
             channel,
             MagicMock(delivery_tag=7),

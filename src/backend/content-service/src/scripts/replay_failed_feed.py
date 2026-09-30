@@ -51,7 +51,7 @@ def main() -> int:
     args = parser.parse_args()
     params = pika.URLParameters(settings.rabbitmq_url)
     params.blocked_connection_timeout = (
-        settings.rabbitmq_blocked_timeout_seconds
+        settings.blocked_timeout_seconds
     )
     with pika.BlockingConnection(params) as connection:
         channel = connection.channel()

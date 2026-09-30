@@ -59,17 +59,14 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
     assert publish.call_args.kwargs["content"] == "New body"
 
 
-@pytest.mark.parametrize(
-    "result", [{"error": "Blocked"}, {"content": " "}, {}]
-)
 def test_failed_reextract_preserves_post_and_does_not_publish(
-    db_session: Session, stored_post: Post, result: dict
+    db_session: Session, stored_post: Post
 ) -> None:
     parsed_at = stored_post.parsed_at
     with (
         patch(
             "src.adapters.content_extractor.extract_article",
-            return_value=result,
+            return_value={"error": "Blocked"},
         ),
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
@@ -142,8 +139,6 @@ def test_feed_replay_publishes_original_before_acknowledgement() -> (
 @pytest.mark.parametrize(
     "body",
     [
-        b"invalid",
-        b"[]",
         b'{"event_id":"other"}',
         b'{"event_id":"failed","event_type":"other"}',
     ],

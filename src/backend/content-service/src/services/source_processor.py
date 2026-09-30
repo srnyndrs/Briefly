@@ -423,7 +423,6 @@ def _publish_success_events(
         correlation_id=correlation_id,
         category=data["category"],
         content=data["content"],
-        content_length=len(data["content"] or ""),
         description=data.get("description"),
         published_at=data["published_at"].isoformat()
         if data["published_at"]

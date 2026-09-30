@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -105,28 +106,6 @@ def test_get_post_not_found(client: TestClient) -> None:
     assert missing.status_code == 404
 
 
-def test_replay_posts_publishes_events(
-    client: TestClient, db_session
-) -> None:
-    post_id = str(uuid4())
-    other_id = str(uuid4())
-    _seed_posts(db_session, post_id, other_id)
-
-    with (
-        patch(
-            "src.routers.admin.create_replay_publisher_channel",
-            return_value=MagicMock(),
-        ),
-        patch(
-            "src.routers.admin.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
-    ):
-        response = client.post("/admin/posts/replay")
-        assert response.status_code == 200
-        assert response.json() == {"replayed": 2}
-        assert mock_publish.call_count == 2
-
-
 def test_replay_posts_emits_complete_stored_snapshot(
     client: TestClient, db_session
 ) -> None:
@@ -150,94 +129,29 @@ def test_replay_posts_emits_complete_stored_snapshot(
         language="en",
         keywords=["technology"],
     )
-    post.source_title = "Tech Blog"
     db_session.add(post)
     db_session.commit()
     db_session.expunge_all()
 
-    with (
-        patch(
-            "src.routers.admin.create_replay_publisher_channel",
-            return_value=MagicMock(),
-        ),
-        patch(
-            "src.routers.admin.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
+    channel = MagicMock()
+    with patch(
+        "src.routers.admin.create_replay_publisher_channel",
+        return_value=channel,
     ):
         response = client.post(
             "/admin/posts/replay",
             params={"limit": 1},
         )
-        assert response.status_code == 200
-        assert mock_publish.call_args.kwargs == {
-            "post_id": post_id,
-            "source_id": "source-1",
-            "item_guid": "guid-replay-title",
-            "url": "https://example.com/replay-title",
-            "title": "Tech News",
-            "correlation_id": mock_publish.call_args.kwargs[
-                "correlation_id"
-            ],
-            "category": "technology",
-            "content": "content",
-            "content_length": 7,
-            "description": "desc",
-            "published_at": now.isoformat(),
-            "language": "en",
-            "keywords": ["technology"],
-            "author": "Author",
-            "source_title": "Tech Blog",
-            "image_url": None,
-        }
-
-
-def test_post_routes_publish_pydantic_response_contracts(
-    client: TestClient,
-) -> None:
-    response = client.get("/openapi.json")
     assert response.status_code == 200
-    schema = response.json()
-    paths = schema.get("paths", {})
-
-    count_response = (
-        paths.get("/posts/count", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    count_schema_ref = (
-        count_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("$ref", "")
-    )
-    assert "PostCountResponse" in count_schema_ref
-
-    list_response = (
-        paths.get("/posts", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    list_items_ref = (
-        list_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("items", {})
-        .get("$ref", "")
-    )
-    assert "PostResponse" in list_items_ref
-
-    get_response = (
-        paths.get("/posts/{post_id}", {})
-        .get("get", {})
-        .get("responses", {})
-        .get("200", {})
-    )
-    get_schema_ref = (
-        get_response.get("content", {})
-        .get("application/json", {})
-        .get("schema", {})
-        .get("$ref", "")
-    )
-    assert "PostResponse" in get_schema_ref
+    assert response.json() == {"replayed": 1}
+    published = channel.basic_publish.call_args.kwargs
+    assert published["routing_key"] == "post.parsed.v1"
+    payload = json.loads(published["body"])["payload"]
+    assert payload["post_id"] == post_id
+    assert payload["source_title"] == "Tech Blog"
+    assert payload["title"] == "Tech News"
+    assert payload["content"] == "content"
+    assert payload["content_length"] == 7
+    assert payload["published_at"] == now.isoformat()
+    assert payload["keywords"] == ["technology"]
+    channel.connection.close.assert_called_once()

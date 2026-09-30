@@ -20,7 +20,8 @@ services:
   rabbitmq:
     # 'management' variant ships with the web UI at http://localhost:15672
     # Default credentials: guest / guest
-    image: rabbitmq:3-management-alpine
+    build:
+      context: ./scripts/rabbitmq
     restart: unless-stopped
     ports:
       - "5672:5672"    # AMQP

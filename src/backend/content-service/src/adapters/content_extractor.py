@@ -12,24 +12,16 @@ logger = logging.getLogger(__name__)
 
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
-_IMAGE_METADATA_ATTRIBUTES = {
-    "property": ("og:image", "og:image:url", "twitter:image"),
-    "name": ("twitter:image",),
-}
-
-
-def _image_metadata_xpath() -> str:
-    selectors = [
-        f"@{attribute}='{value}'"
-        for attribute, values in _IMAGE_METADATA_ATTRIBUTES.items()
-        for value in values
-    ]
-    return f"//meta[{' or '.join(selectors)}]/@content"
+_IMAGE_METADATA_XPATH = (
+    "//meta[@property='og:image' or @property='og:image:url' "
+    "or @property='twitter:image' or @name='twitter:image']"
+    "/@content"
+)
 
 
 class _MetadataArticle(Article):
     def fetch_images(self) -> None:
-        images = self.doc.xpath(_image_metadata_xpath())
+        images = self.doc.xpath(_IMAGE_METADATA_XPATH)
         image = next(
             (value.strip() for value in images if value.strip()), None
         )
@@ -81,8 +73,10 @@ def normalize_html_text(text: str) -> str:
         ]
     ):
         block.append("\n")
+
     cleaned = soup.get_text()
     lines = [line.strip() for line in cleaned.splitlines()]
+
     return "\n".join([line for line in lines if line])
 
 
@@ -90,11 +84,13 @@ def extract_article(url: str) -> dict[str, Any]:
     normalized_url = normalize_article_url(url)
     if normalized_url is None:
         return {"error": "invalid_url", "outcome": "invalid_url"}
+
     url = normalized_url
     started = perf_counter()
     host = urlsplit(url).hostname
     outcome = "failed"
     error_type = None
+
     try:
         config = Config()
         config.request_timeout = (

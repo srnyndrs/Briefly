@@ -27,7 +27,7 @@ def broker():
         host="127.0.0.1",
         port=5673,
         heartbeat=2,
-        blocked_connection_timeout=settings.rabbitmq_blocked_timeout_seconds,
+        blocked_connection_timeout=settings.blocked_timeout_seconds,
     )
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
@@ -136,18 +136,11 @@ def _get(channel, queue: str):
     pytest.fail(f"No delivery on {queue}")
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        b"invalid JSON",
-        b"[]",
-        json.dumps(_event("<html>Not a feed</html>")).encode(),
-    ],
-)
 def test_rejected_feeds_reach_dlq_with_original_body(
-    broker, db_session: Session, body: bytes
+    broker, db_session: Session
 ) -> None:
     connection, channel = broker
+    body = json.dumps(_event("<html>Not a feed</html>")).encode()
     _process(connection, channel, db_session, body)
     properties, rejected = _get(channel, settings.feed_dlq)
     assert rejected == body

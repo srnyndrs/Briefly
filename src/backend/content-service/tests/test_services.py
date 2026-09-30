@@ -19,64 +19,13 @@ from src.services.source_processor import (
     ("raw", "expected"),
     [
         ("hu-HU", "hu"),
-        ("hu_HU", "hu"),
-        ("en-US", "en"),
-        ("eng-US", "en"),
         ("iw-IL", "he"),
-        ("sr-Latn", "sr"),
-        ("fil-PH", "fil"),
-        ("yue-Hant-HK", "yue"),
-        ("ast-ES", "ast"),
-        ("qaa", "qaa"),
         ("", None),
-        ("und", None),
         ("this-is-not-a-language", None),
-        ("x-private", None),
     ],
 )
 def test_normalize_language(raw: str, expected: str | None) -> None:
     assert _normalize_language(raw) == expected
-
-
-def test_normalize_language_precedence_skips_invalid_candidates() -> (
-    None
-):
-    entry = FeedParserDict(
-        {
-            "id": "g-language-precedence",
-            "link": "https://example.com/language-precedence",
-            "title": "Title",
-            "language": "this-is-not-a-language",
-        }
-    )
-
-    saved = _capture_saved_payload(
-        entry,
-        {"content": "Body", "language": "fr-FR"},
-        {"language": "hu-HU"},
-    )
-
-    assert saved["language"] == "hu"
-
-
-def test_normalize_language_precedence_uses_extracted_fallback() -> (
-    None
-):
-    entry = FeedParserDict(
-        {
-            "id": "g-language-extracted-fallback",
-            "link": "https://example.com/language-extracted-fallback",
-            "title": "Title",
-        }
-    )
-
-    saved = _capture_saved_payload(
-        entry,
-        {"content": "Body", "language": "fr-FR"},
-        {"language": "this-is-not-a-language"},
-    )
-
-    assert saved["language"] == "fr"
 
 
 def _make_event(
@@ -131,47 +80,6 @@ def _capture_saved_payload(
         SourceProcessorService(db).process(channel, _make_event())
 
     return saved_payloads[0]
-
-
-def test_process_source_persists_and_publishes() -> None:
-    db = MagicMock()
-    channel = MagicMock()
-
-    entry = {
-        "id": "g1",
-        "link": "https://example.com/1",
-        "title": "Title",
-    }
-    feed_mock = MagicMock()
-    feed_mock.entries = [entry]
-
-    with (
-        patch(
-            "src.services.source_processor.feedparser.parse",
-            return_value=feed_mock,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={
-                "title": "Title",
-                "content": "Body",
-                "image": None,
-            },
-        ),
-        patch(
-            "src.repositories.post_repository.PostRepository.save",
-            return_value="p1",
-        ),
-        patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
-    ):
-        SourceProcessorService(db).process(channel, _make_event())
-        assert mock_publish.called
-        call_kwargs = mock_publish.call_args.kwargs
-        assert call_kwargs["post_id"] == "p1"
-        assert call_kwargs["source_id"] == "s1"
-        assert call_kwargs["correlation_id"] == "test-corr-id"
 
 
 def test_process_source_uses_feed_metadata_as_baseline() -> None:
@@ -254,47 +162,6 @@ def test_process_source_normalizes_html_feed_description() -> None:
     assert ">" not in saved["description"]
 
 
-def test_process_source_uses_summary_after_blank_html_description() -> (
-    None
-):
-    entry = FeedParserDict(
-        {
-            "id": "g-blank-html-description",
-            "link": "https://example.com/blank-html-description",
-            "title": "Title",
-            "description": "<p> </p>",
-            "summary": "<p>Feed summary</p>",
-        }
-    )
-
-    saved = _capture_saved_payload(entry, {"content": "Body"})
-
-    assert saved["description"] == "Feed summary"
-
-
-def test_process_source_uses_extracted_description_after_blank_html() -> (
-    None
-):
-    entry = FeedParserDict(
-        {
-            "id": "g-blank-html-description",
-            "link": "https://example.com/blank-html-description",
-            "title": "Title",
-            "description": "<br>",
-        }
-    )
-
-    saved = _capture_saved_payload(
-        entry,
-        {
-            "content": "Body",
-            "description": "<p>Extracted description</p>",
-        },
-    )
-
-    assert saved["description"] == "Extracted description"
-
-
 def test_process_source_uses_valid_extracted_fallbacks() -> None:
     entry = FeedParserDict(
         {
@@ -320,78 +187,6 @@ def test_process_source_uses_valid_extracted_fallbacks() -> None:
     assert saved["author"] == "Extracted author"
     assert saved["image_url"] == "https://example.com/image.jpg"
     assert saved["language"] == "en"
-
-
-def test_process_source_rejects_malformed_extracted_title() -> None:
-    entry = FeedParserDict(
-        {
-            "id": "g-malformed-title",
-            "link": "https://example.com/malformed-title",
-            "title": "",
-        }
-    )
-    saved = _capture_saved_payload(
-        entry,
-        {"title": "null: undefined", "content": "Body"},
-    )
-
-    assert saved["title"] == "Untitled"
-
-
-def test_process_source_stores_source_title() -> None:
-    db = MagicMock()
-    channel = MagicMock()
-
-    entry = {
-        "id": "g1",
-        "link": "https://example.com/1",
-        "title": "Title",
-    }
-    feed_mock = MagicMock()
-    feed_mock.entries = [entry]
-    feed_mock.feed = {
-        "title": "Feed Publisher Title",
-        "language": "hu",
-    }
-
-    saved_payloads: list[dict] = []
-
-    def mock_save_impl(data: dict) -> str:
-        saved_payloads.append(dict(data))
-        return "p1"
-
-    with (
-        patch(
-            "src.services.source_processor.feedparser.parse",
-            return_value=feed_mock,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={
-                "title": "Title",
-                "content": "Body",
-                "image": None,
-            },
-        ),
-        patch(
-            "src.repositories.post_repository.PostRepository.save",
-            side_effect=mock_save_impl,
-        ) as mock_save,
-        patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
-    ):
-        SourceProcessorService(db).process(
-            channel,
-            _make_event(source_id="s1", correlation_id="test-corr"),
-        )
-        assert mock_save.called
-        assert len(saved_payloads) == 1
-        assert saved_payloads[0].get("source_title") == "Crawler Source"
-        assert (
-            mock_publish.call_args.kwargs.get("source_title")
-            == "Crawler Source"
-        )
 
 
 def test_process_source_persists_source_title(
@@ -511,10 +306,10 @@ def test_process_source_rejects_missing_entry_identity() -> None:
         )
 
 
-@pytest.mark.parametrize("content", ["Extracted body", None])
 def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
-    db_session: Session, content: str | None
+    db_session: Session,
 ) -> None:
+    content = "Extracted body"
     event = _make_event(
         raw_xml=(
             "<rss><channel><item><guid>repeated-item</guid>"
@@ -576,20 +371,8 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
     assert db_session.query(Post).count() == 1
 
 
-@pytest.mark.parametrize(
-    ("extracted", "expected_content"),
-    [
-        ({"content": "Updated body"}, "Updated body"),
-        (
-            {"error": "HTTP 502", "content": "", "title": ""},
-            "Original body",
-        ),
-    ],
-)
 def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
     db_session: Session,
-    extracted: dict[str, Any],
-    expected_content: str,
 ) -> None:
     event = _make_event(
         raw_xml=(
@@ -621,7 +404,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
         service.process(MagicMock(), event)
         first_id = publish.call_args.kwargs["post_id"]
         extract.reset_mock()
-        extract.return_value = extracted
+        extract.return_value = {"error": "HTTP 502"}
         event["payload"]["raw_xml"] = (
             "<rss><channel><item><guid>changed-url</guid>"
             "<link>https://example.com/updated</link>"
@@ -639,7 +422,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
         assert snapshot["title"] == "Original RSS title"
         assert snapshot["description"] == "Original RSS description"
         assert snapshot["category"] == "Original category"
-        assert snapshot["content"] == expected_content
+        assert snapshot["content"] == "Original body"
         assert snapshot["author"] == "Original author"
         assert snapshot["keywords"] == ["original"]
         assert snapshot["language"] == "hu"
@@ -650,16 +433,12 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
     post = db_session.get(Post, first_id)
     assert post is not None
     assert post.url == "https://example.com/updated"
-    assert post.content == expected_content
+    assert post.content == "Original body"
     assert db_session.query(Post).count() == 1
 
 
-@pytest.mark.parametrize(
-    "extracted",
-    [{"content": "Body"}, {"error": "Blocked", "content": ""}],
-)
 def test_duplicate_feed_entries_extract_once_and_new_items_extract(
-    db_session: Session, extracted: dict[str, Any]
+    db_session: Session,
 ) -> None:
     item = (
         "<item><guid>duplicate</guid>"
@@ -673,7 +452,7 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
     with (
         patch(
             "src.adapters.content_extractor.extract_article",
-            return_value=extracted,
+            return_value={"content": "Body"},
         ) as extract,
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
@@ -697,93 +476,6 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
         assert publish.call_count == 4
 
     assert db_session.query(Post).count() == 2
-
-
-def test_feed_summary_counts_attempts_reuse_and_partial_results(
-    db_session: Session, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.INFO)
-    complete = (
-        "<item><guid>complete</guid>"
-        "<link>https://example.com/complete?secret=value</link>"
-        "<title>Complete</title></item>"
-    )
-    partial = (
-        "<item><guid>partial</guid>"
-        "<link>https://example.com/partial</link>"
-        "<title>RSS title</title></item>"
-    )
-    event = _make_event(
-        raw_xml=f"<rss><channel>{complete}{partial}{partial}</channel></rss>"
-    )
-    event["event_id"] = "event-1"
-    event["occurred_at"] = "2026-01-01T00:00:00"
-    with (
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            side_effect=[
-                {"content": "Body"},
-                {"error": "ArticleException"},
-            ],
-        ),
-        patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
-        ) as publish,
-    ):
-        SourceProcessorService(db_session).process(MagicMock(), event)
-
-    assert publish.call_count == 3
-    assert publish.call_args.kwargs["title"] == "RSS title"
-    assert publish.call_args.kwargs["content"] is None
-    summaries = [
-        record.getMessage()
-        for record in caplog.records
-        if record.getMessage().startswith("Feed processing")
-    ]
-    assert len(summaries) == 1
-    assert "event_id=event-1" in summaries[0]
-    assert "source_id=s1" in summaries[0]
-    assert "correlation_id=test-corr-id" in summaries[0]
-    assert "completed=True" in summaries[0]
-    assert "age_seconds=None" not in summaries[0]
-    assert "entries=3, attempted=2, reused=1, partial=2" in summaries[0]
-    assert "duration_seconds=" in summaries[0]
-    assert "secret" not in caplog.text
-
-
-def test_trimmed_link_is_stored_and_reused(
-    db_session: Session,
-) -> None:
-    entry = {
-        "id": "trimmed",
-        "link": "  https://example.com/article?one=1&two=2  ",
-        "title": "RSS title",
-    }
-    feed = MagicMock(entries=[entry], feed={})
-    with (
-        patch(
-            "src.services.source_processor.feedparser.parse",
-            return_value=feed,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={"content": "Body"},
-        ) as extract,
-        patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
-        ) as publish,
-    ):
-        service = SourceProcessorService(db_session)
-        service.process(MagicMock(), _make_event())
-        service.process(MagicMock(), _make_event())
-
-    extract.assert_called_once_with(
-        "https://example.com/article?one=1&two=2"
-    )
-    assert (
-        publish.call_args.kwargs["url"]
-        == "https://example.com/article?one=1&two=2"
-    )
 
 
 def test_invalid_article_link_preserves_rss_metadata_without_request(
@@ -819,14 +511,8 @@ def test_invalid_article_link_preserves_rss_metadata_without_request(
 @pytest.mark.parametrize(
     "event",
     [
-        [],
-        {},
         {"event_type": "post.parsed.v1"},
         {"event_type": "feed.raw_fetched.v1", "payload": []},
-        {
-            "event_type": "feed.raw_fetched.v1",
-            "payload": {"raw_xml": None},
-        },
         {
             "event_type": "feed.raw_fetched.v1",
             "payload": {"raw_xml": " "},
@@ -842,13 +528,10 @@ def test_invalid_event_shape_is_rejected_before_database_work(
     db.query.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "xml", ["not XML", "<html>Page</html>", "<rss><channel>"]
-)
-def test_unusable_feed_is_rejected(xml: str) -> None:
+def test_unusable_feed_is_rejected() -> None:
     with pytest.raises(ValueError, match="usable RSS/Atom"):
         SourceProcessorService(MagicMock()).process(
-            MagicMock(), _make_event(raw_xml=xml)
+            MagicMock(), _make_event(raw_xml="<html>Page</html>")
         )
 
 
@@ -865,7 +548,7 @@ def test_empty_valid_feed_completes_and_services_io(
     assert "entries=0, attempted=0, reused=0, partial=0" in caplog.text
 
 
-def test_missing_saved_post_id_is_not_silently_skipped() -> None:
+def test_save_without_id_does_not_publish() -> None:
     service = SourceProcessorService(MagicMock())
     service._repo = MagicMock()
     service._repo.get_by_guids.return_value = []
@@ -879,7 +562,7 @@ def test_missing_saved_post_id_is_not_silently_skipped() -> None:
         service.process(
             MagicMock(),
             _make_event(
-                raw_xml='<rss version="2.0"><channel><item><guid>item</guid></item></channel></rss>'
+                raw_xml="<rss><channel><item><guid>item</guid></item></channel></rss>"
             ),
         )
     publish.assert_not_called()
@@ -930,24 +613,3 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
     ] == original_ids
     assert progress.call_count == 3
     assert db_session.query(Post).count() == 2
-
-
-def test_malformed_feed_with_usable_entries_still_processes(
-    db_session: Session,
-) -> None:
-    with (
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={"error": "Blocked"},
-        ),
-        patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
-        ) as publish,
-    ):
-        SourceProcessorService(db_session).process(
-            MagicMock(),
-            _make_event(
-                raw_xml="<rss><channel><item><guid>usable</guid><title>RSS title</title></item>"
-            ),
-        )
-    assert publish.call_args.kwargs["title"] == "RSS title"

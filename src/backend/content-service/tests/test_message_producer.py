@@ -22,7 +22,6 @@ def test_publish_post_parsed_success_emits_content_body() -> None:
         source_title="Test Source",
         correlation_id="corr-123",
         content="Full body",
-        content_length=9,
         description="A short description",
         published_at="2026-05-05T00:00:00+00:00",
         author="Example Author",
@@ -60,11 +59,11 @@ def test_publish_post_parsed_success_includes_complete_snapshot() -> (
         source_title="Test Source",
         correlation_id="corr-123",
         content=None,
-        content_length=0,
     )
 
     _, body = _extract_publish_args(channel)
     payload = json.loads(body.decode())["payload"]
+    assert payload["content_length"] == 0
     assert payload["author"] is None
     assert payload["category"] is None
     assert payload["description"] is None

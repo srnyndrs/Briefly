@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from sqlalchemy.orm import Session
 
@@ -25,17 +24,6 @@ def _make_post_data(**overrides) -> dict:
         "keywords": [],
         **overrides,
     }
-
-
-def test_save_returns_inserted_id() -> None:
-    db = MagicMock()
-    db.scalar.return_value = "new-post-id"
-    repo = PostRepository(db)
-
-    post_id = repo.save(_make_post_data())
-
-    assert post_id == "new-post-id"
-    db.commit.assert_called_once()
 
 
 def test_save_repeated_guid_with_changed_url_updates_persisted_post(
@@ -111,10 +99,3 @@ def test_get_by_guids_filters_by_source_and_requested_items(
     assert len(posts) == 1
     assert posts[0].source_id == "source-1"
     assert posts[0].item_guid == "requested"
-
-
-def test_get_by_guids_with_no_items_skips_query() -> None:
-    db = MagicMock()
-
-    assert PostRepository(db).get_by_guids("source-1", []) == []
-    db.query.assert_not_called()

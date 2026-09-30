@@ -59,7 +59,6 @@ def replay_posts(
                 correlation_id=correlation_id,
                 category=post.category,
                 content=post.content,
-                content_length=len(post.content or ""),
                 description=post.description,
                 published_at=post.published_at.isoformat()
                 if post.published_at

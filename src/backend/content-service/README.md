@@ -80,21 +80,30 @@ thread. `RABBITMQ_BLOCKED_TIMEOUT_SECONDS` defaults to 15 seconds and must be
 positive and finite. Heartbeats remain enabled. One long download, parse or
 database operation can still prevent timely heartbeat handling.
 
-### Configure the DLQ before rollout
+### DLQ setup
 
-From the repository root, with RabbitMQ running:
+The root Compose configuration builds the RabbitMQ image from
+`scripts/rabbitmq/Dockerfile`, which includes the definitions and broker
+configuration. RabbitMQ imports the definitions on startup on Windows and Unix
+hosts. They create the durable `content.failed` exchange, the DLQ and its binding,
+and a policy that routes
+rejected feeds from `feed.raw_fetched.v1.parser` to that DLQ. No host script is
+needed. The definitions also seed the local Compose `guest` account and `/`
+vhost on a fresh RabbitMQ volume; they are local development credentials.
+On a fresh checkout, `docker compose up -d --build` starts this setup.
 
-```powershell
-.\scripts\rabbitmq\configure-content-dlq.ps1
+For an existing Compose broker, rebuild and recreate its container once without
+removing its named volume:
+
+```bash
+docker compose build rabbitmq
+docker compose up -d --no-deps --force-recreate rabbitmq
 ```
 
-The script imports a durable `content.failed` exchange, the DLQ and its binding,
-then applies a policy only to `feed.raw_fetched.v1.parser`. It preserves the
-existing feed queue and queued messages. It can be rerun. Queue declarations
-keep their existing arguments; changing them would require queue migration.
-The policy is required: declaring a DLQ alone does not route rejected feeds.
-The checked-in definitions use the default exchange and queue names and vhost
-`/`; update them together if service topology settings change.
+The import adds missing definitions without clearing queued messages. The
+consumer's queue declarations keep their existing arguments; changing those
+arguments would require a queue migration. If the queue names, exchanges or
+vhost change, update the definitions and service settings together.
 
 ### Inspect and recover
 
@@ -155,11 +164,11 @@ cases; neither is automatic.
 
 ### Rollout
 
-With PostgreSQL, RabbitMQ and the public API running, apply the DLQ setup first
-and verify the downstream `post.parsed.v1` binding. Then rebuild only this service:
+With PostgreSQL, RabbitMQ and the public API running, ensure RabbitMQ has
+started with the definitions and verify the downstream
+`post.parsed.v1` binding. Then rebuild only this service:
 
-```powershell
-.\scripts\rabbitmq\configure-content-dlq.ps1
+```bash
 docker compose build content-service
 docker compose up -d --no-deps --wait content-service
 ```

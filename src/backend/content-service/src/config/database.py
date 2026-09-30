@@ -15,6 +15,7 @@ engine = create_engine(
     pool_size=5,
     max_overflow=10,
     json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
+    echo=False,
 )
 
 SessionLocal = sessionmaker(
@@ -35,14 +36,11 @@ def init_db() -> None:
         with engine.begin() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS content;"))
 
-    logger.info("Running database migrations (create_all)...")
+    logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database schema ready.")
 
 
 def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
+    with SessionLocal() as db:
         yield db
-    finally:
-        db.close()
