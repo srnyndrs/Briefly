@@ -122,6 +122,7 @@ def test_missing_source_updates_are_noops(db_session):
             title="Example",
             description=None,
             favicon=None,
+            verified=False,
         )
         is None
     )

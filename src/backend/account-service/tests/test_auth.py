@@ -22,6 +22,7 @@ def test_registration_and_login(
         assert claims["iss"] == settings.jwt_issuer
         assert claims["aud"] == settings.jwt_audience
         assert not claims.get("scopes")
+    account_id = claims["sub"]
 
     assert (
         client.post("/auth/register", json=credentials).status_code
@@ -35,9 +36,7 @@ def test_registration_and_login(
         == 401
     )
 
-    monkeypatch.setattr(
-        settings, "admin_emails_csv", credentials["email"]
-    )
+    monkeypatch.setattr(settings, "admin_user_ids_csv", account_id)
     login = client.post("/auth/login", json=credentials)
     assert login.status_code == 200
     claims = jwt.decode(
@@ -45,6 +44,34 @@ def test_registration_and_login(
     )
     claims.validate()
     assert claims["scopes"] == ["admin"]
+
+
+def test_admin_scope_uses_current_configured_user_ids(
+    client, credentials, monkeypatch
+) -> None:
+    registered = client.post("/auth/register", json=credentials)
+    assert registered.status_code == 201
+    claims = jwt.decode(
+        registered.json()["access_token"], settings.jwt_secret
+    )
+    claims.validate()
+    user_id = claims["sub"]
+
+    monkeypatch.setattr(settings, "admin_user_ids_csv", f"{user_id}")
+    listed_login = client.post("/auth/login", json=credentials)
+    listed_claims = jwt.decode(
+        listed_login.json()["access_token"], settings.jwt_secret
+    )
+    listed_claims.validate()
+    assert listed_claims["scopes"] == ["admin"]
+
+    monkeypatch.setattr(settings, "admin_user_ids_csv", "")
+    unlisted_login = client.post("/auth/login", json=credentials)
+    unlisted_claims = jwt.decode(
+        unlisted_login.json()["access_token"], settings.jwt_secret
+    )
+    unlisted_claims.validate()
+    assert not unlisted_claims.get("scopes")
 
 
 def test_refresh_rotation_and_logout(

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_from: str = ""
-    admin_emails_csv: str = "alice@example.com"
+    admin_user_ids_csv: str = ""
 
 
 settings = Settings()

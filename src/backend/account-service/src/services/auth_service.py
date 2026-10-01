@@ -193,12 +193,12 @@ class AuthService:
 
     @staticmethod
     def _scopes_for_user(user: User) -> list[str]:
-        configured_admins = {
-            email.strip().lower()
-            for email in settings.admin_emails_csv.split(",")
-            if email.strip()
+        configured_admin_ids = {
+            uuid.UUID(user_id.strip())
+            for user_id in settings.admin_user_ids_csv.split(",")
+            if user_id.strip()
         }
-        if user.email.lower() in configured_admins:
+        if uuid.UUID(user.user_id) in configured_admin_ids:
             return ["admin"]
         return []
 

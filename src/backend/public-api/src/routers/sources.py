@@ -1,12 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query
 
 from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
     ingestion_create_source,
-    ingestion_delete_source,
     ingestion_discover_sources,
     ingestion_get_source,
     ingestion_list_sources,
@@ -20,7 +19,7 @@ from src.schemas.api import (
     SourcePatchRequest,
     SourceResponse,
 )
-from src.services.auth import CurrentUser
+from src.services.auth import CurrentAdminUser, CurrentUser
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -119,24 +118,14 @@ def get_source(source_id: uuid.UUID, user: CurrentUser) -> SourceResponse:
 def patch_source(
     source_id: uuid.UUID,
     body: SourcePatchRequest,
-    user: CurrentUser,
+    admin_user: CurrentAdminUser,
 ) -> SourceResponse:
-    _ = user
+    _ = admin_user
     try:
         updated = ingestion_patch_source(
             str(source_id),
             body.model_dump(mode="json", exclude_unset=True),
         )
         return SourceResponse(**updated)
-    except ServiceClientError as exc:
-        raise map_service_error(exc) from exc
-
-
-@router.delete("/{source_id}", status_code=204)
-def delete_source(source_id: uuid.UUID, user: CurrentUser) -> Response:
-    _ = user
-    try:
-        ingestion_delete_source(str(source_id))
-        return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

@@ -42,14 +42,18 @@ reported by the normal crawl process.
 
 Registration requires a nonblank title of at most 255 characters. Discovery
 can suggest a title for the client to submit. `PATCH /sources/{source_id}`
-allows title edits with the same validation. Omitted fields stay unchanged;
-description and favicon can be cleared with `null`, while URL and title
-cannot. Submitted favicons must be HTTP(S) URLs of at most 2048 characters.
+allows metadata and verification edits with the same validation. Omitted fields
+stay unchanged; description and favicon can be cleared with `null`, while URL,
+title, and `verified` cannot. The client-facing public API restricts this patch
+to admins, and `verified` controls Explore eligibility. Submitted favicons must
+be HTTP(S) URLs of at most 2048 characters.
 
 User registration creates an unverified Source. `public-api` derives and
 forwards `submitted_by_user_id` from the authenticated user; clients cannot
-set verification or submitter identity. Submission attribution is not
-ownership. Each distinct feed URL is a Source, so an overall feed and its
+set verification during creation or submitter identity. Submission attribution
+is not ownership. The service-local DELETE operation remains for maintenance,
+but public-api does not expose deletion while cross-service effects are
+undefined. Each distinct feed URL is a Source, so an overall feed and its
 category feeds can be registered separately. Registration does not deduplicate
 articles across those feeds.
 

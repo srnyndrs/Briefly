@@ -239,33 +239,9 @@ def ingestion_patch_source(source_id: str, body: dict) -> dict:
     )
 
 
-def ingestion_delete_source(source_id: str) -> None:
-    _forward(
-        "DELETE",
-        settings.ingestion_service_url,
-        f"/sources/{source_id}",
-    )
-
-
 def content_get_post(post_id: str) -> dict:
     return _forward(
         "GET",
         settings.content_service_url,
         f"/posts/{post_id}",
     )
-
-
-def content_list_posts(params: dict) -> list[dict]:
-    result = _forward(
-        "GET",
-        settings.content_service_url,
-        "/posts",
-        params=params,
-    )
-    if isinstance(result, list):
-        return result
-    return []
-
-
-def content_posts_count() -> dict:
-    return _forward("GET", settings.content_service_url, "/posts/count")
