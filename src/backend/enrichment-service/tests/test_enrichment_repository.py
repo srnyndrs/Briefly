@@ -23,7 +23,7 @@ def test_saves_and_reads_enrichment(
         processed_at=datetime.now(UTC),
     )
 
-    repository.save(enrichment)
+    assert repository.save(enrichment)
 
     assert repository.get_by_post_id(enrichment.post_id) == enrichment
 
@@ -50,9 +50,41 @@ def test_save_replaces_the_previous_result(
         status="abstained",
         reason="classifier_abstained",
         processed_at=datetime.now(UTC),
+        post_revision=2,
     )
 
-    repository.save(first)
-    repository.save(updated)
+    assert repository.save(first)
+    assert repository.save(updated)
 
     assert repository.get_by_post_id(post_id) == updated
+
+
+def test_save_rejects_an_older_post_revision(
+    session_factory: sessionmaker[Session],
+) -> None:
+    repository = EnrichmentRepository(session_factory)
+    post_id = uuid4()
+    latest = StoredEnrichment(
+        post_id=post_id,
+        input_hash="b" * 64,
+        enrichment_version="classification-v1",
+        category_id="science",
+        status="completed",
+        reason=None,
+        processed_at=datetime.now(UTC),
+        post_revision=2,
+    )
+    stale = StoredEnrichment(
+        post_id=post_id,
+        input_hash="a" * 64,
+        enrichment_version="classification-v1",
+        category_id="business",
+        status="completed",
+        reason=None,
+        processed_at=datetime.now(UTC),
+        post_revision=1,
+    )
+
+    assert repository.save(latest)
+    assert not repository.save(stale)
+    assert repository.get_by_post_id(post_id) == latest

@@ -1,10 +1,13 @@
 import logging
+import threading
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
 
+from src.adapters.post_consumer import PostConsumer
 from src.config.database import init_db
 from src.config.settings import settings
 from src.schemas.common import HealthResponse
@@ -19,12 +22,40 @@ logger = logging.getLogger(TAG_NAME)
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI):
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     if not getattr(application.state, "testing", False):
         init_db()
+        processor: Callable[[Any], object] | None = getattr(
+            application.state, "post_event_processor", None
+        )
+        if settings.post_consumer_enabled:
+            if processor is None:
+                raise RuntimeError(
+                    "POST_CONSUMER_ENABLED requires a configured post_event_processor"
+                )
+            consumer = PostConsumer(processor)
+            consumer_thread = threading.Thread(
+                target=consumer.run,
+                daemon=True,
+                name="enrichment-post-consumer",
+            )
+            consumer_thread.start()
+            application.state.consumer = consumer
+            application.state.consumer_thread = consumer_thread
+        else:
+            logger.info("Parsed-post consumption disabled")
         logger.info("Enrichment Service started on port=%d", settings.app_port)
 
     yield
+
+    consumer: PostConsumer | None = getattr(application.state, "consumer", None)
+    if consumer is not None:
+        consumer.stop()
+    consumer_thread: threading.Thread | None = getattr(
+        application.state, "consumer_thread", None
+    )
+    if consumer_thread is not None:
+        consumer_thread.join(timeout=5)
 
     logger.info("Enrichment Service stopped.")
 

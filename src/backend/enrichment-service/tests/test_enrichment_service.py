@@ -57,9 +57,11 @@ def test_hash_uses_the_normalized_bounded_classifier_input(
     second = service.enrich_article(
         post_id,
         ArticleInput(title="X" * 500 + "different tail"),
+        post_revision=2,
     )
 
-    assert first == second
+    assert first.input_hash == second.input_hash
+    assert second.post_revision == 2
     assert len(classifier.inputs) == 1
     assert len(classifier.inputs[0].title) == 500
 
@@ -75,17 +77,64 @@ def test_changed_text_and_version_are_processed_again(
         post_id, ArticleInput(title="Research update")
     )
     changed_text = EnrichmentService(repository, classifier).enrich_article(
-        post_id, ArticleInput(title="Medical update")
+        post_id, ArticleInput(title="Medical update"), post_revision=2
     )
     changed_version = EnrichmentService(
         repository, classifier, enrichment_version="classification-v2"
-    ).enrich_article(post_id, ArticleInput(title="Medical update"))
+    ).enrich_article(
+        post_id,
+        ArticleInput(title="Medical update"),
+        post_revision=3,
+    )
 
     assert first.category_id == "science"
     assert changed_text.category_id == "health"
     assert changed_version.category_id == "health"
     assert changed_version.enrichment_version == "classification-v2"
     assert len(classifier.inputs) == 3
+
+
+def test_newer_revision_with_unchanged_input_reuses_result(
+    session_factory: sessionmaker[Session],
+) -> None:
+    post_id = uuid4()
+    article = ArticleInput(title="Same article", body="Same body")
+    repository = EnrichmentRepository(session_factory)
+    classifier = ConfiguredClassifier(["science"])
+    service = EnrichmentService(repository, classifier)
+
+    first = service.enrich_article(post_id, article, post_revision=4)
+    newer = service.enrich_article(post_id, article, post_revision=5)
+
+    assert first.category_id == newer.category_id == "science"
+    assert first.input_hash == newer.input_hash
+    assert first.post_revision == 4
+    assert newer.post_revision == 5
+    assert len(classifier.inputs) == 1
+
+
+def test_stale_revision_is_ignored(
+    session_factory: sessionmaker[Session],
+) -> None:
+    post_id = uuid4()
+    repository = EnrichmentRepository(session_factory)
+    classifier = ConfiguredClassifier(["science"])
+    service = EnrichmentService(repository, classifier)
+    latest = service.enrich_article(
+        post_id,
+        ArticleInput(title="Latest snapshot"),
+        post_revision=3,
+    )
+
+    stale = service.enrich_article(
+        post_id,
+        ArticleInput(title="Older snapshot"),
+        post_revision=2,
+    )
+
+    assert stale == latest
+    assert stale.post_revision == 3
+    assert len(classifier.inputs) == 1
 
 
 def test_abstention_is_saved_and_reused_without_classifier_call(

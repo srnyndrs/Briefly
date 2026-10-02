@@ -24,6 +24,14 @@ def test_postgres_result_survives_engine_recreation() -> None:
         with first_engine.begin() as connection:
             connection.execute(text("CREATE SCHEMA IF NOT EXISTS enrichment"))
         Base.metadata.create_all(bind=first_engine)
+        with first_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE enrichment.post_enrichments "
+                    "ADD COLUMN IF NOT EXISTS post_revision "
+                    "INTEGER NOT NULL DEFAULT 1"
+                )
+            )
         first_factory = sessionmaker(
             bind=first_engine, class_=Session, autocommit=False, autoflush=False
         )
@@ -31,6 +39,7 @@ def test_postgres_result_survives_engine_recreation() -> None:
             EnrichmentRepository(first_factory), lambda _: "science"
         )
         saved = first_service.enrich_article(post_id, article)
+        assert saved.post_revision == 1
     finally:
         first_engine.dispose()
 
@@ -55,9 +64,24 @@ def test_postgres_result_survives_engine_recreation() -> None:
 
         assert loaded == saved
         assert classifier_calls == 0
+        newer = EnrichmentService(
+            EnrichmentRepository(second_factory), unexpected_classifier
+        ).enrich_article(post_id, article, post_revision=2)
+        stale = EnrichmentService(
+            EnrichmentRepository(second_factory), unexpected_classifier
+        ).enrich_article(
+            post_id,
+            ArticleInput(title="Stale changed input"),
+            post_revision=1,
+        )
+
+        assert newer.post_revision == 2
+        assert stale == newer
+        assert classifier_calls == 0
         with second_factory.begin() as session:
             record = session.get(PostEnrichment, post_id)
             if record is not None:
+                assert record.post_revision == 2
                 session.delete(record)
     finally:
         second_engine.dispose()

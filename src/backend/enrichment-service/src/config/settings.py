@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
     )
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    parsed_exchange: str = "content.parsed"
+    failed_exchange: str = "enrichment.failed"
+    post_queue: str = "enrichment.posts.v1"
+    post_dlq: str = "enrichment.posts.v1.dlq"
+    post_failed_routing_key: str = "post.failed"
+    blocked_timeout_seconds: int = 5
+    post_consumer_enabled: bool = False
 
 
 settings = Settings()

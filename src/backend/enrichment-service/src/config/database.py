@@ -13,16 +13,9 @@ database_url = make_url(settings.database_url)
 if database_url.drivername == "postgresql":
     database_url = database_url.set(drivername="postgresql+psycopg2")
 
-engine = create_engine(
-    database_url,
-    pool_pre_ping=True
-)
+engine = create_engine(database_url, pool_pre_ping=True)
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autocommit=False,
-    autoflush=False
-)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 class Base(DeclarativeBase):
