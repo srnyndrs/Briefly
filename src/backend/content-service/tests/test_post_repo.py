@@ -37,8 +37,10 @@ def test_save_repeated_guid_with_changed_url_updates_persisted_post(
         url="https://example.com/original-url",
         title="Original Title",
     )
-    first_id = repo.create_post(first_data)
-    assert first_id is not None
+    first = repo.create_post(first_data)
+    assert first is not None
+    first_id = first["post_id"]
+    assert first["post_revision"] == 1
 
     second_data = _make_post_data(
         source_id=UUID("00000000-0000-0000-0000-000000000001"),
@@ -46,9 +48,13 @@ def test_save_repeated_guid_with_changed_url_updates_persisted_post(
         url="https://example.com/updated-url",
         title="Updated Title",
     )
-    second_id = repo.create_post(second_data)
+    second = repo.create_post(second_data)
 
-    assert second_id == first_id
+    assert second is not None
+    assert second["post_id"] == first_id
+    assert second["post_revision"] == 2
+    assert second["url"] == "https://example.com/updated-url"
+    assert second["title"] == "Updated Title"
     saved = repo.get_post_by_id(first_id)
     assert saved is not None
     assert saved.url == "https://example.com/updated-url"

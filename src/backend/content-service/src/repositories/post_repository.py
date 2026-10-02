@@ -63,7 +63,7 @@ class PostRepository:
     def get_posts_count(self) -> int:
         return self._db.query(Post).count()
 
-    def create_post(self, post_data: dict[str, Any]) -> UUID | None:
+    def create_post(self, post_data: dict[str, Any]) -> dict[str, Any] | None:
         insert_statement = insert(Post).values(**post_data)
         update_fields = {
             "item_guid": insert_statement.excluded.item_guid,
@@ -80,13 +80,15 @@ class PostRepository:
             "image_url": insert_statement.excluded.image_url,
             "language": insert_statement.excluded.language,
             "keywords": insert_statement.excluded.keywords,
+            "post_revision": Post.post_revision + 1,
         }
         upsert_statement = insert_statement.on_conflict_do_update(
             index_elements=["source_id", "item_guid"],
             set_=update_fields,
-        ).returning(Post.post_id)
+        ).returning(*Post.__table__.columns)
 
-        inserted_id = self._db.scalar(upsert_statement)
+        row = self._db.execute(upsert_statement).mappings().one_or_none()
+        snapshot = dict(row) if row is not None else None
         self._db.commit()
 
-        return inserted_id
+        return snapshot

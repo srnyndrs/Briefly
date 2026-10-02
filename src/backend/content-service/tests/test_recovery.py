@@ -15,7 +15,7 @@ from src.services.source_processor import SourceProcessorService
 
 @pytest.fixture
 def stored_post(db_session: Session) -> Post:
-    post_id = PostRepository(db_session).create_post(
+    snapshot = PostRepository(db_session).create_post(
         {
             "source_id": uuid4(),
             "item_guid": "recovery-item",
@@ -27,7 +27,8 @@ def stored_post(db_session: Session) -> Post:
             "keywords": ["rss"],
         }
     )
-    return PostRepository(db_session).get_post_by_id(post_id)
+    assert snapshot is not None
+    return PostRepository(db_session).get_post_by_id(snapshot["post_id"])
 
 
 def test_reextract_refreshes_body_preserving_identity_and_metadata(

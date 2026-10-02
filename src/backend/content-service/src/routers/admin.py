@@ -51,6 +51,7 @@ def replay_posts(
                 channel,
                 post_id=str(post.post_id),
                 source_id=str(post.source_id),
+                post_revision=post.post_revision,
                 item_guid=post.item_guid,
                 url=post.url,
                 title=post.title,

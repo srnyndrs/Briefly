@@ -8,6 +8,7 @@ from sqlalchemy import (
     Uuid,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -74,6 +75,11 @@ class Post(Base):
         DateTime(timezone=True),
         nullable=False,
         default=func.now(),
+    )
+    post_revision: Mapped[int] = mapped_column(
+        nullable=False,
+        default=1,
+        server_default=text("1"),
     )
     image_url: Mapped[str | None] = mapped_column(
         String,

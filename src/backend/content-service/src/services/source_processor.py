@@ -274,12 +274,10 @@ class SourceProcessorService:
             "parsed_at": datetime.now(timezone.utc),
             "content": content.strip(),
         }
-        saved_id = self._repo.create_post(data)
-        if not saved_id:
-            raise RuntimeError("Post save returned no ID")
-        _publish_success_events(
-            channel, saved_id, data, f"reextract-{uuid.uuid4()}"
-        )
+        snapshot = self._repo.create_post(data)
+        if snapshot is None:
+            raise RuntimeError("Post save returned no snapshot")
+        _publish_success_events(channel, snapshot, f"reextract-{uuid.uuid4()}")
         return True
 
     def process(
@@ -359,13 +357,11 @@ class SourceProcessorService:
                     or not post_data["content"]
                 )
 
-                post_id = self._repo.create_post(post_data)
-                if not post_id:
-                    raise RuntimeError("Post save returned no ID")
-                stored_posts[item_guid] = post_data
-                _publish_success_events(
-                    channel, post_id, post_data, correlation_id
-                )
+                snapshot = self._repo.create_post(post_data)
+                if snapshot is None:
+                    raise RuntimeError("Post save returned no snapshot")
+                stored_posts[item_guid] = snapshot
+                _publish_success_events(channel, snapshot, correlation_id)
                 if on_progress:
                     on_progress()
             completed = True
@@ -390,28 +386,27 @@ class SourceProcessorService:
 
 def _publish_success_events(
     channel: Any,
-    post_id: UUID,
-    data: dict[str, Any],
+    snapshot: dict[str, Any],
     correlation_id: str,
 ) -> None:
-    source_id = data["source_id"]
     post_publisher.publish_post_parsed_success(
         channel,
-        post_id=str(post_id),
-        source_id=str(source_id),
-        item_guid=data["item_guid"],
-        url=data["url"],
-        title=data["title"],
+        post_id=str(snapshot["post_id"]),
+        source_id=str(snapshot["source_id"]),
+        post_revision=snapshot["post_revision"],
+        item_guid=snapshot["item_guid"],
+        url=snapshot["url"],
+        title=snapshot["title"],
         correlation_id=correlation_id,
-        category=data["category"],
-        content=data["content"],
-        description=data.get("description"),
-        published_at=data["published_at"].isoformat()
-        if data["published_at"]
+        category=snapshot["category"],
+        content=snapshot["content"],
+        description=snapshot.get("description"),
+        published_at=snapshot["published_at"].isoformat()
+        if snapshot["published_at"]
         else None,
-        language=data["language"],
-        keywords=data["keywords"],
-        author=data["author"],
-        source_title=data["source_title"],
-        image_url=data.get("image_url"),
+        language=snapshot["language"],
+        keywords=snapshot["keywords"],
+        author=snapshot["author"],
+        source_title=snapshot["source_title"],
+        image_url=snapshot.get("image_url"),
     )

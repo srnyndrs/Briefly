@@ -70,7 +70,10 @@ def _capture_saved_payload(
         ),
         patch(
             "src.repositories.post_repository.PostRepository.create_post",
-            side_effect=lambda data: saved_payloads.append(dict(data)) or "p1",
+            side_effect=lambda data: (
+                saved_payloads.append(dict(data))
+                or {**data, "post_id": "p1", "post_revision": 1}
+            ),
         ),
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
@@ -328,6 +331,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
     ):
         service.process(MagicMock(), event)
         first_snapshot = publish.call_args.kwargs
+        assert first_snapshot["post_revision"] == 1
         extract.reset_mock()
         event["payload"]["raw_xml"] = event["payload"]["raw_xml"].replace(
             "Original RSS", "Updated RSS"
@@ -341,6 +345,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         assert publish.call_count == 2
         snapshot = publish.call_args.kwargs
         assert snapshot["post_id"] == first_snapshot["post_id"]
+        assert snapshot["post_revision"] == 2
         assert snapshot["title"] == "Updated RSS title"
         assert snapshot["description"] == "Updated RSS description"
         assert snapshot["source_title"] == "Updated Source"
@@ -358,6 +363,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
     assert post.content == content
     assert post.crawled_at == datetime(2026, 9, 28, 10)
     assert post.parsed_at != post.crawled_at
+    assert post.post_revision == 2
     assert db_session.query(Post).count() == 1
 
 
@@ -532,7 +538,7 @@ def test_empty_valid_feed_completes_and_services_io(
     assert "entries=0, attempted=0, reused=0, partial=0" in caplog.text
 
 
-def test_save_without_id_does_not_publish() -> None:
+def test_save_without_snapshot_does_not_publish() -> None:
     service = SourceProcessorService(MagicMock())
     service._repo = MagicMock()
     service._repo.get_by_guids.return_value = []
@@ -541,7 +547,7 @@ def test_save_without_id_does_not_publish() -> None:
         patch(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
-        pytest.raises(RuntimeError, match="Post save returned no ID"),
+        pytest.raises(RuntimeError, match="Post save returned no snapshot"),
     ):
         service.process(
             MagicMock(),

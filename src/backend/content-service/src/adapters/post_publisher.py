@@ -15,6 +15,7 @@ def publish_post_parsed_success(
     *,
     post_id: str,
     source_id: str,
+    post_revision: int,
     item_guid: str,
     url: str,
     title: str,
@@ -32,6 +33,7 @@ def publish_post_parsed_success(
     payload = {
         "post_id": post_id,
         "source_id": source_id,
+        "post_revision": post_revision,
         "item_guid": item_guid,
         "url": url,
         "title": title,

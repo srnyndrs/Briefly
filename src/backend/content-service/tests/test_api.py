@@ -114,6 +114,7 @@ def test_replay_posts_emits_complete_stored_snapshot(
     now = datetime.now(UTC).replace(tzinfo=None)
     post = Post(
         post_id=post_id,
+        post_revision=7,
         source_id=SOURCE_ONE,
         item_guid="guid-replay-title",
         url="https://example.com/replay-title",
@@ -149,6 +150,7 @@ def test_replay_posts_emits_complete_stored_snapshot(
     assert published["routing_key"] == "post.parsed.v1"
     payload = json.loads(published["body"])["payload"]
     assert payload["post_id"] == str(post_id)
+    assert payload["post_revision"] == 7
     assert payload["source_title"] == "Tech Blog"
     assert payload["title"] == "Tech News"
     assert payload["content"] == "content"
