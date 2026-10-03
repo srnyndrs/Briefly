@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     account_exchange: str = "account.events"
     content_exchange: str = "content.parsed"
+    enrichment_exchange: str = "enrichment.events"
     query_queue: str = "public-api.query.v1"
     query_consumer_enabled: bool = True
 

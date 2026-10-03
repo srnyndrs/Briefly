@@ -31,6 +31,7 @@ def test_project_post_persists_content() -> None:
             db,
             payload={
                 "post_id": "a1",
+                "post_revision": 1,
                 "source_id": "s1",
                 "source_title": "Source One",
                 "url": "https://example.com/a1",
@@ -90,6 +91,7 @@ def test_project_post_replaces_snapshot_fields_on_update() -> None:
             db,
             payload={
                 "post_id": "a1",
+                "post_revision": 1,
                 "source_id": "s1",
                 "source_title": "Source One",
                 "url": "https://example.com/a1",
@@ -111,6 +113,7 @@ def test_project_post_replaces_snapshot_fields_on_update() -> None:
             db,
             payload={
                 "post_id": "a1",
+                "post_revision": 2,
                 "source_id": "s1",
                 "source_title": "Source One",
                 "url": "https://example.com/a1-updated",
@@ -132,7 +135,9 @@ def test_project_post_replaces_snapshot_fields_on_update() -> None:
         assert post.canonical_url == "https://example.com/a1-updated"
         assert post.title == "Updated Title"
         assert post.description is None
-        assert post.category == "news"
+        assert post.source_category == "news"
+        assert post.category is None
+        assert post.post_revision == 2
         assert post.content is None
         assert post.author == "Updated Author"
         assert post.language == "fr"

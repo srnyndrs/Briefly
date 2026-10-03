@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.config.settings import settings
 from src.models.read_models import ProcessedEvent
 from src.services.projection_handlers import (
+    project_enrichment,
     project_post,
     project_user_preferences,
 )
@@ -76,6 +77,11 @@ class QueryProjector:
             exchange_type="topic",
             durable=True,
         )
+        self._channel.exchange_declare(
+            exchange=settings.enrichment_exchange,
+            exchange_type="topic",
+            durable=True,
+        )
 
         self._channel.queue_declare(queue=settings.query_queue, durable=True)
 
@@ -92,6 +98,11 @@ class QueryProjector:
                 exchange=settings.content_exchange,
                 routing_key=key,
             )
+        self._channel.queue_bind(
+            queue=settings.query_queue,
+            exchange=settings.enrichment_exchange,
+            routing_key="post.enriched.v1",
+        )
 
         self._channel.basic_consume(
             queue=settings.query_queue,
@@ -162,9 +173,10 @@ class QueryProjector:
     def _apply_event(
         self, db: Session, event_type: str, payload: dict[str, Any]
     ) -> None:
-        """Route event to appropriate projection handler."""
         if event_type == "post.parsed.v1":
             project_post(db, payload)
+        elif event_type == "post.enriched.v1":
+            project_enrichment(db, payload)
         elif event_type == "preferences.updated.v1":
             project_user_preferences(db, payload)
 

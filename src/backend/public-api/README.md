@@ -10,6 +10,14 @@ It also maintains local read models from account and content changes. This
 keeps common feed queries fast while allowing the owning services to remain
 responsible for their own data.
 
+The query projector also consumes `post.enriched.v1` results. It keeps the
+publisher's RSS category in `source_category`; the public `category` is set
+only when a completed result from taxonomy `categories-v1` matches the current
+post revision. Results can arrive before their post without creating an empty
+article. A newer article revision temporarily clears an older result's public
+category until its matching enrichment arrives. Feed ordering still uses
+article timestamps.
+
 ## Responsibilities
 
 - Authenticate requests and enforce client-facing access rules.
@@ -110,6 +118,31 @@ DROP CONSTRAINT uq_post_projection_canonical_url;
 ```
 
 New databases are created with the current schema by `init_db()`.
+
+For an existing development database, apply this one-time query schema update
+before starting the Step 6 projector:
+
+```sql
+ALTER TABLE query.post_projections
+  ADD COLUMN IF NOT EXISTS post_revision INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS source_category VARCHAR(128);
+UPDATE query.post_projections
+SET source_category = category, category = NULL
+WHERE source_category IS NULL;
+CREATE TABLE IF NOT EXISTS query.post_enrichments (
+  post_id VARCHAR(64) PRIMARY KEY,
+  post_revision INTEGER NOT NULL,
+  taxonomy_version VARCHAR(64) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  category_id VARCHAR(32)
+);
+```
+
+Then replay saved content posts in bounded batches after the query binding is
+active. Existing publisher labels remain in `source_category`; unenriched posts
+remain visible in All with a null public category, so they do not appear in
+category facets. Keep the enrichment consumer disabled on the normal local
+stack until real classifications and operational controls are ready.
 
 Install dependencies:
 
