@@ -5,6 +5,7 @@ from sqlalchemy import (
     JSON,
     DateTime,
     Index,
+    Integer,
     String,
     Text,
     func,
@@ -71,6 +72,12 @@ class PostProjection(Base):
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_category: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    post_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
@@ -130,6 +137,16 @@ class UserPreferencesProjection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class PostEnrichmentProjection(Base):
+    __tablename__ = "post_enrichments"
+
+    post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    taxonomy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    category_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 POST_SEARCH_INDEX = Index(

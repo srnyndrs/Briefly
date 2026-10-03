@@ -5,11 +5,38 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
+    PostEnrichmentProjection,
     PostProjection,
     UserPreferencesProjection,
 )
 
 logger = logging.getLogger("public-api.projections")
+
+SUPPORTED_CATEGORIES = frozenset(
+    {
+        "politics",
+        "business",
+        "technology",
+        "science",
+        "health",
+        "environment",
+        "culture",
+        "sports",
+        "society",
+        "other",
+    }
+)
+
+
+def _public_category(result: PostEnrichmentProjection | None) -> str | None:
+    if (
+        result is not None
+        and result.taxonomy_version == "categories-v1"
+        and result.status == "completed"
+        and result.category_id in SUPPORTED_CATEGORIES
+    ):
+        return result.category_id
+    return None
 
 
 def _require_source_value(value: Any, field_name: str) -> str:
@@ -46,6 +73,11 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
     if not post_id:
         return
 
+    revision = payload["post_revision"]
+    existing = db.get(PostProjection, post_id)
+    if existing is not None and existing.post_revision > revision:
+        return
+
     published_at_raw = payload["published_at"]
     published_at = _parse_dt(published_at_raw)
 
@@ -56,23 +88,49 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
         published_at,
     )
 
-    existing = db.get(PostProjection, post_id)
+    result = db.get(PostEnrichmentProjection, post_id)
     if existing is None:
         existing = PostProjection(post_id=post_id)
         db.add(existing)
 
+    existing.post_revision = revision
+    existing.category = (
+        _public_category(result)
+        if result is not None and result.post_revision == revision
+        else None
+    )
     existing.source_id = source_id
     existing.source_title = source_title
     existing.canonical_url = payload["url"]
     existing.title = payload["title"]
     existing.description = payload["description"]
-    existing.category = payload["category"]
+    existing.source_category = payload["category"]
     existing.content = payload["content"]
     existing.author = payload["author"]
     existing.language = payload["language"]
     existing.keywords = payload["keywords"]
     existing.image_ref = payload["image_url"]
     existing.published_at = published_at
+
+
+def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
+    post_id = payload["post_id"]
+    revision = payload["post_revision"]
+    result = db.get(PostEnrichmentProjection, post_id)
+    if result is not None and result.post_revision > revision:
+        return
+    if result is None:
+        result = PostEnrichmentProjection(post_id=post_id)
+        db.add(result)
+
+    result.post_revision = revision
+    result.taxonomy_version = payload["taxonomy_version"]
+    result.status = payload["status"]
+    result.category_id = payload.get("category_id")
+
+    post = db.get(PostProjection, post_id)
+    if post is not None and post.post_revision == revision:
+        post.category = _public_category(result)
 
 
 def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
