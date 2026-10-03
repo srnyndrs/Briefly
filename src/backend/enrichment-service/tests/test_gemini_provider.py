@@ -5,11 +5,16 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from src.adapters.gemini_provider import GeminiApiError, GeminiProvider
+from src.adapters.gemini_provider import GeminiProvider
+from src.adapters.providers import PROVIDERS
 from src.config.settings import settings
-from src.scripts.evaluate_providers import load_articles, main
+from src.scripts.evaluate_providers import (
+    evaluate_articles,
+    load_articles,
+    main,
+)
 from src.services.classification import ArticleInput
-from src.services.provider import instructions
+from src.services.provider import ProviderError, ProviderResult, instructions
 
 
 @pytest.fixture(autouse=True)
@@ -184,7 +189,7 @@ def test_gemini_http_error_is_bounded_and_redacts_key(
         raise HTTPError("https://example.test", 429, "quota", {}, BytesIO(body))
 
     monkeypatch.setattr("src.adapters.gemini_provider.urlopen", fail)
-    with pytest.raises(GeminiApiError) as error:
+    with pytest.raises(ProviderError) as error:
         make_provider()(ArticleInput(title="A study"))
     assert "HTTP 429" in str(error.value)
     assert "test-key" not in str(error.value)
@@ -330,3 +335,126 @@ def test_evaluation_requires_key(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(settings, "gemini_api_key", None)
     with pytest.raises(SystemExit):
         main(["--dataset", str(dataset), "--max-calls", "1", "--model", "test"])
+
+
+def test_evaluation_rejects_unknown_provider_before_construction(
+    tmp_path: Path, monkeypatch
+) -> None:
+    dataset = tmp_path / "articles.jsonl"
+    dataset.write_text(
+        '{"id":"one","title":"Study","category_id":"science"}\n',
+        encoding="utf-8",
+    )
+
+    def fail(**_):
+        raise AssertionError("No provider should be constructed")
+
+    monkeypatch.setitem(PROVIDERS, "gemini", fail)
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--provider",
+                "unknown",
+                "--dataset",
+                str(dataset),
+                "--max-calls",
+                "1",
+                "--model",
+                "test",
+            ]
+        )
+
+
+def test_evaluation_selects_temporary_provider_from_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
+) -> None:
+    dataset = tmp_path / "articles.jsonl"
+    dataset.write_text(
+        '{"id":"one","title":"Study","category_id":"science"}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings, "gemini_api_key", None)
+    constructed = []
+    called = []
+
+    def create_fake(*, model: str, instructions: str, timeout: float):
+        constructed.append((model, instructions, timeout))
+
+        def classify(article: ArticleInput) -> ProviderResult:
+            called.append(article.title)
+            return ProviderResult("science", model)
+
+        return classify
+
+    monkeypatch.setitem(PROVIDERS, "fake", create_fake)
+    assert (
+        main(
+            [
+                "--provider",
+                "fake",
+                "--dataset",
+                str(dataset),
+                "--max-calls",
+                "1",
+                "--model",
+                "fake-model",
+                "--timeout",
+                "7",
+            ]
+        )
+        == 0
+    )
+    row = json.loads(capsys.readouterr().out)
+    assert row["provider"] == "fake"
+    assert row["model"] == "fake-model"
+    assert row["correct"] is True
+    assert called == ["Study"]
+    assert constructed[0][0] == "fake-model"
+    assert "Classify the article" in constructed[0][1]
+    assert constructed[0][2] == 7
+
+
+def test_evaluation_accepts_fake_provider_and_continues_after_failures(
+    capsys: pytest.CaptureFixture[str], monkeypatch
+) -> None:
+    articles = [
+        ("success", ArticleInput(title="Study"), "science"),
+        ("abstain", ArticleInput(title="Unclear"), None),
+        ("provider-error", ArticleInput(title="Broken"), "sports"),
+        ("unexpected", ArticleInput(title="Secret"), "health"),
+        ("after-errors", ArticleInput(title="Match"), "sports"),
+    ]
+    waits = []
+    calls = []
+    monkeypatch.setattr(
+        "src.scripts.evaluate_providers.time.sleep", waits.append
+    )
+
+    def fake_provider(article: ArticleInput) -> ProviderResult:
+        calls.append(article.title)
+        if article.title == "Broken":
+            raise ProviderError("safe detail" + "x" * 1_000)
+        if article.title == "Secret":
+            raise RuntimeError("private detail")
+        category = {
+            "Study": "science",
+            "Unclear": None,
+            "Match": "sports",
+        }[article.title]
+        return ProviderResult(category, "fake-model-v2", 4, 2)
+
+    evaluate_articles(fake_provider, "fake", "fake-model", articles, 0.5)
+    rows = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert calls == [article.title for _, article, _ in articles]
+    assert waits == [0.5] * 4
+    assert [row["id"] for row in rows] == [item[0] for item in articles]
+    assert all(row["provider"] == "fake" for row in rows)
+    assert rows[0]["actual"] == "science" and rows[0]["correct"] is True
+    assert rows[0]["model"] == "fake-model-v2"
+    assert rows[1]["actual"] is None and rows[1]["correct"] is True
+    assert rows[2]["error"] == "ProviderError"
+    assert len(rows[2]["error_detail"]) == 1_000
+    assert rows[2]["model"] == "fake-model"
+    assert rows[3]["error"] == "RuntimeError"
+    assert rows[3]["error_detail"] is None
+    assert rows[4]["correct"] is True

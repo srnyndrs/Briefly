@@ -4,16 +4,16 @@ import json
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from src.services.categories import CATEGORY_DEFINITIONS
 from src.services.classification import ArticleInput
-from src.services.provider import ProviderResult, article_json, parse_category
+from src.services.provider import (
+    ProviderError,
+    ProviderResult,
+    article_json,
+    category_schema,
+    parse_category,
+)
 
 MAX_RESPONSE_BYTES = 16_384
-MAX_ERROR_DETAIL_CHARS = 1_000
-
-
-class GeminiApiError(RuntimeError):
-    """A bounded API error with the configured key redacted."""
 
 
 def _tokens(value: object) -> int | None:
@@ -45,17 +45,6 @@ class GeminiProvider:
         self.timeout = timeout
 
     def __call__(self, article: ArticleInput) -> ProviderResult:
-        schema = {
-            "type": "object",
-            "properties": {
-                "category_id": {
-                    "type": ["string", "null"],
-                    "enum": [*CATEGORY_DEFINITIONS, None],
-                }
-            },
-            "required": ["category_id"],
-            "additionalProperties": False,
-        }
         payload = {
             "systemInstruction": {
                 "parts": [{"text": self.instructions}],
@@ -68,7 +57,7 @@ class GeminiProvider:
                 "responseFormat": {
                     "text": {
                         "mimeType": "application/json",
-                        "schema": schema,
+                        "schema": category_schema(),
                     }
                 },
             },
@@ -105,7 +94,7 @@ class GeminiProvider:
             if isinstance(message, str):
                 detail += f": {message}"
             detail = detail.replace(self.api_key, "[REDACTED]")
-            raise GeminiApiError(detail[:MAX_ERROR_DETAIL_CHARS]) from exc
+            raise ProviderError(detail) from exc
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("Provider response exceeds the size limit")
         data = json.loads(raw)

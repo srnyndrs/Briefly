@@ -21,6 +21,27 @@ class ProviderResult:
 Provider = Callable[[ArticleInput], ProviderResult]
 
 
+class ProviderError(RuntimeError):
+    """Provider failure with a bounded message safe for evaluation output."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message[:1_000])
+
+
+def category_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "category_id": {
+                "type": ["string", "null"],
+                "enum": [*CATEGORY_DEFINITIONS, None],
+            }
+        },
+        "required": ["category_id"],
+        "additionalProperties": False,
+    }
+
+
 def instructions(examples: list[tuple[ArticleInput, str | None]]) -> str:
     categories = "\n".join(
         f"- {category}: {definition}"
