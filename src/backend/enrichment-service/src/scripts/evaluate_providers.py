@@ -2,12 +2,12 @@
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
 
-from src.adapters.model_providers import ChatHttpProvider, CliProvider
+from src.adapters.gemini_provider import GeminiApiError, GeminiProvider
+from src.config.settings import settings
 from src.services.classification import ArticleInput, normalize_article
 from src.services.provider import (
     PROMPT_VERSION,
@@ -68,12 +68,6 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="call limit; must cover every dataset row",
     )
-    parser.add_argument(
-        "--provider",
-        choices=("http", "cli"),
-        required=True,
-        help="HTTP endpoint or JSON stdin/stdout command",
-    )
     parser.add_argument("--model", required=True, help="provider model ID")
     parser.add_argument(
         "--timeout",
@@ -81,24 +75,17 @@ def main(argv: list[str] | None = None) -> int:
         default=30,
         help="seconds per call (default: 30)",
     )
-    parser.add_argument("--url", help="HTTP Chat Completions endpoint")
     parser.add_argument(
-        "--api-key-env", help="name of environment variable with HTTP API key"
-    )
-    parser.add_argument(
-        "--response-format",
-        choices=("plain", "json", "schema"),
-        default="plain",
-        help="HTTP output mode (default: plain)",
-    )
-    parser.add_argument("--command", help="CLI wrapper executable")
-    parser.add_argument(
-        "--command-arg",
-        action="append",
-        default=[],
-        help="fixed CLI argument; repeat for more arguments",
+        "--request-interval",
+        type=float,
+        default=0,
+        help="seconds to wait between calls (default: 0)",
     )
     args = parser.parse_args(argv)
+    if args.timeout <= 0:
+        parser.error("--timeout must be positive")
+    if args.request_interval < 0:
+        parser.error("--request-interval cannot be negative")
 
     articles = load_articles(args.dataset)
     examples = load_articles(args.examples) if args.examples else []
@@ -107,33 +94,18 @@ def main(argv: list[str] | None = None) -> int:
     if set(row[0] for row in articles) & set(row[0] for row in examples):
         parser.error("example and evaluation IDs must differ")
     prompt = instructions([(row[1], row[2]) for row in examples])
-    provider: Provider
-    if args.provider == "http":
-        if not args.url:
-            parser.error("--url is required for HTTP")
-        if args.api_key_env and not os.environ.get(args.api_key_env):
-            parser.error("the API key environment variable is empty")
-        provider = ChatHttpProvider(
-            url=args.url,
-            model=args.model,
-            instructions=prompt,
-            api_key=os.environ.get(args.api_key_env)
-            if args.api_key_env
-            else None,
-            timeout=args.timeout,
-            response_format=args.response_format,
-        )
-    else:
-        if not args.command:
-            parser.error("--command is required for CLI")
-        provider = CliProvider(
-            command=[args.command, *args.command_arg],
-            model=args.model,
-            instructions=prompt,
-            timeout=args.timeout,
-        )
+    if not settings.gemini_api_key:
+        parser.error("GEMINI_API_KEY is missing (environment or service .env)")
+    provider: Provider = GeminiProvider(
+        model=args.model,
+        instructions=prompt,
+        api_key=settings.gemini_api_key,
+        timeout=args.timeout,
+    )
 
-    for article_id, article, expected in articles:
+    for index, (article_id, article, expected) in enumerate(articles):
+        if index and args.request_interval:
+            time.sleep(args.request_interval)
         started = time.monotonic()
         try:
             result = provider(article)
@@ -146,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
                 "input_tokens": result.input_tokens,
                 "output_tokens": result.output_tokens,
                 "error": None,
+                "error_detail": None,
             }
         except Exception as exc:
             row = {
@@ -157,9 +130,12 @@ def main(argv: list[str] | None = None) -> int:
                 "input_tokens": None,
                 "output_tokens": None,
                 "error": type(exc).__name__,
+                "error_detail": str(exc)[:1000]
+                if isinstance(exc, GeminiApiError)
+                else None,
             }
         row.update(
-            provider=args.provider,
+            provider="gemini",
             prompt_version=PROMPT_VERSION,
             elapsed_seconds=round(time.monotonic() - started, 3),
         )

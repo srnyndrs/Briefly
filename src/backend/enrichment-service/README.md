@@ -83,6 +83,7 @@ The service listens on port 8005 and waits for PostgreSQL to become healthy.
 ## Compare classification providers (Step 7)
 
 Follow the [manual evaluation guide](EVALUATION_GUIDE.md) to build a small
-labelled set, check a provider's API contract, run bounded calls, and compare
-the results. Use `make evaluate-help` for flags and `make evaluate` to run the
+labelled set, run bounded Gemini calls, and compare the results. Gemini is the
+only implemented provider; add another adapter when you choose one to test.
+Use `make evaluate-help` for flags and `make evaluate` to run the
 script. This command uses neither RabbitMQ nor the enrichment database.

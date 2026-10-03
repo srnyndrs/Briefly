@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_port: int = 8005
     log_level: str = "INFO"
     sentry_dsn: str | None = None
+    gemini_api_key: str | None = None
 
     database_url: str = (
         "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
