@@ -25,7 +25,7 @@ logger = logging.getLogger(TAG_NAME)
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     if not getattr(application.state, "testing", False):
         init_db()
-        processor: Callable[[Any], object] | None = getattr(
+        processor: Callable[[Any, Any], object] | None = getattr(
             application.state, "post_event_processor", None
         )
         if settings.post_consumer_enabled:

@@ -1,5 +1,7 @@
 """Supported enrichment categories and their short definitions."""
 
+CATEGORY_TAXONOMY_VERSION = "categories-v1"
+
 CATEGORY_DEFINITIONS: dict[str, str] = {
     "politics": "Government, elections, policy, and political activity.",
     "business": "Companies, markets, finance, and the economy.",

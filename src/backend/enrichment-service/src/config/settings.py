@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     )
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     parsed_exchange: str = "content.parsed"
+    result_exchange: str = "enrichment.events"
+    result_queue: str = "enrichment.results.v1"
     failed_exchange: str = "enrichment.failed"
     post_queue: str = "enrichment.posts.v1"
     post_dlq: str = "enrichment.posts.v1.dlq"

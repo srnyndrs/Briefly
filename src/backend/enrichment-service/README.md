@@ -31,6 +31,17 @@ ALTER TABLE enrichment.post_enrichments
 ADD COLUMN IF NOT EXISTS post_revision INTEGER NOT NULL DEFAULT 1;
 ```
 
+Step 5 stores the outgoing event with each result. For an existing local
+`enrichment.post_enrichments` table, apply this one-time update before starting
+the revised service (fresh databases get these columns automatically):
+
+```sql
+ALTER TABLE enrichment.post_enrichments
+  ADD COLUMN IF NOT EXISTS event_id VARCHAR(36),
+  ADD COLUMN IF NOT EXISTS result_event JSONB,
+  ADD COLUMN IF NOT EXISTS publication_pending BOOLEAN NOT NULL DEFAULT FALSE;
+```
+
 The RabbitMQ consumer queue is `enrichment.posts.v1`, bound to
 `post.parsed.v1` on `content.parsed`. Consumption remains off unless
 `POST_CONSUMER_ENABLED=true` and a classifier-backed `post_event_processor` is
@@ -38,6 +49,24 @@ configured on `app.state` before startup. The `PostEventProcessor` object is
 callable and can be used for isolated fixture runs. Enabling consumption without
 one now fails startup clearly. Malformed and failed deliveries are dead-lettered
 to `enrichment.posts.v1.dlq` through `enrichment.failed`.
+
+When enabled, the consumer creates a durable `enrichment.results.v1` sink on
+`enrichment.events` before reading parsed posts. It saves each `post.enriched.v1`
+event with its result, publishes with mandatory routing and confirms, then
+acknowledges the incoming delivery. A publication failure leaves the event
+pending and sends the input to the enrichment DLQ. Republish one saved event
+without classification using:
+
+```powershell
+poetry run python -m src.scripts.republish_result <post-uuid>
+```
+
+The command can also republish an already delivered result with the same event
+ID. Downstream consumers must deduplicate that ID. To populate results for
+existing articles, first establish the result binding, then call content-service's
+bounded `/admin/posts/replay?limit=...` endpoint. The replayed post keeps its
+stored revision. A crash after a classifier call but before the result save can
+repeat the call; this flow does not guarantee exactly-once classification.
 
 Open `http://localhost:8005/health` to check that the service is running.
 

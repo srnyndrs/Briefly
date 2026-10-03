@@ -1,8 +1,10 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, String, Uuid, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, String, Uuid, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import JSON
 
 from src.config.database import Base
 
@@ -23,6 +25,13 @@ class PostEnrichment(Base):
     reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
+    )
+    event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    result_event: Mapped[dict | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"), nullable=True
+    )
+    publication_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
     )
 
     __table_args__ = (

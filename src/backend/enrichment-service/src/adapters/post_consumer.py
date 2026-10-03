@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class PostConsumer:
-    def __init__(self, process_event: Callable[[Any], object]) -> None:
+    def __init__(self, process_event: Callable[[Any, Any], object]) -> None:
         self._process_event = process_event
         self._connection: BlockingConnection | None = None
         self._channel: Any = None
@@ -61,6 +61,7 @@ class PostConsumer:
         try:
             self._channel = self._connection.channel()
             self._declare_topology(self._channel)
+            self._channel.confirm_delivery()
             self._channel.basic_qos(prefetch_count=1)
             self._channel.basic_consume(
                 queue=settings.post_queue,
@@ -83,6 +84,17 @@ class PostConsumer:
             exchange=settings.failed_exchange,
             exchange_type="direct",
             durable=True,
+        )
+        channel.exchange_declare(
+            exchange=settings.result_exchange,
+            exchange_type="topic",
+            durable=True,
+        )
+        channel.queue_declare(queue=settings.result_queue, durable=True)
+        channel.queue_bind(
+            queue=settings.result_queue,
+            exchange=settings.result_exchange,
+            routing_key="post.enriched.v1",
         )
         channel.queue_declare(queue=settings.post_dlq, durable=True)
         channel.queue_bind(
@@ -113,7 +125,7 @@ class PostConsumer:
     ) -> None:
         try:
             event = json.loads(body)
-            self._process_event(event)
+            self._process_event(event, channel)
         except Exception as exc:
             logger.error(
                 "Parsed-post delivery rejected (delivery_tag=%s, error_type=%s)",

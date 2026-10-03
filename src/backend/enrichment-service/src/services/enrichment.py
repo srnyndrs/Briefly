@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
+from src.events.post_enriched import build_result_event
 from src.repositories.enrichment_repository import (
     EnrichmentRepository,
     EnrichmentStatus,
@@ -44,6 +45,7 @@ class EnrichmentService:
         article: ArticleInput,
         *,
         post_revision: int = 1,
+        correlation_id: str | None = None,
     ) -> StoredEnrichment:
         if (
             isinstance(post_revision, bool)
@@ -59,9 +61,12 @@ class EnrichmentService:
         if (
             existing is not None
             and existing.post_revision == post_revision
-            and existing.enrichment_version == self._enrichment_version
             and existing.status in ("completed", "abstained")
         ):
+            if correlation_id is not None and existing.result_event is None:
+                return self._save_result(
+                    self._with_event(existing, correlation_id)
+                )
             return existing
         if (
             existing is not None
@@ -71,9 +76,9 @@ class EnrichmentService:
         ):
             if existing.post_revision < post_revision:
                 refreshed = replace(existing, post_revision=post_revision)
-                if self._repository.save(refreshed):
-                    return refreshed
-                return self._latest_or_raise(post_id)
+                if correlation_id is not None:
+                    refreshed = self._with_event(refreshed, correlation_id)
+                return self._save_result(refreshed)
             return existing
 
         try:
@@ -116,9 +121,34 @@ class EnrichmentService:
             reason=reason,
             post_revision=post_revision,
         )
+        if correlation_id is not None:
+            enrichment = self._with_event(enrichment, correlation_id)
+        return self._save_result(enrichment)
+
+    def _with_event(
+        self, enrichment: StoredEnrichment, correlation_id: str
+    ) -> StoredEnrichment:
+        event = build_result_event(
+            post_id=str(enrichment.post_id),
+            post_revision=enrichment.post_revision,
+            input_hash=enrichment.input_hash,
+            enrichment_version=enrichment.enrichment_version,
+            status=enrichment.status,
+            category_id=enrichment.category_id,
+            processed_at=enrichment.processed_at,
+            correlation_id=correlation_id,
+        )
+        return replace(
+            enrichment,
+            event_id=event["event_id"],
+            result_event=event,
+            publication_pending=True,
+        )
+
+    def _save_result(self, enrichment: StoredEnrichment) -> StoredEnrichment:
         if self._repository.save(enrichment):
             return enrichment
-        return self._latest_or_raise(post_id)
+        return self._latest_or_raise(enrichment.post_id)
 
     def _result(
         self,
@@ -146,6 +176,9 @@ class EnrichmentService:
         if latest is None:
             raise RuntimeError("Enrichment disappeared during save")
         return latest
+
+    def mark_published(self, post_id: UUID, event_id: str) -> None:
+        self._repository.mark_published(post_id, event_id)
 
 
 def _hash_classifier_input(article: ArticleInput) -> str:

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
 
+from sqlalchemy import and_, or_, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, sessionmaker
@@ -22,6 +23,9 @@ class StoredEnrichment:
     reason: str | None
     processed_at: datetime
     post_revision: int = 1
+    event_id: str | None = None
+    result_event: dict | None = None
+    publication_pending: bool = False
 
 
 class EnrichmentRepository:
@@ -56,6 +60,9 @@ class EnrichmentRepository:
                 status=enrichment.status,
                 reason=enrichment.reason,
                 processed_at=enrichment.processed_at,
+                event_id=enrichment.event_id,
+                result_event=enrichment.result_event,
+                publication_pending=enrichment.publication_pending,
             )
             excluded = statement.excluded
             result = session.execute(
@@ -69,13 +76,42 @@ class EnrichmentRepository:
                         "status": excluded.status,
                         "reason": excluded.reason,
                         "processed_at": excluded.processed_at,
+                        "event_id": excluded.event_id,
+                        "result_event": excluded.result_event,
+                        "publication_pending": excluded.publication_pending,
                     },
-                    where=(
-                        PostEnrichment.post_revision <= excluded.post_revision
+                    where=or_(
+                        PostEnrichment.post_revision < excluded.post_revision,
+                        and_(
+                            PostEnrichment.post_revision
+                            == excluded.post_revision,
+                            or_(
+                                PostEnrichment.status == "failed",
+                                and_(
+                                    PostEnrichment.event_id.is_(None),
+                                    excluded.event_id.is_not(None),
+                                ),
+                            ),
+                        ),
                     ),
                 )
             )
             return bool(result.rowcount)
+
+    def mark_published(self, post_id: UUID, event_id: str) -> None:
+        with self._session_factory.begin() as session:
+            result = session.execute(
+                update(PostEnrichment)
+                .where(
+                    PostEnrichment.post_id == post_id,
+                    PostEnrichment.event_id == event_id,
+                )
+                .values(publication_pending=False)
+            )
+            if result.rowcount != 1:
+                raise RuntimeError(
+                    "Saved result changed before publication completed"
+                )
 
     @staticmethod
     def _to_stored(record: PostEnrichment) -> StoredEnrichment:
@@ -91,4 +127,7 @@ class EnrichmentRepository:
             status=cast(EnrichmentStatus, record.status),
             reason=record.reason,
             processed_at=processed_at,
+            event_id=record.event_id,
+            result_event=record.result_event,
+            publication_pending=record.publication_pending,
         )

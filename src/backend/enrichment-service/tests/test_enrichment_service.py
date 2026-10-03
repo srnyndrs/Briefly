@@ -137,6 +137,27 @@ def test_stale_revision_is_ignored(
     assert len(classifier.inputs) == 1
 
 
+def test_completed_revision_is_not_reclassified_after_version_change(
+    session_factory: sessionmaker[Session],
+) -> None:
+    post_id = uuid4()
+    repository = EnrichmentRepository(session_factory)
+    first_classifier = ConfiguredClassifier(["science"])
+    first = EnrichmentService(repository, first_classifier).enrich_article(
+        post_id, ArticleInput(title="Research update"), post_revision=3
+    )
+    newer_classifier = ConfiguredClassifier([])
+
+    repeated = EnrichmentService(
+        repository, newer_classifier, enrichment_version="classification-v2"
+    ).enrich_article(
+        post_id, ArticleInput(title="Changed text"), post_revision=3
+    )
+
+    assert repeated == first
+    assert newer_classifier.inputs == []
+
+
 def test_abstention_is_saved_and_reused_without_classifier_call(
     session_factory: sessionmaker[Session],
 ) -> None:
