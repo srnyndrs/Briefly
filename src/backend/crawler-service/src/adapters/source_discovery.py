@@ -137,9 +137,10 @@ class SourceDiscoveryAdapter:
         response: Response,
     ) -> SourceDiscoverResponse | None:
         parsed = feedparser.parse(response.content)
+        version = getattr(parsed, "version", "") or ""
         if not (
-            parsed.version.startswith("rss")
-            or parsed.version.startswith("atom")
+            version.startswith("rss")
+            or version.startswith("atom")
         ):
             return None
 
