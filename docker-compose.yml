@@ -93,6 +93,9 @@ services:
       context: ./src/backend/content-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/content-service/.env
+        required: false
     ports:
       - "8002:8002"
     environment:
@@ -124,6 +127,9 @@ services:
       context: ./src/backend/enrichment-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/enrichment-service/.env
+        required: false
     ports:
       - "8005:8005"
     environment:
@@ -189,6 +195,9 @@ services:
       context: ./src/backend/public-api
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: ./src/backend/public-api/.env
+        required: false
     ports:
       - "8000:8000"
     environment:
