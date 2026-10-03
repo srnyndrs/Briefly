@@ -133,6 +133,7 @@ def patch_source(
         title=patch_data.get("title", current.title),
         description=patch_data.get("description", current.description),
         favicon=patch_data.get("favicon", current.favicon),
+        verified=patch_data.get("verified", current.verified),
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="Source not found.")

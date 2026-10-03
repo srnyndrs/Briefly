@@ -70,6 +70,13 @@ validated direct or explicitly advertised feed candidates. Overall and
 category feeds can coexist; if they contain the same article, each feed keeps
 its own projected post.
 
+Admins use `PATCH /sources/{source_id}` to update metadata and set or clear
+Explore verification. The gateway requires an admin-scoped access token;
+Source creation remains available to authenticated users and always creates
+unverified Sources. `GET /admin/feed` lists projected posts across all Sources,
+and `GET /admin/posts/{post_id}` returns canonical post details. Source delete
+and separate admin post list/count routes are not exposed by the gateway.
+
 For example:
 
 ```text

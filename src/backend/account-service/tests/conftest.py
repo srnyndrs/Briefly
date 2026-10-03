@@ -54,7 +54,7 @@ def auth_settings(monkeypatch) -> None:
     monkeypatch.setattr(
         settings, "jwt_secret", "account-service-test-key"
     )
-    monkeypatch.setattr(settings, "admin_emails_csv", "")
+    monkeypatch.setattr(settings, "admin_user_ids_csv", "")
 
 
 @pytest.fixture()

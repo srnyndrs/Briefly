@@ -34,6 +34,13 @@ Root Compose sends local reset emails to Mailpit at `http://localhost:8025`.
 Non-local deployments must set an SMTP host, sender address, reset URL, and
 TLS setting through environment variables.
 
+Admin access uses `ADMIN_USER_IDS_CSV`. To provision an operator locally,
+register a normal account, sign in, read its ID from `GET /me`, add that UUID
+to the account-service `.env`, and sign in again to receive a new admin-scoped
+access token. The list defaults to empty; choosing an email address during
+registration does not grant admin access. Keep credentials and JWT signing
+secrets in local service configuration, never in browser code.
+
 ## Integration
 
 The service receives account operations from the public API. It stores account

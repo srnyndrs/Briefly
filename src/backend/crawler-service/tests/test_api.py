@@ -72,7 +72,21 @@ def test_source_lifecycle(client, discover, db_session):
     assert renamed.json()["favicon"] is None
     assert renamed.json()["url"] == updated.json()["url"]
     assert client.get(f"/sources/{source_id}").json() == renamed.json()
-    assert client.get("/sources").json() == [renamed.json()]
+
+    verified = client.patch(f"/sources/{source_id}", json={"verified": True})
+    assert verified.status_code == 200
+    assert verified.json()["verified"] is True
+    unverified = client.patch(f"/sources/{source_id}", json={"verified": False})
+    assert unverified.status_code == 200
+    assert unverified.json()["verified"] is False
+    assert (
+        client.patch(
+            f"/sources/{source_id}", json={"verified": None}
+        ).status_code
+        == 422
+    )
+
+    assert client.get("/sources").json() == [unverified.json()]
 
     assert client.delete(f"/sources/{source_id}").status_code == 204
     assert client.get(f"/sources/{source_id}").status_code == 404

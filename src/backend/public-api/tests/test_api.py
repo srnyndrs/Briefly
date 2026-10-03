@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -82,6 +83,16 @@ def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["service"] == "public-api"
+
+
+def test_admin_api_surface_is_minimal() -> None:
+    _build_client()
+    paths = app.openapi()["paths"]
+
+    assert "delete" not in paths["/sources/{source_id}"]
+    assert "/admin/posts" not in paths
+    assert "/admin/posts/count" not in paths
+    assert "get" in paths["/admin/posts/{post_id}"]
 
 
 def test_overlapping_feeds_can_project_the_same_article_url() -> None:
@@ -615,26 +626,6 @@ def test_create_source_rejects_client_policy_fields() -> None:
     assert response.status_code == 422
 
 
-def test_delete_source_endpoint(monkeypatch) -> None:
-    client = _build_client()
-    source_id = str(uuid4())
-
-    called = {"value": False}
-
-    def fake_delete_source(sid: str) -> None:
-        assert sid == source_id
-        called["value"] = True
-
-    monkeypatch.setattr(
-        "src.routers.sources.ingestion_delete_source",
-        fake_delete_source,
-    )
-
-    response = client.delete(f"/sources/{source_id}")
-    assert response.status_code == 204
-    assert called["value"] is True
-
-
 def test_patch_source_endpoint(monkeypatch) -> None:
     client = _build_client()
     source_id = str(uuid4())
@@ -647,11 +638,11 @@ def test_patch_source_endpoint(monkeypatch) -> None:
         return {
             "source_id": sid,
             "url": "https://example.com/feed.xml",
-            "title": body["title"],
-            "description": "Feed description",
-            "favicon": body["favicon"],
+            "title": body.get("title", "Existing title"),
+            "description": body.get("description", "Feed description"),
+            "favicon": body.get("favicon", "https://example.com/icon.png"),
             "website_url": "https://example.com",
-            "verified": False,
+            "verified": body.get("verified", False),
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
             "last_crawl_succeeded": False,
@@ -677,6 +668,34 @@ def test_patch_source_endpoint(monkeypatch) -> None:
         "favicon": "https://example.com/icon.png",
     }
 
+    for verified in (True, False):
+        captured.clear()
+        response = client.patch(
+            f"/sources/{source_id}", json={"verified": verified}
+        )
+        assert response.status_code == 200
+        assert captured == {"verified": verified}
+
+
+def test_patch_source_requires_admin_scope() -> None:
+    client = _build_client()
+    source_id = str(uuid4())
+    current_user = app.dependency_overrides[get_current_user]
+
+    app.dependency_overrides[get_current_user] = lambda: AuthContext(
+        user_id=uuid4(), token_type="access"
+    )
+    assert client.patch(f"/sources/{source_id}", json={}).status_code == 403
+
+    def anonymous_user() -> AuthContext:
+        raise HTTPException(
+            status_code=401, detail="Missing Authorization header"
+        )
+
+    app.dependency_overrides[get_current_user] = anonymous_user
+    assert client.patch(f"/sources/{source_id}", json={}).status_code == 401
+    app.dependency_overrides[get_current_user] = current_user
+
 
 @pytest.mark.parametrize(
     "method, payload",
@@ -684,6 +703,7 @@ def test_patch_source_endpoint(monkeypatch) -> None:
         ("post", {}),
         ("patch", {"title": " "}),
         ("patch", {"url": None}),
+        ("patch", {"verified": None}),
     ],
 )
 def test_source_metadata_validation(method, payload) -> None:
@@ -732,60 +752,6 @@ def test_admin_feed_requires_admin_scope() -> None:
     app.dependency_overrides[get_current_user] = non_admin_user
     response = client.get("/admin/feed")
     assert response.status_code == 403
-
-
-def test_admin_posts_count_endpoint(monkeypatch) -> None:
-    client = _build_client()
-
-    def fake_count() -> dict:
-        return {"count": 42}
-
-    monkeypatch.setattr("src.routers.posts.content_posts_count", fake_count)
-
-    response = client.get("/admin/posts/count")
-    assert response.status_code == 200
-    assert response.json()["count"] == 42
-
-
-def test_admin_posts_list_endpoint(monkeypatch) -> None:
-    client = _build_client()
-
-    now = datetime.now(UTC).isoformat()
-
-    def fake_list(params: dict) -> list[dict]:
-        assert params["limit"] == 25
-        assert params["skip"] == 5
-        assert params["source_id"] == "source-1"
-        return [
-            {
-                "post_id": str(uuid4()),
-                "source_id": "source-1",
-                "source_title": "Admin Source",
-                "item_guid": "guid-1",
-                "url": "https://example.com/article",
-                "title": "Admin Post",
-                "description": "desc",
-                "content": "body",
-                "author": "Author",
-                "published_at": now,
-                "crawled_at": now,
-                "parsed_at": now,
-                "image_url": None,
-                "language": "en",
-                "keywords": ["technology"],
-            }
-        ]
-
-    monkeypatch.setattr("src.routers.posts.content_list_posts", fake_list)
-
-    response = client.get(
-        "/admin/posts",
-        params={"limit": 25, "skip": 5, "source_id": "source-1"},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["title"] == "Admin Post"
 
 
 def test_admin_get_post_endpoint(monkeypatch) -> None:
@@ -1552,9 +1518,11 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
     )
     db.commit()
 
+    current_verified_ids = {verified_source_id}
+
     def list_verified_sources(*, verified_only: bool) -> list[dict]:
         assert verified_only is True
-        return [{"source_id": verified_source_id}]
+        return [{"source_id": source_id} for source_id in current_verified_ids]
 
     monkeypatch.setattr(
         "src.services.feed_service.ingestion_list_sources",
@@ -1575,6 +1543,11 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
     assert [item["source_id"] for item in payload["items"]] == [
         verified_source_id
     ]
+
+    current_verified_ids.clear()
+    no_longer_verified = client.get("/explore")
+    assert no_longer_verified.status_code == 200
+    assert no_longer_verified.json()["total"] == 0
 
     monkeypatch.setattr(
         "src.services.feed_service.ingestion_list_sources",

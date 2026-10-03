@@ -33,17 +33,20 @@ class SourcePatchRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     favicon: HttpUrl | None = Field(default=None, max_length=2048)
+    verified: bool | None = None
 
     @field_validator("title", mode="before")
     @classmethod
     def trim_title(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
-    @field_validator("url", "title")
+    @field_validator("url", "title", "verified")
     @classmethod
-    def reject_null(cls, value: HttpUrl | str | None) -> HttpUrl | str:
+    def reject_null(
+        cls, value: HttpUrl | str | bool | None
+    ) -> HttpUrl | str | bool:
         if value is None:
-            raise ValueError("URL and title must not be null")
+            raise ValueError("URL, title, and verified must not be null")
         return value
 
 

@@ -101,6 +101,7 @@ class SourceRepository:
         title: str,
         description: str | None,
         favicon: str | None,
+        verified: bool,
     ) -> Source | None:
         item = self.get_source_by_id(source_id)
         if item is None:
@@ -110,6 +111,7 @@ class SourceRepository:
         item.title = title
         item.description = description
         item.favicon = favicon
+        item.verified = verified
         item.updated_at = datetime.now(timezone.utc)
 
         self._db.commit()
