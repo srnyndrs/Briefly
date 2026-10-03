@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     sentry_dsn: str | None = None
     gemini_api_key: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
 
     database_url: str = (
         "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
