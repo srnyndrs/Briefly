@@ -94,7 +94,7 @@ class PostConsumer:
         channel.queue_bind(
             queue=settings.result_queue,
             exchange=settings.result_exchange,
-            routing_key="post.enriched.v1",
+            routing_key="post.enriched.v2",
         )
         channel.queue_declare(queue=settings.post_dlq, durable=True)
         channel.queue_bind(

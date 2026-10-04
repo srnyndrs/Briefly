@@ -12,6 +12,7 @@ from src.scripts.evaluate_providers import (
     evaluate_articles,
     load_articles,
     main,
+    summarize,
 )
 from src.services.classification import ArticleInput
 from src.services.provider import ProviderError, ProviderResult, instructions
@@ -39,7 +40,7 @@ class FakeResponse:
         return self.stream.read(size)
 
 
-def gemini_response(content: str = '{"category_id":"science"}') -> dict:
+def gemini_response(content: str = '{"category_ids":["science"]}') -> dict:
     return {
         "modelVersion": "test-model-v2",
         "candidates": [
@@ -75,7 +76,7 @@ def test_gemini_sends_shared_prompt_and_parses_result(monkeypatch) -> None:
 
     monkeypatch.setattr("src.adapters.gemini_provider.urlopen", fake_open)
     result = make_provider()(ArticleInput(title="A study", language="en"))
-    assert result.category_id == "science"
+    assert result.category_ids == ("science",)
     assert result.model == "test-model-v2"
     assert (result.input_tokens, result.output_tokens) == (42, 8)
     request, timeout = requests[0]
@@ -94,18 +95,22 @@ def test_gemini_sends_shared_prompt_and_parses_result(monkeypatch) -> None:
     assert config["maxOutputTokens"] == 128
     assert config["responseFormat"]["text"]["mimeType"] == "application/json"
     assert (
-        config["responseFormat"]["text"]["schema"]["properties"]["category_id"][
-            "enum"
-        ][-1]
-        is None
+        config["responseFormat"]["text"]["schema"]["properties"][
+            "category_ids"
+        ]["maxItems"]
+        == 2
     )
 
 
 @pytest.mark.parametrize(
     "content",
     [
-        '{"category_id":"unknown"}',
-        '{"category_id":"science","extra":true}',
+        '{"category_ids":["unknown"]}',
+        '{"category_ids":["science"],"extra":true}',
+        '{"category_ids":["science","science"]}',
+        '{"category_ids":["other","health"]}',
+        '{"category_ids":["science","health","business"]}',
+        '{"category_ids":"science"}',
         "not JSON",
     ],
 )
@@ -116,6 +121,19 @@ def test_gemini_rejects_invalid_category(monkeypatch, content: str) -> None:
     )
     with pytest.raises(ValueError):
         make_provider()(ArticleInput(title="A study"))
+
+
+def test_gemini_accepts_two_categories_in_taxonomy_order(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.adapters.gemini_provider.urlopen",
+        lambda *_, **__: FakeResponse(
+            gemini_response('{"category_ids":["health","science"]}')
+        ),
+    )
+    assert make_provider()(ArticleInput(title="A study")).category_ids == (
+        "science",
+        "health",
+    )
 
 
 @pytest.mark.parametrize(
@@ -141,7 +159,7 @@ def test_gemini_rejects_missing_incomplete_or_large_result(
 
 
 def test_gemini_accepts_abstention_without_usage(monkeypatch) -> None:
-    response = gemini_response('{"category_id":null}')
+    response = gemini_response('{"category_ids":[]}')
     del response["usageMetadata"]
     del response["modelVersion"]
     monkeypatch.setattr(
@@ -149,7 +167,7 @@ def test_gemini_accepts_abstention_without_usage(monkeypatch) -> None:
         lambda *_, **__: FakeResponse(response),
     )
     result = make_provider()(ArticleInput(title="Unclear"))
-    assert result.category_id is None
+    assert result.category_ids == ()
     assert result.model == "test-model"
     assert result.input_tokens is None
     assert result.output_tokens is None
@@ -202,8 +220,8 @@ def test_evaluation_checks_call_cap_before_first_request(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n'
-        '{"id":"two","title":"Match","category_id":"sports"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n'
+        '{"id":"two","title":"Match","category_ids":["sports"]}\n',
         encoding="utf-8",
     )
     with pytest.raises(SystemExit):
@@ -222,7 +240,7 @@ def test_evaluation_checks_call_cap_before_first_request(
 def test_evaluation_rejects_example_overlap(tmp_path: Path) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"same","title":"Study","category_id":"science"}\n',
+        '{"id":"same","title":"Study","category_ids":["science"]}\n',
         encoding="utf-8",
     )
     with pytest.raises(SystemExit):
@@ -242,7 +260,60 @@ def test_evaluation_rejects_example_overlap(tmp_path: Path) -> None:
 
 def test_examples_file_has_valid_labels() -> None:
     path = Path(__file__).resolve().parents[1] / "examples" / "categories.jsonl"
-    assert len(load_articles(path)) == 5
+    assert len(load_articles(path)) == 6
+
+
+def test_evaluation_metrics_penalize_unnecessary_second_label() -> None:
+    rows = [
+        {
+            "expected": ["science"],
+            "actual": ["science", "health"],
+            "correct": False,
+            "error": None,
+            "language": "en",
+            "elapsed_seconds": 1.0,
+        },
+        {
+            "expected": ["science", "health"],
+            "actual": ["science", "health"],
+            "correct": True,
+            "error": None,
+            "language": "hu",
+            "elapsed_seconds": 3.0,
+        },
+    ]
+    metrics = summarize(rows)
+    assert metrics["exact_set_match"] == 0.5
+    assert metrics["second_label_precision"] == 0.75
+    assert metrics["unnecessary_two_label_predictions"] == 1
+    assert metrics["mean_latency_seconds"] == 2.0
+
+
+@pytest.mark.parametrize(
+    "error, expected_rate",
+    [
+        (json.JSONDecodeError("Invalid JSON", "broken", 0), 1.0),
+        (ValueError("Unsupported category"), 1.0),
+        (ProviderError("Connection failed"), 0.0),
+    ],
+)
+def test_evaluation_counts_invalid_output_separately_from_transport_failure(
+    error: Exception,
+    expected_rate: float,
+) -> None:
+    def fail(_: ArticleInput) -> ProviderResult:
+        raise error
+
+    rows = evaluate_articles(
+        fail,
+        "fake",
+        "fake-model",
+        [("one", ArticleInput(title="Article"), ("science",))],
+        0,
+    )
+    metrics = summarize(rows)
+    assert metrics["invalid_output_rate"] == expected_rate
+    assert metrics["failure_rate"] == 1.0
 
 
 def test_evaluator_rejects_keywords_supplied_as_text(tmp_path: Path) -> None:
@@ -252,7 +323,7 @@ def test_evaluator_rejects_keywords_supplied_as_text(tmp_path: Path) -> None:
             {
                 "id": "1",
                 "title": "Report",
-                "category_id": "science",
+                "category_ids": ["science"],
                 "keywords": "research",
             }
         ),
@@ -270,14 +341,14 @@ def test_evaluation_records_one_gemini_result(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"article-1","title":"Medicine","category_id":"health"}\n',
+        '{"id":"article-1","title":"Medicine","category_ids":["health"]}\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
     monkeypatch.setattr(
         "src.adapters.gemini_provider.urlopen",
         lambda *_, **__: FakeResponse(
-            gemini_response('{"category_id":"health"}')
+            gemini_response('{"category_ids":["health"]}')
         ),
     )
     assert (
@@ -308,8 +379,8 @@ def test_evaluation_records_failure_and_waits_between_calls(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n'
-        '{"id":"two","title":"Match","category_id":"sports"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n'
+        '{"id":"two","title":"Match","category_ids":["sports"]}\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
@@ -348,7 +419,7 @@ def test_evaluation_records_failure_and_waits_between_calls(
 def test_evaluation_requires_key(tmp_path: Path, monkeypatch) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(settings, "gemini_api_key", None)
@@ -361,7 +432,7 @@ def test_evaluation_rejects_unknown_provider_before_construction(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n',
         encoding="utf-8",
     )
 
@@ -389,7 +460,7 @@ def test_evaluation_selects_temporary_provider_from_command(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(settings, "gemini_api_key", None)
@@ -401,7 +472,7 @@ def test_evaluation_selects_temporary_provider_from_command(
 
         def classify(article: ArticleInput) -> ProviderResult:
             called.append(article.title)
-            return ProviderResult("science", model)
+            return ProviderResult(("science",), model)
 
         return classify
 
@@ -437,11 +508,11 @@ def test_evaluation_accepts_fake_provider_and_continues_after_failures(
     capsys: pytest.CaptureFixture[str], monkeypatch
 ) -> None:
     articles = [
-        ("success", ArticleInput(title="Study"), "science"),
-        ("abstain", ArticleInput(title="Unclear"), None),
-        ("provider-error", ArticleInput(title="Broken"), "sports"),
-        ("unexpected", ArticleInput(title="Secret"), "health"),
-        ("after-errors", ArticleInput(title="Match"), "sports"),
+        ("success", ArticleInput(title="Study"), ("science",)),
+        ("abstain", ArticleInput(title="Unclear"), ()),
+        ("provider-error", ArticleInput(title="Broken"), ("sports",)),
+        ("unexpected", ArticleInput(title="Secret"), ("health",)),
+        ("after-errors", ArticleInput(title="Match"), ("sports",)),
     ]
     waits = []
     calls = []
@@ -456,9 +527,9 @@ def test_evaluation_accepts_fake_provider_and_continues_after_failures(
         if article.title == "Secret":
             raise RuntimeError("private detail")
         category = {
-            "Study": "science",
-            "Unclear": None,
-            "Match": "sports",
+            "Study": ("science",),
+            "Unclear": (),
+            "Match": ("sports",),
         }[article.title]
         return ProviderResult(category, "fake-model-v2", 4, 2)
 
@@ -468,9 +539,9 @@ def test_evaluation_accepts_fake_provider_and_continues_after_failures(
     assert waits == [0.5] * 4
     assert [row["id"] for row in rows] == [item[0] for item in articles]
     assert all(row["provider"] == "fake" for row in rows)
-    assert rows[0]["actual"] == "science" and rows[0]["correct"] is True
+    assert rows[0]["actual"] == ["science"] and rows[0]["correct"] is True
     assert rows[0]["model"] == "fake-model-v2"
-    assert rows[1]["actual"] is None and rows[1]["correct"] is True
+    assert rows[1]["actual"] == [] and rows[1]["correct"] is True
     assert rows[2]["error"] == "ProviderError"
     assert len(rows[2]["error_detail"]) == 1_000
     assert rows[2]["model"] == "fake-model"

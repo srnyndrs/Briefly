@@ -10,7 +10,7 @@ from src.services.provider import (
     ProviderResult,
     article_json,
     category_schema,
-    parse_category,
+    parse_categories,
 )
 
 MAX_RESPONSE_BYTES = 16_384
@@ -91,12 +91,12 @@ class OllamaProvider:
         content = message.get("content")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("Ollama returned no answer content")
-        category = parse_category(json.loads(content))
+        categories = parse_categories(json.loads(content))
         response_model = data.get("model", self.model)
         if not isinstance(response_model, str) or not response_model:
             raise ValueError("Provider returned invalid model")
         return ProviderResult(
-            category_id=category,
+            category_ids=categories,
             model=response_model,
             input_tokens=_tokens(data.get("prompt_eval_count")),
             output_tokens=_tokens(data.get("eval_count")),

@@ -5,7 +5,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from src.services.categories import CATEGORY_DEFINITIONS
+from src.services.categories import validate_category_ids
 
 MAX_TITLE_LENGTH = 500
 MAX_DESCRIPTION_LENGTH = 2_000
@@ -30,12 +30,12 @@ class ArticleInput:
 
 @dataclass(frozen=True, slots=True)
 class ClassificationResult:
-    """A supported category or ``None`` when classification abstains."""
+    """Zero to two supported subject categories."""
 
-    category_id: str | None
+    category_ids: tuple[str, ...]
 
 
-Classifier = Callable[[ArticleInput], str | None]
+Classifier = Callable[[ArticleInput], tuple[str, ...]]
 
 
 def classify_article(
@@ -49,16 +49,11 @@ def classify_article(
     """
     normalized = normalize_article(article)
     if not any((normalized.title, normalized.description, normalized.body)):
-        return ClassificationResult(category_id=None)
+        return ClassificationResult(category_ids=())
 
-    category_id = classifier(normalized)
-    if category_id is not None and (
-        not isinstance(category_id, str)
-        or category_id not in CATEGORY_DEFINITIONS
-    ):
-        raise ValueError(f"Unsupported category ID: {category_id!r}")
-
-    return ClassificationResult(category_id=category_id)
+    return ClassificationResult(
+        category_ids=validate_category_ids(classifier(normalized))
+    )
 
 
 def normalize_article(article: ArticleInput) -> ArticleInput:

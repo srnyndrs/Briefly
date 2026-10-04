@@ -36,7 +36,7 @@ def block_real_requests(monkeypatch) -> None:
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fail)
 
 
-def ollama_response(content: str = '{"category_id":"science"}') -> dict:
+def ollama_response(content: str = '{"category_ids":["science"]}') -> dict:
     return {
         "model": "test-model:resolved",
         "message": {
@@ -69,7 +69,7 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
 
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fake_open)
     result = make_provider()(ArticleInput(title="A study", language="en"))
-    assert result.category_id == "science"
+    assert result.category_ids == ("science",)
     assert result.model == "test-model:resolved"
     assert (result.input_tokens, result.output_tokens) == (42, 8)
 
@@ -94,7 +94,7 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
 def test_ollama_accepts_abstention_without_usage_or_response_model(
     monkeypatch,
 ) -> None:
-    response = ollama_response('{"category_id":null}')
+    response = ollama_response('{"category_ids":[]}')
     del response["model"]
     del response["prompt_eval_count"]
     del response["eval_count"]
@@ -103,7 +103,7 @@ def test_ollama_accepts_abstention_without_usage_or_response_model(
         lambda *_, **__: FakeResponse(response),
     )
     result = make_provider()(ArticleInput(title="Unclear"))
-    assert result.category_id is None
+    assert result.category_ids == ()
     assert result.model == "test-model"
     assert result.input_tokens is None
     assert result.output_tokens is None
@@ -114,7 +114,7 @@ def test_ollama_accepts_abstention_without_usage_or_response_model(
     [
         b"not JSON",
         [],
-        {"message": {"content": '{"category_id":"science"}'}, "done": False},
+        {"message": {"content": '{"category_ids":["science"]}'}, "done": False},
         {**ollama_response(), "done": False},
         {**ollama_response(), "done": 1},
         {**ollama_response(), "done_reason": "length"},
@@ -122,11 +122,17 @@ def test_ollama_accepts_abstention_without_usage_or_response_model(
         {**ollama_response(), "message": None},
         {
             **ollama_response(),
-            "message": {"thinking": '{"category_id":"science"}', "content": ""},
+            "message": {
+                "thinking": '{"category_ids":["science"]}',
+                "content": "",
+            },
         },
         ollama_response("not JSON"),
-        ollama_response('{"category_id":"unknown"}'),
-        ollama_response('{"category_id":"science","extra":true}'),
+        ollama_response('{"category_ids":["unknown"]}'),
+        ollama_response('{"category_ids":["science"],"extra":true}'),
+        ollama_response('{"category_ids":["science","science"]}'),
+        ollama_response('{"category_ids":["other","health"]}'),
+        ollama_response('{"category_ids":["science","health","business"]}'),
         {"padding": "x" * 16_384},
     ],
 )
@@ -196,7 +202,7 @@ def test_ollama_evaluation_needs_no_gemini_key(
 ) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
-        '{"id":"one","title":"Study","category_id":"science"}\n',
+        '{"id":"one","title":"Study","category_ids":["science"]}\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(settings, "gemini_api_key", None)
@@ -223,5 +229,5 @@ def test_ollama_evaluation_needs_no_gemini_key(
     row = json.loads(capsys.readouterr().out)
     assert row["provider"] == "ollama"
     assert row["model"] == "test-model:resolved"
-    assert row["actual"] == "science"
+    assert row["actual"] == ["science"]
     assert row["correct"] is True

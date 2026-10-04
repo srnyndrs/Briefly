@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
@@ -9,6 +9,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.models.post_enrichment import PostEnrichment
+from src.services.categories import validate_category_ids
 
 EnrichmentStatus = Literal["completed", "abstained", "failed"]
 
@@ -18,11 +19,12 @@ class StoredEnrichment:
     post_id: UUID
     input_hash: str
     enrichment_version: str
-    category_id: str | None
+    category_ids: tuple[str, ...]
     status: EnrichmentStatus
     reason: str | None
     processed_at: datetime
     post_revision: int = 1
+    enrichment_revision: int = 1
     event_id: str | None = None
     result_event: dict | None = None
     publication_pending: bool = False
@@ -39,7 +41,10 @@ class EnrichmentRepository:
                 return None
             return self._to_stored(record)
 
-    def save(self, enrichment: StoredEnrichment) -> bool:
+    def save(self, enrichment: StoredEnrichment) -> StoredEnrichment | None:
+        categories = validate_category_ids(enrichment.category_ids)
+        if (enrichment.status == "completed") != bool(categories):
+            raise ValueError("Result status and category IDs disagree")
         with self._session_factory.begin() as session:
             dialect_name = session.get_bind().dialect.name
             if dialect_name == "sqlite":
@@ -56,7 +61,8 @@ class EnrichmentRepository:
                 post_revision=enrichment.post_revision,
                 input_hash=enrichment.input_hash,
                 enrichment_version=enrichment.enrichment_version,
-                category_id=enrichment.category_id,
+                category_ids=list(categories),
+                enrichment_revision=1,
                 status=enrichment.status,
                 reason=enrichment.reason,
                 processed_at=enrichment.processed_at,
@@ -65,14 +71,16 @@ class EnrichmentRepository:
                 publication_pending=enrichment.publication_pending,
             )
             excluded = statement.excluded
-            result = session.execute(
+            row = session.execute(
                 statement.on_conflict_do_update(
                     index_elements=[PostEnrichment.post_id],
                     set_={
                         "post_revision": excluded.post_revision,
                         "input_hash": excluded.input_hash,
                         "enrichment_version": excluded.enrichment_version,
-                        "category_id": excluded.category_id,
+                        "category_ids": excluded.category_ids,
+                        "enrichment_revision": PostEnrichment.enrichment_revision
+                        + 1,
                         "status": excluded.status,
                         "reason": excluded.reason,
                         "processed_at": excluded.processed_at,
@@ -87,6 +95,10 @@ class EnrichmentRepository:
                             == excluded.post_revision,
                             or_(
                                 PostEnrichment.status == "failed",
+                                PostEnrichment.input_hash
+                                != excluded.input_hash,
+                                PostEnrichment.enrichment_version
+                                != excluded.enrichment_version,
                                 and_(
                                     PostEnrichment.event_id.is_(None),
                                     excluded.event_id.is_not(None),
@@ -94,9 +106,30 @@ class EnrichmentRepository:
                             ),
                         ),
                     ),
+                ).returning(PostEnrichment.enrichment_revision)
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            event = enrichment.result_event
+            if event is not None and "payload" in event:
+                event = {
+                    **event,
+                    "payload": {
+                        **event["payload"],
+                        "enrichment_revision": row,
+                    },
+                }
+                session.execute(
+                    update(PostEnrichment)
+                    .where(PostEnrichment.post_id == enrichment.post_id)
+                    .values(result_event=event)
                 )
+            return replace(
+                enrichment,
+                category_ids=categories,
+                enrichment_revision=row,
+                result_event=event,
             )
-            return bool(result.rowcount)
 
     def mark_published(self, post_id: UUID, event_id: str) -> None:
         with self._session_factory.begin() as session:
@@ -123,7 +156,8 @@ class EnrichmentRepository:
             post_revision=record.post_revision,
             input_hash=record.input_hash,
             enrichment_version=record.enrichment_version,
-            category_id=record.category_id,
+            category_ids=tuple(record.category_ids),
+            enrichment_revision=record.enrichment_revision,
             status=cast(EnrichmentStatus, record.status),
             reason=record.reason,
             processed_at=processed_at,

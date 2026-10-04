@@ -13,17 +13,17 @@ from src.services.classification import (
 
 
 class FakeClassifier:
-    def __init__(self, result: str | None) -> None:
+    def __init__(self, result: tuple[str, ...]) -> None:
         self.result = result
         self.inputs: list[ArticleInput] = []
 
-    def __call__(self, article: ArticleInput) -> str | None:
+    def __call__(self, article: ArticleInput) -> tuple[str, ...]:
         self.inputs.append(article)
         return self.result
 
 
 def test_classifies_normalized_article_with_configured_result() -> None:
-    classifier = FakeClassifier("technology")
+    classifier = FakeClassifier(("technology",))
 
     result = classify_article(
         ArticleInput(
@@ -34,7 +34,7 @@ def test_classifies_normalized_article_with_configured_result() -> None:
         classifier,
     )
 
-    assert result == ClassificationResult(category_id="technology")
+    assert result == ClassificationResult(category_ids=("technology",))
     assert classifier.inputs == [
         ArticleInput(
             title="New device",
@@ -45,20 +45,20 @@ def test_classifies_normalized_article_with_configured_result() -> None:
 
 
 def test_uses_description_when_body_is_missing() -> None:
-    classifier = FakeClassifier("science")
+    classifier = FakeClassifier(("science",))
 
     result = classify_article(
         ArticleInput(title="Research update", description="New study results"),
         classifier,
     )
 
-    assert result.category_id == "science"
+    assert result.category_ids == ("science",)
     assert classifier.inputs[0].body is None
     assert classifier.inputs[0].description == "New study results"
 
 
 def test_empty_text_abstains_without_calling_classifier() -> None:
-    classifier = FakeClassifier("other")
+    classifier = FakeClassifier(("other",))
 
     result = classify_article(
         ArticleInput(
@@ -71,29 +71,53 @@ def test_empty_text_abstains_without_calling_classifier() -> None:
         classifier,
     )
 
-    assert result == ClassificationResult(category_id=None)
+    assert result == ClassificationResult(category_ids=())
     assert classifier.inputs == []
 
 
 def test_classifier_can_abstain() -> None:
-    classifier = FakeClassifier(None)
+    classifier = FakeClassifier(())
 
     result = classify_article(ArticleInput(title="Unclear report"), classifier)
 
-    assert result == ClassificationResult(category_id=None)
+    assert result == ClassificationResult(category_ids=())
     assert len(classifier.inputs) == 1
 
 
-@pytest.mark.parametrize("invalid_result", ["unknown", " Technology ", 4])
+@pytest.mark.parametrize("invalid_result", [("unknown",), (" Technology ",), 4])
 def test_rejects_unsupported_classifier_result(invalid_result: object) -> None:
     classifier = cast(Classifier, lambda _: invalid_result)
 
-    with pytest.raises(ValueError, match="Unsupported category ID"):
+    with pytest.raises(ValueError):
         classify_article(ArticleInput(title="A report"), classifier)
 
 
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        ("science", "science"),
+        ("science", "health", "business"),
+        ("other", "health"),
+        ("unknown",),
+        "science",
+    ],
+)
+def test_rejects_invalid_category_collections(invalid: object) -> None:
+    with pytest.raises(ValueError):
+        classify_article(
+            ArticleInput(title="A report"), cast(Classifier, lambda _: invalid)
+        )
+
+
+def test_two_categories_follow_taxonomy_order() -> None:
+    result = classify_article(
+        ArticleInput(title="A report"), lambda _: ("health", "science")
+    )
+    assert result.category_ids == ("science", "health")
+
+
 def test_classifier_failure_propagates() -> None:
-    def fail(_: ArticleInput) -> str | None:
+    def fail(_: ArticleInput) -> tuple[str, ...]:
         raise RuntimeError("classifier failed")
 
     with pytest.raises(RuntimeError, match="classifier failed"):
@@ -101,7 +125,7 @@ def test_classifier_failure_propagates() -> None:
 
 
 def test_input_fields_are_bounded() -> None:
-    classifier = FakeClassifier("other")
+    classifier = FakeClassifier(("other",))
 
     classify_article(
         ArticleInput(
@@ -124,7 +148,7 @@ def test_input_fields_are_bounded() -> None:
 
 
 def test_description_deduplicates_title_and_body_uses_opening_excerpt() -> None:
-    classifier = FakeClassifier("science")
+    classifier = FakeClassifier(("science",))
     classify_article(
         ArticleInput(
             title="Research update",
@@ -146,7 +170,7 @@ def test_description_deduplicates_title_and_body_uses_opening_excerpt() -> None:
 
 
 def test_language_hint_preserves_regional_tag() -> None:
-    classifier = FakeClassifier("science")
+    classifier = FakeClassifier(("science",))
     classify_article(
         ArticleInput(title="Report", language=" EN-US "), classifier
     )
@@ -155,7 +179,7 @@ def test_language_hint_preserves_regional_tag() -> None:
 
 
 def test_source_metadata_is_bounded_hints() -> None:
-    classifier = FakeClassifier("technology")
+    classifier = FakeClassifier(("technology",))
     classify_article(
         ArticleInput(
             title="Device report",

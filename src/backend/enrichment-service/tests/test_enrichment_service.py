@@ -9,11 +9,11 @@ from src.services.enrichment import EnrichmentService
 
 
 class ConfiguredClassifier:
-    def __init__(self, outputs: list[str | None]) -> None:
+    def __init__(self, outputs: list[tuple[str, ...]]) -> None:
         self.outputs = iter(outputs)
         self.inputs: list[ArticleInput] = []
 
-    def __call__(self, article: ArticleInput) -> str | None:
+    def __call__(self, article: ArticleInput) -> tuple[str, ...]:
         self.inputs.append(article)
         return next(self.outputs)
 
@@ -23,7 +23,7 @@ def test_reuses_saved_result_after_service_recreation(
 ) -> None:
     post_id = uuid4()
     article = ArticleInput(title="A science report", body="New research")
-    first_classifier = ConfiguredClassifier(["science"])
+    first_classifier = ConfiguredClassifier([("science",)])
     first_service = EnrichmentService(
         EnrichmentRepository(session_factory), first_classifier
     )
@@ -45,7 +45,7 @@ def test_reuses_saved_result_after_service_recreation(
 def test_hash_uses_the_normalized_bounded_classifier_input(
     session_factory: sessionmaker[Session],
 ) -> None:
-    classifier = ConfiguredClassifier(["technology"])
+    classifier = ConfiguredClassifier([("technology",)])
     service = EnrichmentService(
         EnrichmentRepository(session_factory), classifier
     )
@@ -70,7 +70,7 @@ def test_changed_text_and_version_are_processed_again(
     session_factory: sessionmaker[Session],
 ) -> None:
     post_id = uuid4()
-    classifier = ConfiguredClassifier(["science", "health", "health"])
+    classifier = ConfiguredClassifier([("science",), ("health",), ("health",)])
     repository = EnrichmentRepository(session_factory)
 
     first = EnrichmentService(repository, classifier).enrich_article(
@@ -87,9 +87,9 @@ def test_changed_text_and_version_are_processed_again(
         post_revision=3,
     )
 
-    assert first.category_id == "science"
-    assert changed_text.category_id == "health"
-    assert changed_version.category_id == "health"
+    assert first.category_ids == ("science",)
+    assert changed_text.category_ids == ("health",)
+    assert changed_version.category_ids == ("health",)
     assert changed_version.enrichment_version == "changed-version"
     assert len(classifier.inputs) == 3
 
@@ -100,13 +100,13 @@ def test_newer_revision_with_unchanged_input_reuses_result(
     post_id = uuid4()
     article = ArticleInput(title="Same article", body="Same body")
     repository = EnrichmentRepository(session_factory)
-    classifier = ConfiguredClassifier(["science"])
+    classifier = ConfiguredClassifier([("science",)])
     service = EnrichmentService(repository, classifier)
 
     first = service.enrich_article(post_id, article, post_revision=4)
     newer = service.enrich_article(post_id, article, post_revision=5)
 
-    assert first.category_id == newer.category_id == "science"
+    assert first.category_ids == newer.category_ids == ("science",)
     assert first.input_hash == newer.input_hash
     assert first.post_revision == 4
     assert newer.post_revision == 5
@@ -118,7 +118,7 @@ def test_stale_revision_is_ignored(
 ) -> None:
     post_id = uuid4()
     repository = EnrichmentRepository(session_factory)
-    classifier = ConfiguredClassifier(["science"])
+    classifier = ConfiguredClassifier([("science",)])
     service = EnrichmentService(repository, classifier)
     latest = service.enrich_article(
         post_id,
@@ -137,25 +137,26 @@ def test_stale_revision_is_ignored(
     assert len(classifier.inputs) == 1
 
 
-def test_completed_revision_is_not_reclassified_after_version_change(
+def test_completed_revision_is_reclassified_after_version_change(
     session_factory: sessionmaker[Session],
 ) -> None:
     post_id = uuid4()
     repository = EnrichmentRepository(session_factory)
-    first_classifier = ConfiguredClassifier(["science"])
+    first_classifier = ConfiguredClassifier([("science",)])
     first = EnrichmentService(repository, first_classifier).enrich_article(
         post_id, ArticleInput(title="Research update"), post_revision=3
     )
-    newer_classifier = ConfiguredClassifier([])
+    newer_classifier = ConfiguredClassifier([("science", "health")])
 
     repeated = EnrichmentService(
         repository, newer_classifier, enrichment_version="changed-version"
     ).enrich_article(
-        post_id, ArticleInput(title="Changed text"), post_revision=3
+        post_id, ArticleInput(title="Research update"), post_revision=3
     )
 
-    assert repeated == first
-    assert newer_classifier.inputs == []
+    assert repeated.category_ids == ("science", "health")
+    assert repeated.enrichment_revision == first.enrichment_revision + 1
+    assert newer_classifier.inputs == [ArticleInput(title="Research update")]
 
 
 def test_abstention_is_saved_and_reused_without_classifier_call(
@@ -186,12 +187,12 @@ def test_failed_result_is_saved_but_not_reused(
     repository = EnrichmentRepository(session_factory)
     calls = 0
 
-    def fail_once(article: ArticleInput) -> str | None:
+    def fail_once(article: ArticleInput) -> tuple[str, ...]:
         nonlocal calls
         calls += 1
         if calls == 1:
             raise RuntimeError("temporary classifier failure")
-        return "business"
+        return ("business",)
 
     service = EnrichmentService(repository, fail_once)
     article = ArticleInput(title="Company report")
@@ -207,5 +208,5 @@ def test_failed_result_is_saved_but_not_reused(
     succeeded = service.enrich_article(post_id, article)
 
     assert succeeded.status == "completed"
-    assert succeeded.category_id == "business"
+    assert succeeded.category_ids == ("business",)
     assert calls == 2

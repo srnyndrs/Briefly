@@ -18,8 +18,9 @@ from src.services.classification import (
     classify_article,
     normalize_article,
 )
+from src.services.provider import PROMPT_VERSION
 
-DEFAULT_ENRICHMENT_VERSION = "classification-v2"
+DEFAULT_ENRICHMENT_VERSION = f"{PROMPT_VERSION}-bounded-input-v1"
 
 
 class EnrichmentService:
@@ -62,6 +63,8 @@ class EnrichmentService:
             existing is not None
             and existing.post_revision == post_revision
             and existing.status in ("completed", "abstained")
+            and existing.input_hash == input_hash
+            and existing.enrichment_version == self._enrichment_version
         ):
             if correlation_id is not None and existing.result_event is None:
                 return self._save_result(
@@ -88,19 +91,19 @@ class EnrichmentService:
                 self._result(
                     post_id=post_id,
                     input_hash=input_hash,
-                    category_id=None,
+                    category_ids=(),
                     status="failed",
                     reason="classifier_error",
                     post_revision=post_revision,
                 )
             )
-            if not failed_saved:
+            if failed_saved is None:
                 latest = self._latest_or_raise(post_id)
                 if latest.post_revision > post_revision:
                     return latest
             raise
 
-        if result.category_id is None:
+        if not result.category_ids:
             reason = (
                 "no_usable_text"
                 if not any(
@@ -116,7 +119,7 @@ class EnrichmentService:
         enrichment = self._result(
             post_id=post_id,
             input_hash=input_hash,
-            category_id=result.category_id,
+            category_ids=result.category_ids,
             status=status,
             reason=reason,
             post_revision=post_revision,
@@ -131,10 +134,11 @@ class EnrichmentService:
         event = build_result_event(
             post_id=str(enrichment.post_id),
             post_revision=enrichment.post_revision,
+            enrichment_revision=enrichment.enrichment_revision,
             input_hash=enrichment.input_hash,
             enrichment_version=enrichment.enrichment_version,
             status=enrichment.status,
-            category_id=enrichment.category_id,
+            category_ids=enrichment.category_ids,
             processed_at=enrichment.processed_at,
             correlation_id=correlation_id,
         )
@@ -146,16 +150,16 @@ class EnrichmentService:
         )
 
     def _save_result(self, enrichment: StoredEnrichment) -> StoredEnrichment:
-        if self._repository.save(enrichment):
-            return enrichment
-        return self._latest_or_raise(enrichment.post_id)
+        return self._repository.save(enrichment) or self._latest_or_raise(
+            enrichment.post_id
+        )
 
     def _result(
         self,
         *,
         post_id: UUID,
         input_hash: str,
-        category_id: str | None,
+        category_ids: tuple[str, ...],
         status: EnrichmentStatus,
         reason: str | None,
         post_revision: int,
@@ -164,7 +168,7 @@ class EnrichmentService:
             post_id=post_id,
             input_hash=input_hash,
             enrichment_version=self._enrichment_version,
-            category_id=category_id,
+            category_ids=category_ids,
             status=status,
             reason=reason,
             processed_at=datetime.now(UTC),

@@ -18,9 +18,9 @@ class RecordingClassifier:
     def __init__(self) -> None:
         self.inputs: list[ArticleInput] = []
 
-    def __call__(self, article: ArticleInput) -> str | None:
+    def __call__(self, article: ArticleInput) -> tuple[str, ...]:
         self.inputs.append(article)
-        return "science"
+        return ("science",)
 
 
 def _event(
@@ -103,14 +103,15 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     saved = repository.get_by_post_id(UUID(post_id))
     assert saved is not None
     assert saved.post_revision == 3
-    assert saved.category_id == "science"
+    assert saved.category_ids == ("science",)
     assert not saved.publication_pending
     assert saved.result_event is not None
     result_event = saved.result_event
-    assert result_event["event_type"] == "post.enriched.v1"
+    assert result_event["event_type"] == "post.enriched.v2"
     assert result_event["correlation_id"] == "correlation-1"
     assert result_event["payload"]["post_revision"] == 3
-    assert result_event["payload"]["category_id"] == "science"
+    assert result_event["payload"]["enrichment_revision"] == 1
+    assert result_event["payload"]["category_ids"] == ["science"]
     assert result_event["payload"]["taxonomy_version"] == "categories-v2"
     published_event = json.loads(channel.basic_publish.call_args.kwargs["body"])
     assert published_event == result_event
@@ -140,7 +141,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(delivery_tag=8, requeue=False)
 
-    def no_classifier_call(_: ArticleInput) -> str | None:
+    def no_classifier_call(_: ArticleInput) -> tuple[str, ...]:
         raise AssertionError("saved result should be reused")
 
     restarted = PostEventProcessor(
@@ -152,6 +153,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     retried = restarted(event, retry_channel)
 
     assert retried.event_id == pending.event_id
+    assert retried.enrichment_revision == pending.enrichment_revision
     assert not retried.publication_pending
     assert json.loads(retry_channel.basic_publish.call_args.kwargs["body"]) == (
         pending.result_event
@@ -225,7 +227,7 @@ def test_existing_result_gets_an_event_without_reclassification(
         post_revision=2,
     )
 
-    def no_classifier_call(_: ArticleInput) -> str | None:
+    def no_classifier_call(_: ArticleInput) -> tuple[str, ...]:
         raise AssertionError("saved classification should be reused")
 
     processor = PostEventProcessor(
@@ -299,7 +301,7 @@ def test_changed_source_hints_at_new_revision_are_classified_again(
     assert len(classifier.inputs) == 2
 
 
-def test_conflicting_duplicate_revision_keeps_first_saved_snapshot(
+def test_changed_input_at_same_revision_replaces_saved_snapshot(
     session_factory: sessionmaker[Session],
 ) -> None:
     classifier = RecordingClassifier()
@@ -314,8 +316,13 @@ def test_conflicting_duplicate_revision_keeps_first_saved_snapshot(
         _event(post_id=post_id, revision=2, content="Conflicting body"), channel
     )
 
-    assert duplicate == first
-    assert len(classifier.inputs) == 1
+    assert duplicate.input_hash != first.input_hash
+    assert duplicate.enrichment_revision == first.enrichment_revision + 1
+    assert first.result_event is not None
+    assert duplicate.result_event is not None
+    assert duplicate.result_event["event_id"] != first.result_event["event_id"]
+    assert duplicate.result_event["payload"]["enrichment_revision"] == 2
+    assert len(classifier.inputs) == 2
 
 
 @pytest.mark.parametrize(
@@ -353,7 +360,7 @@ def test_invalid_parsed_post_events_are_rejected(
 ) -> None:
     processor = PostEventProcessor(
         EnrichmentService(
-            EnrichmentRepository(session_factory), lambda _: "science"
+            EnrichmentRepository(session_factory), lambda _: ("science",)
         )
     )
 

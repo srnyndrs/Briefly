@@ -10,7 +10,7 @@ from src.services.provider import (
     ProviderResult,
     article_json,
     category_schema,
-    parse_category,
+    parse_categories,
 )
 
 MAX_RESPONSE_BYTES = 16_384
@@ -113,10 +113,10 @@ class GeminiProvider:
             for part in parts
             if "text" in part and not part.get("thought")
         )
-        category = parse_category(json.loads(content))
+        categories = parse_categories(json.loads(content))
         usage = data.get("usageMetadata") or {}
         return ProviderResult(
-            category_id=category,
+            category_ids=categories,
             model=data.get("modelVersion") or self.model,
             input_tokens=_tokens(usage.get("promptTokenCount")),
             output_tokens=_tokens(usage.get("candidatesTokenCount")),

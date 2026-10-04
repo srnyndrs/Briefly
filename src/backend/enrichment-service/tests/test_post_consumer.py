@@ -52,7 +52,7 @@ def test_declares_durable_isolated_queue_and_dead_letter_route() -> None:
     channel.queue_bind.assert_any_call(
         queue=settings.result_queue,
         exchange=settings.result_exchange,
-        routing_key="post.enriched.v1",
+        routing_key="post.enriched.v2",
     )
 
 
