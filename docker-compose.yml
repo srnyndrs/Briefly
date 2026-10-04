@@ -148,6 +148,14 @@ services:
       start_period: 30s
       retries: 3
 
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:0.35.1
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   account-service:
     build:
       context: ./src/backend/account-service
@@ -238,3 +246,4 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  ollama_data:
