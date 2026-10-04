@@ -8,6 +8,7 @@ from src.services.classification import (
     Classifier,
     ClassificationResult,
     classify_article,
+    normalize_article,
 )
 
 
@@ -60,7 +61,13 @@ def test_empty_text_abstains_without_calling_classifier() -> None:
     classifier = FakeClassifier("other")
 
     result = classify_article(
-        ArticleInput(title="  ", description="\n", body=None, language="hu"),
+        ArticleInput(
+            title="  ",
+            description="\n",
+            language="hu",
+            source_category="Sports",
+            keywords=("football",),
+        ),
         classifier,
     )
 
@@ -111,20 +118,87 @@ def test_input_fields_are_bounded() -> None:
     assert normalized.description is not None
     assert len(normalized.description) == 2_000
     assert normalized.body is not None
-    assert len(normalized.body) == 8_000
+    assert len(normalized.body) == 1_200
     assert normalized.language is not None
     assert len(normalized.language) == 35
+
+
+def test_description_deduplicates_title_and_body_uses_opening_excerpt() -> None:
+    classifier = FakeClassifier("science")
+    classify_article(
+        ArticleInput(
+            title="Research update",
+            description="Research update — New study results & analysis",
+            body="Opening context. " + "Later details. " * 200,
+        ),
+        classifier,
+    )
+
+    article = classifier.inputs[0]
+    assert article.title == "Research update"
+    assert article.description == "New study results & analysis"
+    assert article.body is not None
+    assert article.body.startswith("Opening context.")
+    assert len(article.body) <= 1_200
+    assert ("Opening context. " + "Later details. " * 200).startswith(
+        article.body
+    )
+
+
+def test_language_hint_preserves_regional_tag() -> None:
+    classifier = FakeClassifier("science")
+    classify_article(
+        ArticleInput(title="Report", language=" EN-US "), classifier
+    )
+
+    assert classifier.inputs[0].language == "en-us"
+
+
+def test_source_metadata_is_bounded_hints() -> None:
+    classifier = FakeClassifier("technology")
+    classify_article(
+        ArticleInput(
+            title="Device report",
+            source_category="  Gadgets & Devices  ",
+            keywords=(" AI ", "AI", "hardware", *("extra" for _ in range(10))),
+        ),
+        classifier,
+    )
+
+    article = classifier.inputs[0]
+    assert article.source_category == "Gadgets & Devices"
+    assert article.keywords == ("AI", "hardware", "extra")
+
+
+def test_repeated_normalization_preserves_exact_classifier_input() -> None:
+    article = ArticleInput(
+        title="Research update",
+        description="Research update. Research update — -5 degrees recorded",
+        body="Literal &amp; text " * 200,
+        source_category="  ",
+    )
+
+    normalized = normalize_article(article)
+
+    assert normalized.description == "-5 degrees recorded"
+    assert normalized.source_category is None
+    assert normalize_article(normalized) == normalized
 
 
 def test_category_definitions_are_the_supported_ids() -> None:
     assert set(CATEGORY_DEFINITIONS) == {
         "politics",
+        "world",
         "business",
+        "economy",
+        "finance",
         "technology",
         "science",
         "health",
         "environment",
-        "culture",
+        "entertainment",
+        "lifestyle",
+        "automotive",
         "sports",
         "society",
         "other",

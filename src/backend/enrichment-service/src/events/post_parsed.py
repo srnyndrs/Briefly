@@ -18,6 +18,8 @@ class ParsedPostPayload(BaseModel):
     description: str | None = None
     content: str | None = None
     language: str | None = None
+    category: str | None = None
+    keywords: list[str] = Field(default_factory=list)
 
     @field_validator("item_guid", "url")
     @classmethod

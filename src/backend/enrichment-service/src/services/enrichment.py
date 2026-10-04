@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -19,7 +19,7 @@ from src.services.classification import (
     normalize_article,
 )
 
-DEFAULT_ENRICHMENT_VERSION = "classification-v1"
+DEFAULT_ENRICHMENT_VERSION = "classification-v2"
 
 
 class EnrichmentService:
@@ -183,12 +183,7 @@ class EnrichmentService:
 
 def _hash_classifier_input(article: ArticleInput) -> str:
     payload = json.dumps(
-        {
-            "title": article.title,
-            "description": article.description,
-            "body": article.body,
-            "language": article.language,
-        },
+        asdict(article),
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

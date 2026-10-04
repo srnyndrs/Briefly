@@ -24,6 +24,8 @@ class PostEventProcessor:
                 description=payload.description,
                 body=payload.content,
                 language=payload.language,
+                source_category=payload.category,
+                keywords=tuple(payload.keywords),
             ),
             post_revision=payload.post_revision,
             correlation_id=parsed_event.correlation_id,

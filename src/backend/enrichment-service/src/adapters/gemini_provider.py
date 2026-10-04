@@ -53,6 +53,7 @@ class GeminiProvider:
                 {"role": "user", "parts": [{"text": article_json(article)}]}
             ],
             "generationConfig": {
+                "temperature": 0,
                 "maxOutputTokens": 128,
                 "responseFormat": {
                     "text": {

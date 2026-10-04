@@ -15,12 +15,17 @@ logger = logging.getLogger("public-api.projections")
 SUPPORTED_CATEGORIES = frozenset(
     {
         "politics",
+        "world",
         "business",
+        "economy",
+        "finance",
         "technology",
         "science",
         "health",
         "environment",
-        "culture",
+        "entertainment",
+        "lifestyle",
+        "automotive",
         "sports",
         "society",
         "other",
@@ -31,7 +36,7 @@ SUPPORTED_CATEGORIES = frozenset(
 def _public_category(result: PostEnrichmentProjection | None) -> str | None:
     if (
         result is not None
-        and result.taxonomy_version == "categories-v1"
+        and result.taxonomy_version == "categories-v2"
         and result.status == "completed"
         and result.category_id in SUPPORTED_CATEGORIES
     ):

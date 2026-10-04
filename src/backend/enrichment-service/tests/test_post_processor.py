@@ -111,7 +111,7 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     assert result_event["correlation_id"] == "correlation-1"
     assert result_event["payload"]["post_revision"] == 3
     assert result_event["payload"]["category_id"] == "science"
-    assert result_event["payload"]["taxonomy_version"] == "categories-v1"
+    assert result_event["payload"]["taxonomy_version"] == "categories-v2"
     published_event = json.loads(channel.basic_publish.call_args.kwargs["body"])
     assert published_event == result_event
     assert len(classifier.inputs) == 1
@@ -256,6 +256,46 @@ def test_changed_input_at_new_revision_is_classified_again(
 
     assert changed.post_revision == 2
     assert changed.input_hash != first.input_hash
+    assert len(classifier.inputs) == 2
+
+
+def test_event_category_and_keywords_reach_classifier_as_hints(
+    session_factory: sessionmaker[Session],
+) -> None:
+    classifier = RecordingClassifier()
+    processor = PostEventProcessor(
+        EnrichmentService(EnrichmentRepository(session_factory), classifier)
+    )
+    event = _event(post_id=str(uuid4()))
+    payload = event["payload"]
+    assert isinstance(payload, dict)
+    payload["category"] = "Technology"
+    payload["keywords"] = ["AI", "Devices"]
+
+    processor(event, MagicMock(is_open=True))
+
+    assert classifier.inputs[0].source_category == "Technology"
+    assert classifier.inputs[0].keywords == ("AI", "Devices")
+
+
+def test_changed_source_hints_at_new_revision_are_classified_again(
+    session_factory: sessionmaker[Session],
+) -> None:
+    classifier = RecordingClassifier()
+    processor = PostEventProcessor(
+        EnrichmentService(EnrichmentRepository(session_factory), classifier)
+    )
+    post_id = str(uuid4())
+    first_event = _event(post_id=post_id, revision=1)
+    second_event = _event(post_id=post_id, revision=2)
+    second_payload = second_event["payload"]
+    assert isinstance(second_payload, dict)
+    second_payload["keywords"] = ["medical research"]
+
+    first = processor(first_event, MagicMock(is_open=True))
+    second = processor(second_event, MagicMock(is_open=True))
+
+    assert second.input_hash != first.input_hash
     assert len(classifier.inputs) == 2
 
 

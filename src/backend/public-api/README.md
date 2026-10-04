@@ -12,7 +12,7 @@ responsible for their own data.
 
 The query projector also consumes `post.enriched.v1` results. It keeps the
 publisher's RSS category in `source_category`; the public `category` is set
-only when a completed result from taxonomy `categories-v1` matches the current
+only when a completed result from taxonomy `categories-v2` matches the current
 post revision. Results can arrive before their post without creating an empty
 article. A newer article revision temporarily clears an older result's public
 category until its matching enrichment arrives. Feed ordering still uses

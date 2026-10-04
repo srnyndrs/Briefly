@@ -53,7 +53,7 @@ class OllamaProvider:
             ],
             "stream": False,
             "format": category_schema(),
-            "options": {"num_predict": 128},
+            "options": {"temperature": 0, "num_predict": 128},
         }
         request = Request(
             f"{self.base_url}/api/chat",

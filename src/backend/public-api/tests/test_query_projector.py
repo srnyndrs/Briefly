@@ -102,7 +102,7 @@ def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
         "payload": {
             "post_id": "post-1",
             "post_revision": 2,
-            "taxonomy_version": "categories-v1",
+            "taxonomy_version": "categories-v2",
             "status": "completed",
             "category_id": "science",
         },

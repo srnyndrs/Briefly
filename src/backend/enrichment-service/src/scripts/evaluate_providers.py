@@ -35,12 +35,21 @@ def load_articles(path: Path) -> list[tuple[str, ArticleInput, str | None]]:
             raise ValueError(f"{path}:{line_number}: duplicate id")
         seen.add(article_id)
         category = parse_category({"category_id": data["category_id"]})
+        keywords = data.get("keywords", [])
+        if not isinstance(keywords, list) or any(
+            not isinstance(value, str) for value in keywords
+        ):
+            raise ValueError(
+                f"{path}:{line_number}: keywords must be a list of strings"
+            )
         article = normalize_article(
             ArticleInput(
                 title=data["title"],
                 description=data.get("description"),
                 body=data.get("body"),
                 language=data.get("language"),
+                source_category=data.get("source_category"),
+                keywords=tuple(keywords),
             )
         )
         if not any((article.title, article.description, article.body)):

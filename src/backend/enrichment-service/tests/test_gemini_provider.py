@@ -90,6 +90,7 @@ def test_gemini_sends_shared_prompt_and_parses_result(monkeypatch) -> None:
         == "A study"
     )
     config = payload["generationConfig"]
+    assert config["temperature"] == 0
     assert config["maxOutputTokens"] == 128
     assert config["responseFormat"]["text"]["mimeType"] == "application/json"
     assert (
@@ -242,6 +243,24 @@ def test_evaluation_rejects_example_overlap(tmp_path: Path) -> None:
 def test_examples_file_has_valid_labels() -> None:
     path = Path(__file__).resolve().parents[1] / "examples" / "categories.jsonl"
     assert len(load_articles(path)) == 5
+
+
+def test_evaluator_rejects_keywords_supplied_as_text(tmp_path: Path) -> None:
+    path = tmp_path / "articles.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "1",
+                "title": "Report",
+                "category_id": "science",
+                "keywords": "research",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="keywords must be a list of strings"):
+        load_articles(path)
 
 
 def test_evaluation_records_one_gemini_result(
@@ -410,7 +429,7 @@ def test_evaluation_selects_temporary_provider_from_command(
     assert row["correct"] is True
     assert called == ["Study"]
     assert constructed[0][0] == "fake-model"
-    assert "Classify the article" in constructed[0][1]
+    assert constructed[0][1] == instructions([])
     assert constructed[0][2] == 7
 
 

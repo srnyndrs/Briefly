@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -26,9 +27,7 @@ def _db() -> Session:
     return Session(engine)
 
 
-def _post(
-    post_id: str, revision: int, *, title: str = "Article"
-) -> dict:
+def _post(post_id: str, revision: int, *, title: str = "Article") -> dict:
     return {
         "post_id": post_id,
         "post_revision": revision,
@@ -53,7 +52,7 @@ def _result(
     category: str | None,
     *,
     status: str = "completed",
-    taxonomy: str = "categories-v1",
+    taxonomy: str = "categories-v2",
 ) -> dict:
     return {
         "post_id": post_id,
@@ -82,9 +81,7 @@ def test_result_before_post_waits_for_matching_snapshot() -> None:
     assert post.post_revision == 2
 
 
-def test_post_before_result_and_stale_events_keep_current_category() -> (
-    None
-):
+def test_post_before_result_and_stale_events_keep_current_category() -> None:
     db = _db()
     project_post(db, _post("p1", 2, title="Current"))
     db.commit()
@@ -110,9 +107,21 @@ def test_post_before_result_and_stale_events_keep_current_category() -> (
     assert post.category == "science"
 
 
-def test_public_category_controls_list_detail_facets_and_muting() -> (
-    None
-):
+@pytest.mark.parametrize(
+    "category",
+    [
+        "other",
+        "world",
+        "economy",
+        "finance",
+        "entertainment",
+        "lifestyle",
+        "automotive",
+    ],
+)
+def test_public_category_controls_list_detail_facets_and_muting(
+    category: str,
+) -> None:
     db = _db()
     other_id = str(uuid4())
     for post_id in (
@@ -124,10 +133,8 @@ def test_public_category_controls_list_detail_facets_and_muting() -> (
     ):
         project_post(db, _post(post_id, 1))
     db.commit()
-    project_enrichment(db, _result(other_id, 1, "other"))
-    project_enrichment(
-        db, _result("abstained", 1, None, status="abstained")
-    )
+    project_enrichment(db, _result(other_id, 1, category))
+    project_enrichment(db, _result("abstained", 1, None, status="abstained"))
     project_enrichment(
         db,
         _result("unsupported", 1, "sports", taxonomy="future-taxonomy"),
@@ -137,19 +144,19 @@ def test_public_category_controls_list_detail_facets_and_muting() -> (
 
     repository = PostRepository(db)
     items, total = repository.list_candidates(
-        EffectiveFeedQuery(categories=["other"], limit=20)
+        EffectiveFeedQuery(categories=[category], limit=20)
     )
     assert total == 1
     assert [item.post_id for item in items] == [other_id]
     detail = repository.get_post(UUID(other_id))
     assert detail is not None
-    assert detail.category == "other"
+    assert detail.category == category
     assert repository.list_filter_options(
         EffectiveFeedQuery(limit=20)
-    ).categories == ["other"]
+    ).categories == [category]
 
     visible, total = repository.list_candidates(
-        EffectiveFeedQuery(muted_categories=["other"], limit=20)
+        EffectiveFeedQuery(muted_categories=[category], limit=20)
     )
     assert total == 4
     assert {item.post_id for item in visible} == {

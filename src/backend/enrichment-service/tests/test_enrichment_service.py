@@ -80,7 +80,7 @@ def test_changed_text_and_version_are_processed_again(
         post_id, ArticleInput(title="Medical update"), post_revision=2
     )
     changed_version = EnrichmentService(
-        repository, classifier, enrichment_version="classification-v2"
+        repository, classifier, enrichment_version="changed-version"
     ).enrich_article(
         post_id,
         ArticleInput(title="Medical update"),
@@ -90,7 +90,7 @@ def test_changed_text_and_version_are_processed_again(
     assert first.category_id == "science"
     assert changed_text.category_id == "health"
     assert changed_version.category_id == "health"
-    assert changed_version.enrichment_version == "classification-v2"
+    assert changed_version.enrichment_version == "changed-version"
     assert len(classifier.inputs) == 3
 
 
@@ -149,7 +149,7 @@ def test_completed_revision_is_not_reclassified_after_version_change(
     newer_classifier = ConfiguredClassifier([])
 
     repeated = EnrichmentService(
-        repository, newer_classifier, enrichment_version="classification-v2"
+        repository, newer_classifier, enrichment_version="changed-version"
     ).enrich_article(
         post_id, ArticleInput(title="Changed text"), post_revision=3
     )

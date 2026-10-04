@@ -88,7 +88,7 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
     assert json.loads(payload["messages"][1]["content"])["title"] == "A study"
     assert payload["stream"] is False
     assert payload["format"] == category_schema()
-    assert payload["options"] == {"num_predict": 128}
+    assert payload["options"] == {"temperature": 0, "num_predict": 128}
 
 
 def test_ollama_accepts_abstention_without_usage_or_response_model(
