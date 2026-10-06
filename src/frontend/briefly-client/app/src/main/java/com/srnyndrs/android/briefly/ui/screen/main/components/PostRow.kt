@@ -1,12 +1,15 @@
 package com.srnyndrs.android.briefly.ui.screen.main.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
 fun PostRow(
@@ -24,11 +29,13 @@ fun PostRow(
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier
+        modifier = Modifier.then(modifier)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable {
                 onClick()
             },
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            //.padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Source
         source?.let { sourceTitle ->
@@ -55,5 +62,26 @@ fun PostRow(
             fontWeight = FontWeight.Black,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@PreviewLightDark
+@Composable
+fun PostRowPreview() {
+    BrieflyTheme {
+        Surface {
+            Column (
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp)
+            ) {
+                PostRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Új programmal fogja támogatni az EU a hadiipari újítások átültetését a gyakorlatba",
+                    source = "Telex"
+                ) { }
+                HorizontalDivider()
+            }
+        }
     }
 }
