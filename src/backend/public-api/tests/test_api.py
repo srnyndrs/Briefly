@@ -1433,16 +1433,19 @@ def test_delete_my_subscription_not_found(monkeypatch) -> None:
     assert res.json()["detail"] == "Subscription not found"
 
 
-def test_explore_filters_muted_keywords() -> None:
+def test_feed_and_explore_filter_muted_keywords(monkeypatch) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
     user = app.dependency_overrides[get_current_user]()
     now = datetime.now(UTC)
+    clean_source_id = str(uuid4())
+    muted_source_id = str(uuid4())
+    paramount_source_id = str(uuid4())
 
     db.add(
         UserPreferencesProjection(
             user_id=str(user.user_id),
-            muted_keywords=["crypto", "spoilers"],
+            muted_keywords=["A$AP Rocky", "paramount"],
             muted_categories=[],
             blocked_source_ids=[],
             languages=["en"],
@@ -1452,7 +1455,7 @@ def test_explore_filters_muted_keywords() -> None:
     db.add(
         PostProjection(
             post_id=str(uuid4()),
-            source_id=str(uuid4()),
+            source_id=clean_source_id,
             source_title="Clean Source",
             canonical_url="https://example.com/clean-article",
             title="Clean Post",
@@ -1465,12 +1468,25 @@ def test_explore_filters_muted_keywords() -> None:
     db.add(
         PostProjection(
             post_id=str(uuid4()),
-            source_id=str(uuid4()),
-            source_title="Crypto Source",
-            canonical_url="https://example.com/crypto-article",
-            title="Crypto Post",
+            source_id=muted_source_id,
+            source_title="Music Source",
+            canonical_url="https://example.com/music-article",
+            title="asap rocky returns to Budapest",
             language="en",
-            keywords=["crypto", "bitcoin"],
+            keywords=["ASAP Rocky", "concert"],
+            published_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(
+        PostProjection(
+            post_id=str(uuid4()),
+            source_id=paramount_source_id,
+            source_title="Film Source",
+            canonical_url="https://example.com/film-article",
+            title="Studio merger finalized",
+            language="en",
+            keywords=["Paramount", "Warner Bros."],
             published_at=now,
             updated_at=now,
         )
@@ -1482,6 +1498,20 @@ def test_explore_filters_muted_keywords() -> None:
     payload = response.json()
     assert payload["total"] == 1
     assert payload["items"][0]["title"] == "Clean Post"
+
+    monkeypatch.setattr(
+        "src.services.feed_service.account_list_subscriptions",
+        lambda _: [
+            {"source_id": clean_source_id},
+            {"source_id": muted_source_id},
+            {"source_id": paramount_source_id},
+        ],
+    )
+    response = client.get("/feed")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 0
+    assert [item["title"] for item in payload["headlines"]] == ["Clean Post"]
 
 
 def test_explore_explicit_source_filter_cannot_include_unverified(

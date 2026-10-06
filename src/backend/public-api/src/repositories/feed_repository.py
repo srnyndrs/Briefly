@@ -61,16 +61,40 @@ class PostRepository:
                 k.lower().strip() for k in query.muted_keywords if k.strip()
             ]
             if normalized_muted:
-                if self._db.bind and self._db.bind.dialect.name == "sqlite":
-                    for kw in normalized_muted:
-                        statement = statement.where(
-                            ~cast(PostProjection.keywords, String).ilike(
-                                f"%{kw}%"
+                fields = (
+                    PostProjection.title,
+                    PostProjection.description,
+                    cast(PostProjection.keywords, String),
+                )
+                for keyword in normalized_muted:
+                    normalized_keyword = keyword.replace("$", "s")
+                    escaped_keyword = (
+                        keyword.replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_")
+                    )
+                    escaped_normalized_keyword = (
+                        normalized_keyword.replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_")
+                    )
+                    statement = statement.where(
+                        ~or_(
+                            *(
+                                or_(
+                                    func.coalesce(field, "").ilike(
+                                        f"%{escaped_keyword}%", escape="\\"
+                                    ),
+                                    func.replace(
+                                        func.coalesce(field, ""), "$", "s"
+                                    ).ilike(
+                                        f"%{escaped_normalized_keyword}%",
+                                        escape="\\",
+                                    ),
+                                )
+                                for field in fields
                             )
                         )
-                else:
-                    statement = statement.where(
-                        ~PostProjection.keywords.op("&&")(normalized_muted)
                     )
 
         # 4. Strict Language Allowlist
