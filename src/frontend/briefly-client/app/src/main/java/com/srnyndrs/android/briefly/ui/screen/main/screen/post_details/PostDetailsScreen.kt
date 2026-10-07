@@ -83,7 +83,8 @@ fun PostDetailsScreen(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     article: PostDetails?,
-    onNavigationEvent: (MainNavigationEvent) -> Unit
+    onNavigationEvent: (MainNavigationEvent) -> Unit,
+    onEvent: (PostDetailsEvent) -> Unit,
 ) {
 
     val scrollState = rememberScrollState()
@@ -159,17 +160,25 @@ fun PostDetailsScreen(
                                 modifier = Modifier
                                     .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(0.112f)),
+                                    .background(
+                                        if(isLoading) MaterialTheme.colorScheme.onSurface.copy(0.112f)
+                                        else Color.Transparent
+                                    ),
                                 isLoading = isLoading,
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    text = article?.category ?: "",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Black
-                                )
+                                if (!article?.category.isNullOrBlank()) {
+                                    Text(
+                                        modifier = Modifier.padding(
+                                            horizontal = 8.dp,
+                                            vertical = 2.dp
+                                        ),
+                                        text = article.category,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
                             }
                         }
                         // Title
@@ -493,7 +502,7 @@ fun PostDetailsScreen(
                                             IconButton(
                                                 modifier = Modifier.size(22.dp),
                                                 onClick = {
-                                                    // TODO: mute keyword
+                                                    onEvent(PostDetailsEvent.MuteKeyword(keyword))
                                                 }
                                             ) {
                                                 Icon(
@@ -535,7 +544,8 @@ fun PostDetailsScreenPreview(
                 PostDetailsScreen(
                     modifier = Modifier.fillMaxSize(),
                     article = data,
-                    isLoading =  isLoading
+                    isLoading =  isLoading,
+                    onNavigationEvent = {}
                 ) {}
             }
         }

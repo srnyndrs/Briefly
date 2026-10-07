@@ -137,7 +137,9 @@ fun MainNavigationGraph(
                         isLoading = isLoading,
                         article = data,
                         onNavigationEvent = handleNavigationEvent
-                    )
+                    ) { event ->
+                        viewModel.onEvent(event)
+                    }
                 }
             } ?: Column {
                 // TODO: handle null state
