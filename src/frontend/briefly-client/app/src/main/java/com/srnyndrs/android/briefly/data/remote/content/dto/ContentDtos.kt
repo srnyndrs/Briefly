@@ -248,8 +248,8 @@ data class SourceDetailsResponseDto(
     val favicon: String? = null,
     val verified: Boolean = false,
 
-    @SerialName("website_url")
-    val websiteUrl: String? = null,
+    @SerialName("site_url")
+    val siteUrl: String? = null,
 
     @Serializable(with = InstantIso8601Serializer::class)
     @SerialName("last_crawled_at")

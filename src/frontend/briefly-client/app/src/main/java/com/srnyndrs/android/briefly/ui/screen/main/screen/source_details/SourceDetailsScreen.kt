@@ -275,7 +275,7 @@ fun SourceDetailsScreen(
                                 }
                                 TextButton(
                                     shape = RoundedCornerShape(8.dp),
-                                    enabled = !isLoading && feedDetails?.websiteUrl != null,
+                                    enabled = !isLoading && feedDetails?.siteUrl != null,
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         containerColor = Color.Transparent,
                                         disabledContainerColor = Color.Transparent,
@@ -289,7 +289,7 @@ fun SourceDetailsScreen(
                                     onClick = {
                                         onNavigationEvent(
                                             MainNavigationEvent.OpenCustomTab(
-                                                url = feedDetails?.websiteUrl
+                                                url = feedDetails?.siteUrl
                                             )
                                         )
                                     },

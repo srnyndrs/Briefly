@@ -76,6 +76,9 @@ def register_source(
         title=body.title,
         description=body.description,
         favicon=str(body.favicon) if body.favicon else None,
+        site_url=str(body.site_url) if body.site_url else None,
+        site_name=body.site_name,
+        language=body.language,
         verified=False,
         submitted_by_user_id=body.submitted_by_user_id,
     )
@@ -133,6 +136,9 @@ def patch_source(
         title=patch_data.get("title", current.title),
         description=patch_data.get("description", current.description),
         favicon=patch_data.get("favicon", current.favicon),
+        site_url=patch_data.get("site_url", current.site_url),
+        site_name=patch_data.get("site_name", current.site_name),
+        language=patch_data.get("language", current.language),
         verified=patch_data.get("verified", current.verified),
     )
     if updated is None:

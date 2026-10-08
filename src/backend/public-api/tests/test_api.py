@@ -459,7 +459,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
             "title": "Source",
             "description": "Desc",
             "favicon": None,
-            "website_url": "https://example.com",
+            "site_url": "https://example.com",
             "verified": True,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
@@ -501,7 +501,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
                 "title": "Source",
                 "description": "Desc",
                 "favicon": None,
-                "website_url": "https://example.com",
+                "site_url": "https://example.com",
                 "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
@@ -543,7 +543,9 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
                 "content_type": "application/rss+xml",
                 "favicon": "https://example.com/favicon.ico",
                 "description": "Feed description",
-                "website_url": "https://example.com",
+                "site_url": "https://example.com",
+                "site_name": "Example News",
+                "language": "hu-HU",
             }
         ]
 
@@ -559,7 +561,9 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["title"] == "Discovered"
-    assert payload[0]["website_url"] == "https://example.com"
+    assert payload[0]["site_url"] == "https://example.com"
+    assert payload[0]["site_name"] == "Example News"
+    assert payload[0]["language"] == "hu-HU"
 
 
 def test_create_source_endpoint_forwards_json_payload(
@@ -577,7 +581,7 @@ def test_create_source_endpoint_forwards_json_payload(
             "title": body["title"],
             "description": body["description"],
             "favicon": body["favicon"],
-            "website_url": "https://example.com",
+            "site_url": "https://example.com",
             "verified": False,
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
@@ -599,6 +603,9 @@ def test_create_source_endpoint_forwards_json_payload(
             "title": "Example",
             "description": "Feed description",
             "favicon": "https://example.com/favicon.ico",
+            "site_url": "https://example.com",
+            "site_name": "Example News",
+            "language": "hu-HU",
         },
     )
 
@@ -609,6 +616,9 @@ def test_create_source_endpoint_forwards_json_payload(
         "title": "Example",
         "description": "Feed description",
         "favicon": "https://example.com/favicon.ico",
+        "site_url": "https://example.com/",
+        "site_name": "Example News",
+        "language": "hu-HU",
         "submitted_by_user_id": str(current_user.user_id),
     }
 
@@ -641,7 +651,7 @@ def test_patch_source_endpoint(monkeypatch) -> None:
             "title": body.get("title", "Existing title"),
             "description": body.get("description", "Feed description"),
             "favicon": body.get("favicon", "https://example.com/icon.png"),
-            "website_url": "https://example.com",
+            "site_url": "https://example.com",
             "verified": body.get("verified", False),
             "last_crawled_at": None,
             "next_crawl_scheduled_at": now,
@@ -659,6 +669,9 @@ def test_patch_source_endpoint(monkeypatch) -> None:
         json={
             "title": "  Updated  ",
             "favicon": "https://example.com/icon.png",
+            "site_url": "https://example.com/",
+            "site_name": "Example News",
+            "language": "hu-HU",
         },
     )
     assert response.status_code == 200
@@ -666,6 +679,9 @@ def test_patch_source_endpoint(monkeypatch) -> None:
     assert captured == {
         "title": "Updated",
         "favicon": "https://example.com/icon.png",
+        "site_url": "https://example.com/",
+        "site_name": "Example News",
+        "language": "hu-HU",
     }
 
     for verified in (True, False):
@@ -1157,7 +1173,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "title": "Subscribed Source",
                 "description": "Desc",
                 "favicon": None,
-                "website_url": "https://example.com",
+                "site_url": "https://example.com",
                 "verified": True,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,
@@ -1172,7 +1188,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
                 "title": "Unsubscribed Source",
                 "description": "Desc",
                 "favicon": None,
-                "website_url": "https://example.com",
+                "site_url": "https://example.com",
                 "verified": False,
                 "last_crawled_at": None,
                 "next_crawl_scheduled_at": now,

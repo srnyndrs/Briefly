@@ -107,7 +107,6 @@ The seed command creates the crawler schema when needed, inserts feeds that
 are not already registered by URL, and leaves existing source records
 unchanged.
 
-
 Run tests and lint checks:
 
 ```bash

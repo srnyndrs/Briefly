@@ -28,7 +28,9 @@ class Source(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     favicon: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    website_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    site_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    site_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(35), nullable=True)
     verified: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )

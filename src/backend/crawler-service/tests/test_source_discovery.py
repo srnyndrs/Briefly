@@ -1,126 +1,96 @@
-from unittest.mock import MagicMock, patch
-
-import requests
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from src.adapters.source_discovery import (
     SourceDiscoveryAdapter,
     normalize_feed_url,
 )
+from src.config.settings import settings
 
 
-def _http_response(url: str, body: bytes, *, headers=None, status=200):
-    response = MagicMock()
-    response.url = url
-    response.status_code = status
-    response.headers = headers or {}
-    response.content = body
-    response.iter_content.return_value = iter([body])
-    return response
-
-
-def test_discover_sources_accepts_direct_feed_url():
-    body = (
-        b"<?xml version='1.0'?><rss version='2.0'><channel>"
-        b"<title>Example</title><description>News</description>"
-        b"<link>https://www.example.com/</link>"
-        b"</channel></rss>"
-    )
-    response = _http_response(
-        "https://feeds.example.net/feed.xml",
-        body,
-        headers={"Content-Type": "application/rss+xml; charset=utf-8"},
+def _result(*feeds, root_error=None):
+    return SimpleNamespace(
+        feeds=[Mock(serialize=Mock(return_value=feed)) for feed in feeds],
+        root_error=root_error,
     )
 
+
+def test_discovery_maps_feed_and_site_metadata():
+    feed = {
+        "url": "https://feeds.example.net/feed.xml#fragment",
+        "title": "Feed title",
+        "description": "News",
+        "content_type": "application/rss+xml; charset=utf-8",
+        "favicon": None,
+        "image": "https://example.com/apple-touch-icon.png",
+        "site_url": "https://www.example.com/",
+        "site_name": "Example News",
+        "language": "hu-HU",
+    }
     with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        return_value=response,
-    ):
+        "src.adapters.source_discovery.search_with_info",
+        return_value=_result(feed),
+    ) as search:
         result = SourceDiscoveryAdapter().discover(
-            "https://feeds.example.net/feed.xml"
+            "HTTPS://FEEDS.EXAMPLE.NET:443/feed.xml#top"
         )
 
     assert len(result) == 1
     assert result[0].url == "https://feeds.example.net/feed.xml"
     assert result[0].content_type == "application/rss+xml"
-    assert result[0].title == "Example"
-    assert result[0].website_url == "https://www.example.com/"
+    assert result[0].favicon == feed["image"]
+    assert result[0].site_url == feed["site_url"]
+    assert result[0].site_name == "Example News"
+    assert result[0].language == "hu-HU"
+    search.assert_called_once_with(
+        "https://feeds.example.net/feed.xml",
+        try_urls=False,
+        crawl_hosts=True,
+        total_timeout=settings.source_validation_timeout_seconds,
+        max_content_length=settings.source_validation_max_bytes,
+        favicon_data_uri=False,
+    )
 
 
-def test_discover_sources_does_not_guess_unverified_feed_paths():
-    body = b"<html><head><title>Example</title></head></html>"
-    response = _http_response("https://example.com/", body)
-
-    with (
-        patch(
-            "src.adapters.source_discovery.requests.Session.get",
-            return_value=response,
+def test_discovery_prefers_favicon_and_feed_site_link():
+    with patch(
+        "src.adapters.source_discovery.search_with_info",
+        return_value=_result(
+            {
+                "url": "https://example.com/feed",
+                "favicon": "https://example.com/favicon.ico",
+                "image": "https://example.com/artwork.png",
+                "link": "https://example.com/",
+            }
         ),
-        patch("requests.head") as mock_head,
+    ):
+        result = SourceDiscoveryAdapter().discover("https://example.com/feed")
+
+    assert result[0].favicon == "https://example.com/favicon.ico"
+    assert result[0].site_url == "https://example.com/"
+
+
+def test_discovery_skips_invalid_and_duplicate_feed_urls():
+    with patch(
+        "src.adapters.source_discovery.search_with_info",
+        return_value=_result(
+            {"url": "ftp://example.com/feed"},
+            {"url": "https://example.com/feed"},
+            {"url": "https://example.com/feed#duplicate"},
+        ),
     ):
         result = SourceDiscoveryAdapter().discover("https://example.com/")
 
-    assert result == []
-    mock_head.assert_not_called()
+    assert [item.url for item in result] == ["https://example.com/feed"]
 
 
-def test_discover_sources_validates_advertised_feed_and_prefers_feed_title():
-    page = _http_response(
-        "https://example.com/",
-        b"<html><head>"
-        b"<meta property='og:site_name' content='Example News'>"
-        b"<link rel='alternate' type='application/rss+xml' "
-        b"title='Latest stories' href='/feed.xml'>"
-        b"</head></html>",
-    )
-    feed = _http_response(
-        "https://example.com/feed.xml",
-        b"<rss version='2.0'><channel><title>Channel Title</title>"
-        b"<description>Feed description</description></channel></rss>",
-        headers={"Content-Type": "text/html"},
-    )
+def test_discovery_handles_empty_and_failed_search():
+    with patch("src.adapters.source_discovery.search_with_info") as search:
+        assert SourceDiscoveryAdapter().discover("not-a-url") == []
+        search.assert_not_called()
 
-    with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        side_effect=[page, feed],
-    ) as mock_get:
-        result = SourceDiscoveryAdapter().discover("https://example.com/")
-
-    assert len(result) == 1
-    assert result[0].url == "https://example.com/feed.xml"
-    assert result[0].title == "Channel Title"
-    assert result[0].description == "Feed description"
-    assert result[0].website_url == "https://example.com/"
-    assert mock_get.call_count == 2
-
-
-def test_discover_sources_omits_advertised_non_feed():
-    page = _http_response(
-        "https://example.com/",
-        b"<link rel='alternate' type='application/atom+xml' href='/fake'>",
-    )
-    fake_feed = _http_response("https://example.com/fake", b"<html>no</html>")
-    with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        side_effect=[page, fake_feed],
-    ):
-        result = SourceDiscoveryAdapter().discover("https://example.com/")
-    assert result == []
-
-
-def test_discover_sources_accepts_empty_atom_feed():
-    response = _http_response(
-        "https://example.com/atom.xml",
-        b"<feed xmlns='http://www.w3.org/2005/Atom'>"
-        b"<title>Empty atom</title><link href='https://example.com/'/>"
-        b"</feed>",
-    )
-    with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        return_value=response,
-    ):
-        result = SourceDiscoveryAdapter().discover(response.url)
-    assert len(result) == 1
-    assert result[0].title == "Empty atom"
+        search.return_value = _result(root_error="timeout")
+        assert SourceDiscoveryAdapter().discover("https://example.com/") == []
 
 
 def test_normalize_feed_url_keeps_path_query_and_removes_defaults():
@@ -128,41 +98,3 @@ def test_normalize_feed_url_keeps_path_query_and_removes_defaults():
         normalize_feed_url("HTTPS://Example.COM:443/feed/?a=1#top")
         == "https://example.com/feed/?a=1"
     )
-
-
-def test_discover_sources_uses_final_url_after_redirect():
-    feed = _http_response(
-        "https://example.com/feed",
-        b"<rss version='2.0'><channel><title>Final</title></channel></rss>",
-    )
-    with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        return_value=feed,
-    ):
-        result = SourceDiscoveryAdapter().discover("https://example.com/old")
-    assert result[0].url == "https://example.com/feed"
-
-
-def test_discover_sources_rejects_response_larger_than_limit():
-    response = _http_response("https://example.com/feed", b"123456")
-    with (
-        patch(
-            "src.adapters.source_discovery.requests.Session.get",
-            return_value=response,
-        ),
-        patch(
-            "src.adapters.source_discovery.settings.source_validation_max_bytes",
-            5,
-        ),
-    ):
-        result = SourceDiscoveryAdapter().discover(response.url)
-    assert result == []
-
-
-def test_discover_sources_handles_timeout():
-    with patch(
-        "src.adapters.source_discovery.requests.Session.get",
-        side_effect=requests.Timeout,
-    ):
-        result = SourceDiscoveryAdapter().discover("https://example.com/feed")
-    assert result == []

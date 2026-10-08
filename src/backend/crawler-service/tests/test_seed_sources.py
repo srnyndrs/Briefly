@@ -25,7 +25,9 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
                 {
                     "url": "https://example.co.uk/feed",
                     "title": "Example",
-                    "website_url": "https://news.example.co.uk/",
+                    "site_url": "https://news.example.co.uk/",
+                    "site_name": "Example News",
+                    "language": "en-GB",
                     "content_type": "application/rss+xml",
                 },
                 {"url": "https://other.org/feed", "title": "Other"},
@@ -40,6 +42,9 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
     sources = db_session.query(Source).order_by(Source.title).all()
     assert all(source.verified for source in sources)
     assert all(source.submitted_by_user_id is None for source in sources)
+    assert sources[0].site_url == "https://news.example.co.uk/"
+    assert sources[0].site_name == "Example News"
+    assert sources[0].language == "en-GB"
     sources[0].title = "Updated by user"
     db_session.commit()
 

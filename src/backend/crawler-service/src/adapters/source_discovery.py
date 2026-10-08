@@ -1,29 +1,14 @@
 import logging
 import warnings
+from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import XMLParsedAsHTMLWarning
-warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
-
-
-from urllib.parse import urljoin, urlsplit, urlunsplit
 from feedsearch_crawler import search_with_info
-
-import feedparser
-import requests
-from bs4 import BeautifulSoup
-from requests import Response
 
 from src.config.settings import settings
 from src.schemas.sources import SourceDiscoverResponse
 
 logger = logging.getLogger(__name__)
-
-FEED_TYPES = {
-    "application/rss+xml",
-    "application/atom+xml",
-    "application/xml",
-    "text/xml",
-}
 
 
 def normalize_feed_url(url: str) -> str:
@@ -48,135 +33,69 @@ def normalize_feed_url(url: str) -> str:
     return urlunsplit((scheme, netloc, parts.path, parts.query, ""))
 
 
+def _valid_url(value: object) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return normalize_feed_url(value)
+    except ValueError:
+        return None
+
+
 class SourceDiscoveryAdapter:
-    def discover(self, url: str) -> list[SourceDiscoverResponse]:
-        if not url:
-            logger.warning("URL is empty or None")
+    @staticmethod
+    def discover(url: str) -> list[SourceDiscoverResponse]:
+        try:
+            normalized_url = normalize_feed_url(url)
+        except (ValueError, UnicodeError):
             return []
 
         try:
-            result = search_with_info(url,
-                try_urls=False,
-                crawl_hosts=True,
-                total_timeout=30.0,
-                request_timeout=3.0,
-                max_content_length=10 * 1024 * 1024,
-                max_depth=10,
-                favicon_data_uri=False,
-            )
-            discovered_feeds: list[SourceDiscoverResponse] = []
-            for feed_data in (feed.serialize() for feed in result.feeds):
-                try:
-                    feed_url = normalize_feed_url(str(feed_data.get("url") or ""))
-                except (ValueError, UnicodeError):
-                    continue
-
-                discovered_feeds.append(
-                    SourceDiscoverResponse(
-                        url=feed_url,
-                        title=feed_data.get("title"),
-                        description=feed_data.get("description"),
-                        content_type=feed_data.get("content_type"),
-                        favicon=_valid_website_url(feed_data.get("favicon")),
-                        website_url=_valid_website_url(
-                            feed_data.get("site_url") or feed_data.get("feed.link")
-                        ),
-                        site_name=feed_data.get("site_name"),
-                        language=feed_data.get("language"),
-                    )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
+                result = search_with_info(
+                    normalized_url,
+                    try_urls=False,
+                    crawl_hosts=True,
+                    total_timeout=settings.source_validation_timeout_seconds,
+                    max_content_length=settings.source_validation_max_bytes,
+                    favicon_data_uri=False,
                 )
-            if discovered_feeds:
-                return discovered_feeds
-
-        except (requests.RequestException, ValueError, OSError) as exc:
-            logger.info("Source discovery failed for %s: %s", url, exc)
+        except (ValueError, OSError) as exc:
+            logger.info(
+                "Source discovery failed for %s: %s", normalized_url, exc
+            )
             return []
 
-    @staticmethod
-    def _direct_feed_result(
-        response: Response,
-    ) -> SourceDiscoverResponse | None:
-        parsed = feedparser.parse(response.content)
-        version = getattr(parsed, "version", "") or ""
-        if not (
-            version.startswith("rss")
-            or version.startswith("atom")
-        ):
-            return None
+        if result.root_error:
+            logger.info(
+                "Source discovery failed for %s: %s",
+                normalized_url,
+                result.root_error,
+            )
 
-        feed = parsed.feed
-        content_type = response.headers.get("Content-Type", "")
-        content_type = content_type.split(";", 1)[0].strip() or None
-        website_url = _valid_website_url(getattr(feed, "link", None))
-        final_url = normalize_feed_url(response.url)
-        image = getattr(feed, "image", None)
+        discovered: list[SourceDiscoverResponse] = []
+        seen_urls: set[str] = set()
+        for feed in result.feeds:
+            data = feed.serialize()
+            feed_url = _valid_url(data.get("url"))
+            if feed_url is None or feed_url in seen_urls:
+                continue
+            seen_urls.add(feed_url)
+            content_type = (data.get("content_type") or "").split(";", 1)[0]
+            discovered.append(
+                SourceDiscoverResponse(
+                    url=feed_url,
+                    title=data.get("title"),
+                    description=data.get("description"),
+                    content_type=content_type or None,
+                    favicon=_valid_url(data.get("favicon"))
+                    or _valid_url(data.get("image")),
+                    site_url=_valid_url(data.get("site_url"))
+                    or _valid_url(data.get("link")),
+                    site_name=data.get("site_name"),
+                    language=data.get("language"),
+                )
+            )
 
-        return SourceDiscoverResponse(
-            url=final_url,
-            title=getattr(feed, "title", None),
-            content_type=content_type,
-            favicon=getattr(image, "href", None) or getattr(image, "url", None),
-            description=getattr(feed, "subtitle", None),
-            website_url=website_url,
-        )
-
-    @staticmethod
-    def _extract_publisher_name(soup: BeautifulSoup) -> str | None:
-        for attributes in (
-            {"property": "og:site_name"},
-            {"name": "application-name"},
-        ):
-            tag = soup.find("meta", attributes)
-            if tag:
-                value = tag.get("content")
-                if value and value.strip():
-                    return " ".join(value.split())
-
-        return None
-
-    @staticmethod
-    def _extract_site_title(soup: BeautifulSoup) -> str | None:
-        title_tag = soup.find("title")
-        if title_tag:
-            return title_tag.get_text(" ", strip=True)
-        h1_tag = soup.find("h1")
-        if h1_tag:
-            return h1_tag.get_text(" ", strip=True)
-
-        return None
-
-    @staticmethod
-    def _extract_favicon(soup: BeautifulSoup, base_url: str) -> str | None:
-        favicon_link = soup.find(
-            "link",
-            {"rel": lambda value: value and "icon" in str(value).lower()},
-        )
-        if favicon_link:
-            href = favicon_link.get("href")
-            if href:
-                return urljoin(base_url, href)
-
-        return None
-
-    @staticmethod
-    def _extract_description(soup: BeautifulSoup) -> str | None:
-        for attributes in (
-            {"name": "description"},
-            {"property": "og:description"},
-        ):
-            meta = soup.find("meta", attributes)
-            if meta and meta.get("content"):
-                return " ".join(meta["content"].split())
-
-        return None
-
-
-def _valid_website_url(value: object) -> str | None:
-    if not value:
-        return None
-    try:
-        normalized = normalize_feed_url(str(value))
-    except (ValueError, UnicodeError):
-        return None
-
-    return normalized
+        return discovered

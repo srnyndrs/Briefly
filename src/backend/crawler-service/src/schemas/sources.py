@@ -18,6 +18,9 @@ class SourceCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
     favicon: HttpUrl | None = Field(default=None, max_length=2048)
+    site_url: HttpUrl | None = Field(default=None, max_length=2048)
+    site_name: str | None = Field(default=None, max_length=255)
+    language: str | None = Field(default=None, max_length=35)
     submitted_by_user_id: UUID | None = None
 
     @field_validator("title", mode="before")
@@ -33,6 +36,9 @@ class SourcePatchRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     favicon: HttpUrl | None = Field(default=None, max_length=2048)
+    site_url: HttpUrl | None = Field(default=None, max_length=2048)
+    site_name: str | None = Field(default=None, max_length=255)
+    language: str | None = Field(default=None, max_length=35)
     verified: bool | None = None
 
     @field_validator("title", mode="before")
@@ -58,7 +64,9 @@ class SourceResponse(BaseModel):
     title: str
     description: str | None = None
     favicon: str | None = None
-    website_url: str | None = None
+    site_url: str | None = None
+    site_name: str | None = None
+    language: str | None = None
     verified: bool = False
     last_crawled_at: datetime | None = None
     next_crawl_scheduled_at: datetime
@@ -91,7 +99,7 @@ class SourceDiscoverResponse(BaseModel):
     description: str | None = None
     content_type: str | None = None
     favicon: str | None = None
-    website_url: str | None = None
+    site_url: str | None = None
     site_name: str | None = None
     language: str | None = None
 
@@ -105,7 +113,7 @@ class SourceDiscoverResponse(BaseModel):
         "description",
         "content_type",
         "favicon",
-        "website_url",
+        "site_url",
         "site_name",
         "language",
     )

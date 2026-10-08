@@ -90,7 +90,7 @@ fun SourceDetailsResponseDto.toDomain(): SourceDetails {
         id = sourceId,
         title = title,
         description = description,
-        websiteUrl = websiteUrl,
+        siteUrl = siteUrl,
         imageUrl = favicon,
         subscribed = isSubscribed,
         verified = verified,

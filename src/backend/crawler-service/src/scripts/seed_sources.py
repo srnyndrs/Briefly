@@ -11,7 +11,9 @@ SOURCE_FIELDS = {
     "title",
     "description",
     "favicon",
-    "website_url",
+    "site_url",
+    "site_name",
+    "language",
 }
 
 

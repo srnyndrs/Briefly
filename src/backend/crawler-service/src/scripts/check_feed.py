@@ -1,12 +1,5 @@
 import argparse
 import json
-from datetime import datetime
-import warnings
-from bs4 import XMLParsedAsHTMLWarning
-
-warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
-
-from feedsearch_crawler import search_with_info
 from src.adapters.source_discovery import SourceDiscoveryAdapter
 
 
@@ -21,16 +14,13 @@ def main() -> None:
 
     results = SourceDiscoveryAdapter().discover(args.url)
 
-    if results:
-        print(
-            json.dumps(
-                [result.model_dump(mode="json") for result in results],
-                indent=2,
-                ensure_ascii=False,
-            )
+    print(
+        json.dumps(
+            [result.model_dump(mode="json") for result in results],
+            indent=2,
+            ensure_ascii=False,
         )
-    else:
-        print("[Error]")
+    )
 
 
 if __name__ == "__main__":

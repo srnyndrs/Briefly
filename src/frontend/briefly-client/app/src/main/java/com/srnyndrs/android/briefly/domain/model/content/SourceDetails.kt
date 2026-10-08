@@ -8,7 +8,7 @@ data class SourceDetails(
     val id: String,
     val title: String?,
     val description: String? = null,
-    val websiteUrl: String? = null,
+    val siteUrl: String? = null,
     val imageUrl: String? = null,
     val subscribed: Boolean = false,
     val verified: Boolean = false,

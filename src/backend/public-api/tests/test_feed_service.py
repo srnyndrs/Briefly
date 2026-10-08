@@ -9,7 +9,6 @@ from src.services.feed_models import (
 from src.services.feed_service import (
     ExploreFeedInput,
     FeedService,
-    GetPostInput,
     PersonalFeedInput,
 )
 
@@ -33,8 +32,8 @@ def test_personal_feed_applies_preferences_and_subscriptions(
     )
     repository.list_candidates.return_value = ([post], 1)
     repository.list_headlines.return_value = [post]
-    repository.list_personal_filter_options.return_value = (
-        FilterOptionsDTO(categories=[], languages=[])
+    repository.list_personal_filter_options.return_value = FilterOptionsDTO(
+        categories=[], languages=[]
     )
     monkeypatch.setattr(
         "src.services.feed_service.account_list_subscriptions",
@@ -56,9 +55,7 @@ def test_personal_feed_applies_preferences_and_subscriptions(
     assert query.source_ids == ["subscribed"]
     assert query.sort == "freshness"
     assert query.excluded_post_ids == [post.post_id]
-    repository.list_personal_filter_options.assert_called_once_with(
-        query
-    )
+    repository.list_personal_filter_options.assert_called_once_with(query)
 
 
 def test_personal_feed_without_subscriptions_skips_repository(
@@ -244,9 +241,9 @@ def test_get_post_delegates_to_repository():
         source_title="Test Source",
     )
 
-    result = FeedService(repository, Mock()).get_post(
-        GetPostInput(post_id=uuid4())
-    )
+    post_id = uuid4()
+    result = FeedService(repository, Mock()).get_post(post_id)
 
     assert result is not None
     assert result.post_id == "post"
+    repository.get_post.assert_called_once_with(post_id)

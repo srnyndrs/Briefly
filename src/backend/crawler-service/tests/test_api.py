@@ -15,7 +15,9 @@ def discover(monkeypatch):
         url="https://example.com/feed",
         title="Example",
         description="News",
-        website_url="https://example.com/",
+        site_url="https://example.com/",
+        site_name="Example News",
+        language="hu-HU",
     )
     discover = Mock(return_value=[result])
     monkeypatch.setattr(
@@ -32,6 +34,9 @@ def test_source_lifecycle(client, discover, db_session):
             "url": "HTTPS://EXAMPLE.COM:443/feed#fragment",
             "title": "  My Source  ",
             "favicon": "https://example.com/original.png",
+            "site_url": "https://example.com/",
+            "site_name": "Example News",
+            "language": "hu-HU",
             "submitted_by_user_id": submitter,
         },
     )
@@ -40,7 +45,9 @@ def test_source_lifecycle(client, discover, db_session):
     source_id = source["source_id"]
     assert source["title"] == "My Source"
     assert source["url"] == "https://example.com/feed"
-    assert source["website_url"] is None
+    assert source["site_url"] == "https://example.com/"
+    assert source["site_name"] == "Example News"
+    assert source["language"] == "hu-HU"
     assert source["verified"] is False
     assert source["favicon"] == "https://example.com/original.png"
     assert "submitted_by_user_id" not in source
@@ -55,14 +62,19 @@ def test_source_lifecycle(client, discover, db_session):
             "url": "https://example.com/news.xml",
             "description": None,
             "favicon": "https://example.com/icon.png",
+            "site_url": "https://news.example.com/",
+            "site_name": "Example Media",
+            "language": "en",
         },
     )
     assert updated.status_code == 200
     assert updated.json()["url"] == "https://example.com/news.xml"
     assert updated.json()["description"] is None
     assert updated.json()["favicon"] == "https://example.com/icon.png"
+    assert updated.json()["site_url"] == "https://news.example.com/"
+    assert updated.json()["site_name"] == "Example Media"
+    assert updated.json()["language"] == "en"
     assert updated.json()["title"] == source["title"]
-    assert updated.json()["website_url"] == source["website_url"]
     renamed = client.patch(
         f"/sources/{source_id}",
         json={"title": "  Updated Source  ", "favicon": None},
@@ -136,7 +148,7 @@ def test_registration_rejects_duplicate_url(client, source_factory):
 def test_registration_allows_other_feeds_on_same_domain(client, source_factory):
     source_factory(
         title="Other Publisher",
-        website_url="https://other.example.com/",
+        site_url="https://other.example.com/",
     )
     response = client.post(
         "/sources",
@@ -194,12 +206,15 @@ def test_api_rejects_invalid_or_server_owned_fields(
         ("post", {"title": None}),
         ("post", {"title": "x" * 256}),
         ("post", {"title": "Example", "favicon": "http-invalid"}),
+        ("post", {"title": "Example", "site_url": "ftp://example.com"}),
+        ("post", {"title": "Example", "site_name": "x" * 256}),
         ("patch", {"title": " "}),
         ("patch", {"title": None}),
         ("patch", {"title": "x" * 256}),
         ("patch", {"url": None}),
         ("patch", {"favicon": "ftp://example.com/icon.png"}),
         ("patch", {"favicon": "https://example.com/" + "x" * 2048}),
+        ("patch", {"language": "x" * 36}),
     ],
 )
 def test_source_metadata_validation(

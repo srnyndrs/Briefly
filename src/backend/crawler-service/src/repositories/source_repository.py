@@ -62,7 +62,9 @@ class SourceRepository:
         title: str,
         description: str | None = None,
         favicon: str | None = None,
-        website_url: str | None = None,
+        site_url: str | None = None,
+        site_name: str | None = None,
+        language: str | None = None,
         verified: bool = False,
         submitted_by_user_id: UUID | None = None,
     ) -> Source:
@@ -72,7 +74,9 @@ class SourceRepository:
             title=title,
             description=description,
             favicon=favicon,
-            website_url=website_url,
+            site_url=site_url,
+            site_name=site_name,
+            language=language,
             verified=verified,
             submitted_by_user_id=submitted_by_user_id,
         )
@@ -101,6 +105,9 @@ class SourceRepository:
         title: str,
         description: str | None,
         favicon: str | None,
+        site_url: str | None,
+        site_name: str | None,
+        language: str | None,
         verified: bool,
     ) -> Source | None:
         item = self.get_source_by_id(source_id)
@@ -111,6 +118,9 @@ class SourceRepository:
         item.title = title
         item.description = description
         item.favicon = favicon
+        item.site_url = site_url
+        item.site_name = site_name
+        item.language = language
         item.verified = verified
         item.updated_at = datetime.now(timezone.utc)
 
