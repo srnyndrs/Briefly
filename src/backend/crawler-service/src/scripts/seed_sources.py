@@ -4,6 +4,7 @@ from typing import Any
 
 from src.config.database import SessionLocal, init_db
 from src.models.source import Source
+from src.schemas.sources import normalize_source_language
 
 SOURCES_FILE = Path(__file__).with_name("sources.json")
 SOURCE_FIELDS = {
@@ -74,6 +75,7 @@ def _build_source(source: dict[str, Any]) -> Source:
     seed_data = {
         key: value for key, value in source.items() if key in SOURCE_FIELDS
     }
+    seed_data["language"] = normalize_source_language(seed_data.get("language"))
     seed_data["verified"] = True
     seed_data["submitted_by_user_id"] = None
     return Source(**seed_data)

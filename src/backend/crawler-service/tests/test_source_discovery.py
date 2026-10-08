@@ -41,7 +41,7 @@ def test_discovery_maps_feed_and_site_metadata():
     assert result[0].favicon == feed["image"]
     assert result[0].site_url == feed["site_url"]
     assert result[0].site_name == "Example News"
-    assert result[0].language == "hu-HU"
+    assert result[0].language == "hu"
     search.assert_called_once_with(
         "https://feeds.example.net/feed.xml",
         try_urls=False,
@@ -68,6 +68,17 @@ def test_discovery_prefers_favicon_and_feed_site_link():
 
     assert result[0].favicon == "https://example.com/favicon.ico"
     assert result[0].site_url == "https://example.com/"
+
+
+def test_discovery_accepts_bare_domain():
+    with patch(
+        "src.adapters.source_discovery.search_with_info",
+        return_value=_result({"url": "https://24.hu/feed/"}),
+    ) as search:
+        result = SourceDiscoveryAdapter().discover(" 24.hu ")
+
+    assert [item.url for item in result] == ["https://24.hu/feed/"]
+    assert search.call_args.args == ("24.hu",)
 
 
 def test_discovery_skips_invalid_and_duplicate_feed_urls():

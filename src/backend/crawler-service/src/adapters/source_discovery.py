@@ -33,6 +33,17 @@ def normalize_feed_url(url: str) -> str:
     return urlunsplit((scheme, netloc, parts.path, parts.query, ""))
 
 
+def _discovery_input(url: str) -> str:
+    value = url.strip()
+    if "://" in value:
+        return normalize_feed_url(value)
+
+    normalized = normalize_feed_url(f"https://{value}")
+    if "." not in (urlsplit(normalized).hostname or ""):
+        raise ValueError("A domain is required")
+    return value
+
+
 def _valid_url(value: object) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -46,7 +57,7 @@ class SourceDiscoveryAdapter:
     @staticmethod
     def discover(url: str) -> list[SourceDiscoverResponse]:
         try:
-            normalized_url = normalize_feed_url(url)
+            normalized_url = _discovery_input(url)
         except (ValueError, UnicodeError):
             return []
 

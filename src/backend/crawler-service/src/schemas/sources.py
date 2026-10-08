@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+import langcodes
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -9,6 +10,30 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+
+
+def normalize_source_language(value: str | None) -> str | None:
+    if value is None or not (candidate := value.strip()):
+        return None
+
+    try:
+        language = langcodes.get(candidate.replace("_", "-"))
+    except ValueError:
+        return None
+
+    primary = language.language
+    if not language.is_valid() or primary not in langcodes.LANGUAGE_ALPHA3:
+        return None
+    return primary
+
+
+def _validated_language(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = normalize_source_language(value)
+    if normalized is None:
+        raise ValueError("A valid language tag is required")
+    return normalized
 
 
 class SourceCreateRequest(BaseModel):
@@ -28,6 +53,11 @@ class SourceCreateRequest(BaseModel):
     def trim_title(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
+    @field_validator("language")
+    @classmethod
+    def normalize_language(cls, value: str | None) -> str | None:
+        return _validated_language(value)
+
 
 class SourcePatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -45,6 +75,11 @@ class SourcePatchRequest(BaseModel):
     @classmethod
     def trim_title(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("language")
+    @classmethod
+    def normalize_language(cls, value: str | None) -> str | None:
+        return _validated_language(value)
 
     @field_validator("url", "title", "verified")
     @classmethod
@@ -90,7 +125,7 @@ class SourceResponse(BaseModel):
 
 
 class SourceDiscoverRequest(BaseModel):
-    url: HttpUrl
+    url: str = Field(min_length=1)
 
 
 class SourceDiscoverResponse(BaseModel):
@@ -123,3 +158,8 @@ class SourceDiscoverResponse(BaseModel):
             return None
         normalized = " ".join(value.split())
         return normalized or None
+
+    @field_validator("language")
+    @classmethod
+    def normalize_language(cls, value: str | None) -> str | None:
+        return normalize_source_language(value)

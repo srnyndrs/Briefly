@@ -47,7 +47,7 @@ def test_source_lifecycle(client, discover, db_session):
     assert source["url"] == "https://example.com/feed"
     assert source["site_url"] == "https://example.com/"
     assert source["site_name"] == "Example News"
-    assert source["language"] == "hu-HU"
+    assert source["language"] == "hu"
     assert source["verified"] is False
     assert source["favicon"] == "https://example.com/original.png"
     assert "submitted_by_user_id" not in source
@@ -64,7 +64,7 @@ def test_source_lifecycle(client, discover, db_session):
             "favicon": "https://example.com/icon.png",
             "site_url": "https://news.example.com/",
             "site_name": "Example Media",
-            "language": "en",
+            "language": "en-GB",
         },
     )
     assert updated.status_code == 200
@@ -111,14 +111,14 @@ def test_discovery_endpoint(client, discover):
     response = client.post(
         "/sources/discover",
         json={
-            "url": "https://example.com/",
+            "url": "24.hu",
         },
     )
     assert response.status_code == 200
     assert response.json() == [
         result.model_dump() for result in discover.return_value
     ]
-    discover.assert_called_once_with("https://example.com/")
+    discover.assert_called_once_with("24.hu")
 
 
 def test_registration_does_not_fetch_or_require_discovery(client, discover):
@@ -208,6 +208,7 @@ def test_api_rejects_invalid_or_server_owned_fields(
         ("post", {"title": "Example", "favicon": "http-invalid"}),
         ("post", {"title": "Example", "site_url": "ftp://example.com"}),
         ("post", {"title": "Example", "site_name": "x" * 256}),
+        ("post", {"title": "Example", "language": "not-a-language"}),
         ("patch", {"title": " "}),
         ("patch", {"title": None}),
         ("patch", {"title": "x" * 256}),
@@ -215,6 +216,7 @@ def test_api_rejects_invalid_or_server_owned_fields(
         ("patch", {"favicon": "ftp://example.com/icon.png"}),
         ("patch", {"favicon": "https://example.com/" + "x" * 2048}),
         ("patch", {"language": "x" * 36}),
+        ("patch", {"language": "und"}),
     ],
 )
 def test_source_metadata_validation(

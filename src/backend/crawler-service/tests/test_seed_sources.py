@@ -44,7 +44,7 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
     assert all(source.submitted_by_user_id is None for source in sources)
     assert sources[0].site_url == "https://news.example.co.uk/"
     assert sources[0].site_name == "Example News"
-    assert sources[0].language == "en-GB"
+    assert sources[0].language == "en"
     sources[0].title = "Updated by user"
     db_session.commit()
 

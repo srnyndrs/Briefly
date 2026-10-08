@@ -535,7 +535,7 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
     client = _build_client()
 
     def fake_discover_sources(body: dict) -> list[dict]:
-        assert body["url"] == "https://example.com"
+        assert body["url"] == "24.hu"
         return [
             {
                 "url": "https://example.com/feed.xml",
@@ -554,9 +554,7 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
         fake_discover_sources,
     )
 
-    response = client.post(
-        "/sources/discover", json={"url": "https://example.com"}
-    )
+    response = client.post("/sources/discover", json={"url": "24.hu"})
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) == 1
