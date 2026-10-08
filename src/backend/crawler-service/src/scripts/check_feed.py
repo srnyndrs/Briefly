@@ -19,29 +19,18 @@ def main() -> None:
     if not args.url.strip():
         parser.error("URL must not be empty")
 
-    # results = SourceDiscoveryAdapter().discover(args.url)
+    results = SourceDiscoveryAdapter().discover(args.url)
 
-    # print(
-    #     json.dumps(
-    #         [result.model_dump(mode="json") for result in results],
-    #         indent=2,
-    #         ensure_ascii=False,
-    #     )
-    # )
-
-    result = search_with_info(args.url, try_urls=False, include_stats=False)
-
-    allowed_fields = {
-        "url", "title", "description", "language", "favicon",
-        "last_updated", "site_url", "site_name",
-    }
-
-    feeds_data = [
-        {k: v for k, v in feed.serialize().items() if k in allowed_fields}
-        for feed in result.feeds
-    ]
-
-    print(json.dumps(feeds_data, indent=2, ensure_ascii=False))
+    if results:
+        print(
+            json.dumps(
+                [result.model_dump(mode="json") for result in results],
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+    else:
+        print("[Error]")
 
 
 if __name__ == "__main__":

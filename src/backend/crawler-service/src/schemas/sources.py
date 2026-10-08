@@ -88,10 +88,12 @@ class SourceDiscoverRequest(BaseModel):
 class SourceDiscoverResponse(BaseModel):
     url: str
     title: str | None = None
+    description: str | None = None
     content_type: str | None = None
     favicon: str | None = None
-    description: str | None = None
     website_url: str | None = None
+    site_name: str | None = None
+    language: str | None = None
 
     @field_validator("url")
     @classmethod
@@ -100,10 +102,12 @@ class SourceDiscoverResponse(BaseModel):
 
     @field_validator(
         "title",
+        "description",
         "content_type",
         "favicon",
-        "description",
         "website_url",
+        "site_name",
+        "language",
     )
     @classmethod
     def normalize_discovered_text(cls, value: str | None) -> str | None:

@@ -1,5 +1,12 @@
 import logging
+import warnings
+
+from bs4 import XMLParsedAsHTMLWarning
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+
+
 from urllib.parse import urljoin, urlsplit, urlunsplit
+from feedsearch_crawler import search_with_info
 
 import feedparser
 import requests
@@ -41,30 +48,6 @@ def normalize_feed_url(url: str) -> str:
     return urlunsplit((scheme, netloc, parts.path, parts.query, ""))
 
 
-def _bounded_get(url: str) -> Response:
-    with requests.Session() as session:
-        session.max_redirects = settings.source_validation_max_redirects
-        response = session.get(
-            normalize_feed_url(url),
-            timeout=settings.source_validation_timeout_seconds,
-            stream=True,
-            headers={"User-Agent": "briefly-source-discovery/1.0"},
-        )
-        try:
-            response.raise_for_status()
-            body = bytearray()
-            for chunk in response.iter_content(chunk_size=8192):
-                body.extend(chunk)
-                if len(body) > settings.source_validation_max_bytes:
-                    raise ValueError(
-                        "Response exceeds the configured size limit"
-                    )
-            response._content = bytes(body)
-            return response
-        finally:
-            response.close()
-
-
 class SourceDiscoveryAdapter:
     def discover(self, url: str) -> list[SourceDiscoverResponse]:
         if not url:
@@ -72,62 +55,39 @@ class SourceDiscoveryAdapter:
             return []
 
         try:
-            response = _bounded_get(url)
-            direct_result = self._direct_feed_result(response)
-            if direct_result is not None:
-                return [direct_result]
-
-            page_url = response.url
-            soup = BeautifulSoup(response.content, "html.parser")
-            publisher_name = self._extract_publisher_name(soup)
-            page_title = self._extract_site_title(soup)
-            page_favicon = self._extract_favicon(soup, page_url)
-            page_description = self._extract_description(soup)
-            results: list[SourceDiscoverResponse] = []
-            seen_candidate_urls: set[str] = set()
-            seen_final_urls: set[str] = set()
-
-            for link in soup.find_all("link"):
-                rel = link.get("rel") or []
-                if isinstance(rel, str):
-                    rel = rel.split()
-                content_type = (link.get("type") or "").split(";", 1)[0]
-                if "alternate" not in {value.lower() for value in rel}:
-                    continue
-                if content_type.strip().lower() not in FEED_TYPES:
-                    continue
-                href = link.get("href")
-                if not href:
-                    continue
+            result = search_with_info(url,
+                try_urls=False,
+                crawl_hosts=True,
+                total_timeout=30.0,
+                request_timeout=3.0,
+                max_content_length=10 * 1024 * 1024,
+                max_depth=10,
+                favicon_data_uri=False,
+            )
+            discovered_feeds: list[SourceDiscoverResponse] = []
+            for feed_data in (feed.serialize() for feed in result.feeds):
                 try:
-                    candidate_url = normalize_feed_url(urljoin(page_url, href))
-                    if candidate_url in seen_candidate_urls:
-                        continue
-                    seen_candidate_urls.add(candidate_url)
-                    candidate = _bounded_get(candidate_url)
-                    result = self._direct_feed_result(candidate)
-                    if result is None or result.url in seen_final_urls:
-                        continue
-                    seen_final_urls.add(result.url)
-                    result.website_url = (
-                        _valid_website_url(result.website_url) or page_url
+                    feed_url = normalize_feed_url(str(feed_data.get("url") or ""))
+                except (ValueError, UnicodeError):
+                    continue
+
+                discovered_feeds.append(
+                    SourceDiscoverResponse(
+                        url=feed_url,
+                        title=feed_data.get("title"),
+                        description=feed_data.get("description"),
+                        content_type=feed_data.get("content_type"),
+                        favicon=_valid_website_url(feed_data.get("favicon")),
+                        website_url=_valid_website_url(
+                            feed_data.get("site_url") or feed_data.get("feed.link")
+                        ),
+                        site_name=feed_data.get("site_name"),
+                        language=feed_data.get("language"),
                     )
-                    result.title = (
-                        result.title
-                        or publisher_name
-                        or link.get("title")
-                        or page_title
-                    )
-                    result.favicon = result.favicon or page_favicon
-                    result.description = result.description or page_description
-                    results.append(result)
-                except (
-                    requests.RequestException,
-                    ValueError,
-                    OSError,
-                ) as exc:
-                    logger.info("Skipping invalid advertised feed: %s", exc)
-            return results
+                )
+            if discovered_feeds:
+                return discovered_feeds
+
         except (requests.RequestException, ValueError, OSError) as exc:
             logger.info("Source discovery failed for %s: %s", url, exc)
             return []
@@ -211,12 +171,12 @@ class SourceDiscoveryAdapter:
         return None
 
 
-def _valid_website_url(value: str | None) -> str | None:
+def _valid_website_url(value: object) -> str | None:
     if not value:
         return None
     try:
-        normalized = normalize_feed_url(value)
-    except ValueError:
+        normalized = normalize_feed_url(str(value))
+    except (ValueError, UnicodeError):
         return None
 
     return normalized
