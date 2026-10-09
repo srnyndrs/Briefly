@@ -35,6 +35,7 @@ import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.srnyndrs.android.briefly.ui.screen.main.components.PostCategoryChips
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -148,37 +149,16 @@ fun PostDetailsScreen(
                             .padding(top = 22.dp, start = 12.dp, end = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Category
+                        if (isLoading || article?.categories.orEmpty().isNotEmpty()) {
                             ShimmerItem(
                                 modifier = Modifier
-                                    .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if(isLoading) MaterialTheme.colorScheme.onSurface.copy(0.112f)
-                                        else Color.Transparent
-                                    ),
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp)
+                                    .defaultMinSize(minHeight = 36.dp),
                                 isLoading = isLoading,
-                                contentAlignment = Alignment.Center
+                                cornerRadius = 8.dp,
                             ) {
-                                if (!article?.category.isNullOrBlank()) {
-                                    Text(
-                                        modifier = Modifier.padding(
-                                            horizontal = 8.dp,
-                                            vertical = 2.dp
-                                        ),
-                                        text = article.category,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
+                                PostCategoryChips(categories = article?.categories.orEmpty())
                             }
                         }
                         // Title

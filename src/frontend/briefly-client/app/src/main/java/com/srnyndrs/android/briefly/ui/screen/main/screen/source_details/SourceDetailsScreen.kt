@@ -342,7 +342,7 @@ fun SourceDetailsScreen(
                                     .fillMaxHeight()
                                     .requiredHeight(128.dp),
                                 title = "Title",
-                                category = "Category",
+                                categories = emptyList(),
                                 imageUrl = "",
                                 description = "",
                                 isLoading = true
@@ -362,7 +362,7 @@ fun SourceDetailsScreen(
                                     .fillMaxWidth()
                                     .requiredHeight(128.dp),
                                 title = article.title,
-                                category = article.category ?: "", // TODO
+                                categories = article.categories,
                                 imageUrl = article.imageUrl,
                                 publishDate = article.publishDate,
                                 description = article.description ?: "",

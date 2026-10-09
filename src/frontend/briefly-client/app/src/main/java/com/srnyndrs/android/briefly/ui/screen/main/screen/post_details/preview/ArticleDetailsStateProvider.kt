@@ -20,7 +20,7 @@ class PostDetailsStateProvider: PreviewParameterProvider<PostDetailsState> {
                         id = "1",
                         title = "Bejelentette az ÁKK: csökken a két legnépszerűbb állampapír kamata",
                         source = "Telex",
-                        category = "Gazdaság",
+                        categories = listOf("finance", "economy"),
                         url = "https://telex.hu/gazdasag/2026/05/18/akk-allamadossag-kezelo-kozpont-csokkenti-a-lakossagi-allampapirok-kamatait-fixmap-map-plusz",
                         publishedAt = Instant.parse("2026-05-18T12:36:11Z"),
                         imageUrl = "https://assets.telex.hu/images/20260518/1779107664-temp-llr9dqsr1br51afppmh_facebook.jpg",

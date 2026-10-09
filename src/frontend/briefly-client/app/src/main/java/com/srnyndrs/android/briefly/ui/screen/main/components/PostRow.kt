@@ -26,10 +26,11 @@ fun PostRow(
     modifier: Modifier = Modifier,
     title: String,
     source: String?,
+    categories: List<String> = emptyList(),
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.then(modifier)
+        modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
             .clickable {
                 onClick()
@@ -51,6 +52,7 @@ fun PostRow(
                 )
             }
         }
+        PostCategoryChips(categories = categories)
         // Title
         Text(
             modifier = Modifier.fillMaxWidth(),

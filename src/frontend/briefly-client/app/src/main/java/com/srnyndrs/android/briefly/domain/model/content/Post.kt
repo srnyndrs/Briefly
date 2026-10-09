@@ -10,7 +10,7 @@ data class Post(
     val url: String? = null,
     val description: String? = null,
     val source: String? = null,
-    val category: String? = null,
+    val categories: List<String> = emptyList(),
     val imageUrl: String? = null,
     val publishDate: Instant? = null,
     val hasContent: Boolean = false,

@@ -238,6 +238,7 @@ fun HomeScreen(
                             .padding(vertical = 12.dp),
                         title = article.title,
                         source = article.source,
+                        categories = article.categories,
                         onClick = {
                             onNavigationEvent(
                                 if (article.hasContent) {

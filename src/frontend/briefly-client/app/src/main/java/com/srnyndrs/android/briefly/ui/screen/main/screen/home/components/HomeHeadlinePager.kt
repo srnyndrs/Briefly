@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.paging.PagingData
+import com.srnyndrs.android.briefly.ui.screen.main.components.PostCategoryChips
 import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
@@ -99,6 +100,7 @@ fun HomeHeadlinePager(
                         text = article.source.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                     )
+                    PostCategoryChips(categories = article.categories)
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article.title,

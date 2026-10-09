@@ -233,6 +233,7 @@ fun ExploreScreen(
                                     .padding(vertical = 12.dp),
                                 title = post.title,
                                 source = post.source,
+                                categories = post.categories,
                                 onClick = {
                                     onNavigationEvent(
                                         if (post.hasContent) {

@@ -2,9 +2,10 @@ package com.srnyndrs.android.briefly.ui.screen.main.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +47,7 @@ import kotlin.time.Instant
 fun PostItemCard(
     modifier: Modifier = Modifier,
     title: String,
-    category: String,
+    categories: List<String>,
     description: String,
     imageUrl: String? = null,
     publishDate: Instant? = null,
@@ -55,7 +55,7 @@ fun PostItemCard(
     onClick: (() -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier.then(modifier)
+        modifier = modifier
             .clickable(enabled = onClick !== null) {
                 onClick?.invoke()
             },
@@ -77,27 +77,15 @@ fun PostItemCard(
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.Start
             ) {
-                // Category
-                if(category.isNotBlank()) {
-                    Column(
-                        modifier = Modifier.weight(0.3f).fillMaxWidth(),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .wrapContentSize()
-                                .clip(RoundedCornerShape(5.dp))
-                                .shimmer(isLoading)
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(0.3f))
-                                .padding(6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = category,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
+                if (categories.isNotEmpty()) {
+                    PostCategoryChips(
+                        modifier = Modifier
+                            .weight(0.3f)
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .shimmer(isLoading),
+                        categories = categories,
+                    )
                 }
                 // Title
                 Column(
@@ -122,7 +110,7 @@ fun PostItemCard(
                     }
                 }
                 // Description
-                if(category.isBlank()) {
+                if (categories.isEmpty()) {
                     Column(
                         modifier = Modifier.weight(0.3f).fillMaxWidth()
                     ) {
@@ -218,7 +206,7 @@ fun PostItemCardPreview() {
                         .fillMaxWidth()
                         .requiredHeight(128.dp),
                     title = "A magyar néptánc még ma is tömegeket mozgat meg!",
-                    category = "Kultúra",
+                    categories = listOf("entertainment", "lifestyle"),
                     imageUrl = "",
                     description = "",
                     publishDate = Instant.parse("2026-09-15T18:36:11Z"),
@@ -229,7 +217,7 @@ fun PostItemCardPreview() {
                         .fillMaxWidth()
                         .requiredHeight(128.dp),
                     title = "A nap hírei összefoglalva",
-                    category = "",
+                    categories = emptyList(),
                     imageUrl = "",
                     description = "Idén lett 100 éves a szakmai bizottságok meghatározó szerepét betöltő elnökség",
                     publishDate = Instant.parse("2026-09-12T18:36:11Z"),

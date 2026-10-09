@@ -22,7 +22,7 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Itthon és Európában is duplázna a kínai óriás, amely Magyarországon már előzi a Teslát",
                     description = "This is really important",
                     imageUrl = "",
-                    category = "Külföld",
+                    categories = listOf("world", "politics"),
                     source = "24.hu"
                 ),
                 Post(
@@ -30,7 +30,7 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Bérfizetési probléma: egy hévízi háromcsillagos szálloda dolgozói nem kapták meg fizetésüket",
                     description = "This is really important",
                     imageUrl = "",
-                    category = "Belföld",
+                    categories = listOf("politics"),
                     source = "Telex"
                 ),
                 Post(
@@ -38,15 +38,15 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Elárulta az ETO edzője, hol folytatja a pályafutását",
                     description = "This is really important",
                     imageUrl = "",
-                    category = "Sport",
+                    categories = listOf("sports"),
                     source = "24.hu"
                 ),
             ),
             categories = listOf(
-                "Belföld",
-                "Külföld",
-                "Gazdaság",
-                "Sport",
+                "politics",
+                "world",
+                "finance",
+                "sports",
             )
         ) to flowOf(PagingData.from(
             data = listOf(
@@ -55,7 +55,7 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Legjobb befektetések 2026-ban?",
                     description = "This is really important",
                     imageUrl = "",
-                    category = "Gazdaság",
+                    categories = listOf("finance"),
                     source = "24.hu"
                 ),
             ))

@@ -9,7 +9,7 @@ data class PostDetails(
     val title: String,
     val sourceId: String? = null,
     val source: String? = null,
-    val category: String? = null,
+    val categories: List<String> = emptyList(),
     val url: String? = null,
     val publishedAt: Instant,
     val language: String? = null,
