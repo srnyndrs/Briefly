@@ -16,7 +16,7 @@ class PostDTO:
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
-    category: str | None = None
+    categories: list[str] = field(default_factory=list)
     author: str | None = None
     keywords: list[str] = field(default_factory=list)
     content: str | None = None
@@ -83,7 +83,7 @@ def post_projection_to_dto(model: PostProjection) -> PostDTO:
         description=model.description,
         canonical_url=model.canonical_url,
         language=model.language,
-        category=model.category,
+        categories=model.categories or [],
         author=model.author,
         keywords=model.keywords or [],
         content=model.content,

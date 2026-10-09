@@ -22,7 +22,7 @@ def to_post_list_item_response(item: PostDTO) -> PostListItemResponse:
         description=item.description,
         canonical_url=item.canonical_url,
         language=item.language,
-        category=item.category,
+        categories=item.categories,
         image_ref=item.image_ref,
         published_at=item.published_at,
         has_content=item.content is not None,

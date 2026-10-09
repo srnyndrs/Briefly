@@ -10,13 +10,19 @@ It also maintains local read models from account and content changes. This
 keeps common feed queries fast while allowing the owning services to remain
 responsible for their own data.
 
-The query projector also consumes `post.enriched.v1` results. It keeps the
-publisher's RSS category in `source_category`; the public `category` is set
-only when a completed result from taxonomy `categories-v2` matches the current
-post revision. Results can arrive before their post without creating an empty
-article. A newer article revision temporarily clears an older result's public
-category until its matching enrichment arrives. Feed ordering still uses
-article timestamps.
+The query projector consumes `post.enriched.v1` with `schema_version=1` and the
+current `category_ids` payload. It validates distinct supported IDs (zero to two),
+standalone `other`, result status and positive article/enrichment revisions.
+The publisher's label stays in `source_category`; public `categories` is always
+a list. Missing, stale, abstained and failed enrichment gives `[]`.
+Results may precede their article without creating an empty article. Only matching
+post revisions apply, ordered by `enrichment_revision` within that revision.
+Article updates clear old categories; enrichment never changes feed timestamps.
+
+Category selections match any assigned category, and muting any assigned category
+hides the article. Filters return each article once with stable pagination.
+Category options count each eligible article once per category and preserve the
+existing source, language, keyword, date and headline eligibility rules.
 
 ## Responsibilities
 
@@ -163,3 +169,31 @@ poetry run pytest -p no:cacheprovider -q
 poetry run ruff check --no-cache src tests
 poetry run ruff format --check src tests
 ```
+
+## Current development schema and operations
+
+The current query models store `post_projections.categories` and
+`post_enrichments.category_ids` as text arrays; results also store
+`enrichment_revision`. `create_all()` creates missing tables and does not alter
+existing columns. Inspect affected local tables with consumers stopped, then
+apply scoped ALTER TABLE operations directly when changing the development schema.
+Keep canonical content and account tables. No startup conversion or migration
+script is provided.
+
+The durable `public-api.query.v1` queue owns the `post.enriched.v1` binding on
+`enrichment.events`. Establish this queue/binding before enrichment consumes input.
+Inspect pending messages and saved result envelopes before removing obsolete
+bindings or unused sink queues. Superseded disposable development results/messages
+can be cleared and rebuilt locally; runtime accepts only the current payload.
+The October 9 local inspection found no enrichment queues, bindings or saved
+results to clear, so no broker purge or result reset was needed.
+
+The Android client currently defaults its scalar category to null and ignores
+unknown JSON keys. Articles remain readable, with category presentation deferred
+to Step 6's collection adaptation. No scalar calculated-category alias is exposed.
+The admin canonical detail response retains the owning content service's publisher
+category field; it is separate from calculated public categories.
+
+For isolated PostgreSQL collection/filter tests, set PUBLIC_API_TEST_DATABASE_URL
+and run pytest. The test creates/removes its own query_test_<random> schema and
+requires the normal query.keywords_to_search_text function established by init_db.

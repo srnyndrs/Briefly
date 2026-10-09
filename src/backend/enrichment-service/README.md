@@ -58,9 +58,9 @@ thread before the input is acknowledged. Sessions belong to individual repositor
 operations; no transaction is held across inference.
 
 The service declares `enrichment.events` but creates no result sink queue.
-Public-api owns the durable query queue and its `post.enriched.v2` binding;
-establish that binding before enabling consumption. Until Step 3 updates
-public-api's current v1 consumer, keep production enrichment stopped.
+Public-api owns the durable query queue and its `post.enriched.v1` binding.
+Its projector validates the current collection payload; establish the durable
+query binding before enabling enrichment consumption.
 Missing routing or a publication failure leaves the saved event pending and
 sends the input to the enrichment DLQ. Republish one saved event
 without classification using:
@@ -77,7 +77,7 @@ stored revision. A crash after a classifier call but before the result save can
 repeat the call; this flow does not guarantee exactly-once classification.
 
 Provider failure saves a revisioned failed result with empty categories and a
-pending v2 event. That event must be confirmed and marked published before the
+pending v1 event. That event must be confirmed and marked published before the
 input is rejected to the DLQ. Intentional abstention is acknowledged normally.
 Pending failed events retain their identity on redelivery without repeating the
 model call. After publication, explicit replay can retry classification.
@@ -102,7 +102,7 @@ connectivity or classification success.
 The optional Compose profile is the feature switch. Container broker/model
 configuration and combined Ollama profile wiring are pending Step 4 of the
 [implementation plan](../../../MULTI_CATEGORY_ENRICHMENT_IMPLEMENTATION_PLAN.md).
-Complete backend integration before processing a backlog.
+Complete container wiring and integrated backend verification before processing a backlog.
 
 ## Focused validation
 

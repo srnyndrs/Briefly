@@ -48,7 +48,7 @@ def test_declares_only_input_and_dead_letter_queues():
         routing_key=settings.post_failed_routing_key,
     )
     assert all(
-        c.kwargs["routing_key"] != "post.enriched.v2"
+        c.kwargs["routing_key"] != "post.enriched.v1"
         for c in channel.queue_bind.call_args_list
     )
 

@@ -3,7 +3,7 @@ from dataclasses import replace
 import re
 from uuid import UUID
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, func, or_, select, true
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
@@ -26,6 +26,40 @@ class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
+    def _categories_match(self, categories: list[str]):
+        if self._db.get_bind().dialect.name == "postgresql":
+            return PostProjection.categories.bool_op("&&")(categories)
+        values = func.json_each(PostProjection.categories).table_valued("value")
+        return (
+            select(1)
+            .select_from(values)
+            .where(values.c.value.in_(categories))
+            .exists()
+        )
+
+    def _category_counts(self, query: EffectiveFeedQuery):
+        eligible = self._apply_query(
+            select(PostProjection.post_id, PostProjection.categories), query
+        ).subquery()
+        if self._db.get_bind().dialect.name == "postgresql":
+            values = (
+                func.unnest(eligible.c.categories)
+                .table_valued("value")
+                .render_derived()
+                .lateral()
+            )
+        else:
+            values = func.json_each(eligible.c.categories).table_valued("value")
+        category = values.c.value.label("category")
+        count = func.count(func.distinct(eligible.c.post_id)).label("count")
+        return self._db.execute(
+            select(category, count)
+            .select_from(eligible.join(values, true()))
+            .where(category != "")
+            .group_by(category)
+            .order_by(count.desc(), category.asc())
+        ).all()
+
     def _apply_query(self, statement, query: EffectiveFeedQuery):
         normalized_muted_categories = [
             category.lower().strip()
@@ -47,12 +81,7 @@ class PostRepository:
         # 2. Hard Block: Muted Categories
         if normalized_muted_categories:
             statement = statement.where(
-                or_(
-                    PostProjection.category.is_(None),
-                    func.lower(func.trim(PostProjection.category)).not_in(
-                        normalized_muted_categories
-                    ),
-                )
+                ~self._categories_match(normalized_muted_categories)
             )
 
         # 3. Hard Block: Muted Keywords
@@ -116,9 +145,7 @@ class PostRepository:
         ]
         if normalized_include_categories:
             statement = statement.where(
-                func.lower(func.trim(PostProjection.category)).in_(
-                    normalized_include_categories
-                )
+                self._categories_match(normalized_include_categories)
             )
 
         # 6. Date Range Constraints
@@ -239,18 +266,9 @@ class PostRepository:
     ) -> FilterOptionsDTO:
         category_query = replace(query, categories=None, excluded_post_ids=[])
         language_query = replace(query, languages=None, excluded_post_ids=[])
-        categories = self._db.scalars(
-            self._apply_query(
-                select(func.lower(func.trim(PostProjection.category))),
-                category_query,
-            )
-            .where(
-                PostProjection.category.is_not(None),
-                func.trim(PostProjection.category) != "",
-            )
-            .distinct()
-            .order_by(func.lower(func.trim(PostProjection.category)))
-        ).all()
+        categories = sorted(
+            category for category, _ in self._category_counts(category_query)
+        )
         languages = self._db.scalars(
             self._apply_query(select(PostProjection.language), language_query)
             .where(
@@ -309,22 +327,7 @@ class PostRepository:
         self, query: EffectiveFeedQuery
     ) -> FilterOptionsDTO:
         category_query = replace(query, categories=None)
-        normalized_category = func.lower(
-            func.trim(PostProjection.category)
-        ).label("category")
-        category_count = func.count(PostProjection.post_id).label("count")
-        category_rows = self._db.execute(
-            self._apply_query(
-                select(normalized_category, category_count),
-                category_query,
-            )
-            .where(
-                PostProjection.category.is_not(None),
-                func.trim(PostProjection.category) != "",
-            )
-            .group_by(normalized_category)
-            .order_by(category_count.desc(), normalized_category.asc())
-        ).all()
+        category_rows = self._category_counts(category_query)
         metadata_options = self.list_filter_options(query)
         return FilterOptionsDTO(
             categories=[category for category, _ in category_rows],

@@ -142,7 +142,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
                 canonical_url="https://example.com/technology",
                 title="Technology Story",
                 language="en",
-                category="Technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -154,7 +154,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
                 canonical_url="https://example.com/sports",
                 title="Muted Sports Story",
                 language="en",
-                category="sports",
+                categories=["sports"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -166,7 +166,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
                 canonical_url="https://example.com/hungarian",
                 title="Hungarian Story",
                 language="hu",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -178,7 +178,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
                 canonical_url="https://example.com/unsubscribed",
                 title="Unsubscribed Story",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -235,7 +235,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
                 canonical_url="https://example.com/older",
                 title="Older English Story",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now.replace(year=now.year - 1),
                 updated_at=now.replace(year=now.year - 1),
@@ -247,7 +247,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
                 canonical_url="https://example.com/newer",
                 title="Newer English Story",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -259,7 +259,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
                 canonical_url="https://example.com/blocked",
                 title="Blocked Story",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -271,7 +271,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
                 canonical_url="https://example.com/muted",
                 title="Muted Story",
                 language="en",
-                category="sports",
+                categories=["sports"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -283,7 +283,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
                 canonical_url="https://example.com/hungarian",
                 title="Hungarian Story",
                 language="hu",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -865,7 +865,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
                 canonical_url="https://example.com/technology-en",
                 title="Technology English",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 author="Example Author",
                 keywords=["Climate", "policy"],
                 published_at=now,
@@ -878,7 +878,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
                 canonical_url="https://example.com/business-hu",
                 title="Business Hungarian",
                 language="hu",
-                category="business",
+                categories=["business"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -890,7 +890,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
                 canonical_url="https://example.com/business-en",
                 title="Business English",
                 language="en",
-                category="business",
+                categories=["business"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -902,7 +902,7 @@ def test_explore_filter_options_are_opt_in_and_self_excluding() -> None:
                 canonical_url="https://example.com/technology-hu",
                 title="Technology Hungarian",
                 language="hu",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -961,7 +961,7 @@ def test_explore_source_ids_are_repeatable_and_options_ignore_selection() -> (
                 canonical_url=f"https://example.com/source/{index}",
                 title=f"Source {index} story",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -1630,7 +1630,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
                 canonical_url="https://example.com/technology",
                 title="Technology Category",
                 language="en",
-                category=" Technology ",
+                categories=["technology"],
                 keywords=["business"],
                 published_at=now,
                 updated_at=now,
@@ -1642,7 +1642,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
                 canonical_url="https://example.com/business",
                 title="Technology Keyword",
                 language="en",
-                category="business",
+                categories=["business"],
                 keywords=["technology"],
                 published_at=now,
                 updated_at=now,
@@ -1654,7 +1654,7 @@ def test_explore_category_filter_uses_normalized_category_not_keywords() -> (
                 canonical_url="https://example.com/sports",
                 title="Muted Sports Category",
                 language="en",
-                category=" Sports ",
+                categories=["sports"],
                 keywords=["technology"],
                 published_at=now,
                 updated_at=now,
@@ -1687,7 +1687,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> None:
                 canonical_url="https://example.com/one",
                 title="One",
                 language="en",
-                category="Technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -1699,7 +1699,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> None:
                 canonical_url="https://example.com/two",
                 title="Two",
                 language="en",
-                category="technology",
+                categories=["technology"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -1711,7 +1711,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> None:
                 canonical_url="https://example.com/three",
                 title="Three",
                 language="en",
-                category="Business",
+                categories=["business"],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -1723,7 +1723,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages() -> None:
                 canonical_url="https://example.com/four",
                 title="Four",
                 language="en",
-                category=" ",
+                categories=[],
                 keywords=[],
                 published_at=now,
                 updated_at=now,
@@ -1855,3 +1855,55 @@ def test_upstream_request_error_returns_502(monkeypatch) -> None:
     response = client.get("/sources")
     assert response.status_code == 502
     assert response.json()["detail"] == "Upstream service unavailable"
+
+
+def test_public_post_responses_always_use_category_lists():
+    client = _build_client()
+    source = str(uuid4())
+    one, empty = uuid4(), uuid4()
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    db.add_all(
+        [
+            PostProjection(
+                post_id=str(one),
+                source_id=source,
+                source_title="Publisher",
+                title="Research",
+                categories=["science", "health"],
+                keywords=[],
+            ),
+            PostProjection(
+                post_id=str(empty),
+                source_id=source,
+                source_title="Publisher",
+                title="Other article",
+                categories=[],
+                keywords=[],
+            ),
+        ]
+    )
+    db.commit()
+    db.close()
+    for post_id, categories in [(one, ["science", "health"]), (empty, [])]:
+        response = client.get(f"/posts/{post_id}")
+        assert response.status_code == 200
+        assert response.json()["categories"] == categories
+        assert "category" not in response.json()
+    response = client.get(
+        "/explore",
+        params=[
+            ("categories", "science"),
+            ("categories", "health"),
+            ("include_filter_options", "true"),
+        ],
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["categories"] == ["science", "health"]
+    assert "category" not in response.json()["items"][0]
+    schema = app.openapi()["components"]["schemas"]["PostListItemResponse"]
+    assert (
+        "categories" in schema["properties"]
+        and "category" not in schema["properties"]
+    )

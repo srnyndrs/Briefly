@@ -1,6 +1,9 @@
 import logging
 from datetime import datetime
 from typing import Any
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from sqlalchemy.orm import Session
 
@@ -33,15 +36,40 @@ SUPPORTED_CATEGORIES = frozenset(
 )
 
 
-def _public_category(result: PostEnrichmentProjection | None) -> str | None:
+class EnrichmentPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    post_id: str = Field(min_length=1, max_length=64)
+    post_revision: int = Field(strict=True, ge=1)
+    enrichment_revision: int = Field(strict=True, ge=1)
+    taxonomy_version: Literal["categories-v2"]
+    status: Literal["completed", "abstained", "failed"]
+    category_ids: list[str] = Field(strict=True, max_length=2)
+    input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    enrichment_version: str = Field(min_length=1, max_length=100)
+    processed_at: datetime
+
+    @model_validator(mode="after")
+    def validate_categories(self) -> "EnrichmentPayload":
+        categories = self.category_ids
+        if (
+            any(category not in SUPPORTED_CATEGORIES for category in categories)
+            or len(set(categories)) != len(categories)
+            or ("other" in categories and len(categories) != 1)
+            or (self.status == "completed") != bool(categories)
+        ):
+            raise ValueError("Invalid enrichment category collection or status")
+        return self
+
+
+def _public_categories(result: PostEnrichmentProjection | None) -> list[str]:
     if (
         result is not None
         and result.taxonomy_version == "categories-v2"
         and result.status == "completed"
-        and result.category_id in SUPPORTED_CATEGORIES
     ):
-        return result.category_id
-    return None
+        return list(result.category_ids)
+    return []
 
 
 def _require_source_value(value: Any, field_name: str) -> str:
@@ -99,10 +127,10 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
         db.add(existing)
 
     existing.post_revision = revision
-    existing.category = (
-        _public_category(result)
+    existing.categories = (
+        _public_categories(result)
         if result is not None and result.post_revision == revision
-        else None
+        else []
     )
     existing.source_id = source_id
     existing.source_title = source_title
@@ -119,10 +147,17 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
 
 
 def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
+    payload = EnrichmentPayload.model_validate(payload).model_dump()
     post_id = payload["post_id"]
     revision = payload["post_revision"]
     result = db.get(PostEnrichmentProjection, post_id)
-    if result is not None and result.post_revision > revision:
+    post = db.get(PostProjection, post_id)
+    if post is not None and post.post_revision > revision:
+        return
+    if result is not None and (
+        result.post_revision,
+        result.enrichment_revision,
+    ) >= (revision, payload["enrichment_revision"]):
         return
     if result is None:
         result = PostEnrichmentProjection(post_id=post_id)
@@ -131,11 +166,11 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
     result.post_revision = revision
     result.taxonomy_version = payload["taxonomy_version"]
     result.status = payload["status"]
-    result.category_id = payload.get("category_id")
+    result.enrichment_revision = payload["enrichment_revision"]
+    result.category_ids = payload["category_ids"]
 
-    post = db.get(PostProjection, post_id)
     if post is not None and post.post_revision == revision:
-        post.category = _public_category(result)
+        post.categories = _public_categories(result)
 
 
 def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:

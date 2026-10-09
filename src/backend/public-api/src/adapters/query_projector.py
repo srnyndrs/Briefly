@@ -132,6 +132,12 @@ class QueryProjector:
             event_type = event.get("event_type")
             payload = event.get("payload") or {}
 
+            if event_type == "post.enriched.v1" and (
+                type(event.get("schema_version")) is not int
+                or event["schema_version"] != 1
+            ):
+                raise ValueError("Invalid enrichment schema version")
+
             if not event_id or not event_type:
                 logger.warning("Dropping event with missing id/type")
                 ch.basic_ack(delivery_tag=method.delivery_tag)

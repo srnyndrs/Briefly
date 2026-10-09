@@ -178,7 +178,8 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     assert not saved.publication_pending
     assert saved.result_event is not None
     result_event = saved.result_event
-    assert result_event["event_type"] == "post.enriched.v2"
+    assert result_event["event_type"] == "post.enriched.v1"
+    assert result_event["schema_version"] == 1
     assert result_event["correlation_id"] == "correlation-1"
     assert result_event["payload"]["post_revision"] == 3
     assert result_event["payload"]["enrichment_revision"] == 1

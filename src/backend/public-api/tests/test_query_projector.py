@@ -99,12 +99,17 @@ def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
     result_event = {
         "event_id": "result-1",
         "event_type": "post.enriched.v1",
+        "schema_version": 1,
         "payload": {
             "post_id": "post-1",
             "post_revision": 2,
             "taxonomy_version": "categories-v2",
             "status": "completed",
-            "category_id": "science",
+            "category_ids": ["science"],
+            "enrichment_revision": 1,
+            "input_hash": "a" * 64,
+            "enrichment_version": "test",
+            "processed_at": "2026-10-09T00:00:00Z",
         },
     }
     post_event = {
@@ -152,7 +157,42 @@ def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
     with factory() as db:
         post = db.get(PostProjection, "post-1")
         assert post is not None
-        assert post.category == "science"
+        assert post.categories == ["science"]
         assert post.source_category == "Publisher label"
     assert channel.acknowledged == [1, 2, 3]
+    engine.dispose()
+
+
+def test_projector_rejects_invalid_enrichment_without_recording_receipt():
+    engine = create_engine(
+        "sqlite://", execution_options={"schema_translate_map": {"query": None}}
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+    projector = QueryProjector(factory)
+    for changes in [
+        {"schema_version": True},
+        {"schema_version": None},
+        {"payload": {"category_id": "science"}},
+    ]:
+        channel = MagicMock()
+        event = {
+            "event_id": "invalid",
+            "event_type": "post.enriched.v1",
+            "schema_version": 1,
+            "payload": {},
+            **changes,
+        }
+        projector._on_message(
+            channel,
+            SimpleNamespace(delivery_tag=1),
+            None,
+            json.dumps(event).encode(),
+        )
+        channel.basic_nack.assert_called_once_with(
+            delivery_tag=1, requeue=False
+        )
+        channel.basic_ack.assert_not_called()
+        with factory() as db:
+            assert db.get(ProcessedEvent, "invalid") is None
     engine.dispose()

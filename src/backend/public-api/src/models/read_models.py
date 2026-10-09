@@ -71,7 +71,9 @@ class PostProjection(Base):
     )
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    categories: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+    )
     source_category: Mapped[str | None] = mapped_column(
         String(128), nullable=True
     )
@@ -146,7 +148,10 @@ class PostEnrichmentProjection(Base):
     post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     taxonomy_version: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
-    category_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    enrichment_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    category_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+    )
 
 
 POST_SEARCH_INDEX = Index(

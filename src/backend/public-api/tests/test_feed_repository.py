@@ -22,7 +22,7 @@ def _repository() -> tuple[Session, PostRepository]:
 
 def _post(
     *,
-    category: str | None,
+    categories: list[str],
     language: str,
     source_id: str,
     author: str | None = None,
@@ -35,7 +35,7 @@ def _post(
         source_title="Test Source",
         canonical_url=f"https://example.com/{uuid4()}",
         title="Article",
-        category=category,
+        categories=categories,
         language=language,
         author=author,
         keywords=keywords or [],
@@ -50,10 +50,10 @@ def test_filter_options_ignore_their_own_active_dimension():
     other_source = str(uuid4())
     session.add_all(
         [
-            _post(category=" Technology ", language="en", source_id=source),
-            _post(category="business", language="hu", source_id=source),
-            _post(category=None, language="en", source_id=source),
-            _post(category="sports", language="de", source_id=other_source),
+            _post(categories=["technology"], language="en", source_id=source),
+            _post(categories=["business"], language="hu", source_id=source),
+            _post(categories=[], language="en", source_id=source),
+            _post(categories=["sports"], language="de", source_id=other_source),
         ]
     )
     session.commit()
@@ -87,13 +87,13 @@ def test_candidates_apply_exclusions_and_order_before_pagination():
     allowed = str(uuid4())
     blocked = str(uuid4())
     now = datetime.now(UTC)
-    visible = _post(category="technology", language="en", source_id=allowed)
+    visible = _post(categories=["technology"], language="en", source_id=allowed)
     visible.published_at = now
-    muted = _post(category="sports", language="en", source_id=allowed)
+    muted = _post(categories=["sports"], language="en", source_id=allowed)
     blocked_post = _post(
-        category="technology", language="en", source_id=blocked
+        categories=["technology"], language="en", source_id=blocked
     )
-    old = _post(category="technology", language="en", source_id=allowed)
+    old = _post(categories=["technology"], language="en", source_id=allowed)
     old.published_at = now - timedelta(days=1)
     session.add_all([visible, muted, blocked_post, old])
     session.commit()
@@ -119,7 +119,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
     verified_other = str(uuid4())
     unverified = str(uuid4())
     verified_post = _post(
-        category="technology",
+        categories=["technology"],
         language="en",
         source_id=verified,
         author="Verified Author",
@@ -127,7 +127,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
     )
     verified_post.source_title = "Verified Source"
     verified_other_post = _post(
-        category="business",
+        categories=["business"],
         language="fr",
         source_id=verified_other,
         author="Second Verified Author",
@@ -135,7 +135,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
     )
     verified_other_post.source_title = "Second Verified Source"
     unverified_post = _post(
-        category="sports",
+        categories=["sports"],
         language="hu",
         source_id=unverified,
         author="Unverified Author",
@@ -166,16 +166,16 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
     }
 
 
-def test_personal_category_options_rank_normalized_categories():
+def test_personal_category_options_rank_categories():
     session, repository = _repository()
     source = str(uuid4())
     posts = [
-        _post(category=" Technology ", language="en", source_id=source),
-        _post(category="technology", language="en", source_id=source),
-        _post(category="business", language="en", source_id=source),
-        _post(category="World", language="en", source_id=source),
-        _post(category=None, language="en", source_id=source),
-        _post(category=" ", language="en", source_id=source),
+        _post(categories=["technology"], language="en", source_id=source),
+        _post(categories=["technology"], language="en", source_id=source),
+        _post(categories=["business"], language="en", source_id=source),
+        _post(categories=["world"], language="en", source_id=source),
+        _post(categories=[], language="en", source_id=source),
+        _post(categories=[], language="en", source_id=source),
     ]
     session.add_all(posts)
     session.commit()
@@ -197,21 +197,21 @@ def test_filter_options_normalize_authors_and_keywords_from_all_rows():
     session.add_all(
         [
             _post(
-                category="technology",
+                categories=["technology"],
                 language="en",
                 source_id=source,
                 author="  Ada Lovelace ",
                 keywords=["Climate", "policy"],
             ),
             _post(
-                category="technology",
+                categories=["technology"],
                 language="en",
                 source_id=source,
                 author="ada lovelace",
                 keywords=[" climate ", "AI"],
             ),
             _post(
-                category="technology",
+                categories=["technology"],
                 language="en",
                 source_id=source,
                 author=" ",

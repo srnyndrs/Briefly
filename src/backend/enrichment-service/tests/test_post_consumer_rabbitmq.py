@@ -55,7 +55,7 @@ def broker(monkeypatch):
         channel.queue_bind(
             queue=result_queue,
             exchange=settings.result_exchange,
-            routing_key="post.enriched.v2",
+            routing_key="post.enriched.v1",
         )
 
     try:

@@ -34,8 +34,8 @@ def build_result_event(
         raise ValueError("Invalid enrichment result status or revision")
     return {
         "event_id": str(uuid4()),
-        "event_type": "post.enriched.v2",
-        "schema_version": 2,
+        "event_type": "post.enriched.v1",
+        "schema_version": 1,
         "occurred_at": datetime.now(UTC).isoformat(),
         "producer": "enrichment-service",
         "correlation_id": correlation_id,

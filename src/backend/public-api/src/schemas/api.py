@@ -240,7 +240,7 @@ class PostListItemResponse(BaseModel):
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
-    category: str | None = None
+    categories: list[str] = Field(default_factory=list)
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False

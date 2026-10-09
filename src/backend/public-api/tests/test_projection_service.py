@@ -136,7 +136,7 @@ def test_project_post_replaces_snapshot_fields_on_update() -> None:
         assert post.title == "Updated Title"
         assert post.description is None
         assert post.source_category == "news"
-        assert post.category is None
+        assert post.categories == []
         assert post.post_revision == 2
         assert post.content is None
         assert post.author == "Updated Author"
