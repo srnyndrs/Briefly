@@ -1,14 +1,12 @@
 import logging
-from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, make_url, text
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# TEMP
 database_url = make_url(settings.database_url)
 if database_url.drivername == "postgresql":
     database_url = database_url.set(drivername="postgresql+psycopg2")
@@ -32,8 +30,3 @@ def init_db() -> None:
     logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Database schema ready.")
-
-
-def get_db() -> Generator[Session, None, None]:
-    with SessionLocal() as db:
-        yield db

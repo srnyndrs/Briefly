@@ -60,6 +60,40 @@ def make_provider() -> OllamaProvider:
     )
 
 
+def test_resolves_installed_model_digest(monkeypatch) -> None:
+    def fake_open(request, *, timeout):
+        assert request.full_url == "http://localhost:11434/api/tags"
+        assert request.get_method() == "GET"
+        assert timeout == 4
+        return FakeResponse(
+            {"models": [{"name": "test-model:latest", "digest": "sha256:one"}]}
+        )
+
+    monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fake_open)
+    assert make_provider().model_digest() == "sha256:one"
+
+
+@pytest.mark.parametrize(
+    "listing",
+    [
+        b"bad JSON",
+        {},
+        {"models": []},
+        {"models": [{"name": "test-model:latest"}]},
+        {"padding": "x" * 1_048_576},
+    ],
+)
+def test_model_resolution_fails_before_consumption(
+    monkeypatch, listing
+) -> None:
+    monkeypatch.setattr(
+        "src.adapters.ollama_provider.urlopen",
+        lambda *_, **__: FakeResponse(listing),
+    )
+    with pytest.raises(ProviderError):
+        make_provider().model_digest()
+
+
 def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
     requests = []
 

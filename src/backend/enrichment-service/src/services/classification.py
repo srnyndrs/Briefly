@@ -14,6 +14,7 @@ MAX_LANGUAGE_LENGTH = 35
 MAX_SOURCE_CATEGORY_LENGTH = 100
 MAX_KEYWORDS = 8
 MAX_KEYWORD_LENGTH = 80
+INPUT_POLICY_VERSION = "bounded-input-v1"
 
 
 @dataclass(frozen=True, slots=True)

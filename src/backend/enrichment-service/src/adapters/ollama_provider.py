@@ -1,4 +1,4 @@
-"""Ollama chat adapter for bounded category evaluation."""
+"""Ollama chat adapter for bounded category classification."""
 
 import json
 from urllib.error import HTTPError, URLError
@@ -14,6 +14,7 @@ from src.services.provider import (
 )
 
 MAX_RESPONSE_BYTES = 16_384
+GENERATION_OPTIONS = {"temperature": 0, "num_predict": 128}
 
 
 def _tokens(value: object) -> int | None:
@@ -44,6 +45,42 @@ class OllamaProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
+    def model_digest(self) -> str:
+        """Resolve the installed tag at startup, including after a repull."""
+        request = Request(f"{self.base_url}/api/tags", method="GET")
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                raw = response.read(1_048_577)
+        except (HTTPError, URLError, TimeoutError) as exc:
+            raise ProviderError(
+                "Cannot resolve installed Ollama model"
+            ) from exc
+        if len(raw) > 1_048_576:
+            raise ProviderError("Ollama model listing exceeds the size limit")
+        try:
+            data = json.loads(raw)
+        except ValueError as exc:
+            raise ProviderError("Invalid Ollama model listing") from exc
+        models = data.get("models") if isinstance(data, dict) else None
+        if not isinstance(models, list):
+            raise ProviderError("Invalid Ollama model listing")
+        tag = (
+            self.model
+            if ":" in self.model.rsplit("/", 1)[-1]
+            else f"{self.model}:latest"
+        )
+        for model in models:
+            if isinstance(model, dict) and model.get("name") == tag:
+                digest = model.get("digest")
+                if isinstance(digest, str) and 1 <= len(digest) <= 200:
+                    return digest
+                raise ProviderError(
+                    "Installed Ollama model has no valid digest"
+                )
+        raise ProviderError(
+            "Configured Ollama model is missing; pull it before startup"
+        )
+
     def __call__(self, article: ArticleInput) -> ProviderResult:
         payload = {
             "model": self.model,
@@ -53,7 +90,7 @@ class OllamaProvider:
             ],
             "stream": False,
             "format": category_schema(),
-            "options": {"temperature": 0, "num_predict": 128},
+            "options": GENERATION_OPTIONS,
         }
         request = Request(
             f"{self.base_url}/api/chat",

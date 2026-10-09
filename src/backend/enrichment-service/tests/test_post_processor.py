@@ -6,12 +6,78 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.adapters.post_consumer import PostConsumer
+
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.services.classification import ArticleInput
 from src.services.enrichment import EnrichmentService
 from src.services.post_processor import PostEventProcessor
 from src.scripts.republish_result import republish_result
+
+
+def process(processor, event, channel):
+    saved = processor(event)
+    processor.publish(saved, channel)
+    return (
+        processor.mark_published(saved) if saved.publication_pending else saved
+    )
+
+
+@pytest.mark.parametrize(
+    "error", [ValueError("invalid output"), TimeoutError("timed out")]
+)
+def test_failed_result_is_published_before_dlq(deliver, session_factory, error):
+    repository = EnrichmentRepository(session_factory)
+    post_id = str(uuid4())
+    first = process(
+        PostEventProcessor(
+            EnrichmentService(repository, lambda _: ("science",))
+        ),
+        _event(post_id=post_id),
+        MagicMock(),
+    )
+
+    def fail(_):
+        raise error
+
+    processor = PostEventProcessor(EnrichmentService(repository, fail))
+    channel = MagicMock(is_open=True)
+    deliver(
+        processor,
+        channel,
+        json.dumps(
+            _event(post_id=post_id, revision=2, content="Updated finding")
+        ).encode(),
+    )
+    saved = repository.get_by_post_id(UUID(post_id))
+    assert saved.status == "failed" and saved.category_ids == ()
+    assert saved.enrichment_revision == first.enrichment_revision + 1
+    assert saved.result_event["payload"]["status"] == "failed"
+    assert saved.result_event["payload"]["category_ids"] == []
+    assert not saved.publication_pending
+    channel.basic_publish.assert_called_once()
+    channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
+
+
+def test_pending_failed_event_recovers_without_repeating_inference(
+    deliver, session_factory
+):
+    repository = EnrichmentRepository(session_factory)
+    classifier = MagicMock(side_effect=ValueError("invalid output"))
+    processor = PostEventProcessor(EnrichmentService(repository, classifier))
+    event = _event(post_id=str(uuid4()))
+    channel = MagicMock(is_open=True)
+    channel.basic_publish.side_effect = RuntimeError("missing binding")
+    deliver(processor, channel, json.dumps(event).encode())
+    pending = repository.get_by_post_id(UUID(event["payload"]["post_id"]))
+    assert pending.status == "failed" and pending.publication_pending
+    recovered = process(processor, event, MagicMock(is_open=True))
+    assert recovered.event_id == pending.event_id
+    assert recovered.enrichment_revision == pending.enrichment_revision
+    assert not recovered.publication_pending and classifier.call_count == 1
+    classifier.side_effect = None
+    classifier.return_value = ("science",)
+    assert process(processor, event, MagicMock()).status == "completed"
+    assert classifier.call_count == 2
 
 
 class RecordingClassifier:
@@ -58,13 +124,17 @@ def test_duplicate_and_stale_events_do_not_repeat_classification(
     )
 
     channel = MagicMock(is_open=True)
-    first = processor(_event(post_id=post_id, revision=4), channel)
+    first = process(processor, _event(post_id=post_id, revision=4), channel)
     duplicate_event = _event(post_id=post_id, revision=4)
     duplicate_event["event_id"] = "different-event-id"
-    duplicate = processor(duplicate_event, channel)
-    newer_unchanged = processor(_event(post_id=post_id, revision=5), channel)
-    stale_changed = processor(
-        _event(post_id=post_id, revision=3, title="Old report"), channel
+    duplicate = process(processor, duplicate_event, channel)
+    newer_unchanged = process(
+        processor, _event(post_id=post_id, revision=5), channel
+    )
+    stale_changed = process(
+        processor,
+        _event(post_id=post_id, revision=3, title="Old report"),
+        channel,
     )
 
     assert first.post_revision == 4
@@ -75,6 +145,7 @@ def test_duplicate_and_stale_events_do_not_repeat_classification(
 
 
 def test_consumer_acknowledges_a_saved_parsed_post(
+    deliver,
     session_factory: sessionmaker[Session],
 ) -> None:
     post_id = str(uuid4())
@@ -93,11 +164,11 @@ def test_consumer_acknowledges_a_saved_parsed_post(
 
     channel.basic_publish.side_effect = confirm_publication
 
-    PostConsumer(processor)._on_message(
+    deliver(
+        processor,
         channel,
-        MagicMock(delivery_tag=7),
-        None,
         json.dumps(_event(post_id=post_id, revision=3)).encode(),
+        7,
     )
 
     saved = repository.get_by_post_id(UUID(post_id))
@@ -121,6 +192,7 @@ def test_consumer_acknowledges_a_saved_parsed_post(
 
 
 def test_failed_publish_reuses_saved_event_after_restart(
+    deliver,
     session_factory: sessionmaker[Session],
 ) -> None:
     post_id = str(uuid4())
@@ -131,9 +203,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     channel = MagicMock(is_open=True)
     channel.basic_publish.side_effect = RuntimeError("broker did not confirm")
 
-    PostConsumer(processor)._on_message(
-        channel, MagicMock(delivery_tag=8), None, json.dumps(event).encode()
-    )
+    deliver(processor, channel, json.dumps(event).encode(), 8)
 
     pending = repository.get_by_post_id(UUID(post_id))
     assert pending is not None and pending.publication_pending
@@ -150,7 +220,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
         )
     )
     retry_channel = MagicMock(is_open=True)
-    retried = restarted(event, retry_channel)
+    retried = process(restarted, event, retry_channel)
 
     assert retried.event_id == pending.event_id
     assert retried.enrichment_revision == pending.enrichment_revision
@@ -160,7 +230,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     )
     assert len(classifier.inputs) == 1
 
-    restarted(event, retry_channel)
+    process(restarted, event, retry_channel)
     assert retry_channel.basic_publish.call_count == 1
 
 
@@ -177,7 +247,7 @@ def test_save_failure_prevents_publication(
         repository, "save", side_effect=RuntimeError("save failed")
     ):
         with pytest.raises(RuntimeError, match="save failed"):
-            processor(_event(post_id=str(uuid4())), channel)
+            process(processor, _event(post_id=str(uuid4())), channel)
 
     channel.basic_publish.assert_not_called()
 
@@ -191,7 +261,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
         EnrichmentService(repository, RecordingClassifier())
     )
     channel = MagicMock(is_open=True)
-    processor(_event(post_id=str(post_id)), channel)
+    process(processor, _event(post_id=str(post_id)), channel)
     saved = repository.get_by_post_id(post_id)
     assert saved is not None and saved.result_event is not None
 
@@ -234,7 +304,9 @@ def test_existing_result_gets_an_event_without_reclassification(
         EnrichmentService(repository, no_classifier_call)
     )
     channel = MagicMock(is_open=True)
-    processed = processor(_event(post_id=str(post_id), revision=2), channel)
+    processed = process(
+        processor, _event(post_id=str(post_id), revision=2), channel
+    )
 
     assert processed.event_id is not None
     assert not processed.publication_pending
@@ -251,9 +323,11 @@ def test_changed_input_at_new_revision_is_classified_again(
     post_id = str(uuid4())
 
     channel = MagicMock(is_open=True)
-    first = processor(_event(post_id=post_id, revision=1), channel)
-    changed = processor(
-        _event(post_id=post_id, revision=2, content="A new finding"), channel
+    first = process(processor, _event(post_id=post_id, revision=1), channel)
+    changed = process(
+        processor,
+        _event(post_id=post_id, revision=2, content="A new finding"),
+        channel,
     )
 
     assert changed.post_revision == 2
@@ -274,7 +348,7 @@ def test_event_category_and_keywords_reach_classifier_as_hints(
     payload["category"] = "Technology"
     payload["keywords"] = ["AI", "Devices"]
 
-    processor(event, MagicMock(is_open=True))
+    process(processor, event, MagicMock(is_open=True))
 
     assert classifier.inputs[0].source_category == "Technology"
     assert classifier.inputs[0].keywords == ("AI", "Devices")
@@ -294,8 +368,8 @@ def test_changed_source_hints_at_new_revision_are_classified_again(
     assert isinstance(second_payload, dict)
     second_payload["keywords"] = ["medical research"]
 
-    first = processor(first_event, MagicMock(is_open=True))
-    second = processor(second_event, MagicMock(is_open=True))
+    first = process(processor, first_event, MagicMock(is_open=True))
+    second = process(processor, second_event, MagicMock(is_open=True))
 
     assert second.input_hash != first.input_hash
     assert len(classifier.inputs) == 2
@@ -311,9 +385,11 @@ def test_changed_input_at_same_revision_replaces_saved_snapshot(
     post_id = str(uuid4())
 
     channel = MagicMock(is_open=True)
-    first = processor(_event(post_id=post_id, revision=2), channel)
-    duplicate = processor(
-        _event(post_id=post_id, revision=2, content="Conflicting body"), channel
+    first = process(processor, _event(post_id=post_id, revision=2), channel)
+    duplicate = process(
+        processor,
+        _event(post_id=post_id, revision=2, content="Conflicting body"),
+        channel,
     )
 
     assert duplicate.input_hash != first.input_hash
@@ -365,4 +441,4 @@ def test_invalid_parsed_post_events_are_rejected(
     )
 
     with pytest.raises(ValidationError):
-        processor(event, MagicMock(is_open=True))
+        process(processor, event, MagicMock(is_open=True))

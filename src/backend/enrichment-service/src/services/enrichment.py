@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from uuid import UUID
@@ -15,12 +16,15 @@ from src.repositories.enrichment_repository import (
 from src.services.classification import (
     ArticleInput,
     Classifier,
+    INPUT_POLICY_VERSION,
     classify_article,
     normalize_article,
 )
-from src.services.provider import PROMPT_VERSION
+from src.services.provider import PROMPT_VERSION, ProviderError
 
-DEFAULT_ENRICHMENT_VERSION = f"{PROMPT_VERSION}-bounded-input-v1"
+logger = logging.getLogger(__name__)
+
+DEFAULT_ENRICHMENT_VERSION = f"{PROMPT_VERSION}-{INPUT_POLICY_VERSION}"
 
 
 class EnrichmentService:
@@ -62,6 +66,16 @@ class EnrichmentService:
         if (
             existing is not None
             and existing.post_revision == post_revision
+            and existing.input_hash == input_hash
+            and existing.enrichment_version == self._enrichment_version
+            and existing.status == "failed"
+            and existing.publication_pending
+            and correlation_id is not None
+        ):
+            return existing
+        if (
+            existing is not None
+            and existing.post_revision == post_revision
             and existing.status in ("completed", "abstained")
             and existing.input_hash == input_hash
             and existing.enrichment_version == self._enrichment_version
@@ -86,21 +100,31 @@ class EnrichmentService:
 
         try:
             result = classify_article(normalized, self._classifier)
-        except Exception:
-            failed_saved = self._repository.save(
-                self._result(
-                    post_id=post_id,
-                    input_hash=input_hash,
-                    category_ids=(),
-                    status="failed",
-                    reason="classifier_error",
-                    post_revision=post_revision,
-                )
+        except Exception as exc:
+            logger.warning(
+                "Classification failed (post_id=%s, error=%s)",
+                post_id,
+                str(exc)[:300]
+                if isinstance(exc, ProviderError)
+                else type(exc).__name__,
             )
+            failed = self._result(
+                post_id=post_id,
+                input_hash=input_hash,
+                category_ids=(),
+                status="failed",
+                reason="classifier_error",
+                post_revision=post_revision,
+            )
+            if correlation_id is not None:
+                failed = self._with_event(failed, correlation_id)
+            failed_saved = self._repository.save(failed)
             if failed_saved is None:
                 latest = self._latest_or_raise(post_id)
                 if latest.post_revision > post_revision:
                     return latest
+            if correlation_id is not None:
+                return failed_saved or self._latest_or_raise(post_id)
             raise
 
         if not result.category_ids:

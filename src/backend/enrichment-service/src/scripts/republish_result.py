@@ -5,7 +5,6 @@ from uuid import UUID
 
 import pika
 
-from src.adapters.post_consumer import PostConsumer
 from src.adapters.result_publisher import publish_result
 from src.config.database import SessionLocal
 from src.config.settings import settings
@@ -23,7 +22,11 @@ def republish_result(post_id: UUID) -> None:
     connection = pika.BlockingConnection(parameters)
     try:
         channel = connection.channel()
-        PostConsumer._declare_topology(channel)
+        channel.exchange_declare(
+            exchange=settings.result_exchange,
+            exchange_type="topic",
+            durable=True,
+        )
         channel.confirm_delivery()
         publish_result(channel, saved.result_event)
         repository.mark_published(post_id, saved.event_id)
