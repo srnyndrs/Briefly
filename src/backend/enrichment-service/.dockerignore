@@ -4,6 +4,7 @@ __pycache__/
 *.pyd
 .Python
 .env
+.local-evaluation/
 .venv
 venv/
 .pytest_cache/

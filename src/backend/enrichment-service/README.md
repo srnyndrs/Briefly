@@ -1,124 +1,145 @@
 # Enrichment Service
 
-FastAPI service for classifying parsed posts through Ollama and storing results.
-Running the service starts its durable parsed-post consumer. PostgreSQL,
-RabbitMQ and an explicitly provisioned Ollama model are required.
+Optional Ollama classification of parsed posts. Core ingestion and article reads
+work without it. Gemini is available only through the explicit evaluation CLI.
 
-## Local startup
+## Startup and configuration
 
-From the repository root, start PostgreSQL, RabbitMQ and standalone Ollama:
+From the repository root, start the core platform:
 
 ```powershell
-docker compose up -d postgres rabbitmq
-docker compose --profile ollama up -d ollama
-docker compose exec ollama ollama pull YOUR_CHOSEN_MODEL_TAG
-docker compose exec ollama ollama list
+docker compose up -d --build
 ```
 
-Set `OLLAMA_MODEL` in this service's `.env` to the chosen installed tag, then
-start the service from this directory:
+Choose a model explicitly. Set `OLLAMA_MODEL` in this service's `.env` to that
+exact tag, then provision it once (or after deliberately changing the model):
+
+```powershell
+$model = 'YOUR_CHOSEN_MODEL_TAG'
+docker compose --profile ollama up -d ollama
+docker compose exec ollama ollama pull $model
+docker compose exec ollama ollama list
+$tags = Invoke-RestMethod http://localhost:11434/api/tags
+$tags.models | Where-Object name -EQ $model | Select-Object name, digest
+```
+
+`/api/tags` must contain the exact configured tag. Model files persist in
+`ollama_data`; neither the image build nor service startup downloads models.
+Ollama runs on the CPU. The `ollama` profile supports standalone experiments.
+
+Enable or stop enrichment from the repository root:
+
+```powershell
+docker compose --profile enrichment up -d --build
+docker compose stop enrichment-service ollama
+```
+
+The enrichment profile starts both optional containers alongside the core services.
+Enrichment waits for PostgreSQL, RabbitMQ, Ollama and public-api health checks.
+Core services have no optional-service dependency and require no Gemini key.
+Plain `up` does not stop optional containers already running. Use the named `stop`
+command to disable enrichment; profile `down` also stops core services.
+
+| Setting | Runtime use |
+| --- | --- |
+| `OLLAMA_MODEL` | Required chosen installed tag; no default model. |
+| `OLLAMA_TIMEOUT_SECONDS` | Request timeout greater than zero and at most 300 seconds; default 60. |
+| `OLLAMA_BASE_URL` | Local default `http://localhost:11434`; Compose uses `http://ollama:11434`. |
+| `DATABASE_URL` | Service PostgreSQL connection; Compose uses internal database DNS. |
+| `RABBITMQ_URL` | Broker connection; Compose uses internal broker DNS. |
+| `GEMINI_API_KEY` | Optional, explicit Gemini evaluation only. |
+
+Compose overrides internal URLs and loads other settings from the optional service
+`.env`. Runtime uses the existing non-root `appuser` image and standard logs.
+For host development, start core and Ollama first, then run from this directory:
 
 ```powershell
 poetry install
 poetry run uvicorn src.app:app --host 0.0.0.0 --port 8005 --reload
 ```
 
-The default database URL targets the repository's local PostgreSQL container.
-Set `DATABASE_URL` in `.env` to use another PostgreSQL instance.
+Startup checks the installed model digest before starting the consumer. Missing
+configuration or model fails startup clearly. Ollama's container health check
+runs `ollama list` to check server availability; it does not approve a model's
+quality or confirm that your chosen tag exists. `/health` on port 8005 reports
+HTTP liveness, not broker readiness or successful classification. Confirm the
+consumer-start log and broker binding before processing a backlog.
 
-Startup creates missing tables from the current SQLAlchemy models. During
-development, apply schema changes directly or recreate the affected disposable
-tables after stopping their consumers. `create_all()` does not alter existing
-tables. Keep schema maintenance scoped to the affected service.
+## Contracts and persistence
 
-The RabbitMQ consumer queue is `enrichment.posts.v1`, bound to
-`post.parsed.v1` on `content.parsed`. Startup composes the Ollama provider,
-category callable, enrichment service and event processor using `SessionLocal`.
-`PostEventProcessor` remains callable for isolated fixture runs.
-Malformed and failed deliveries are dead-lettered
-to `enrichment.posts.v1.dlq` through `enrichment.failed`.
-Runtime requires `OLLAMA_MODEL`; there is no default model selection.
-`OLLAMA_TIMEOUT_SECONDS` defaults to 60 and accepts values greater than zero
-up to 300. `OLLAMA_BASE_URL` defaults to `http://localhost:11434`.
-Gemini is constructed only by explicit evaluation and its key is optional.
+Content owns text and `post_revision`. Enrichment consumes `post.parsed.v1` from
+`content.parsed` through durable `enrichment.posts.v1`, and publishes
+`post.enriched.v1` with `schema_version=1` and `category_ids`. Completed results
+contain one or two distinct supported IDs; `other` stands alone. Intentional
+abstention and failed results have empty categories and different statuses.
+Public-api owns the durable `public-api.query.v1` binding on `enrichment.events`.
+It exposes calculated `categories` as a list and keeps publisher labels separate.
 
-Startup resolves the installed model digest from `/api/tags`. The bounded
-`enrichment_version` hashes provider, model tag, digest, taxonomy, prompt,
-schema, generation options and input policy. Unchanged input and version reuse
-saved results; a changed model or policy triggers classification again.
-Record `ollama list` and the `/api/tags` digest alongside experiments. Restart
-enrichment after repulling a tag so its identity reflects the installed contents.
-Changes to normalization must bump `INPUT_POLICY_VERSION`.
+Startup composes Ollama, the category callable, EnrichmentService and
+PostEventProcessor with EnrichmentRepository(SessionLocal). The bounded result
+version hashes provider, tag/digest, taxonomy, prompt, schema, generation options
+and input policy. Unchanged input/version reuses saved results. Record the model
+digest alongside experiments, restart after a repull, and bump
+`INPUT_POLICY_VERSION` when changing normalization.
 
-The consumer uses prefetch=1 with one active inference worker. Normalization,
-inference and persistence run off the Pika connection thread. Publication,
-confirms and ack/nack stay on that thread, with completion returned through
-`add_callback_threadsafe`. The confirmed event is marked published off that
-thread before the input is acknowledged. Sessions belong to individual repository
-operations; no transaction is held across inference.
+Startup creates missing tables. `create_all()` does not alter existing columns;
+apply development schema changes directly with consumers stopped and scope them
+to this service's derived tables.
 
-The service declares `enrichment.events` but creates no result sink queue.
-Public-api owns the durable query queue and its `post.enriched.v1` binding.
-Its projector validates the current collection payload; establish the durable
-query binding before enabling enrichment consumption.
-Missing routing or a publication failure leaves the saved event pending and
-sends the input to the enrichment DLQ. Republish one saved event
-without classification using:
+## Queue behavior and recovery
+
+Before the input binding exists, old posts require explicit bounded content replay
+through content-service's `POST /admin/posts/replay?since=<timestamp>&limit=...`
+(include `x-admin-token` if configured). Once the durable queue
+exists, stopping enrichment leaves a backlog that resumes on restart. Disabling
+the profile preserves valid saved categories. There is no automatic full-history
+backfill, queue purge, TTL or scheduler.
+
+The consumer uses prefetch=1 and one active inference worker. Model work and scoped
+database operations run off the broker thread; publication/confirms and ack/nack
+stay on it. No transaction spans inference. It confirms publication, marks the
+saved event published, then acknowledges input. Failed classification publishes
+its revisioned empty result before rejecting input to `enrichment.posts.v1.dlq`.
+Malformed input also enters that DLQ. No automatic model retry or Gemini fallback
+runs. Safe bounded provider details or exception types appear in logs.
+
+Missing result routing or failed publication leaves the event pending. Restore the
+binding, then republish the saved event without classification:
 
 ```powershell
 poetry run python -m src.scripts.republish_result <post-uuid>
+# Or from the repository root:
+docker compose exec enrichment-service python -m src.scripts.republish_result <post-uuid>
 ```
 
-The command can also republish an already delivered result with the same event
-ID. Downstream consumers must deduplicate that ID. To populate results for
-existing articles, first establish the result binding, then call content-service's
-bounded `/admin/posts/replay?limit=...` endpoint. The replayed post keeps its
-stored revision. A crash after a classifier call but before the result save can
-repeat the call; this flow does not guarantee exactly-once classification.
+Republishing retains the event ID; downstream consumers deduplicate it. Pending
+failed events also retain identity on redelivery. After publication, explicit
+bounded replay may retry classification. If Ollama fails during processing,
+restore it, restart enrichment and replay the selected failed posts. Recovery can
+repeat a call after a crash before persistence; there is no exactly-once claim.
 
-Provider failure saves a revisioned failed result with empty categories and a
-pending v1 event. That event must be confirmed and marked published before the
-input is rejected to the DLQ. Intentional abstention is acknowledged normally.
-Pending failed events retain their identity on redelivery without repeating the
-model call. After publication, explicit replay can retry classification.
-Logs include bounded provider error details or the exception type, without
-logging article text or raw model output. There is no automatic model retry or
-Gemini fallback.
+Shutdown closes the broker connection without waiting for daemon inference
+workers. Unfinished input can be redelivered; late completions cannot touch a
+closed/replaced connection. After a broker disconnect, finish active work before
+accepting redelivery. Model calls retain their configured timeout.
 
-Startup checks the installed model before consuming. If Ollama goes down during
-processing, restore it and restart enrichment, then replay an explicit bounded
-sample of failed posts using content-service's replay endpoint. Republish pending
-events first if downstream routing was unavailable. Shutdown closes the consumer
-connection and leaves unfinished input unacknowledged; it does not wait for an
-inference worker. Late completions cannot use a closed or replaced connection.
-Workers are daemon threads and model requests retain the configured timeout.
-After a broker disconnect, finish the active worker before accepting redelivery.
+During trials, inspect ready/unacknowledged counts, consumer counts and broker disk
+use. Measure backlog growth before choosing a bound:
 
-Open `http://localhost:8005/health` for HTTP liveness. It does not check broker
-connectivity or classification success.
+```powershell
+docker compose exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
+docker compose exec rabbitmq sh -c 'du -sh /var/lib/rabbitmq'
+```
 
-## Container startup
+## Validation and experiments
 
-The optional Compose profile is the feature switch. Container broker/model
-configuration and combined Ollama profile wiring are pending Step 4 of the
-[implementation plan](../../../MULTI_CATEGORY_ENRICHMENT_IMPLEMENTATION_PLAN.md).
-Complete container wiring and integrated backend verification before processing a backlog.
+`make test`, `make lint` and `make format` run focused local checks. Optional
+`ENRICHMENT_TEST_DATABASE_URL` and `ENRICHMENT_TEST_RABBITMQ_URL` enable isolated
+PostgreSQL and broker tests. The broker URL has no query parameters. These tests
+use fake inference and remove their test objects; they do not replay platform
+backlog or measure Ollama quality.
 
-## Focused validation
-
-Run `make test`, `make lint` and `make format` for local checks. Broker tests are
-opt-in through `ENRICHMENT_TEST_RABBITMQ_URL` (an AMQP URL without query parameters).
-They create and remove isolated test queues/exchanges, use a two-second heartbeat
-and fake inference, and verify slow processing, shutdown/redelivery and missing
-routing recovery. Point them at a disposable local RabbitMQ instance.
-They do not use the platform backlog or call Ollama.
-
-## Compare classification providers (multi-category Phase 1)
-
-Follow the [manual evaluation guide](EVALUATION_GUIDE.md) to build a small
-labelled set, run bounded Gemini or Ollama calls, and compare the results.
-`src.scripts.export_evaluation` samples stored posts read-only;
-`src.scripts.label_evaluation` walks through the saved sample and resumes manual
-labelling. The evaluator's `--validate-only` checks the dataset before model calls.
-Use `make evaluate-help` for flags and `make evaluate` to run the
-script. This command uses neither RabbitMQ nor the enrichment database.
+Use the [evaluation guide](EVALUATION_GUIDE.md) for export, labelling, explicit
+provider selection, dataset validation and comparable experiment outputs.
+Evaluation remains separate from ingestion. Implementation status and actual
+validation evidence live in the [active plan](../../../MULTI_CATEGORY_ENRICHMENT_IMPLEMENTATION_PLAN.md).

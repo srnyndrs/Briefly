@@ -138,8 +138,16 @@ services:
       ENV: development
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      public-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8005/health')\""]
@@ -149,12 +157,19 @@ services:
       retries: 3
 
   ollama:
-    profiles: ["ollama"]
+    profiles: ["enrichment", "ollama"]
     image: ollama/ollama:0.35.1
+    restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
 
   account-service:
     build:
