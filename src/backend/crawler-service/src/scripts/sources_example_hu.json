@@ -1,0 +1,282 @@
+[
+    {
+        "url": "https://telex.hu/rss",
+        "title": "Telex RSS: Legfrissebb",
+        "description": "Articles from https://telex.hu",
+        "content_type": "text/xml",
+        "favicon": "https://telex.hu/favicon.ico",
+        "site_url": "https://telex.hu",
+        "site_name": "telex",
+        "language": null
+    },
+    {
+        "url": "https://index.hu/24ora/rss/",
+        "title": "Index - 24óra",
+        "description": "Friss 24 órás hírek, események, tények",
+        "content_type": "text/xml",
+        "favicon": "https://index.hu/assets/images/favicons/favicon.ico",
+        "site_url": "https://index.hu",
+        "site_name": "Index - friss hírek, események, tények",
+        "language": "hu"
+    },
+    {
+        "url": "https://24.hu/feed/",
+        "title": "24.hu",
+        "description": "Friss hírek - Tiszta tartalom",
+        "content_type": "application/rss+xml",
+        "favicon": "https://24.hu/favicon.ico",
+        "site_url": "https://24.hu",
+        "site_name": "24.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://444.hu/feed",
+        "title": "444",
+        "description": "Hírek a 444 oldaláról",
+        "content_type": "application/xml",
+        "favicon": "https://cdn.444r.cloud/assets/favicon.59a582e6612fdac3b572.svg",
+        "site_url": "https://444.hu",
+        "site_name": "444",
+        "language": "hu"
+    },
+    {
+        "url": "https://hvg.hu/rss",
+        "title": "HVG",
+        "description": "Friss hírek a HVG.hu hírportálról.",
+        "content_type": "application/xml",
+        "favicon": "https://cdn.hvg.hu/assets/hvghu/favicon/favicon.ico",
+        "site_url": "https://hvg.hu",
+        "site_name": "hvg.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.origo.hu/publicapi/hu/rss/origo/articles",
+        "title": "Origo",
+        "description": "Origo RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://www.origo.hu/favicon.ico",
+        "site_url": "https://www.origo.hu",
+        "site_name": "ORIGO",
+        "language": "hu"
+    },
+    {
+        "url": "https://hirtv.origo.hu/publicapi/hu/rss/hirtv/articles",
+        "title": "Hír TV",
+        "description": "Hír TV RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://hirtv.origo.hu/assets/images/favicons/favicon.ico",
+        "site_url": "https://hirtv.origo.hu",
+        "site_name": "HírTv",
+        "language": "hu"
+    },
+    {
+        "url": "https://mandiner.hu/publicapi/hu/rss/mandiner/articles",
+        "title": "Mandiner",
+        "description": "Mandiner RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://mandiner.hu/new-favicon.png",
+        "site_url": "https://mandiner.hu",
+        "site_name": "Mandiner",
+        "language": "hu"
+    },
+    {
+        "url": "https://borsonline.origo.hu/publicapi/hu/rss/bors/articles",
+        "title": "Bors",
+        "description": "Borsonline RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://borsonline.origo.hu/safari-pinned-tab.svg",
+        "site_url": "https://borsonline.origo.hu",
+        "site_name": "Bors",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.blikk.hu/rss-articles.xml",
+        "title": "Blikk",
+        "description": "Blikk - hírek első kézből, hitelesen",
+        "content_type": "application/xml",
+        "favicon": "https://ocdn.eu/blikk_static/resource/icons/new/favicon.ico",
+        "site_url": "https://www.blikk.hu",
+        "site_name": "Blikk",
+        "language": "hu"
+    },
+    {
+        "url": "https://femina.hu/feed/",
+        "title": "Femina",
+        "description": "Latest posts.",
+        "content_type": "text/xml",
+        "favicon": "https://femina.hu/neon/static/images/femina/favicon_32x32.png",
+        "site_url": "https://femina.hu",
+        "site_name": "Femina",
+        "language": "hu"
+    },
+    {
+        "url": "https://the-zone.hu/feed/",
+        "title": "the-Zone.hu",
+        "description": "Végtelen kalandok autózáson innen és túl",
+        "content_type": "application/rss+xml",
+        "favicon": "https://the-zone.hu/wp-content/uploads/2025/01/cropped-thezone-32x32.jpg",
+        "site_url": "https://the-zone.hu",
+        "site_name": "The Zone",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.automotor.hu/feed/",
+        "title": "Autó-Motor",
+        "description": "Autó-Motor",
+        "content_type": "application/rss+xml",
+        "favicon": "https://www.automotor.hu/wp-content/uploads/2019/02/automotor.png?x88250",
+        "site_url": "https://www.automotor.hu",
+        "site_name": "Autó-Motor",
+        "language": "hu"
+    },
+    {
+        "url": "https://totalcar.hu/feed/",
+        "title": "Totalcar",
+        "description": "Latest posts.",
+        "content_type": "text/xml",
+        "favicon": "https://totalcar.hu/static/images/totalcar/favicon_32x32.png",
+        "site_url": "https://totalcar.hu",
+        "site_name": "Totalcar",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.nemzetisport.hu/publicapi/hu/rss/nso/articles",
+        "title": "Nemzeti Sport Online",
+        "description": "Nemzeti Sport Online RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://www.nemzetisport.hu/assets/favicon/favicon.ico",
+        "site_url": "https://nemzetisport.hu",
+        "site_name": "NSO",
+        "language": "hu"
+    },
+    {
+        "url": "https://adat.idokep.hu/rss/news.xml",
+        "title": "Időkép",
+        "description": "Élő időjárás",
+        "content_type": "text/xml",
+        "favicon": "https://www.idokep.hu/assets/favicons/favicon-32x32.png",
+        "site_url": "https://www.idokep.hu",
+        "site_name": "Időkép",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.portfolio.hu/rss/all.xml",
+        "title": "Portfolio.hu - Összes hír",
+        "description": "Összes hír",
+        "content_type": "text/xml",
+        "favicon": "https://assets.portfolio.hu/images/favicon/android-icon-192x192.png",
+        "site_url": "https://www.portfolio.hu",
+        "site_name": "Portfolio.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.penzcentrum.hu/rss/all.xml",
+        "title": "Penzcentrum.hu - Összes hír",
+        "description": "Összes hír",
+        "content_type": "application/xml",
+        "favicon": "https://www.penzcentrum.hu/assets/images/android-icon-192x192.png",
+        "site_url": "https://www.penzcentrum.hu",
+        "site_name": "Pénzcentrum",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.hwsw.hu/feed",
+        "title": "HWSW Informatikai Hírmagazin",
+        "description": "Informatika élőben.",
+        "content_type": "application/rss+xml",
+        "favicon": "https://www.hwsw.hu/favicon-32x32.png",
+        "site_url": "https://www.hwsw.hu",
+        "site_name": "HWSW",
+        "language": "hu"
+    },
+    {
+        "url": "https://pcforum.hu/site.pc/backend/pcforum-rss.xml",
+        "title": "PC Fórum RSS",
+        "description": "PC Fórum RSS",
+        "content_type": "application/rss+xml",
+        "favicon": "https://pcforum.hu/site.pc/images/pcforum.ico",
+        "site_url": "https://pcforum.hu",
+        "site_name": "PC Fórum",
+        "language": "hu"
+    },
+    {
+        "url": "https://prohardver.hu/hirfolyam/anyagok/rss.xml",
+        "title": "PROHARDVER! - Az Online PC Magazin - hardverek, tesztek, közösség",
+        "description": "Hírek, cikkek és videók - PROHARDVER!",
+        "content_type": "application/rss+xml",
+        "favicon": "https://cdn.rios.hu/design/ph/logo-favicon.png",
+        "site_url": "https://prohardver.hu",
+        "site_name": "PROHARDVER!",
+        "language": "hu"
+    },
+    {
+        "url": "https://sg.hu/rss.xml",
+        "title": "SG.hu Hírmagazin - Összes cikk",
+        "description": "SG.hu Hírmagazin - Rendszeres napi hírek az informatika, tudomány, játékok és filmek világából!",
+        "content_type": "application/rss+xml",
+        "favicon": "https://sg.hu/favicon.ico?favicon.2vob68tjqpejf.ico",
+        "site_url": "https://sg.hu",
+        "site_name": "SG.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://humusz.hu/rss",
+        "title": "Humusz.hu",
+        "description": "Humusz.hu friss tartalmak",
+        "content_type": "application/rss+xml",
+        "favicon": "https://humusz.hu/sites/default/files/favicon.jpg",
+        "site_url": "https://humusz.hu",
+        "site_name": "Humusz",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.agroinform.hu/rss.php",
+        "title": "Agroinform - Mezőgazdaság percről percre",
+        "description": "Magyarország mezőgazdasági portálja. Mezőgazdasági új és használt gépek, szakcikkek, információk, fórum.",
+        "content_type": "application/xml",
+        "favicon": "https://static.agroinform.hu/static/site/img/favicon/favicon_16x16px.png",
+        "site_url": "https://www.agroinform.hu",
+        "site_name": "Agroinform.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://welovebudapest.com/24ora/rss",
+        "title": "We love Budapest",
+        "description": "Hírek, éttermek, programok, brunchozók",
+        "content_type": "text/xml",
+        "favicon": "https://welovebudapest.com/assets/images/favicons/favicon.ico",
+        "site_url": "https://welovebudapest.com",
+        "site_name": "We Love Budapest",
+        "language": "hu"
+    },
+    {
+        "url": "https://nki.gov.hu/feed/hirek/",
+        "title": "Nemzeti Kiberbiztonsági Intézet",
+        "description": "IT Biztonsági hírek - Nemzeti Kiberbiztonsági Intézet",
+        "content_type": "application/rss+xml",
+        "favicon": "https://nki.gov.hu/wp-content/uploads/2022/06/cropped-NKI_grafika_transparent-32x32.png",
+        "site_url": "https://nki.gov.hu",
+        "site_name": "NKI",
+        "language": "hu"
+    },
+    {
+        "url": "https://litera.hu/rss/articles",
+        "title": "Litera - az irodalmi portál",
+        "description": "Latest articles from litera.hu",
+        "content_type": "application/rss+xml",
+        "favicon": "https://litera.hu/favicon.ico",
+        "site_url": "https://litera.hu",
+        "site_name": "Litera",
+        "language": "hu"
+    },
+    {
+        "url": "https://qubit.hu/feed",
+        "title": "Qubit",
+        "description": "Latest articles from qubit.hu",
+        "content_type": "application/xml",
+        "favicon": "https://cdn.qubitr.cloud/assets/favicon.941c41679e944dc21ec5.svg",
+        "site_url": "https://qubit.hu",
+        "site_name": "Qubit",
+        "language": "hu"
+    }
+]
