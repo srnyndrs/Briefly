@@ -1,12 +1,29 @@
+import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
+
+logger = logging.getLogger(__name__)
+
+CANONICAL_POST_FIELDS = (
+    "url",
+    "source_title",
+    "title",
+    "description",
+    "category",
+    "content",
+    "author",
+    "published_at",
+    "image_url",
+    "language",
+    "keywords",
+)
 
 
 class PostRepository:
@@ -63,32 +80,61 @@ class PostRepository:
     def get_posts_count(self) -> int:
         return self._db.query(Post).count()
 
-    def create_post(self, post_data: dict[str, Any]) -> dict[str, Any] | None:
+    def create_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
         insert_statement = insert(Post).values(**post_data)
+        excluded = insert_statement.excluded
         update_fields = {
-            "item_guid": insert_statement.excluded.item_guid,
-            "url": insert_statement.excluded.url,
-            "source_title": insert_statement.excluded.source_title,
-            "title": insert_statement.excluded.title,
-            "description": insert_statement.excluded.description,
-            "category": insert_statement.excluded.category,
-            "content": insert_statement.excluded.content,
-            "author": insert_statement.excluded.author,
-            "published_at": insert_statement.excluded.published_at,
-            "crawled_at": insert_statement.excluded.crawled_at,
-            "parsed_at": insert_statement.excluded.parsed_at,
-            "image_url": insert_statement.excluded.image_url,
-            "language": insert_statement.excluded.language,
-            "keywords": insert_statement.excluded.keywords,
-            "post_revision": Post.post_revision + 1,
+            field: getattr(excluded, field) for field in CANONICAL_POST_FIELDS
         }
-        upsert_statement = insert_statement.on_conflict_do_update(
-            index_elements=["source_id", "item_guid"],
-            set_=update_fields,
-        ).returning(*Post.__table__.columns)
+        update_fields.update(
+            {
+                "crawled_at": excluded.crawled_at,
+                "parsed_at": excluded.parsed_at,
+                "post_revision": Post.post_revision + 1,
+            }
+        )
+        changed_fields = or_(
+            *(
+                getattr(Post, field).is_distinct_from(getattr(excluded, field))
+                for field in CANONICAL_POST_FIELDS
+            )
+        )
+        upsert_statement = (
+            insert_statement.on_conflict_do_update(
+                index_elements=["source_id", "item_guid"],
+                set_=update_fields,
+                where=changed_fields,
+            )
+            .returning(*Post.__table__.columns)
+        )
 
         row = self._db.execute(upsert_statement).mappings().one_or_none()
-        snapshot = dict(row) if row is not None else None
-        self._db.commit()
+        if row is not None:
+            snapshot = dict(row)
+            action = "inserted" if snapshot["post_revision"] == 1 else "updated"
+        else:
+            existing = (
+                self._db.execute(
+                    select(*Post.__table__.columns).where(
+                        Post.source_id == post_data["source_id"],
+                        Post.item_guid == post_data["item_guid"],
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if existing is None:
+                raise RuntimeError(
+                    "Post upsert matched no row and the existing post could not be read"
+                )
+            snapshot = dict(existing)
+            action = "unchanged"
 
+        self._db.commit()
+        logger.debug(
+            "Post snapshot %s (post_id=%s, post_revision=%d)",
+            action,
+            snapshot["post_id"],
+            snapshot["post_revision"],
+        )
         return snapshot

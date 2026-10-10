@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+import pytest
 from sqlalchemy.orm import Session
 
 from src.repositories.post_repository import PostRepository
@@ -110,3 +111,87 @@ def test_get_by_guids_filters_by_source_and_requested_items(
     assert len(posts) == 1
     assert posts[0].source_id == UUID("00000000-0000-0000-0000-000000000001")
     assert posts[0].item_guid == "requested"
+
+
+def test_identical_post_returns_existing_snapshot_without_timestamp_changes(
+    db_session: Session,
+) -> None:
+    repo = PostRepository(db_session)
+    first = repo.create_post(
+        _make_post_data(
+            crawled_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            parsed_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        )
+    )
+    assert first["post_revision"] == 1
+
+    repeated = repo.create_post(
+        _make_post_data(
+            crawled_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
+            parsed_at=datetime(2026, 2, 2, tzinfo=timezone.utc),
+        )
+    )
+
+    assert repeated["post_id"] == first["post_id"]
+    assert repeated["post_revision"] == 1
+    assert repeated["crawled_at"] == first["crawled_at"]
+    assert repeated["parsed_at"] == first["parsed_at"]
+
+
+@pytest.mark.parametrize(
+    ("field", "changed_value"),
+    [
+        ("url", "https://example.com/changed"),
+        ("source_title", "Changed Source"),
+        ("title", "Changed title"),
+        ("description", "Changed description"),
+        ("category", "Technology"),
+        ("content", "Changed content"),
+        ("author", "Changed author"),
+        ("published_at", datetime(2026, 3, 1, tzinfo=timezone.utc)),
+        ("image_url", "https://example.com/image.png"),
+        ("language", "en"),
+        ("keywords", ["one", "two"]),
+    ],
+)
+def test_each_canonical_field_change_increments_revision(
+    db_session: Session, field: str, changed_value: object
+) -> None:
+    repo = PostRepository(db_session)
+    first = repo.create_post(_make_post_data())
+
+    changed = repo.create_post(_make_post_data(**{field: changed_value}))
+
+    assert changed["post_id"] == first["post_id"]
+    assert changed["post_revision"] == 2
+    expected_value = (
+        changed_value.replace(tzinfo=None)
+        if isinstance(changed_value, datetime)
+        else changed_value
+    )
+    assert changed[field] == expected_value
+
+
+@pytest.mark.parametrize(
+    ("field", "initial_value"),
+    [
+        ("description", "present"),
+        ("category", "news"),
+        ("content", "present"),
+        ("author", "present"),
+        ("published_at", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        ("image_url", "https://example.com/image.png"),
+        ("language", "en"),
+    ],
+)
+def test_null_transition_in_canonical_field_increments_revision(
+    db_session: Session, field: str, initial_value: object
+) -> None:
+    repo = PostRepository(db_session)
+    first = repo.create_post(_make_post_data(**{field: initial_value}))
+
+    changed = repo.create_post(_make_post_data(**{field: None}))
+
+    assert changed["post_id"] == first["post_id"]
+    assert changed["post_revision"] == 2
+    assert changed[field] is None
