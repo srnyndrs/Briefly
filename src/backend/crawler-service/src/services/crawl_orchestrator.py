@@ -121,7 +121,7 @@ class CrawlCycleOrchestrator:
             source_id=source.source_id,
             source_url=source.url,
             correlation_id=correlation_id,
-            source_title=source.title,
+            source_title=source.site_name,
             raw_xml=result.body,
         )
         source_repository.save_crawl_success(
