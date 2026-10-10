@@ -20,7 +20,7 @@ def main() -> int:
             ):
                 print("No usable content; stored post unchanged.")
                 return 1
-        print("Post content refreshed and snapshot published.")
+        print("Post snapshot published after re-extraction.")
         return 0
     finally:
         if channel.connection.is_open:

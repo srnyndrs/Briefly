@@ -312,6 +312,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
             "</item></channel></rss>"
         ),
     )
+    event["occurred_at"] = "2026-09-20T10:00:00Z"
     service = SourceProcessorService(db_session)
     with (
         patch(
@@ -332,17 +333,32 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         service.process(MagicMock(), event)
         first_snapshot = publish.call_args.kwargs
         assert first_snapshot["post_revision"] == 1
+        db_session.expire_all()
+        stored = db_session.query(Post).one()
+        first_times = (stored.crawled_at, stored.parsed_at)
+
         extract.reset_mock()
+        event["occurred_at"] = "2026-09-27T10:00:00Z"
+        service.process(MagicMock(), event)
+
+        extract.assert_not_called()
+        assert publish.call_count == 2
+        repeated_snapshot = publish.call_args_list[1].kwargs
+        assert repeated_snapshot == first_snapshot
+        db_session.expire_all()
+        stored = db_session.query(Post).one()
+        assert (stored.crawled_at, stored.parsed_at) == first_times
+        assert stored.post_revision == 1
+
         event["payload"]["raw_xml"] = event["payload"]["raw_xml"].replace(
             "Original RSS", "Updated RSS"
         )
         event["payload"]["source_title"] = "Updated Source"
         event["occurred_at"] = "2026-09-28T10:00:00Z"
-
         service.process(MagicMock(), event)
 
         extract.assert_not_called()
-        assert publish.call_count == 2
+        assert publish.call_count == 3
         snapshot = publish.call_args.kwargs
         assert snapshot["post_id"] == first_snapshot["post_id"]
         assert snapshot["post_revision"] == 2
@@ -365,6 +381,38 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
     assert post.parsed_at != post.crawled_at
     assert post.post_revision == 2
     assert db_session.query(Post).count() == 1
+
+
+def test_duplicate_entries_in_one_feed_republish_one_revision(
+    db_session: Session,
+) -> None:
+    event = _make_event(
+        raw_xml=(
+            "<rss><channel>"
+            "<item><guid>duplicate</guid><link>https://example.com/duplicate</link>"
+            "<title>Same</title></item>"
+            "<item><guid>duplicate</guid><link>https://example.com/duplicate</link>"
+            "<title>Same</title></item>"
+            "</channel></rss>"
+        ),
+    )
+    with (
+        patch(
+            "src.adapters.content_extractor.extract_article",
+            return_value={"content": "Body"},
+        ) as extract,
+        patch(
+            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+        ) as publish,
+    ):
+        SourceProcessorService(db_session).process(MagicMock(), event)
+
+    extract.assert_called_once_with("https://example.com/duplicate")
+    assert [call.kwargs["post_revision"] for call in publish.call_args_list] == [1, 1]
+    assert publish.call_args_list[0].kwargs["post_id"] == publish.call_args_list[1].kwargs["post_id"]
+    db_session.expire_all()
+    post = db_session.query(Post).one()
+    assert post.post_revision == 1
 
 
 def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
@@ -579,15 +627,16 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
             "src.services.source_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        publish.side_effect = [None, RuntimeError("Publish failed")]
-        with pytest.raises(RuntimeError, match="Publish failed"):
+        publish.side_effect = [None, RuntimeError("Publish confirmation lost")]
+        with pytest.raises(RuntimeError, match="Publish confirmation lost"):
             SourceProcessorService(db_session).process(
                 MagicMock(), event, on_progress=progress
             )
-        assert extract.call_count == 2
-        original_ids = [
-            call.kwargs["post_id"] for call in publish.call_args_list
+        original_snapshots = [
+            (call.kwargs["post_id"], call.kwargs["post_revision"], call.kwargs["title"], call.kwargs["content"])
+            for call in publish.call_args_list
         ]
+        assert extract.call_count == 2
         extract.reset_mock()
         publish.reset_mock()
         publish.side_effect = None
@@ -598,8 +647,13 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
         )
 
     extract.assert_not_called()
-    assert [
-        call.kwargs["post_id"] for call in publish.call_args_list
-    ] == original_ids
+    replayed_snapshots = [
+        (call.kwargs["post_id"], call.kwargs["post_revision"], call.kwargs["title"], call.kwargs["content"])
+        for call in publish.call_args_list
+    ]
+    assert replayed_snapshots == original_snapshots
+    assert [revision for _, revision, _, _ in replayed_snapshots] == [1, 1]
     assert progress.call_count == 3
-    assert db_session.query(Post).count() == 2
+    db_session.expire_all()
+    posts = db_session.query(Post).order_by(Post.item_guid).all()
+    assert [post.post_revision for post in posts] == [1, 1]

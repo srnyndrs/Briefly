@@ -136,14 +136,18 @@ def test_replay_posts_emits_complete_stored_snapshot(
     db_session.expunge_all()
 
     channel = MagicMock()
-    with patch(
-        "src.routers.admin.create_replay_publisher_channel",
-        return_value=channel,
+    with (
+        patch(
+            "src.routers.admin.create_replay_publisher_channel",
+            return_value=channel,
+        ),
+        patch("src.adapters.content_extractor.extract_article") as extract,
     ):
         response = client.post(
             "/admin/posts/replay",
             params={"limit": 1},
         )
+    extract.assert_not_called()
     assert response.status_code == 200
     assert response.json() == {"replayed": 1}
     published = channel.basic_publish.call_args.kwargs

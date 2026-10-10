@@ -57,8 +57,38 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
     assert post.title == "RSS title"
     assert post.description == "RSS description"
     assert post.keywords == ["rss"]
+    assert post.post_revision == 2
     assert publish.call_args.kwargs["post_id"] == str(post_id)
+    assert publish.call_args.kwargs["post_revision"] == 2
     assert publish.call_args.kwargs["content"] == "New body"
+
+
+def test_identical_reextract_republishes_stored_revision_and_timestamps(
+    db_session: Session, stored_post: Post
+) -> None:
+    post_id = stored_post.post_id
+    original_times = (stored_post.crawled_at, stored_post.parsed_at)
+    with (
+        patch(
+            "src.adapters.content_extractor.extract_article",
+            return_value={"content": " Original body "},
+        ) as extract,
+        patch(
+            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+        ) as publish,
+    ):
+        assert SourceProcessorService(db_session).reextract_post(
+            MagicMock(), post_id
+        )
+
+    extract.assert_called_once_with("https://example.com/article")
+    db_session.expire_all()
+    saved = PostRepository(db_session).get_post_by_id(post_id)
+    assert saved.content == "Original body"
+    assert saved.post_revision == 1
+    assert (saved.crawled_at, saved.parsed_at) == original_times
+    assert publish.call_args.kwargs["post_revision"] == 1
+    assert publish.call_args.kwargs["content"] == "Original body"
 
 
 def test_failed_reextract_preserves_post_and_does_not_publish(
@@ -80,6 +110,7 @@ def test_failed_reextract_preserves_post_and_does_not_publish(
     db_session.expire_all()
     assert stored_post.content == "Original body"
     assert stored_post.parsed_at == parsed_at
+    assert stored_post.post_revision == 1
     publish.assert_not_called()
 
 
@@ -168,7 +199,7 @@ def test_empty_dlq_is_not_published() -> None:
 
 @pytest.mark.parametrize("succeeded, expected_exit", [(True, 0), (False, 1)])
 def test_reextract_command_closes_connection(
-    succeeded: bool, expected_exit: int
+    succeeded: bool, expected_exit: int, capsys: pytest.CaptureFixture[str]
 ) -> None:
     channel = MagicMock()
     with (
@@ -186,6 +217,10 @@ def test_reextract_command_closes_connection(
     ):
         service.return_value.reextract_post.return_value = succeeded
         assert reextract_command.main() == expected_exit
+        if succeeded:
+            assert capsys.readouterr().out == (
+                "Post snapshot published after re-extraction.\n"
+            )
         service.return_value.reextract_post.assert_called_once_with(
             channel, UUID("00000000-0000-0000-0000-000000000001")
         )

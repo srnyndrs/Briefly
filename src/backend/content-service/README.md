@@ -61,6 +61,27 @@ not a broker acknowledgement or proof of downstream projection. Application
 logs omit query values and raw exception/HTML responses; newspaper's own logs
 are controlled separately.
 
+## Post revisions and replay
+
+Each stored post has a monotonic `post_revision`. A new post starts at revision 1.
+An existing post advances once when a canonical merged article field changes:
+URL, source title, title, description, RSS category, content, author, publication
+time, image URL, language or keywords. Equality uses the normalized values
+produced by the current feed and extraction rules.
+
+A repeated feed observation that leaves those fields unchanged returns and
+republishes the stored snapshot at its existing revision. It does not update
+`crawled_at` or `parsed_at`; those timestamps describe the saved snapshot. A
+meaningful change updates the snapshot timestamps and revision. Extraction reuse
+for the same source, item identity and URL remains in effect.
+
+Posts are committed before their broker publication. If publication fails after
+a commit, replaying the feed or using post replay publishes the saved snapshot
+again with its stored revision. Duplicate events are expected; publisher confirms
+show broker acceptance and do not make the database write and publication atomic.
+The admin post replay endpoint republishes stored revisions without fetching
+article pages.
+
 ## Feed failures and RabbitMQ
 
 Expected article extraction failures still save and publish RSS-based posts.

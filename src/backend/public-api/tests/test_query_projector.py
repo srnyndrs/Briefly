@@ -10,6 +10,8 @@ from src.adapters.query_projector import QueryProjector
 from src.config.database import Base
 from src.config.settings import settings
 from src.models.read_models import PostProjection, ProcessedEvent
+from src.repositories.feed_repository import PostRepository
+from src.services.feed_models import EffectiveFeedQuery
 
 
 class FakeSession:
@@ -159,7 +161,29 @@ def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
         assert post is not None
         assert post.categories == ["science"]
         assert post.source_category == "Publisher label"
-    assert channel.acknowledged == [1, 2, 3]
+
+    post_event["event_id"] = "post-1-repeat-event"
+    projector._on_message(
+        channel,
+        SimpleNamespace(delivery_tag=4),
+        None,
+        json.dumps(post_event).encode(),
+    )
+
+    with factory() as db:
+        post = db.get(PostProjection, "post-1")
+        assert post is not None
+        assert post.categories == ["science"]
+        repository = PostRepository(db)
+        filtered, filtered_count = repository.list_candidates(
+            EffectiveFeedQuery(categories=["science"])
+        )
+        muted, muted_count = repository.list_candidates(
+            EffectiveFeedQuery(muted_categories=["science"])
+        )
+        assert filtered_count == 1 and filtered[0].post_id == "post-1"
+        assert muted_count == 0 and muted == []
+    assert channel.acknowledged == [1, 2, 3, 4]
     engine.dispose()
 
 
