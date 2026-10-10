@@ -3,21 +3,21 @@
 CATEGORY_TAXONOMY_VERSION = "categories-v2"
 
 CATEGORY_DEFINITIONS: dict[str, str] = {
-    "politics": "Government, elections, legislation, diplomacy, public policy, and political activity.",
-    "world": "International affairs, conflicts, disasters, and major global events.",
-    "business": "Companies, industries, startups, corporate decisions, mergers, and acquisitions.",
-    "economy": "Inflation, employment, interest rates, GDP, trade, and macroeconomic developments.",
-    "finance": "Banking, investing, stock markets, personal finance, and cryptocurrencies.",
-    "technology": "Software, hardware, artificial intelligence, cybersecurity, and consumer technology.",
-    "science": "Scientific research, discoveries, space, physics, biology, and related fields.",
-    "health": "Medicine, healthcare, diseases, treatments, nutrition, and public health.",
-    "environment": "Climate, conservation, pollution, energy transition, and the natural environment.",
-    "sports": "Sports, competitions, teams, athletes, and sporting events.",
-    "entertainment": "Movies, television, music, celebrities, gaming, and popular entertainment.",
-    "lifestyle": "Travel, food, fashion, relationships, home, and hobbies.",
-    "society": "Social issues, communities, education, crime, demographics, and public life.",
-    "automotive": "Cars, electric vehicles, automakers, transportation technology, and the automotive industry.",
-    "other": "A suitable subject outside the named categories.",
+    "politics": "Government, ministries, state agencies, public administration, public policy, elections, legislation, diplomacy, official audits, and political/governmental activity.",
+    "world": "International affairs, armed conflicts, international diplomacy, major global events, and disasters outside domestic scope.",
+    "business": "Private companies, corporate performance, earnings, startups, executive changes, and commercial mergers/acquisitions.",
+    "economy": "Macroeconomic trends, inflation, GDP, employment, trade, central bank monetary policy, and interest rates.",
+    "finance": "Financial markets, banking, stock exchanges, investing, currencies/exchange rates, personal finance, and crypto.",
+    "technology": "Software, artificial intelligence, cybersecurity, consumer electronics, and computing technology.",
+    "science": "Scientific research, empirical discoveries, space exploration, physics, biology, and academic studies.",
+    "health": "Medicine, healthcare systems, diseases, treatments, clinical trials, pharmaceuticals, and public health.",
+    "environment": "Climate change, conservation, environmental protection, pollution, and the natural world.",
+    "sports": "Athletic competitions, matches, teams, athletes, and tournaments.",
+    "entertainment": "Film, television, music, pop culture, celebrities, gaming, and arts/performances.",
+    "lifestyle": "Travel, gastronomy, fashion, personal relationships, wellness, and hobbies.",
+    "society": "Social issues, human rights, communities, education, crime, demographics, and public life.",
+    "automotive": "Motor vehicles, electric mobility, vehicle technology, and the automotive industry.",
+    "other": "A meaningful, distinct topic strictly outside all named categories.",
 }
 
 
