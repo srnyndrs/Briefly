@@ -26,6 +26,13 @@ The service receives website and feed URLs through its HTTP API. It uses
 PostgreSQL for source state and RabbitMQ to deliver fetched feed content to
 the content service.
 
+The HTTP adapter sends stored `ETag` and `Last-Modified` values as conditional
+request validators. A `304 Not Modified` means the feed representation was not
+returned and no feed event is published. A `200` response is processed even
+when it contains repeated entries: feed validators describe the whole feed,
+while content-service decides whether each article changed. HTTP response logs
+include the host, status, and bounded sent/received validators for diagnosis.
+
 The service exposes endpoints for source discovery, source management, and
 health checks. When it is running, use `/docs` for the current API
 documentation.

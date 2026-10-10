@@ -36,7 +36,7 @@ def test_crawl_success_persists_state(
         event = publisher.publish_source_fetched.call_args.kwargs
         assert event["source_id"] == source.source_id
         assert event["source_url"] == source.url
-        assert event["source_title"] == source.title
+        assert event["source_title"] == source.site_name
         assert event["raw_xml"] == "<feed/>"
         assert event["correlation_id"]
     else:
@@ -140,3 +140,21 @@ def test_deleted_source_is_skipped(
     with caplog.at_level("INFO"):
         orchestrator.run_crawl_cycle()
     assert "failed=0, skipped=1" in caplog.text
+
+
+def test_200_republishes_repeated_entries_with_unchanged_validators(
+    crawl_cycle, source_factory
+):
+    source_factory(etag="old", last_modified="old-date")
+    orchestrator, http_get, publisher = crawl_cycle
+    body = "<feed><entry id='same'/><entry id='same'/></feed>"
+    http_get.return_value.text = body
+    http_get.return_value.headers = {
+        "ETag": "old",
+        "Last-Modified": "old-date",
+    }
+
+    orchestrator.run_crawl_cycle()
+
+    publisher.publish_source_fetched.assert_called_once()
+    assert publisher.publish_source_fetched.call_args.kwargs["raw_xml"] == body
