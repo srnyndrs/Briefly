@@ -1,0 +1,122 @@
+[
+    {
+        "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "title": "BBC News",
+        "description": "BBC News - World",
+        "content_type": "text/xml",
+        "favicon": "https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif",
+        "site_url": "https://www.bbc.co.uk/news/world",
+        "site_name": "BBC",
+        "language": "en"
+    },
+    {
+        "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+        "title": "NYT > World News",
+        "description": "RSS Feeds - The New York Times",
+        "content_type": "application/xml",
+        "favicon": "https://static01.nyt.com/vi-assets/static-assets/assets/favicon-NXM0N6-N.ico",
+        "site_url": "https://www.nytimes.com",
+        "site_name": "The New York Times",
+        "language": "en"
+    },
+    {
+        "url": "https://www.theguardian.com/world/rss",
+        "title": "World news | The Guardian",
+        "description": "Latest World news news, comment and analysis from the Guardian, the world's leading liberal voice",
+        "content_type": "text/xml",
+        "favicon": "https://assets.guim.co.uk/images/guardian-logo-rss.c45beb1bafa34b347ac333af2e6fe23f.png",
+        "site_url": "https://www.theguardian.com/world",
+        "site_name": "The Guardian",
+        "language": "en"
+    },
+    {
+        "url": "https://www.theguardian.com/media/wallstreetjournal/rss",
+        "title": "Wall Street Journal | The Guardian",
+        "description": "Latest news and features from theguardian.com, the world's leading liberal voice",
+        "content_type": "text/xml",
+        "favicon": "https://assets.guim.co.uk/images/guardian-logo-rss.c45beb1bafa34b347ac333af2e6fe23f.png",
+        "site_url": "https://www.theguardian.com/media/wallstreetjournal",
+        "site_name": "Wall Street Journal's",
+        "language": "en"
+    },
+    {
+        "url": "https://www.aljazeera.com/xml/rss/all.xml",
+        "title": "Al Jazeera - Breaking News, World News and Video from Al Jazeera",
+        "description": "Breaking News, World News and Video from Al Jazeera",
+        "content_type": "application/rss+xml",
+        "favicon": "https://www.aljazeera.com/favicon_aje.ico",
+        "site_url": "https://www.aljazeera.com",
+        "site_name": "Al Jazeera",
+        "language": "en"
+    },
+    {
+        "url": "https://techcrunch.com/feed/",
+        "title": "TechCrunch",
+        "description": "Startup and Technology News",
+        "content_type": "application/rss+xml",
+        "favicon": "https://techcrunch.com/wp-content/uploads/2015/02/cropped-cropped-favicon-gradient.png?w=32",
+        "site_url": "https://techcrunch.com/",
+        "site_name": "TechCrunch",
+        "language": "en"
+    },
+    {
+        "url": "http://rss.cnn.com/rss/cnn_topstories.rss",
+        "title": "CNN.com - RSS Channel - HP Hero",
+        "description": "CNN.com delivers up-to-the-minute news and information on the latest top stories, weather, entertainment, politics and more.",
+        "content_type": "text/xml",
+        "favicon": "http://i2.cdn.turner.com/cnn/2015/images/09/24/cnn.digital.png",
+        "site_url": "https://www.cnn.com/index.html",
+        "site_name": "CNN",
+        "language": "en"
+    },
+    {
+        "url": "https://www.wired.com/feed",
+        "title": "WIRED RSS",
+        "description": "Feed: All Latest",
+        "content_type": "application/xml",
+        "favicon": null,
+        "site_url": "https://www.wired.com",
+        "site_name": "WIRED",
+        "language": "en"
+    },
+    {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "title": "The Verge",
+        "description": "The Verge is about technology and how it makes us feel. Founded in 2011, we offer our audience everything from breaking news to reviews to award-winning features and investigations, on our site, in video, and in podcasts.",
+        "content_type": "application/xml",
+        "favicon": "https://platform.theverge.com/wp-content/uploads/sites/2/2025/01/verge-rss-large_80b47e.png?w=150&h=150&crop=1",
+        "site_url": "https://www.theverge.com",
+        "site_name": "The Verge",
+        "language": "en"
+    },
+    {
+        "url": "https://feeds.skynews.com/feeds/rss/world.xml",
+        "title": "World News | Sky News",
+        "description": "The latest international news from Sky, featuring top stories from around the world and breaking news, as it happens.",
+        "content_type": "application/xml",
+        "favicon": "https://e3.365dm.com/skynews/logo.png",
+        "site_url": "https://news.sky.com/world",
+        "site_name": "Sky News",
+        "language": "en"
+    },
+    {
+        "url": "https://www.ft.com/news-feed?format=rss",
+        "title": "Financial Times RSS",
+        "description": "News Feed",
+        "content_type": "text/xml",
+        "favicon": "https://images.ft.com/v3/image/raw/ftlogo-v1:brand-ft-logo-square-coloured?source=page-kit&format=svg",
+        "site_url": "https://www.ft.com",
+        "site_name": "Financial Times",
+        "language": "en"
+    },
+    {
+        "url": "https://www.newscientist.com/feed/",
+        "title": "New Scientist",
+        "description": "Science news and science articles from New Scientist",
+        "content_type": "application/rss+xml",
+        "favicon": "https://www.newscientist.com/wp-content/themes/newscientist/images/favicon/ns-favicon-70.svg",
+        "site_url": "https://www.newscientist.com",
+        "site_name": "New Scientist",
+        "language": "en"
+    }
+]
