@@ -17,6 +17,33 @@ MAX_RESPONSE_BYTES = 16_384
 GENERATION_OPTIONS = {"temperature": 0, "num_predict": 128}
 
 
+def ollama_category_schema() -> dict:
+    schema = category_schema()
+    category_ids = schema["properties"]["category_ids"]
+    specific_categories = [
+        category
+        for category in category_ids["items"]["enum"]
+        if category != "other"
+    ]
+    schema["properties"]["category_ids"] = {
+        "oneOf": [
+            {
+                "type": "array",
+                "items": {"type": "string", "enum": specific_categories},
+                "minItems": 0,
+                "maxItems": 2,
+            },
+            {
+                "type": "array",
+                "items": {"type": "string", "enum": ["other"]},
+                "minItems": 1,
+                "maxItems": 1,
+            },
+        ]
+    }
+    return schema
+
+
 def _tokens(value: object) -> int | None:
     if value is None:
         return None
@@ -89,7 +116,7 @@ class OllamaProvider:
                 {"role": "user", "content": article_json(article)},
             ],
             "stream": False,
-            "format": category_schema(),
+            "format": ollama_category_schema(),
             "options": GENERATION_OPTIONS,
         }
         request = Request(

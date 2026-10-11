@@ -4,7 +4,11 @@ import hashlib
 import json
 import logging
 
-from src.adapters.ollama_provider import GENERATION_OPTIONS, OllamaProvider
+from src.adapters.ollama_provider import (
+    GENERATION_OPTIONS,
+    OllamaProvider,
+    ollama_category_schema,
+)
 from src.config.database import SessionLocal
 from src.config.settings import settings
 from src.repositories.enrichment_repository import EnrichmentRepository
@@ -12,7 +16,7 @@ from src.services.categories import CATEGORY_TAXONOMY_VERSION
 from src.services.classification import ArticleInput, INPUT_POLICY_VERSION
 from src.services.enrichment import EnrichmentService
 from src.services.post_processor import PostEventProcessor
-from src.services.provider import PROMPT_VERSION, category_schema, instructions
+from src.services.provider import PROMPT_VERSION, instructions
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +30,7 @@ def enrichment_version(model: str, digest: str, prompt: str) -> str:
         "taxonomy": CATEGORY_TAXONOMY_VERSION,
         "prompt_version": PROMPT_VERSION,
         "prompt": prompt,
-        "schema": category_schema(),
+        "schema": ollama_category_schema(),
         "input_policy": INPUT_POLICY_VERSION,
         "options": GENERATION_OPTIONS,
     }

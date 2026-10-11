@@ -39,6 +39,11 @@ def load_articles(
         if article_id in seen:
             raise ValueError(f"{path}:{line_number}: duplicate id")
         seen.add(article_id)
+        if data.get("category_ids") is None:
+            raise ValueError(
+                f"{path}:{line_number}: {article_id} needs reviewed category_ids; "
+                "use one or two labels, or [] for intentional abstention"
+            )
         category = parse_categories({"category_ids": data["category_ids"]})
         keywords = data.get("keywords", [])
         if not isinstance(keywords, list) or any(
@@ -219,10 +224,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--max-calls",
         type=int,
-        required=True,
         help="call limit; must cover every dataset row",
     )
-    parser.add_argument("--model", required=True, help="provider model ID")
+    parser.add_argument("--model", help="provider model ID")
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="check labels and inputs without constructing or calling a provider",
+    )
     parser.add_argument(
         "--provider",
         choices=PROVIDERS,
@@ -241,18 +250,33 @@ def main(argv: list[str] | None = None) -> int:
         default=0,
         help="seconds to wait between calls (default: 0)",
     )
+    parser.add_argument(
+        "--heartbeat",
+        action="store_true",
+        help="send an initial warmup heartbeat before evaluating articles",
+    )
     args = parser.parse_args(argv)
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     if args.request_interval < 0:
         parser.error("--request-interval cannot be negative")
 
-    articles = load_articles(args.dataset)
-    examples = load_articles(args.examples) if args.examples else []
-    if args.max_calls < len(articles):
-        parser.error("--max-calls must cover the entire dataset")
+    try:
+        articles = load_articles(args.dataset)
+        examples = load_articles(args.examples) if args.examples else []
+    except (OSError, ValueError, KeyError) as exc:
+        parser.error(str(exc))
     if set(row[0] for row in articles) & set(row[0] for row in examples):
         parser.error("example and evaluation IDs must differ")
+    if args.validate_only:
+        print(
+            f"Validated {len(articles)} labelled articles; no provider calls."
+        )
+        return 0
+    if not args.model or args.max_calls is None:
+        parser.error("--model and --max-calls are required for a provider run")
+    if args.max_calls < len(articles):
+        parser.error("--max-calls must cover the entire dataset")
     prompt = instructions([(row[1], row[2]) for row in examples])
     try:
         provider: Provider = PROVIDERS[args.provider](
@@ -262,6 +286,28 @@ def main(argv: list[str] | None = None) -> int:
         )
     except ValueError as exc:
         parser.error(str(exc))
+
+    if args.heartbeat:
+        print(
+            f"Sending heartbeat to {args.provider} ({args.model})...",
+            file=sys.stderr,
+            flush=True,
+        )
+        heartbeat_start = time.monotonic()
+        try:
+            provider(ArticleInput(title="Heartbeat"))
+            elapsed = round(time.monotonic() - heartbeat_start, 2)
+            print(
+                f"Heartbeat successful ({elapsed}s). Starting evaluation...",
+                file=sys.stderr,
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                f"Heartbeat warning: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     rows = evaluate_articles(
         provider, args.provider, args.model, articles, args.request_interval

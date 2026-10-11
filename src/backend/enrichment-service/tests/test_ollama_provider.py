@@ -5,11 +5,11 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from src.adapters.ollama_provider import OllamaProvider
+from src.adapters.ollama_provider import OllamaProvider, ollama_category_schema
 from src.config.settings import settings
 from src.scripts.evaluate_providers import main
 from src.services.classification import ArticleInput
-from src.services.provider import ProviderError, category_schema, instructions
+from src.services.provider import ProviderError, instructions
 
 
 class FakeResponse:
@@ -121,8 +121,17 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
     assert payload["messages"][1]["role"] == "user"
     assert json.loads(payload["messages"][1]["content"])["title"] == "A study"
     assert payload["stream"] is False
-    assert payload["format"] == category_schema()
+    assert payload["format"] == ollama_category_schema()
     assert payload["options"] == {"temperature": 0, "num_predict": 128}
+
+
+def test_ollama_schema_keeps_other_exclusive() -> None:
+    alternatives = ollama_category_schema()["properties"]["category_ids"][
+        "oneOf"
+    ]
+    assert "other" not in alternatives[0]["items"]["enum"]
+    assert alternatives[1]["items"]["enum"] == ["other"]
+    assert alternatives[1]["minItems"] == alternatives[1]["maxItems"] == 1
 
 
 def test_ollama_accepts_abstention_without_usage_or_response_model(
