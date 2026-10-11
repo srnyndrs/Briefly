@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -153,14 +154,75 @@ fun PostDetailsScreen(
                             ShimmerItem(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 12.dp)
-                                    .defaultMinSize(minHeight = 36.dp),
+                                    .padding(bottom = 12.dp),
                                 isLoading = isLoading,
                                 cornerRadius = 8.dp,
                             ) {
-                                PostCategoryChips(categories = article?.categories.orEmpty())
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    article?.categories.orEmpty().forEach { category ->
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.onSurface.copy(0.112f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                modifier = Modifier.padding(
+                                                    horizontal = 8.dp,
+                                                    vertical = 2.dp
+                                                ),
+                                                text = stringResource(category.stringResId),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
+                                    }
+                                }
+                                //PostCategoryChips(categories = article?.categories.orEmpty())
+
                             }
                         }
+                        /*
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Category
+                            ShimmerItem(
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if(isLoading) MaterialTheme.colorScheme.onSurface.copy(0.112f)
+                                        else Color.Transparent
+                                    ),
+                                isLoading = isLoading,
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!article?.category.isNullOrBlank()) {
+                                    Text(
+                                        modifier = Modifier.padding(
+                                            horizontal = 8.dp,
+                                            vertical = 2.dp
+                                        ),
+                                        text = article.category,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+                         */
                         // Title
                         ShimmerItem(
                             modifier = Modifier

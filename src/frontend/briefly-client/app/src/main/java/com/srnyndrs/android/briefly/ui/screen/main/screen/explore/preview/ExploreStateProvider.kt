@@ -39,7 +39,7 @@ class ExploreStateProvider : PreviewParameterProvider<Pair<ExploreState, Flow<Pa
                         title = "Franciaországban bezárt az iskolák negyede a tüntetések miatt, Belgiumban vízágyúval oszlatják a diákokat, Trump konteózik",
                         description = "A két szomszédos országban ismét erőszakossá váltak a tüntetések, miközben Donald Trump amerikai elnök a nagy népességcsere-elméletet terjeszti a helyzetről.",
                         imageUrl = "https://assets.4cdn.hu/kraken/8OroXBNor2zbGWB0s-lg.jpeg",
-                        categories = listOf("politics"),
+                        categories = listOf(),
                         source = "444.hu"
                     ),
                     Post(
@@ -47,7 +47,7 @@ class ExploreStateProvider : PreviewParameterProvider<Pair<ExploreState, Flow<Pa
                         title = "Török Gábor: Adóemelés és adócsökkentés történik egyszerre",
                         description = "Így látja a politikai elemző a kormány adóügyi bejelentéseit, köztük a KATA újragondolását.\nThe post Török Gábor: Adóemelés és adócsökkentés történik egyszerre first appeared on 24.hu.",
                         imageUrl = "https://s.24.hu/app/uploads/2026/10/central-1093093691-e1791305206826-1024x577.jpg",
-                        categories = listOf("finance"),
+                        categories = listOf(),
                         source = "24.hu"
                     ),
                     Post(
@@ -55,7 +55,7 @@ class ExploreStateProvider : PreviewParameterProvider<Pair<ExploreState, Flow<Pa
                         title = "Hankó Balázsnak egy cellatársa van, korrektek vele a börtönben",
                         description = "A volt kulturális minisztert a múlt héten tartóztatták le, a helyzetéről a védője mondott pár dolgot.\nThe post Hankó Balázsnak egy cellatársa van, korrektek vele a börtönben first appeared on 24.hu.",
                         imageUrl = "https://s.24.hu/app/uploads/2026/10/central-1139852025-e1791215941507-1024x577-1.jpg",
-                        categories = listOf("politics"),
+                        categories = listOf(),
                         source = "24.hu"
                     ),
                     Post(
@@ -63,7 +63,7 @@ class ExploreStateProvider : PreviewParameterProvider<Pair<ExploreState, Flow<Pa
                         title = "Drogért és ételért lopott e-rollereket",
                         description = "A 26 éves B. R. Dominik Pilisvörösvárról, Solymárról és a környező megállóhelyekről vitte el a rollereket.",
                         imageUrl = "https://assets.4cdn.hu/kraken/8OrnzmLyOL7aLECqs-lg.jpeg",
-                        categories = listOf("politics"),
+                        categories = listOf(),
                         source = "444.hu"
                     ),
                     Post(
@@ -71,7 +71,7 @@ class ExploreStateProvider : PreviewParameterProvider<Pair<ExploreState, Flow<Pa
                         title = "Új programmal fogja támogatni az EU a hadiipari újítások átültetését a gyakorlatba",
                         description = "A szokásosnál gyorsabb elbírálás mellett 115 millió euróval segítenék az új technológiák alkalmazását. A Fidesz–KDNP-ből üdvözölték a kezdeményezést, de bírálták Ukrajna bevonását.",
                         imageUrl = "https://assets.telex.hu/images/20261006/1791304238-temp-249r1jqo4fmh7pealjl_cimlap-normal.jpg",
-                        categories = listOf("finance"),
+                        categories = listOf(),
                         source = "Telex"
                     )
                 )

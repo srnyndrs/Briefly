@@ -157,13 +157,13 @@ fun HomeScreen(
                     }
                 }
 
-                if (state.categories.isNotEmpty()) {
+                if (state.categories.orEmpty().isNotEmpty()) {
                     item(key = "categories") {
                         HomeCategorySelector(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 18.dp),
-                            categories = state.categories,
+                            categories = state.categories ?: emptyList(),
                             selectedCategory = state.selectedCategory,
                             onCategorySelected = {
                                 onHomeEvent(HomeEvent.SelectCategory(it))
@@ -238,7 +238,6 @@ fun HomeScreen(
                             .padding(vertical = 12.dp),
                         title = article.title,
                         source = article.source,
-                        categories = article.categories,
                         onClick = {
                             onNavigationEvent(
                                 if (article.hasContent) {

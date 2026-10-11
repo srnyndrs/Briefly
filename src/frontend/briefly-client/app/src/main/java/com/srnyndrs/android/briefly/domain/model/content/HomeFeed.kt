@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 data class HomeFeedMetadata(
     val headlines: List<Post>,
-    val categories: List<String>,
+    val categories: List<Category>,
 )
 
 data class HomeFeed(

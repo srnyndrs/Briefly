@@ -12,6 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.srnyndrs.android.briefly.R
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.ui.components.SelectionChip
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
@@ -20,9 +21,9 @@ private const val MAX_VISIBLE_CATEGORIES = 5
 @Composable
 fun HomeCategorySelector(
     modifier: Modifier = Modifier,
-    categories: List<String>,
-    selectedCategory: String?,
-    onCategorySelected: (String?) -> Unit,
+    categories: List<Category>,
+    selectedCategory: Category?,
+    onCategorySelected: (Category?) -> Unit,
 ) {
 
     val visibleCategories = categories
@@ -55,7 +56,7 @@ fun HomeCategorySelector(
             val category = visibleCategories[index]
 
             SelectionChip(
-                label = category,
+                label = stringResource(category.stringResId),
                 selected = selectedCategory == category,
                 onClick = { onCategorySelected(category) },
             )
@@ -72,12 +73,8 @@ fun HomeCategorySelectorPreview() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 18.dp),
-                categories = listOf(
-                    "Politics",
-                    "Economics",
-                    "Psychology"
-                ),
-                selectedCategory = "Politics"
+                categories = Category.entries,
+                selectedCategory = Category.POLITICS
             ) {}
         }
     }

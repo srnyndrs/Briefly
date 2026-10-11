@@ -14,6 +14,7 @@ import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import com.srnyndrs.android.briefly.data.remote.content.dto.FilterOptionsDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SourceEntry
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
 import com.srnyndrs.android.briefly.domain.model.content.FilterSource
 import kotlin.time.ExperimentalTime
@@ -27,7 +28,7 @@ fun PostSummaryResponseDto.toDomain(): Post {
         url = canonicalUrl,
         description = description,
         source = sourceTitle,
-        categories = categories,
+        categories = categories?.map { Category.valueOf(it.uppercase()) },
         imageUrl = imageRef,
         publishDate = publishedAt,
         hasContent = hasContent,
@@ -55,7 +56,7 @@ fun PostResponseDto.toDomain(): PostDetails {
         author = author,
         keywords = keywords,
         imageUrl = imageRef,
-        categories = categories,
+        categories = categories?.map { Category.valueOf(it.uppercase()) },
         url = canonicalUrl,
         publishedAt = publishedAt ?: Instant.fromEpochMilliseconds(0),
         language = language,

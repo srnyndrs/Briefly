@@ -4,6 +4,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.ui.model.UiState
@@ -22,7 +23,7 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Itthon és Európában is duplázna a kínai óriás, amely Magyarországon már előzi a Teslát",
                     description = "This is really important",
                     imageUrl = "",
-                    categories = listOf("world", "politics"),
+                    categories = listOf(),
                     source = "24.hu"
                 ),
                 Post(
@@ -30,7 +31,7 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Bérfizetési probléma: egy hévízi háromcsillagos szálloda dolgozói nem kapták meg fizetésüket",
                     description = "This is really important",
                     imageUrl = "",
-                    categories = listOf("politics"),
+                    categories = listOf(),
                     source = "Telex"
                 ),
                 Post(
@@ -38,16 +39,11 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Elárulta az ETO edzője, hol folytatja a pályafutását",
                     description = "This is really important",
                     imageUrl = "",
-                    categories = listOf("sports"),
+                    categories = listOf(),
                     source = "24.hu"
                 ),
             ),
-            categories = listOf(
-                "politics",
-                "world",
-                "finance",
-                "sports",
-            )
+            categories = Category.entries
         ) to flowOf(PagingData.from(
             data = listOf(
                 Post(
@@ -55,10 +51,10 @@ class HomeStateProvider: PreviewParameterProvider<Pair<HomeState, Flow<PagingDat
                     title = "Legjobb befektetések 2026-ban?",
                     description = "This is really important",
                     imageUrl = "",
-                    categories = listOf("finance"),
+                    categories = listOf(),
                     source = "24.hu"
                 ),
-            ))
-        )
+            )
+        ))
     )
 }

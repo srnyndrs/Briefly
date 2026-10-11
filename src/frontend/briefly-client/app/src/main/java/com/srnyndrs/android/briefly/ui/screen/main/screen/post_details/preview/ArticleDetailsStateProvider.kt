@@ -1,6 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.preview
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsState
@@ -20,7 +21,7 @@ class PostDetailsStateProvider: PreviewParameterProvider<PostDetailsState> {
                         id = "1",
                         title = "Bejelentette az ÁKK: csökken a két legnépszerűbb állampapír kamata",
                         source = "Telex",
-                        categories = listOf("finance", "economy"),
+                        categories = listOf(Category.FINANCE, Category.ECONOMY),
                         url = "https://telex.hu/gazdasag/2026/05/18/akk-allamadossag-kezelo-kozpont-csokkenti-a-lakossagi-allampapirok-kamatait-fixmap-map-plusz",
                         publishedAt = Instant.parse("2026-05-18T12:36:11Z"),
                         imageUrl = "https://assets.telex.hu/images/20260518/1779107664-temp-llr9dqsr1br51afppmh_facebook.jpg",

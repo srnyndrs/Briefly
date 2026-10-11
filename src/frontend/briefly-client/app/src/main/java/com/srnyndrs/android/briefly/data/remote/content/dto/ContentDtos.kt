@@ -113,7 +113,7 @@ data class PostSummaryResponseDto(
     val canonicalUrl: String? = null,
 
     val language: String? = null,
-    val categories: List<String> = emptyList(),
+    val categories: List<String>? = null,
 
     @SerialName("image_ref")
     val imageRef: String? = null,
@@ -184,7 +184,7 @@ data class PostResponseDto(
     val canonicalUrl: String? = null,
 
     val language: String? = null,
-    val categories: List<String> = emptyList(),
+    val categories: List<String>? = null,
 
     @SerialName("image_ref")
     val imageRef: String? = null,

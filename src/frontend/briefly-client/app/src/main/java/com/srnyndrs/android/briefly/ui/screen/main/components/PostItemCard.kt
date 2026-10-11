@@ -34,6 +34,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Calendar
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -47,7 +48,7 @@ import kotlin.time.Instant
 fun PostItemCard(
     modifier: Modifier = Modifier,
     title: String,
-    categories: List<String>,
+    categories: List<Category>? = null,
     description: String,
     imageUrl: String? = null,
     publishDate: Instant? = null,
@@ -77,15 +78,15 @@ fun PostItemCard(
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.Start
             ) {
-                if (categories.isNotEmpty()) {
-                    PostCategoryChips(
+                if (categories.orEmpty().isNotEmpty()) {
+                    /*PostCategoryChips(
                         modifier = Modifier
                             .weight(0.3f)
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
                             .shimmer(isLoading),
                         categories = categories,
-                    )
+                    )*/
                 }
                 // Title
                 Column(
@@ -110,7 +111,7 @@ fun PostItemCard(
                     }
                 }
                 // Description
-                if (categories.isEmpty()) {
+                if (categories.orEmpty().isEmpty()) {
                     Column(
                         modifier = Modifier.weight(0.3f).fillMaxWidth()
                     ) {
@@ -206,7 +207,7 @@ fun PostItemCardPreview() {
                         .fillMaxWidth()
                         .requiredHeight(128.dp),
                     title = "A magyar néptánc még ma is tömegeket mozgat meg!",
-                    categories = listOf("entertainment", "lifestyle"),
+                    categories = listOf(Category.ENTERTAINMENT),
                     imageUrl = "",
                     description = "",
                     publishDate = Instant.parse("2026-09-15T18:36:11Z"),

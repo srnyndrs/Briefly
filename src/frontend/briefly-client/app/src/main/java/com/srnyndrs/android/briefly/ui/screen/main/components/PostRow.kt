@@ -26,7 +26,6 @@ fun PostRow(
     modifier: Modifier = Modifier,
     title: String,
     source: String?,
-    categories: List<String> = emptyList(),
     onClick: () -> Unit,
 ) {
     Column(
@@ -52,7 +51,7 @@ fun PostRow(
                 )
             }
         }
-        PostCategoryChips(categories = categories)
+        //PostCategoryChips(categories = categories)
         // Title
         Text(
             modifier = Modifier.fillMaxWidth(),
@@ -81,7 +80,7 @@ fun PostRowPreview() {
                     modifier = Modifier.fillMaxWidth(),
                     title = "Új programmal fogja támogatni az EU a hadiipari újítások átültetését a gyakorlatba",
                     source = "Telex"
-                ) { }
+                ) {}
                 HorizontalDivider()
             }
         }

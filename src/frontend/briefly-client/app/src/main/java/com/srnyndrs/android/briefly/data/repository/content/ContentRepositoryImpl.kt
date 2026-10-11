@@ -42,7 +42,7 @@ class ContentRepositoryImpl @Inject constructor(
             posts = getHomePostPagingFlow(
                 request = FeedRequestDto(
                     includeFilterOptions = true,
-                    category = filter.category,
+                    category = filter.category?.name?.lowercase(),
                 ),
                 metadata = metadata,
             ),

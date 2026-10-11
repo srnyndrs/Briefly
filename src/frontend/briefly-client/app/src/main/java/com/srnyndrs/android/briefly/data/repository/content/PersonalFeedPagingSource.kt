@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,7 @@ class PersonalFeedPagingSource(
             if (page == 1 && response.headlines != null) {
                 metadata.value = HomeFeedMetadata(
                     headlines = response.headlines.map { it.toDomain() },
-                    categories = response.filterOptions?.categories.orEmpty(),
+                    categories = response.filterOptions?.categories.orEmpty().map { Category.valueOf(it.uppercase()) },
                 )
             }
             val items = response.items.map { it.toDomain() }

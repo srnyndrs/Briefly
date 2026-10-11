@@ -57,4 +57,19 @@
     <string name="explore_filter_clear_all">Clear All</string>
     <string name="explore_filter_confirm">Confirm</string>
     <string name="explore_filter_cancel">Cancel</string>
+    <string name="category_type_politics">Politics</string>
+    <string name="category_type_world">World</string>
+    <string name="category_type_business">Business</string>
+    <string name="category_type_economy">Economy</string>
+    <string name="category_type_finance">Finance</string>
+    <string name="category_type_technology">Technology</string>
+    <string name="category_type_science">Science</string>
+    <string name="category_type_health">Health</string>
+    <string name="category_type_environment">Environment</string>
+    <string name="category_type_sports">Sports</string>
+    <string name="category_type_entertainment">Entertainment</string>
+    <string name="category_type_lifestyle">Lifestyle</string>
+    <string name="category_type_society">Society</string>
+    <string name="category_type_automotive">Automotive</string>
+    <string name="category_type_other">Other</string>
 </resources>

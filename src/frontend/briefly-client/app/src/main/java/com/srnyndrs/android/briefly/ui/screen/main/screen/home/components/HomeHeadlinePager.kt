@@ -100,7 +100,6 @@ fun HomeHeadlinePager(
                         text = article.source.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                     )
-                    PostCategoryChips(categories = article.categories)
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = article.title,
