@@ -5,7 +5,11 @@ import sentry_sdk
 import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
-from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.logging import (
+    LoggingIntegration,
+    ignore_logger,
+    ignore_logger_for_sentry_logs,
+)
 
 from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
@@ -29,6 +33,12 @@ if settings.sentry_dsn:
         integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
         enable_logs=True,
     )
+    for name in (
+        "pika.adapters.utils.connection_workflow",
+        "pika.adapters.blocking_connection",
+    ):
+        ignore_logger(name)
+        ignore_logger_for_sentry_logs(name)
 
 
 @asynccontextmanager
