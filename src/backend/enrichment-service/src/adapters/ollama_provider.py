@@ -1,5 +1,3 @@
-"""Ollama chat adapter for bounded category classification."""
-
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -53,8 +51,6 @@ def _tokens(value: object) -> int | None:
 
 
 class OllamaProvider:
-    """Classify one article through Ollama's non-streaming chat API."""
-
     def __init__(
         self,
         *,

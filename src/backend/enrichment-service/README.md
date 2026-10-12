@@ -130,16 +130,3 @@ use. Measure backlog growth before choosing a bound:
 docker compose exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
 docker compose exec rabbitmq sh -c 'du -sh /var/lib/rabbitmq'
 ```
-
-## Validation and experiments
-
-`make test`, `make lint` and `make format` run focused local checks. Optional
-`ENRICHMENT_TEST_DATABASE_URL` and `ENRICHMENT_TEST_RABBITMQ_URL` enable isolated
-PostgreSQL and broker tests. The broker URL has no query parameters. These tests
-use fake inference and remove their test objects; they do not replay platform
-backlog or measure Ollama quality.
-
-Use the [evaluation guide](EVALUATION_GUIDE.md) for export, labelling, explicit
-provider selection, dataset validation and comparable experiment outputs.
-Evaluation remains separate from ingestion. Implementation status and actual
-validation evidence live in the [active plan](../../../MULTI_CATEGORY_ENRICHMENT_IMPLEMENTATION_PLAN.md).

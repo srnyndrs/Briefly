@@ -1,5 +1,3 @@
-"""Gemini adapter for bounded category evaluation."""
-
 import json
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -25,8 +23,6 @@ def _tokens(value: object) -> int | None:
 
 
 class GeminiProvider:
-    """Classify one article through Gemini generateContent."""
-
     def __init__(
         self,
         *,

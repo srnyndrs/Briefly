@@ -20,7 +20,10 @@ from src.config.database import Base
 class PostEnrichment(Base):
     __tablename__ = "post_enrichments"
 
-    post_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+    )
     post_revision: Mapped[int] = mapped_column(
         nullable=False,
         default=1,
