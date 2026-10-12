@@ -1,25 +1,29 @@
 import json
 import logging
 import threading
-import time
+from collections.abc import Callable
 from typing import Any
 
 import pika
 from pika.adapters.blocking_connection import (
-    BlockingConnection,
     BlockingChannel,
+    BlockingConnection,
 )
 from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
+from sqlalchemy.orm import Session
 
 from src.config.database import SessionLocal
 from src.config.settings import settings
-from src.services.source_processor import SourceProcessorService
+from src.services.feed_processor import FeedProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class FeedConsumer:
-    def __init__(self) -> None:
+    def __init__(
+        self, processor_factory: Callable[[Session], FeedProcessor]
+    ) -> None:
+        self._processor_factory = processor_factory
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
@@ -34,11 +38,12 @@ class FeedConsumer:
                 if self._stop_event.is_set():
                     break
                 logger.error(
-                    "RabbitMQ consumer error: %s — retrying in %ds",
+                    "RabbitMQ consumer error: %s - retrying in %ds",
                     exc,
                     delay,
                 )
-                time.sleep(delay)
+                if self._stop_event.wait(delay):
+                    break
                 delay = min(delay * 2, 60)
 
     def stop(self) -> None:
@@ -60,9 +65,10 @@ class FeedConsumer:
     def _connect_and_consume(self) -> None:
         params = pika.URLParameters(settings.rabbitmq_url)
         params.blocked_connection_timeout = settings.blocked_timeout_seconds
-        self._connection = BlockingConnection(params)
+        connection = BlockingConnection(params)
+        self._connection = connection
         try:
-            self._channel = self._connection.channel()
+            self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
 
             self._channel.exchange_declare(
@@ -101,8 +107,13 @@ class FeedConsumer:
             )
             self._channel.start_consuming()
         finally:
-            if self._connection.is_open:
-                self._connection.close()
+            try:
+                if connection.is_open:
+                    connection.close()
+            finally:
+                if self._connection is connection:
+                    self._channel = None
+                    self._connection = None
 
     def _service_connection(self) -> None:
         if self._connection is None or not self._connection.is_open:
@@ -114,13 +125,10 @@ class FeedConsumer:
     ) -> None:
         try:
             event = json.loads(body)
-            db = SessionLocal()
-            try:
-                SourceProcessorService(db).process(
+            with SessionLocal() as db:
+                self._processor_factory(db).process(
                     ch, event, on_progress=self._service_connection
                 )
-            finally:
-                db.close()
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as exc:
             logger.error(

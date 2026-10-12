@@ -38,9 +38,7 @@ class AccountPatchRequest(BaseModel):
         if not trimmed:
             raise ValueError("display_name must not be blank")
         if len(trimmed) > 80:
-            raise ValueError(
-                "display_name must be at most 80 characters"
-            )
+            raise ValueError("display_name must be at most 80 characters")
         return trimmed
 
 

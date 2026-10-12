@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.services.classification import ArticleInput
-from src.services.enrichment import EnrichmentService
+from src.services.enrichment_service import EnrichmentService
 
 
 class ConfiguredClassifier:

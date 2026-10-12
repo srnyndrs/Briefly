@@ -64,18 +64,18 @@ def instructions(examples: list[tuple[ArticleInput, tuple[str, ...]]]) -> str:
         "Use only IDs from the category list below, without duplicates.\n\n"
         f"Categories:\n{categories}\n\n"
         "Universal Boundary Rules:\n"
-        '1. Institutional & Government Action: When a government body, ministry, '
-        'state agency, or public official takes executive action, conducts an official inquiry, '
+        "1. Institutional & Government Action: When a government body, ministry, "
+        "state agency, or public official takes executive action, conducts an official inquiry, "
         'or files legal complaints, classify under "politics" — even if the ministry focuses on '
-        'another field (e.g., science or technology) or involves financial sums.\n'
-        '2. Public Spending vs Finance/Economy: Government budget misuse, public procurement '
+        "another field (e.g., science or technology) or involves financial sums.\n"
+        "2. Public Spending vs Finance/Economy: Government budget misuse, public procurement "
         'contracts, and state audit findings belong to "politics", not "economy" or "finance". '
         'Reserve "economy" for macroeconomic indicators and "finance" for financial markets/banking.\n'
-        '3. Corporate vs Tech/Science: Company earnings or corporate business maneuvers '
+        "3. Corporate vs Tech/Science: Company earnings or corporate business maneuvers "
         'belong to "business", even if the company produces technology or pharmaceuticals.\n'
         '4. Publisher Metadata: "source_category" and keywords are unverified hints from publishers. '
         'Localized sections such as "Belföld", "National", or "Domestic" typically signal domestic politics or society.\n'
-        '5. Format Constraints: Return [] only when the text contains no identifiable subject. '
+        "5. Format Constraints: Return [] only when the text contains no identifiable subject. "
         'Use ["other"] only when no category fits. Never combine "other" with any other category.\n\n'
         'Return only JSON: {"category_ids":["category_id"]}'
     )

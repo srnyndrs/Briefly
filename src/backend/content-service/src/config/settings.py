@@ -1,5 +1,5 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     sentry_dsn: str | None = None
 
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/briefly"
+    database_url: str = (
+        "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
+    )
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     feed_exchange: str = "feed.content"

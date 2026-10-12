@@ -1,17 +1,13 @@
 import logging
 
-from sqlalchemy import MetaData, create_engine, make_url, text
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-database_url = make_url(settings.database_url)
-if database_url.drivername == "postgresql":
-    database_url = database_url.set(drivername="postgresql+psycopg2")
-
-engine = create_engine(database_url, pool_pre_ping=True)
+engine = create_engine(settings.database_url, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

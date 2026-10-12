@@ -1,15 +1,18 @@
+import os
+from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
-from collections import deque
 from unittest.mock import MagicMock
+
+os.environ["SENTRY_DSN"] = ""
 
 import pytest
 from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.adapters.post_consumer import PostConsumer
 from src.config.database import Base
 from src.models import post_enrichment  # noqa: F401
-from src.adapters.post_consumer import PostConsumer
 
 
 @pytest.fixture

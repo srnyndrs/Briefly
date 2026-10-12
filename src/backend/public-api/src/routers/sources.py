@@ -5,11 +5,11 @@ from fastapi import APIRouter, Query
 from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
-    ingestion_create_source,
-    ingestion_discover_sources,
-    ingestion_get_source,
-    ingestion_list_sources,
-    ingestion_patch_source,
+    crawler_create_source,
+    crawler_discover_sources,
+    crawler_get_source,
+    crawler_list_sources,
+    crawler_patch_source,
     map_service_error,
 )
 from src.schemas.api import (
@@ -29,7 +29,7 @@ def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
     payload = body.model_dump(mode="json")
     payload["submitted_by_user_id"] = str(user.user_id)
     try:
-        return ingestion_create_source(payload)
+        return crawler_create_source(payload)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -43,7 +43,7 @@ def list_sources(
     ),
 ) -> list[SourceResponse]:
     try:
-        sources = ingestion_list_sources()
+        sources = crawler_list_sources()
         subscriptions = account_list_subscriptions(str(user.user_id))
         subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
@@ -87,7 +87,7 @@ def discover_sources(
 ) -> list[SourceDiscoverResult]:
     _ = user
     try:
-        results = ingestion_discover_sources(body.model_dump(mode="json"))
+        results = crawler_discover_sources(body.model_dump(mode="json"))
         return [SourceDiscoverResult(**item) for item in results]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -99,7 +99,7 @@ def discover_sources(
 )
 def get_source(source_id: uuid.UUID, user: CurrentUser) -> SourceResponse:
     try:
-        source_data = ingestion_get_source(str(source_id))
+        source_data = crawler_get_source(str(source_id))
         subscriptions = account_list_subscriptions(str(user.user_id))
         subscribed_ids = {str(s["source_id"]) for s in subscriptions}
 
@@ -122,7 +122,7 @@ def patch_source(
 ) -> SourceResponse:
     _ = admin_user
     try:
-        updated = ingestion_patch_source(
+        updated = crawler_patch_source(
             str(source_id),
             body.model_dump(mode="json", exclude_unset=True),
         )

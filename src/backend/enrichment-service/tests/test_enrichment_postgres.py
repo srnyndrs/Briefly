@@ -10,7 +10,7 @@ from src.config.database import Base
 from src.models.post_enrichment import PostEnrichment
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.services.classification import ArticleInput
-from src.services.enrichment import EnrichmentService
+from src.services.enrichment_service import EnrichmentService
 
 
 def test_fresh_postgres_table_enforces_category_status() -> None:

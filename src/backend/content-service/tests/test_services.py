@@ -1,16 +1,17 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
-from feedparser import FeedParserDict
 import pytest
+from feedparser import FeedParserDict
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
-from src.services.source_processor import (
-    SourceProcessorService,
+from src.repositories.post_repository import PostRepository
+from src.services.feed_processor import (
+    FeedProcessor,
     _entry_guid,
     _normalize_language,
 )
@@ -61,7 +62,7 @@ def _capture_saved_payload(
 
     with (
         patch(
-            "src.services.source_processor.feedparser.parse",
+            "src.services.feed_processor.feedparser.parse",
             return_value=feed_mock,
         ),
         patch(
@@ -69,17 +70,17 @@ def _capture_saved_payload(
             return_value=extracted,
         ),
         patch(
-            "src.repositories.post_repository.PostRepository.create_post",
+            "src.repositories.post_repository.PostRepository.upsert_post",
             side_effect=lambda data: (
                 saved_payloads.append(dict(data))
                 or {**data, "post_id": "p1", "post_revision": 1}
             ),
         ),
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ),
     ):
-        SourceProcessorService(db).process(channel, _make_event())
+        FeedProcessor(PostRepository(db)).process(channel, _make_event())
 
     return saved_payloads[0]
 
@@ -204,7 +205,7 @@ def test_process_source_persists_source_title(
 
     with (
         patch(
-            "src.services.source_processor.feedparser.parse",
+            "src.services.feed_processor.feedparser.parse",
             return_value=feed_mock,
         ),
         patch(
@@ -212,10 +213,10 @@ def test_process_source_persists_source_title(
             return_value={"title": "Title", "content": "Body"},
         ),
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as mock_publish,
     ):
-        SourceProcessorService(db_session).process(
+        FeedProcessor(PostRepository(db_session)).process(
             channel,
             _make_event(
                 source_id="00000000-0000-0000-0000-000000000001",
@@ -247,7 +248,7 @@ def test_process_source_propagates_unexpected_extraction_error() -> None:
 
     with (
         patch(
-            "src.services.source_processor.feedparser.parse",
+            "src.services.feed_processor.feedparser.parse",
             return_value=feed_mock,
         ),
         patch(
@@ -255,11 +256,11 @@ def test_process_source_propagates_unexpected_extraction_error() -> None:
             side_effect=RuntimeError("network error"),
         ),
         patch(
-            "src.repositories.post_repository.PostRepository.create_post"
+            "src.repositories.post_repository.PostRepository.upsert_post"
         ) as mock_save,
     ):
         with pytest.raises(RuntimeError, match="network error"):
-            SourceProcessorService(db).process(channel, _make_event())
+            FeedProcessor(PostRepository(db)).process(channel, _make_event())
         assert not mock_save.called
 
 
@@ -271,7 +272,7 @@ def test_process_source_rejects_missing_source_identity(
     event["payload"].pop(field)
 
     with pytest.raises(ValueError, match=field):
-        SourceProcessorService(MagicMock()).process(MagicMock(), event)
+        FeedProcessor(PostRepository(MagicMock())).process(MagicMock(), event)
 
 
 @pytest.mark.parametrize(
@@ -293,7 +294,7 @@ def test_entry_guid_uses_first_nonblank_identity(
 
 def test_process_source_rejects_missing_entry_identity() -> None:
     with pytest.raises(ValueError, match="item_guid"):
-        SourceProcessorService(MagicMock()).process(
+        FeedProcessor(PostRepository(MagicMock())).process(
             MagicMock(),
             _make_event(raw_xml="<rss><channel><item/></channel></rss>"),
         )
@@ -313,7 +314,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         ),
     )
     event["occurred_at"] = "2026-09-20T10:00:00Z"
-    service = SourceProcessorService(db_session)
+    service = FeedProcessor(PostRepository(db_session))
     with (
         patch(
             "src.adapters.content_extractor.extract_article",
@@ -327,7 +328,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
             },
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
         service.process(MagicMock(), event)
@@ -402,14 +403,19 @@ def test_duplicate_entries_in_one_feed_republish_one_revision(
             return_value={"content": "Body"},
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        SourceProcessorService(db_session).process(MagicMock(), event)
+        FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
 
     extract.assert_called_once_with("https://example.com/duplicate")
-    assert [call.kwargs["post_revision"] for call in publish.call_args_list] == [1, 1]
-    assert publish.call_args_list[0].kwargs["post_id"] == publish.call_args_list[1].kwargs["post_id"]
+    assert [
+        call.kwargs["post_revision"] for call in publish.call_args_list
+    ] == [1, 1]
+    assert (
+        publish.call_args_list[0].kwargs["post_id"]
+        == publish.call_args_list[1].kwargs["post_id"]
+    )
     db_session.expire_all()
     post = db_session.query(Post).one()
     assert post.post_revision == 1
@@ -428,7 +434,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
             "</item></channel></rss>"
         )
     )
-    service = SourceProcessorService(db_session)
+    service = FeedProcessor(PostRepository(db_session))
     with (
         patch(
             "src.adapters.content_extractor.extract_article",
@@ -442,7 +448,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
             },
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
         service.process(MagicMock(), event)
@@ -490,14 +496,14 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
         "<title>RSS title</title></item>"
     )
     event = _make_event(raw_xml=f"<rss><channel>{item}{item}</channel></rss>")
-    service = SourceProcessorService(db_session)
+    service = FeedProcessor(PostRepository(db_session))
     with (
         patch(
             "src.adapters.content_extractor.extract_article",
             return_value={"content": "Body"},
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
         service.process(MagicMock(), event)
@@ -531,15 +537,17 @@ def test_invalid_article_link_preserves_rss_metadata_without_request(
     feed = MagicMock(entries=[entry], feed={})
     with (
         patch(
-            "src.services.source_processor.feedparser.parse",
+            "src.services.feed_processor.feedparser.parse",
             return_value=feed,
         ),
         patch("src.adapters.content_extractor.extract_article") as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        SourceProcessorService(db_session).process(MagicMock(), _make_event())
+        FeedProcessor(PostRepository(db_session)).process(
+            MagicMock(), _make_event()
+        )
 
     extract.assert_not_called()
     assert publish.call_args.kwargs["title"] == "RSS title"
@@ -562,13 +570,13 @@ def test_invalid_event_shape_is_rejected_before_database_work(
 ) -> None:
     db = MagicMock()
     with pytest.raises(ValueError):
-        SourceProcessorService(db).process(MagicMock(), event)
+        FeedProcessor(PostRepository(db)).process(MagicMock(), event)
     db.query.assert_not_called()
 
 
 def test_unusable_feed_is_rejected() -> None:
     with pytest.raises(ValueError, match="usable RSS/Atom"):
-        SourceProcessorService(MagicMock()).process(
+        FeedProcessor(PostRepository(MagicMock())).process(
             MagicMock(), _make_event(raw_xml="<html>Page</html>")
         )
 
@@ -578,7 +586,7 @@ def test_empty_valid_feed_completes_and_services_io(
 ) -> None:
     caplog.set_level(logging.INFO)
     progress = MagicMock()
-    SourceProcessorService(MagicMock()).process(
+    FeedProcessor(PostRepository(MagicMock())).process(
         MagicMock(), _make_event(), on_progress=progress
     )
     progress.assert_called_once()
@@ -587,13 +595,13 @@ def test_empty_valid_feed_completes_and_services_io(
 
 
 def test_save_without_snapshot_does_not_publish() -> None:
-    service = SourceProcessorService(MagicMock())
+    service = FeedProcessor(PostRepository(MagicMock()))
     service._repo = MagicMock()
     service._repo.get_by_guids.return_value = []
-    service._repo.create_post.return_value = None
+    service._repo.upsert_post.return_value = None
     with (
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
         pytest.raises(RuntimeError, match="Post save returned no snapshot"),
     ):
@@ -624,16 +632,21 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
             return_value={"content": "Body"},
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
         publish.side_effect = [None, RuntimeError("Publish confirmation lost")]
         with pytest.raises(RuntimeError, match="Publish confirmation lost"):
-            SourceProcessorService(db_session).process(
+            FeedProcessor(PostRepository(db_session)).process(
                 MagicMock(), event, on_progress=progress
             )
         original_snapshots = [
-            (call.kwargs["post_id"], call.kwargs["post_revision"], call.kwargs["title"], call.kwargs["content"])
+            (
+                call.kwargs["post_id"],
+                call.kwargs["post_revision"],
+                call.kwargs["title"],
+                call.kwargs["content"],
+            )
             for call in publish.call_args_list
         ]
         assert extract.call_count == 2
@@ -642,13 +655,18 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
         publish.side_effect = None
         progress.reset_mock()
 
-        SourceProcessorService(db_session).process(
+        FeedProcessor(PostRepository(db_session)).process(
             MagicMock(), event, on_progress=progress
         )
 
     extract.assert_not_called()
     replayed_snapshots = [
-        (call.kwargs["post_id"], call.kwargs["post_revision"], call.kwargs["title"], call.kwargs["content"])
+        (
+            call.kwargs["post_id"],
+            call.kwargs["post_revision"],
+            call.kwargs["title"],
+            call.kwargs["content"],
+        )
         for call in publish.call_args_list
     ]
     assert replayed_snapshots == original_snapshots

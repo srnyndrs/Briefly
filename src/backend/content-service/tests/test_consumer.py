@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, call, patch
 import pika
 import pytest
 
-from src.config.settings import settings
 from src.adapters.feed_consumer import FeedConsumer
+from src.config.settings import settings
 
 
 def test_feed_consumer_stop_sets_event_and_calls_threadsafe() -> None:
-    consumer = FeedConsumer()
+    consumer = FeedConsumer(MagicMock())
     mock_conn = MagicMock()
     mock_conn.is_open = True
     consumer._connection = mock_conn
@@ -23,7 +23,7 @@ def test_feed_consumer_stop_sets_event_and_calls_threadsafe() -> None:
 
 
 def test_feed_consumer_safe_stop_consuming_closes_channels() -> None:
-    consumer = FeedConsumer()
+    consumer = FeedConsumer(MagicMock())
     mock_channel = MagicMock()
     mock_channel.is_open = True
     mock_conn = MagicMock()
@@ -45,7 +45,7 @@ def test_consumer_startup_declares_both_exchanges_before_consuming(
     mock_connection_cls.return_value = mock_conn
     mock_conn.channel.return_value = mock_channel
 
-    consumer = FeedConsumer()
+    consumer = FeedConsumer(MagicMock())
     mock_channel.start_consuming.side_effect = None
 
     consumer._connect_and_consume()
@@ -93,8 +93,58 @@ def test_consumer_startup_declares_both_exchanges_before_consuming(
     mock_conn.close.assert_called_once()
 
 
+@patch("src.adapters.feed_consumer.BlockingConnection")
+def test_consumer_closes_and_clears_connection_when_setup_fails(
+    mock_connection_cls: MagicMock,
+) -> None:
+    connection = MagicMock()
+    connection.is_open = True
+    connection.channel.side_effect = RuntimeError("channel setup failed")
+    mock_connection_cls.return_value = connection
+    consumer = FeedConsumer(MagicMock())
+
+    with pytest.raises(RuntimeError, match="channel setup failed"):
+        consumer._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert consumer._connection is None
+    assert consumer._channel is None
+
+
+@patch("src.adapters.feed_consumer.BlockingConnection")
+def test_consumer_closes_and_clears_connection_when_consumption_fails(
+    mock_connection_cls: MagicMock,
+) -> None:
+    connection = MagicMock(is_open=True)
+    channel = MagicMock()
+    channel.start_consuming.side_effect = RuntimeError("consume failed")
+    connection.channel.return_value = channel
+    mock_connection_cls.return_value = connection
+    consumer = FeedConsumer(MagicMock())
+
+    with pytest.raises(RuntimeError, match="consume failed"):
+        consumer._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert consumer._connection is None
+    assert consumer._channel is None
+
+
+def test_consumer_backoff_wait_exits_when_stopped(monkeypatch) -> None:
+    consumer = FeedConsumer(MagicMock())
+    connect = MagicMock(side_effect=RuntimeError("broker unavailable"))
+    wait = MagicMock(return_value=True)
+    monkeypatch.setattr(consumer, "_connect_and_consume", connect)
+    monkeypatch.setattr(consumer._stop_event, "wait", wait)
+
+    consumer.run()
+
+    connect.assert_called_once_with()
+    wait.assert_called_once_with(1)
+
+
 def test_consumer_services_io_without_waiting() -> None:
-    consumer = FeedConsumer()
+    consumer = FeedConsumer(MagicMock())
     consumer._connection = MagicMock(is_open=True)
     consumer._service_connection()
     consumer._connection.process_data_events.assert_called_once_with(
@@ -103,7 +153,7 @@ def test_consumer_services_io_without_waiting() -> None:
 
 
 def test_consumer_does_not_use_closed_connection() -> None:
-    consumer = FeedConsumer()
+    consumer = FeedConsumer(MagicMock())
     consumer._connection = MagicMock(is_open=False)
     with pytest.raises(pika.exceptions.ConnectionWrongStateError):
         consumer._service_connection()
@@ -112,18 +162,23 @@ def test_consumer_does_not_use_closed_connection() -> None:
 def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
     None
 ):
-    consumer = FeedConsumer()
+    processor_factory = MagicMock()
+    processor = processor_factory.return_value
+    session_context = MagicMock()
+    db = MagicMock()
+    session_context.__enter__.return_value = db
     channel = MagicMock(is_open=True)
     method = MagicMock(delivery_tag=7)
     order: list[str] = []
-    with (
-        patch("src.adapters.feed_consumer.SessionLocal") as session,
-        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
+    consumer = FeedConsumer(processor_factory)
+    session_context.__exit__.side_effect = lambda *args: order.append("close")
+    with patch(
+        "src.adapters.feed_consumer.SessionLocal",
+        return_value=session_context,
     ):
-        service.return_value.process.side_effect = lambda *args, **kwargs: (
-            order.append("process")
+        processor.process.side_effect = lambda *args, **kwargs: order.append(
+            "process"
         )
-        session.return_value.close.side_effect = lambda: order.append("close")
         channel.basic_ack.side_effect = lambda **kwargs: order.append("ack")
         consumer._on_message(
             channel,
@@ -131,11 +186,13 @@ def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
             None,
             b'{"event_type":"feed.raw_fetched.v1"}',
         )
-        service.return_value.process.assert_called_once_with(
+        processor_factory.assert_called_once_with(db)
+        processor.process.assert_called_once_with(
             channel,
             {"event_type": "feed.raw_fetched.v1"},
             on_progress=consumer._service_connection,
         )
+    session_context.__exit__.assert_called_once()
     assert order == ["process", "close", "ack"]
     channel.basic_nack.assert_not_called()
 
@@ -143,7 +200,7 @@ def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
 def test_invalid_message_is_rejected_without_requeue() -> None:
     channel = MagicMock(is_open=True)
     with patch("src.adapters.feed_consumer.SessionLocal"):
-        FeedConsumer()._on_message(
+        FeedConsumer(MagicMock())._on_message(
             channel, MagicMock(delivery_tag=7), None, b"not JSON"
         )
     channel.basic_ack.assert_not_called()
@@ -152,35 +209,40 @@ def test_invalid_message_is_rejected_without_requeue() -> None:
 
 def test_processing_failure_is_rejected_without_ack() -> None:
     channel = MagicMock(is_open=True)
+    processor_factory = MagicMock()
+    session_context = MagicMock()
+    session_context.__enter__.return_value = MagicMock()
+    processor_factory.return_value.process.side_effect = RuntimeError(
+        "Database unavailable"
+    )
     with (
-        patch("src.adapters.feed_consumer.SessionLocal") as session,
-        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
+        patch(
+            "src.adapters.feed_consumer.SessionLocal",
+            return_value=session_context,
+        ),
     ):
-        service.return_value.process.side_effect = RuntimeError(
-            "Database unavailable"
-        )
-        FeedConsumer()._on_message(
+        FeedConsumer(processor_factory)._on_message(
             channel,
             MagicMock(delivery_tag=7),
             None,
             json.dumps({}).encode(),
         )
-        session.return_value.close.assert_called_once()
+        session_context.__exit__.assert_called_once()
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
 
 
 def test_closed_channel_failure_propagates_for_broker_redelivery() -> None:
     channel = MagicMock(is_open=False)
+    processor_factory = MagicMock()
+    processor_factory.return_value.process.side_effect = RuntimeError(
+        "Channel closed"
+    )
     with (
         patch("src.adapters.feed_consumer.SessionLocal"),
-        patch("src.adapters.feed_consumer.SourceProcessorService") as service,
     ):
-        service.return_value.process.side_effect = RuntimeError(
-            "Channel closed"
-        )
         with pytest.raises(RuntimeError, match="Channel closed"):
-            FeedConsumer()._on_message(
+            FeedConsumer(processor_factory)._on_message(
                 channel, MagicMock(delivery_tag=7), None, b"{}"
             )
     channel.basic_ack.assert_not_called()

@@ -12,9 +12,9 @@ import pytest
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
 from src.repositories.enrichment_repository import EnrichmentRepository
-from src.services.enrichment import EnrichmentService
-from src.services.post_processor import PostEventProcessor
 from src.scripts.republish_result import republish_result
+from src.services.enrichment_service import EnrichmentService
+from src.services.post_processor import PostProcessor
 
 
 def wait_for(check, timeout=12):
@@ -46,7 +46,40 @@ def broker(monkeypatch):
         pika.URLParameters(settings.rabbitmq_url)
     )
     channel = connection.channel()
-    PostConsumer._declare_topology(channel)
+    channel.exchange_declare(
+        exchange=settings.parsed_exchange,
+        exchange_type="topic",
+        durable=True,
+    )
+    channel.exchange_declare(
+        exchange=settings.failed_exchange,
+        exchange_type="direct",
+        durable=True,
+    )
+    channel.exchange_declare(
+        exchange=settings.result_exchange,
+        exchange_type="topic",
+        durable=True,
+    )
+    channel.queue_declare(queue=settings.post_dlq, durable=True)
+    channel.queue_bind(
+        queue=settings.post_dlq,
+        exchange=settings.failed_exchange,
+        routing_key=settings.post_failed_routing_key,
+    )
+    channel.queue_declare(
+        queue=settings.post_queue,
+        durable=True,
+        arguments={
+            "x-dead-letter-exchange": settings.failed_exchange,
+            "x-dead-letter-routing-key": settings.post_failed_routing_key,
+        },
+    )
+    channel.queue_bind(
+        queue=settings.post_queue,
+        exchange=settings.parsed_exchange,
+        routing_key="post.parsed.v1",
+    )
     channel.confirm_delivery()
     result_queue = f"{prefix}.query"
 
@@ -131,7 +164,7 @@ def test_live_slow_inference_survives_heartbeat_and_duplicate(
         return ("science",)
 
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(EnrichmentService(repository, classify))
+    processor = PostProcessor(EnrichmentService(repository, classify))
     consumer, thread = start(processor, channel)
     value = event()
     try:
@@ -178,7 +211,7 @@ def test_live_shutdown_redelivers_saved_work(broker, session_factory):
         return ("science",)
 
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(EnrichmentService(repository, classify))
+    processor = PostProcessor(EnrichmentService(repository, classify))
     consumer, thread = start(processor, channel)
     try:
         publish(channel, event())
@@ -214,7 +247,7 @@ def test_live_disconnect_waits_for_worker_and_reuses_saved_result(
         assert release.wait(8)
         return ("science",)
 
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classify)
     )
     consumer, thread = start(processor, channel)
@@ -241,7 +274,7 @@ def test_live_missing_binding_retains_saved_event(
 ):
     channel, result_queue, bind = broker
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(repository, lambda _: ("science",))
     )
     consumer, thread = start(processor, channel)

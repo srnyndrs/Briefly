@@ -33,11 +33,15 @@ build-backend = "poetry.core.masonry.api"
 package-mode = false
 
 [tool.pytest.ini_options]
+addopts = "--basetemp=.test-tmp -p no:cacheprovider"
 pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 80
+
+[tool.ruff.lint]
+extend-select = ["I"]
 
 [tool.ruff.format]
 quote-style = "double"

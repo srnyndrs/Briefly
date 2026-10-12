@@ -14,9 +14,9 @@ from src.repositories.enrichment_repository import (
     StoredEnrichment,
 )
 from src.services.classification import (
+    INPUT_POLICY_VERSION,
     ArticleInput,
     Classifier,
-    INPUT_POLICY_VERSION,
     classify_article,
     normalize_article,
 )

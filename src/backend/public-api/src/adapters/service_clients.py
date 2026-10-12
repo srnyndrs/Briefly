@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 
 from src.config.settings import settings
 
-logger = logging.getLogger("public-api.service-clients")
+logger = logging.getLogger(__name__)
 
 
 class ServiceClientError(Exception):
@@ -190,29 +190,29 @@ def account_delete_subscription(user_id: str, source_id: str) -> None:
     )
 
 
-def ingestion_create_source(body: dict) -> dict:
+def crawler_create_source(body: dict) -> dict:
     return _forward(
         "POST",
-        settings.ingestion_service_url,
+        settings.crawler_service_url,
         "/sources",
         json=body,
     )
 
 
-def ingestion_list_sources(*, verified_only: bool = False) -> list[dict]:
+def crawler_list_sources(*, verified_only: bool = False) -> list[dict]:
     params = {"verified_only": "true"} if verified_only else None
     result = _forward(
-        "GET", settings.ingestion_service_url, "/sources", params=params
+        "GET", settings.crawler_service_url, "/sources", params=params
     )
     if isinstance(result, list):
         return result
     return []
 
 
-def ingestion_discover_sources(body: dict) -> list[dict]:
+def crawler_discover_sources(body: dict) -> list[dict]:
     result = _forward(
         "POST",
-        settings.ingestion_service_url,
+        settings.crawler_service_url,
         "/sources/discover",
         json=body,
         timeout_seconds=settings.source_discovery_timeout_seconds,
@@ -222,18 +222,18 @@ def ingestion_discover_sources(body: dict) -> list[dict]:
     return []
 
 
-def ingestion_get_source(source_id: str) -> dict:
+def crawler_get_source(source_id: str) -> dict:
     return _forward(
         "GET",
-        settings.ingestion_service_url,
+        settings.crawler_service_url,
         f"/sources/{source_id}",
     )
 
 
-def ingestion_patch_source(source_id: str, body: dict) -> dict:
+def crawler_patch_source(source_id: str, body: dict) -> dict:
     return _forward(
         "PATCH",
-        settings.ingestion_service_url,
+        settings.crawler_service_url,
         f"/sources/{source_id}",
         json=body,
     )

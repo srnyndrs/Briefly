@@ -36,7 +36,7 @@ def _use_projected_sources_as_verified_for_existing_explore_tests(
                 pass
 
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         list_projected_sources,
     )
 
@@ -473,7 +473,7 @@ def test_get_source_endpoint(monkeypatch) -> None:
         return []
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_get_source", fake_get_source
+        "src.routers.sources.crawler_get_source", fake_get_source
     )
     monkeypatch.setattr(
         "src.routers.sources.account_list_subscriptions",
@@ -516,7 +516,7 @@ def test_list_sources_endpoint(monkeypatch) -> None:
         return []
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_list_sources",
+        "src.routers.sources.crawler_list_sources",
         fake_list_sources,
     )
     monkeypatch.setattr(
@@ -550,7 +550,7 @@ def test_discover_sources_endpoint(monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_discover_sources",
+        "src.routers.sources.crawler_discover_sources",
         fake_discover_sources,
     )
 
@@ -590,7 +590,7 @@ def test_create_source_endpoint_forwards_json_payload(
         }
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_create_source",
+        "src.routers.sources.crawler_create_source",
         fake_create_source,
     )
 
@@ -660,7 +660,7 @@ def test_patch_source_endpoint(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_patch_source", fake_patch_source
+        "src.routers.sources.crawler_patch_source", fake_patch_source
     )
     response = client.patch(
         f"/sources/{source_id}",
@@ -1207,7 +1207,7 @@ def test_list_sources_subscribed_only_filter(monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "src.routers.sources.ingestion_list_sources",
+        "src.routers.sources.crawler_list_sources",
         fake_list_sources,
     )
     monkeypatch.setattr(
@@ -1569,7 +1569,7 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
         return [{"source_id": source_id} for source_id in current_verified_ids]
 
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         list_verified_sources,
     )
 
@@ -1594,7 +1594,7 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
     assert no_longer_verified.json()["total"] == 0
 
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         lambda *, verified_only: [],
     )
     empty = client.get("/explore", params={"include_filter_options": "true"})

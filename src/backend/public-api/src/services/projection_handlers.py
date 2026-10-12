@@ -1,10 +1,8 @@
 import logging
 from datetime import datetime
-from typing import Any
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
 from sqlalchemy.orm import Session
 
 from src.models.read_models import (
@@ -13,7 +11,7 @@ from src.models.read_models import (
     UserPreferencesProjection,
 )
 
-logger = logging.getLogger("public-api.projections")
+logger = logging.getLogger(__name__)
 
 SUPPORTED_CATEGORIES = frozenset(
     {

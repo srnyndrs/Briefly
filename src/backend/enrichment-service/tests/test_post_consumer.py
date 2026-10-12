@@ -29,8 +29,13 @@ def result(*, pending=False, status="completed"):
 
 
 def test_declares_only_input_and_dead_letter_queues():
-    channel = MagicMock()
-    PostConsumer._declare_topology(channel)
+    connection = MagicMock(is_open=True)
+    channel = connection.channel.return_value
+    with patch(
+        "src.adapters.post_consumer.BlockingConnection",
+        return_value=connection,
+    ):
+        PostConsumer(MagicMock())._connect_and_consume()
     assert {
         c.kwargs["queue"] for c in channel.queue_declare.call_args_list
     } == {
@@ -53,7 +58,7 @@ def test_declares_only_input_and_dead_letter_queues():
     )
 
 
-@patch("src.adapters.post_consumer.pika.BlockingConnection")
+@patch("src.adapters.post_consumer.BlockingConnection")
 def test_connection_uses_prefetch_one_and_confirms(connection_class):
     connection = MagicMock(is_open=True)
     channel = MagicMock(is_open=True)
@@ -92,14 +97,14 @@ def test_process_and_mark_run_off_broker_thread(deliver):
         order.append("marked")
         return replace(value, publication_pending=False)
 
-    processor.side_effect = process
-    processor.publish.side_effect = publish
-    processor.mark_published.side_effect = mark
+    processor.process.side_effect = process
     channel = MagicMock(is_open=True)
+    channel.basic_publish.side_effect = lambda **_: publish(None, channel)
+    processor.mark_published.side_effect = mark
     channel.basic_ack.side_effect = lambda **_: order.append("ack")
     deliver(processor, channel, b"{}", 9)
     assert order == ["saved", "confirmed", "marked", "ack"]
-    processor.assert_called_once_with({})
+    processor.process.assert_called_once_with({})
 
 
 @pytest.mark.parametrize(
@@ -111,7 +116,8 @@ def test_process_and_mark_run_off_broker_thread(deliver):
     ],
 )
 def test_invalid_delivery_is_dead_lettered(deliver, body, error):
-    processor = MagicMock(side_effect=error)
+    processor = MagicMock()
+    processor.process.side_effect = error
     channel = MagicMock(is_open=True)
     deliver(processor, channel, body, 10)
     channel.basic_ack.assert_not_called()
@@ -120,13 +126,14 @@ def test_invalid_delivery_is_dead_lettered(deliver, body, error):
 
 def test_failed_saved_event_is_published_before_reject(deliver):
     saved = result(pending=True, status="failed")
-    processor = MagicMock(return_value=saved)
+    processor = MagicMock()
+    processor.process.return_value = saved
     processor.mark_published.return_value = replace(
         saved, publication_pending=False
     )
     channel = MagicMock(is_open=True)
     deliver(processor, channel, b"{}", 11)
-    processor.publish.assert_called_once_with(saved, channel)
+    channel.basic_publish.assert_called_once()
     processor.mark_published.assert_called_once_with(saved)
     channel.basic_nack.assert_called_once_with(delivery_tag=11, requeue=False)
     channel.basic_ack.assert_not_called()
@@ -135,9 +142,13 @@ def test_failed_saved_event_is_published_before_reject(deliver):
 @pytest.mark.parametrize("phase", ["publish", "mark_published"])
 def test_publication_failure_does_not_ack(deliver, phase):
     saved = result(pending=True)
-    processor = MagicMock(return_value=saved)
-    getattr(processor, phase).side_effect = RuntimeError("failed")
+    processor = MagicMock()
+    processor.process.return_value = saved
     channel = MagicMock(is_open=True)
+    if phase == "publish":
+        channel.basic_publish.side_effect = RuntimeError("failed")
+    else:
+        processor.mark_published.side_effect = RuntimeError("failed")
     deliver(processor, channel, b"{}")
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
@@ -156,7 +167,8 @@ def test_slow_worker_completion_cannot_touch_closed_or_replaced_channel(
         assert release.wait(2)
         return result(pending=True)
 
-    processor = MagicMock(side_effect=slow)
+    processor = MagicMock()
+    processor.process.side_effect = slow
     consumer = PostConsumer(processor)
     connection = MagicMock(is_open=True)
     connection.add_callback_threadsafe.side_effect = callbacks.append
@@ -177,14 +189,16 @@ def test_slow_worker_completion_cannot_touch_closed_or_replaced_channel(
     consumer._worker.join(2)
     while callbacks:
         callbacks.popleft()()
-    processor.publish.assert_not_called()
+    channel.basic_publish.assert_not_called()
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_not_called()
     assert consumer._worker.daemon
 
 
 def test_completion_scheduling_handles_closed_connection():
-    consumer = PostConsumer(MagicMock(return_value=result()))
+    processor = MagicMock()
+    processor.process.return_value = result()
+    consumer = PostConsumer(processor)
     connection = MagicMock()
     connection.add_callback_threadsafe.side_effect = ConnectionWrongStateError()
     consumer._process_delivery(connection, 1, b"{}")

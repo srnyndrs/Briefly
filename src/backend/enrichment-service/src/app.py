@@ -8,10 +8,10 @@ from fastapi import FastAPI
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 from src.adapters.post_consumer import PostConsumer
+from src.bootstrap import create_post_processor
 from src.config.database import init_db
 from src.config.settings import settings
 from src.schemas.common import HealthResponse
-from src.services.runtime import create_post_processor
 
 TAG_NAME = "enrichment-service"
 
@@ -19,7 +19,7 @@ logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger(TAG_NAME)
+logger = logging.getLogger(__name__)
 
 
 if settings.sentry_dsn:
@@ -33,32 +33,37 @@ if settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if not getattr(application.state, "testing", False):
-        init_db()
-        consumer = PostConsumer(create_post_processor())
-        thread = threading.Thread(
-            target=consumer.run,
-            daemon=True,
-            name="rabbitmq-consumer",
+    try:
+        if not getattr(application.state, "testing", False):
+            init_db()
+            consumer = PostConsumer(create_post_processor())
+            thread = threading.Thread(
+                target=consumer.run,
+                daemon=True,
+                name="rabbitmq-consumer",
+            )
+            application.state.consumer = consumer
+            application.state.consumer_thread = thread
+            thread.start()
+            logger.info(
+                "Enrichment Service started on port=%d", settings.app_port
+            )
+
+        yield
+    finally:
+        consumer: PostConsumer | None = getattr(
+            application.state, "consumer", None
         )
-        thread.start()
-        application.state.consumer = consumer
-        application.state.consumer_thread = thread
-        logger.info("Enrichment Service started on port=%d", settings.app_port)
+        if consumer:
+            consumer.stop()
 
-    yield
+        thread: threading.Thread | None = getattr(
+            application.state, "consumer_thread", None
+        )
+        if thread and thread.is_alive():
+            thread.join(timeout=5)
 
-    consumer: PostConsumer | None = getattr(application.state, "consumer", None)
-    if consumer:
-        consumer.stop()
-
-    thread: threading.Thread | None = getattr(
-        application.state, "consumer_thread", None
-    )
-    if thread:
-        thread.join(timeout=5)
-
-    logger.info("Enrichment Service stopped.")
+        logger.info("Enrichment Service stopped.")
 
 
 app = FastAPI(

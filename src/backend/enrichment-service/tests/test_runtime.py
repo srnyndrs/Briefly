@@ -8,13 +8,15 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from src import app as application
+from src import bootstrap
+from src.adapters.result_publisher import publish_result
 from src.config.settings import Settings, settings
-from src.services import runtime
 
 
 def process(processor, event, channel):
-    saved = processor(event)
-    processor.publish(saved, channel)
+    saved = processor.process(event)
+    if saved.publication_pending:
+        publish_result(channel, saved.result_event)
     return (
         processor.mark_published(saved) if saved.publication_pending else saved
     )
@@ -39,7 +41,7 @@ def ollama(monkeypatch, session_factory):
         return BytesIO(json.dumps(data).encode())
 
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fake_open)
-    monkeypatch.setattr(runtime, "SessionLocal", session_factory)
+    monkeypatch.setattr(bootstrap, "SessionLocal", session_factory)
     monkeypatch.setattr(settings, "ollama_model", "test:latest")
     monkeypatch.setattr(settings, "ollama_timeout_seconds", 60)
     monkeypatch.setattr(settings, "gemini_api_key", None)
@@ -67,8 +69,8 @@ def test_composed_runtime_persists_publishes_and_reuses(ollama) -> None:
     calls, _ = ollama
     event = parsed_event()
     channel = MagicMock()
-    saved = process(runtime.create_post_processor(), event, channel)
-    reused = process(runtime.create_post_processor(), event, channel)
+    saved = process(bootstrap.create_post_processor(), event, channel)
+    reused = process(bootstrap.create_post_processor(), event, channel)
     assert saved == reused
     assert saved.category_ids == ("science",)
     assert saved.enrichment_version.startswith("ollama-")
@@ -91,7 +93,7 @@ def test_runtime_identity_changes_rerun_same_revision(
     calls, installed = ollama
     event = parsed_event()
     channel = MagicMock()
-    first = process(runtime.create_post_processor(), event, channel)
+    first = process(bootstrap.create_post_processor(), event, channel)
     if change == "digest":
         installed["digest"] = "digest-two"
     elif change == "model":
@@ -99,10 +101,14 @@ def test_runtime_identity_changes_rerun_same_revision(
         # explicit configured model choice in the identity.
         monkeypatch.setattr(settings, "ollama_model", "test")
     elif change == "prompt":
-        monkeypatch.setattr(runtime, "instructions", lambda _: "Changed policy")
+        monkeypatch.setattr(
+            bootstrap, "instructions", lambda _: "Changed policy"
+        )
     else:
-        monkeypatch.setattr(runtime, "INPUT_POLICY_VERSION", "bounded-input-v2")
-    second = process(runtime.create_post_processor(), event, channel)
+        monkeypatch.setattr(
+            bootstrap, "INPUT_POLICY_VERSION", "bounded-input-v2"
+        )
+    second = process(bootstrap.create_post_processor(), event, channel)
     assert second.enrichment_version != first.enrichment_version
     assert second.enrichment_revision == first.enrichment_revision + 1
     assert len(calls) == 2
@@ -112,7 +118,7 @@ def test_runtime_identity_changes_rerun_same_revision(
 def test_runtime_requires_model(monkeypatch, model) -> None:
     monkeypatch.setattr(settings, "ollama_model", model)
     with pytest.raises(ValueError, match="OLLAMA_MODEL is required"):
-        runtime.create_post_processor()
+        bootstrap.create_post_processor()
 
 
 @pytest.mark.parametrize("timeout", [0, -1, 301, float("inf")])
@@ -138,7 +144,9 @@ def test_startup_composes_starts_and_stops_consumer(
         assert client.get("/health").json()["status"] == "ok"
         init_db.assert_called_once_with()
         consumer.assert_called_once()
-        assert callable(consumer.call_args.args[0])
+        processor = consumer.call_args.args[0]
+        assert callable(processor.process)
+        assert callable(processor.mark_published)
         thread.return_value.start.assert_called_once_with()
     consumer.return_value.stop.assert_called_once_with()
     thread.return_value.join.assert_called_once_with(timeout=5)

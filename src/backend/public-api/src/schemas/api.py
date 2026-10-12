@@ -12,11 +12,6 @@ from pydantic import (
 )
 
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str
-
-
 class AuthContext(BaseModel):
     user_id: UUID
     token_type: str

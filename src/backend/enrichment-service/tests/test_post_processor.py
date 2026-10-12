@@ -6,20 +6,20 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-
+from src.adapters.result_publisher import publish_result
 from src.repositories.enrichment_repository import EnrichmentRepository
-from src.services.classification import ArticleInput
-from src.services.enrichment import EnrichmentService
-from src.services.post_processor import PostEventProcessor
 from src.scripts.republish_result import republish_result
+from src.services.classification import ArticleInput
+from src.services.enrichment_service import EnrichmentService
+from src.services.post_processor import PostProcessor
 
 
 def process(processor, event, channel):
-    saved = processor(event)
-    processor.publish(saved, channel)
-    return (
-        processor.mark_published(saved) if saved.publication_pending else saved
-    )
+    saved = processor.process(event)
+    if saved.publication_pending:
+        publish_result(channel, saved.result_event)
+        saved = processor.mark_published(saved)
+    return saved
 
 
 @pytest.mark.parametrize(
@@ -29,9 +29,7 @@ def test_failed_result_is_published_before_dlq(deliver, session_factory, error):
     repository = EnrichmentRepository(session_factory)
     post_id = str(uuid4())
     first = process(
-        PostEventProcessor(
-            EnrichmentService(repository, lambda _: ("science",))
-        ),
+        PostProcessor(EnrichmentService(repository, lambda _: ("science",))),
         _event(post_id=post_id),
         MagicMock(),
     )
@@ -39,7 +37,7 @@ def test_failed_result_is_published_before_dlq(deliver, session_factory, error):
     def fail(_):
         raise error
 
-    processor = PostEventProcessor(EnrichmentService(repository, fail))
+    processor = PostProcessor(EnrichmentService(repository, fail))
     channel = MagicMock(is_open=True)
     deliver(
         processor,
@@ -63,7 +61,7 @@ def test_pending_failed_event_recovers_without_repeating_inference(
 ):
     repository = EnrichmentRepository(session_factory)
     classifier = MagicMock(side_effect=ValueError("invalid output"))
-    processor = PostEventProcessor(EnrichmentService(repository, classifier))
+    processor = PostProcessor(EnrichmentService(repository, classifier))
     event = _event(post_id=str(uuid4()))
     channel = MagicMock(is_open=True)
     channel.basic_publish.side_effect = RuntimeError("missing binding")
@@ -119,7 +117,7 @@ def test_duplicate_and_stale_events_do_not_repeat_classification(
 ) -> None:
     post_id = str(uuid4())
     classifier = RecordingClassifier()
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
 
@@ -151,7 +149,7 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     post_id = str(uuid4())
     classifier = RecordingClassifier()
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(EnrichmentService(repository, classifier))
+    processor = PostProcessor(EnrichmentService(repository, classifier))
     channel = MagicMock(is_open=True)
 
     def confirm_publication(**kwargs: object) -> bool:
@@ -199,7 +197,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     post_id = str(uuid4())
     classifier = RecordingClassifier()
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(EnrichmentService(repository, classifier))
+    processor = PostProcessor(EnrichmentService(repository, classifier))
     event = _event(post_id=post_id, revision=2)
     channel = MagicMock(is_open=True)
     channel.basic_publish.side_effect = RuntimeError("broker did not confirm")
@@ -215,7 +213,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     def no_classifier_call(_: ArticleInput) -> tuple[str, ...]:
         raise AssertionError("saved result should be reused")
 
-    restarted = PostEventProcessor(
+    restarted = PostProcessor(
         EnrichmentService(
             EnrichmentRepository(session_factory), no_classifier_call
         )
@@ -239,7 +237,7 @@ def test_save_failure_prevents_publication(
     session_factory: sessionmaker[Session],
 ) -> None:
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(repository, RecordingClassifier())
     )
     channel = MagicMock(is_open=True)
@@ -258,7 +256,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
 ) -> None:
     post_id = uuid4()
     repository = EnrichmentRepository(session_factory)
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(repository, RecordingClassifier())
     )
     channel = MagicMock(is_open=True)
@@ -301,9 +299,7 @@ def test_existing_result_gets_an_event_without_reclassification(
     def no_classifier_call(_: ArticleInput) -> tuple[str, ...]:
         raise AssertionError("saved classification should be reused")
 
-    processor = PostEventProcessor(
-        EnrichmentService(repository, no_classifier_call)
-    )
+    processor = PostProcessor(EnrichmentService(repository, no_classifier_call))
     channel = MagicMock(is_open=True)
     processed = process(
         processor, _event(post_id=str(post_id), revision=2), channel
@@ -318,7 +314,7 @@ def test_changed_input_at_new_revision_is_classified_again(
     session_factory: sessionmaker[Session],
 ) -> None:
     classifier = RecordingClassifier()
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
     post_id = str(uuid4())
@@ -340,7 +336,7 @@ def test_event_category_and_keywords_reach_classifier_as_hints(
     session_factory: sessionmaker[Session],
 ) -> None:
     classifier = RecordingClassifier()
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
     event = _event(post_id=str(uuid4()))
@@ -359,7 +355,7 @@ def test_changed_source_hints_at_new_revision_are_classified_again(
     session_factory: sessionmaker[Session],
 ) -> None:
     classifier = RecordingClassifier()
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
     post_id = str(uuid4())
@@ -380,7 +376,7 @@ def test_changed_input_at_same_revision_replaces_saved_snapshot(
     session_factory: sessionmaker[Session],
 ) -> None:
     classifier = RecordingClassifier()
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
     post_id = str(uuid4())
@@ -435,7 +431,7 @@ def test_invalid_parsed_post_events_are_rejected(
     event: dict[str, object],
     session_factory: sessionmaker[Session],
 ) -> None:
-    processor = PostEventProcessor(
+    processor = PostProcessor(
         EnrichmentService(
             EnrichmentRepository(session_factory), lambda _: ("science",)
         )

@@ -140,7 +140,7 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope(
     )
     verified_source_id = str(uuid4())
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         lambda *, verified_only: (
             [{"source_id": verified_source_id}] if verified_only else []
         ),
@@ -179,7 +179,7 @@ def test_explore_feed_intersects_selected_sources_with_verified_catalog(
     verified_source_id = str(uuid4())
     unverified_source_id = str(uuid4())
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         lambda *, verified_only: [{"source_id": verified_source_id}],
     )
 
@@ -206,7 +206,7 @@ def test_explore_feed_with_empty_verified_catalog_skips_repository(
     repository = Mock()
     preferences = Mock()
     monkeypatch.setattr(
-        "src.services.feed_service.ingestion_list_sources",
+        "src.services.feed_service.crawler_list_sources",
         lambda *, verified_only: [],
     )
 

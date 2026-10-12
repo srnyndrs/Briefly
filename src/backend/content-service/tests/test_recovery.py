@@ -7,15 +7,15 @@ from sqlalchemy.orm import Session
 
 from src.models.post import Post
 from src.repositories.post_repository import PostRepository
-from src.scripts.replay_failed_feed import replay_failed_feed
 from src.scripts import reextract_post as reextract_command
 from src.scripts import replay_failed_feed as replay_command
-from src.services.source_processor import SourceProcessorService
+from src.scripts.replay_failed_feed import replay_failed_feed
+from src.services.feed_processor import FeedProcessor
 
 
 @pytest.fixture
 def stored_post(db_session: Session) -> Post:
-    snapshot = PostRepository(db_session).create_post(
+    snapshot = PostRepository(db_session).upsert_post(
         {
             "source_id": uuid4(),
             "item_guid": "recovery-item",
@@ -44,10 +44,10 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
             },
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        assert SourceProcessorService(db_session).reextract_post(
+        assert FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), post_id
         )
     extract.assert_called_once_with("https://example.com/article")
@@ -74,10 +74,10 @@ def test_identical_reextract_republishes_stored_revision_and_timestamps(
             return_value={"content": " Original body "},
         ) as extract,
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        assert SourceProcessorService(db_session).reextract_post(
+        assert FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), post_id
         )
 
@@ -101,10 +101,10 @@ def test_failed_reextract_preserves_post_and_does_not_publish(
             return_value={"error": "Blocked"},
         ),
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
         ) as publish,
     ):
-        assert not SourceProcessorService(db_session).reextract_post(
+        assert not FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), stored_post.post_id
         )
     db_session.expire_all()
@@ -119,7 +119,9 @@ def test_unknown_post_is_not_extracted(db_session: Session) -> None:
         patch("src.adapters.content_extractor.extract_article") as extract,
         pytest.raises(ValueError, match="Post not found"),
     ):
-        SourceProcessorService(db_session).reextract_post(MagicMock(), uuid4())
+        FeedProcessor(PostRepository(db_session)).reextract_post(
+            MagicMock(), uuid4()
+        )
     extract.assert_not_called()
 
 
@@ -132,12 +134,12 @@ def test_reextract_publish_failure_propagates(
             return_value={"content": "New body"},
         ),
         patch(
-            "src.services.source_processor.post_publisher.publish_post_parsed_success",
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success",
             side_effect=pika.exceptions.UnroutableError([]),
         ),
         pytest.raises(pika.exceptions.UnroutableError),
     ):
-        SourceProcessorService(db_session).reextract_post(
+        FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), stored_post.post_id
         )
 
@@ -213,7 +215,7 @@ def test_reextract_command_closes_connection(
             return_value=channel,
         ),
         patch.object(reextract_command, "SessionLocal") as sessions,
-        patch.object(reextract_command, "SourceProcessorService") as service,
+        patch.object(reextract_command, "FeedProcessor") as service,
     ):
         service.return_value.reextract_post.return_value = succeeded
         assert reextract_command.main() == expected_exit

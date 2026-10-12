@@ -43,44 +43,50 @@ class PostRepository:
         parsed_from: datetime | None = None,
         parsed_to: datetime | None = None,
     ) -> list[Post]:
-        query = self._db.query(Post)
+        conditions = []
 
         if source_id:
-            query = query.filter(Post.source_id == source_id)
+            conditions.append(Post.source_id == source_id)
         if language:
-            query = query.filter(Post.language == language)
+            conditions.append(Post.language == language)
         if category:
-            query = query.filter(func.lower(Post.category) == category.lower())
+            conditions.append(func.lower(Post.category) == category.lower())
         if published_from:
-            query = query.filter(Post.published_at >= published_from)
+            conditions.append(Post.published_at >= published_from)
         if published_to:
-            query = query.filter(Post.published_at <= published_to)
+            conditions.append(Post.published_at <= published_to)
         if parsed_from:
-            query = query.filter(Post.parsed_at >= parsed_from)
+            conditions.append(Post.parsed_at >= parsed_from)
         if parsed_to:
-            query = query.filter(Post.parsed_at <= parsed_to)
+            conditions.append(Post.parsed_at <= parsed_to)
 
-        query = query.order_by(Post.parsed_at.desc())
-
-        return query.offset(skip).limit(limit).all()
+        statement = (
+            select(Post).where(*conditions).order_by(Post.parsed_at.desc())
+        )
+        return list(self._db.scalars(statement.offset(skip).limit(limit)).all())
 
     def get_post_by_id(self, post_id: UUID) -> Post | None:
-        return self._db.query(Post).filter(Post.post_id == post_id).first()
+        return self._db.scalar(
+            select(Post).where(Post.post_id == post_id).limit(1)
+        )
 
     def get_by_guids(self, source_id: UUID, guids: list[str]) -> list[Post]:
         if not guids:
             return []
 
-        return (
-            self._db.query(Post)
-            .filter(Post.source_id == source_id, Post.item_guid.in_(guids))
-            .all()
+        return list(
+            self._db.scalars(
+                select(Post).where(
+                    Post.source_id == source_id,
+                    Post.item_guid.in_(guids),
+                )
+            ).all()
         )
 
     def get_posts_count(self) -> int:
-        return self._db.query(Post).count()
+        return self._db.scalar(select(func.count()).select_from(Post)) or 0
 
-    def create_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
+    def upsert_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
         insert_statement = insert(Post).values(**post_data)
         excluded = insert_statement.excluded
         update_fields = {
@@ -99,14 +105,11 @@ class PostRepository:
                 for field in CANONICAL_POST_FIELDS
             )
         )
-        upsert_statement = (
-            insert_statement.on_conflict_do_update(
-                index_elements=["source_id", "item_guid"],
-                set_=update_fields,
-                where=changed_fields,
-            )
-            .returning(*Post.__table__.columns)
-        )
+        upsert_statement = insert_statement.on_conflict_do_update(
+            index_elements=["source_id", "item_guid"],
+            set_=update_fields,
+            where=changed_fields,
+        ).returning(*Post.__table__.columns)
 
         row = self._db.execute(upsert_statement).mappings().one_or_none()
         if row is not None:

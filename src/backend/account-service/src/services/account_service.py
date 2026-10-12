@@ -60,8 +60,15 @@ class AccountService:
             password_hash=password_hash,
             now=now,
         )
-        self._repo.create_default_preferences(user.user_id)
-        return self._auth_service.issue_token_pair(user_id=user.user_id)
+        try:
+            self._repo.flush()
+            self._repo.create_default_preferences(user.user_id)
+            tokens = self._auth_service.issue_token_pair(user_id=user.user_id)
+            self._repo.commit()
+            return tokens
+        except Exception:
+            self._repo.rollback()
+            raise
 
     def password_reset_request(self, email: str) -> None:
         reset = self._auth_service.create_password_reset(email=email)
@@ -95,6 +102,11 @@ class AccountService:
         )
         if user is None:
             raise NotFoundError("User not found")
+        try:
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
         return user
 
     def get_preferences(self, user_id: str) -> UserPreferences:
@@ -115,14 +127,19 @@ class AccountService:
     ) -> UserPreferences:
         self.get_user(user_id)
 
-        preferences = self._repo.upsert_preferences(
-            user_id=user_id,
-            muted_keywords=muted_keywords,
-            muted_categories=muted_categories,
-            blocked_source_ids=blocked_source_ids,
-            languages=languages,
-            now=utc_now_naive(),
-        )
+        try:
+            preferences = self._repo.upsert_preferences(
+                user_id=user_id,
+                muted_keywords=muted_keywords,
+                muted_categories=muted_categories,
+                blocked_source_ids=blocked_source_ids,
+                languages=languages,
+                now=utc_now_naive(),
+            )
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
         self._publisher.publish(
             event_type="preferences.updated.v1",
@@ -167,8 +184,7 @@ class AccountService:
                 )
                 or []
             ],
-            languages=fields.get("languages", preferences.languages)
-            or [],
+            languages=fields.get("languages", preferences.languages) or [],
             correlation_id=correlation_id,
         )
 
@@ -179,20 +195,23 @@ class AccountService:
         source_id: str,
     ) -> UserSubscription:
         self.get_user(user_id)
-        if self._repo.has_subscription(
-            user_id=user_id, source_id=source_id
-        ):
+        if self._repo.has_subscription(user_id=user_id, source_id=source_id):
             raise ConflictError("Subscription already exists")
 
-        return self._repo.create_subscription(
-            user_id=user_id,
-            source_id=source_id,
-            now=utc_now_naive(),
-        )
+        try:
+            subscription = self._repo.create_subscription(
+                user_id=user_id,
+                source_id=source_id,
+                now=utc_now_naive(),
+            )
+            self._repo.flush()
+            self._repo.commit()
+            return subscription
+        except Exception:
+            self._repo.rollback()
+            raise
 
-    def list_subscriptions(
-        self, user_id: str
-    ) -> Sequence[UserSubscription]:
+    def list_subscriptions(self, user_id: str) -> Sequence[UserSubscription]:
         self.get_user(user_id)
         return self._repo.list_subscriptions(user_id=user_id)
 
@@ -207,6 +226,11 @@ class AccountService:
         )
         if not deleted:
             raise NotFoundError("Subscription not found")
+        try:
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
 
 def utc_now_naive() -> datetime:

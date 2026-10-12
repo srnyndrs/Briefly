@@ -3,18 +3,17 @@
 from dataclasses import replace
 from typing import Any
 
-from src.adapters.result_publisher import publish_result
 from src.events.post_parsed import ParsedPostEvent
 from src.repositories.enrichment_repository import StoredEnrichment
 from src.services.classification import ArticleInput
-from src.services.enrichment import EnrichmentService
+from src.services.enrichment_service import EnrichmentService
 
 
-class PostEventProcessor:
+class PostProcessor:
     def __init__(self, enrichment_service: EnrichmentService) -> None:
         self._enrichment_service = enrichment_service
 
-    def __call__(self, event: Any) -> StoredEnrichment:
+    def process(self, event: Any) -> StoredEnrichment:
         parsed_event = ParsedPostEvent.model_validate(event)
         payload = parsed_event.payload
         return self._enrichment_service.enrich_article(
@@ -30,14 +29,6 @@ class PostEventProcessor:
             post_revision=payload.post_revision,
             correlation_id=parsed_event.correlation_id,
         )
-
-    @staticmethod
-    def publish(saved: StoredEnrichment, channel: Any) -> None:
-        """Publish a saved event on the broker connection's thread."""
-        if saved.publication_pending:
-            if saved.result_event is None or saved.event_id is None:
-                raise RuntimeError("Pending result has no saved event")
-            publish_result(channel, saved.result_event)
 
     def mark_published(self, saved: StoredEnrichment) -> StoredEnrichment:
         """Mark the confirmed event in a scoped worker database session."""

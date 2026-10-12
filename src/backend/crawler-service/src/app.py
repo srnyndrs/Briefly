@@ -23,7 +23,7 @@ logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger(TAG_NAME)
+logger = logging.getLogger(__name__)
 
 
 if settings.sentry_dsn:
@@ -43,35 +43,34 @@ if settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if not getattr(application.state, "testing", False):
-        init_db()
-        orchestrator = CrawlCycleOrchestrator(session_factory=SessionLocal)
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(
-            func=orchestrator.run_crawl_cycle,
-            trigger="interval",
-            seconds=settings.crawl_interval_seconds,
-            id="crawl_cycle",
-            replace_existing=True,
-        )
-        scheduler.start()
-        application.state.scheduler = scheduler
-        logger.info(
-            "Crawler Service started crawl interval=%ds, port=%d",
-            settings.crawl_interval_seconds,
-            settings.app_port,
-        )
+    scheduler = None
+    try:
+        if not getattr(application.state, "testing", False):
+            init_db()
+            orchestrator = CrawlCycleOrchestrator(session_factory=SessionLocal)
+            scheduler = BackgroundScheduler()
+            application.state.scheduler = scheduler
+            scheduler.add_job(
+                func=orchestrator.run_crawl_cycle,
+                trigger="interval",
+                seconds=settings.crawl_interval_seconds,
+                id="crawl_cycle",
+                replace_existing=True,
+            )
+            scheduler.start()
+            logger.info(
+                "Crawler Service started crawl interval=%ds, port=%d",
+                settings.crawl_interval_seconds,
+                settings.app_port,
+            )
 
-    yield
+        yield
+    finally:
+        if scheduler and scheduler.running:
+            scheduler.shutdown(wait=True)
+            logger.info("Scheduler stopped.")
 
-    scheduler: BackgroundScheduler | None = getattr(
-        application.state, "scheduler", None
-    )
-    if scheduler and scheduler.running:
-        scheduler.shutdown(wait=True)
-        logger.info("Scheduler stopped.")
-
-    logger.info("Crawler Service stopped.")
+        logger.info("Crawler Service stopped.")
 
 
 app = FastAPI(
@@ -83,7 +82,7 @@ app = FastAPI(
 
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
-def health_check() -> HealthResponse:
+def health() -> HealthResponse:
     return HealthResponse(status="ok", service=TAG_NAME)
 
 

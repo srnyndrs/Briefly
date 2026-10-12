@@ -4,7 +4,8 @@ from uuid import UUID
 
 from src.config.database import SessionLocal
 from src.config.message_broker import create_replay_publisher_channel
-from src.services.source_processor import SourceProcessorService
+from src.repositories.post_repository import PostRepository
+from src.services.feed_processor import FeedProcessor
 
 
 def main() -> int:
@@ -15,7 +16,7 @@ def main() -> int:
     channel = create_replay_publisher_channel()
     try:
         with SessionLocal() as db:
-            if not SourceProcessorService(db).reextract_post(
+            if not FeedProcessor(PostRepository(db)).reextract_post(
                 channel, args.post_id
             ):
                 print("No usable content; stored post unchanged.")

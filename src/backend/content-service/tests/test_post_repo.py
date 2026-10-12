@@ -38,7 +38,7 @@ def test_save_repeated_guid_with_changed_url_updates_persisted_post(
         url="https://example.com/original-url",
         title="Original Title",
     )
-    first = repo.create_post(first_data)
+    first = repo.upsert_post(first_data)
     assert first is not None
     first_id = first["post_id"]
     assert first["post_revision"] == 1
@@ -49,7 +49,7 @@ def test_save_repeated_guid_with_changed_url_updates_persisted_post(
         url="https://example.com/updated-url",
         title="Updated Title",
     )
-    second = repo.create_post(second_data)
+    second = repo.upsert_post(second_data)
 
     assert second is not None
     assert second["post_id"] == first_id
@@ -66,7 +66,7 @@ def test_list_filters_by_category_not_by_keyword(
     db_session: Session,
 ) -> None:
     repo = PostRepository(db_session)
-    repo.create_post(
+    repo.upsert_post(
         _make_post_data(
             item_guid="guid-category-match",
             url="https://example.com/item1",
@@ -74,7 +74,7 @@ def test_list_filters_by_category_not_by_keyword(
             keywords=["science", "computing"],
         )
     )
-    repo.create_post(
+    repo.upsert_post(
         _make_post_data(
             item_guid="guid-keyword-only-match",
             url="https://example.com/item2",
@@ -94,9 +94,9 @@ def test_get_by_guids_filters_by_source_and_requested_items(
     db_session: Session,
 ) -> None:
     repo = PostRepository(db_session)
-    repo.create_post(_make_post_data(item_guid="requested"))
-    repo.create_post(_make_post_data(item_guid="other-item"))
-    repo.create_post(
+    repo.upsert_post(_make_post_data(item_guid="requested"))
+    repo.upsert_post(_make_post_data(item_guid="other-item"))
+    repo.upsert_post(
         _make_post_data(
             source_id=UUID("00000000-0000-0000-0000-000000000002"),
             item_guid="requested",
@@ -117,7 +117,7 @@ def test_identical_post_returns_existing_snapshot_without_timestamp_changes(
     db_session: Session,
 ) -> None:
     repo = PostRepository(db_session)
-    first = repo.create_post(
+    first = repo.upsert_post(
         _make_post_data(
             crawled_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
             parsed_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
@@ -125,7 +125,7 @@ def test_identical_post_returns_existing_snapshot_without_timestamp_changes(
     )
     assert first["post_revision"] == 1
 
-    repeated = repo.create_post(
+    repeated = repo.upsert_post(
         _make_post_data(
             crawled_at=datetime(2026, 2, 1, tzinfo=timezone.utc),
             parsed_at=datetime(2026, 2, 2, tzinfo=timezone.utc),
@@ -158,9 +158,9 @@ def test_each_canonical_field_change_increments_revision(
     db_session: Session, field: str, changed_value: object
 ) -> None:
     repo = PostRepository(db_session)
-    first = repo.create_post(_make_post_data())
+    first = repo.upsert_post(_make_post_data())
 
-    changed = repo.create_post(_make_post_data(**{field: changed_value}))
+    changed = repo.upsert_post(_make_post_data(**{field: changed_value}))
 
     assert changed["post_id"] == first["post_id"]
     assert changed["post_revision"] == 2
@@ -188,9 +188,9 @@ def test_null_transition_in_canonical_field_increments_revision(
     db_session: Session, field: str, initial_value: object
 ) -> None:
     repo = PostRepository(db_session)
-    first = repo.create_post(_make_post_data(**{field: initial_value}))
+    first = repo.upsert_post(_make_post_data(**{field: initial_value}))
 
-    changed = repo.create_post(_make_post_data(**{field: None}))
+    changed = repo.upsert_post(_make_post_data(**{field: None}))
 
     assert changed["post_id"] == first["post_id"]
     assert changed["post_revision"] == 2

@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -83,6 +84,61 @@ def test_query_queue_binds_enrichment_results() -> None:
         exchange=settings.enrichment_exchange,
         routing_key="post.enriched.v1",
     )
+
+
+def test_projector_closes_and_clears_connection_when_setup_fails() -> None:
+    connection = MagicMock()
+    connection.is_open = True
+    connection.channel.side_effect = RuntimeError("channel setup failed")
+    projector = QueryProjector(lambda: None)
+
+    with (
+        patch(
+            "src.adapters.query_projector.pika.BlockingConnection",
+            return_value=connection,
+        ),
+        pytest.raises(RuntimeError, match="channel setup failed"),
+    ):
+        projector._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert projector._connection is None
+    assert projector._channel is None
+
+
+def test_projector_closes_and_clears_connection_when_consumption_fails() -> (
+    None
+):
+    connection = MagicMock(is_open=True)
+    channel = connection.channel.return_value
+    channel.start_consuming.side_effect = RuntimeError("consume failed")
+    projector = QueryProjector(lambda: None)
+
+    with (
+        patch(
+            "src.adapters.query_projector.pika.BlockingConnection",
+            return_value=connection,
+        ),
+        pytest.raises(RuntimeError, match="consume failed"),
+    ):
+        projector._connect_and_consume()
+
+    connection.close.assert_called_once_with()
+    assert projector._connection is None
+    assert projector._channel is None
+
+
+def test_projector_backoff_wait_exits_when_stopped(monkeypatch) -> None:
+    projector = QueryProjector(lambda: None)
+    connect = MagicMock(side_effect=RuntimeError("broker unavailable"))
+    wait = MagicMock(return_value=True)
+    monkeypatch.setattr(projector, "_connect_and_consume", connect)
+    monkeypatch.setattr(projector._stop_event, "wait", wait)
+
+    projector.run()
+
+    connect.assert_called_once_with()
+    wait.assert_called_once_with(1)
 
 
 def test_result_event_before_post_is_projected_after_matching_snapshot() -> (

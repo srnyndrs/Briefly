@@ -5,8 +5,8 @@ from sqlalchemy import (
     DateTime,
     String,
     Text,
-    Uuid,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )

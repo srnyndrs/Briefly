@@ -1,6 +1,6 @@
+import re
 from collections.abc import Iterable
 from dataclasses import replace
-import re
 from uuid import UUID
 
 from sqlalchemy import String, cast, func, or_, select, true

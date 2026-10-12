@@ -14,10 +14,10 @@ from src.routers.deps import (
     get_account_service,
 )
 from src.schemas.users import (
+    AccountPatchRequest,
     PreferencesPatchRequest,
     PreferencesResponse,
     PreferencesUpdateRequest,
-    AccountPatchRequest,
     SubscriptionCreateRequest,
     SubscriptionResponse,
     UserResponse,
@@ -63,9 +63,7 @@ def patch_user(
     return UserResponse.model_validate(user)
 
 
-@router.get(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.get("/{user_id}/preferences", response_model=PreferencesResponse)
 def get_preferences(
     user_id: uuid.UUID,
     service: AccountService = Depends(get_account_service),
@@ -79,9 +77,7 @@ def get_preferences(
     return PreferencesResponse.model_validate(preferences)
 
 
-@router.put(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.put("/{user_id}/preferences", response_model=PreferencesResponse)
 def update_preferences(
     user_id: uuid.UUID,
     body: PreferencesUpdateRequest,
@@ -108,9 +104,7 @@ def update_preferences(
     return PreferencesResponse.model_validate(preferences)
 
 
-@router.patch(
-    "/{user_id}/preferences", response_model=PreferencesResponse
-)
+@router.patch("/{user_id}/preferences", response_model=PreferencesResponse)
 def patch_preferences(
     user_id: uuid.UUID,
     body: PreferencesPatchRequest,
@@ -175,10 +169,7 @@ def list_subscriptions(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
-    return [
-        SubscriptionResponse.model_validate(item)
-        for item in subscriptions
-    ]
+    return [SubscriptionResponse.model_validate(item) for item in subscriptions]
 
 
 @router.delete(

@@ -76,7 +76,7 @@ Public-api owns the durable `public-api.query.v1` binding on `enrichment.events`
 It exposes calculated `categories` as a list and keeps publisher labels separate.
 
 Startup composes Ollama, the category callable, EnrichmentService and
-PostEventProcessor with EnrichmentRepository(SessionLocal). The bounded result
+PostProcessor with EnrichmentRepository(SessionLocal). The bounded result
 version hashes provider, tag/digest, taxonomy, prompt, schema, generation options
 and input policy. Unchanged input/version reuses saved results. Record the model
 digest alongside experiments, restart after a repull, and bump

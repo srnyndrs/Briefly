@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     log_level: str = "INFO"
-    env: str = "production"
-    sentry_dsn: str = ""
+    env: str = "development"
+    sentry_dsn: str | None = None
 
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/briefly"
+    database_url: str = (
+        "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"
+    )
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     account_exchange: str = "account.events"
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     jwt_audience: str = "briefly-public-api"
 
     account_service_url: str = "http://localhost:8003"
-    ingestion_service_url: str = "http://localhost:8001"
+    crawler_service_url: str = "http://localhost:8001"
     content_service_url: str = "http://localhost:8002"
     request_timeout_seconds: float = 10.0
     source_discovery_timeout_seconds: float = 15.0

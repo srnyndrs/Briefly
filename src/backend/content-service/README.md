@@ -97,9 +97,9 @@ processing or atomicity with the database. Replaying a partially processed feed
 reuses stored extraction and publishes snapshots again.
 
 Prefetch is 1. The consumer services RabbitMQ I/O between entries on its own
-thread. `RABBITMQ_BLOCKED_TIMEOUT_SECONDS` defaults to 15 seconds and must be
-positive and finite. Heartbeats remain enabled. One long download, parse or
-database operation can still prevent timely heartbeat handling.
+thread. `BLOCKED_TIMEOUT_SECONDS` defaults to 5 seconds; Compose sets it to 15.
+It must be positive and finite. Heartbeats remain enabled. One long download,
+parse or database operation can still prevent timely heartbeat handling.
 
 ### DLQ setup
 

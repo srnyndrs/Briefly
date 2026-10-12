@@ -34,9 +34,7 @@ def sentry_events(monkeypatch):
     transport = CaptureTransport()
     previous_client = sentry_sdk.get_client()
     sdk_init = sentry_sdk.init
-    monkeypatch.setattr(
-        settings, "sentry_dsn", "http://public@example.com/1"
-    )
+    monkeypatch.setattr(settings, "sentry_dsn", "http://public@example.com/1")
     monkeypatch.setattr(
         sentry_sdk,
         "init",
@@ -59,9 +57,7 @@ def test_sentry_is_optional(monkeypatch) -> None:
     initialize.assert_not_called()
 
 
-def test_scrubber_keeps_exception_locations_without_account_data() -> (
-    None
-):
+def test_scrubber_keeps_exception_locations_without_account_data() -> None:
     event = {
         key: {"value": "sensitive-account-data"}
         for key in (
@@ -83,9 +79,7 @@ def test_scrubber_keeps_exception_locations_without_account_data() -> (
                         {
                             "filename": "account_service.py",
                             "lineno": 42,
-                            "vars": {
-                                "password": "sensitive-account-data"
-                            },
+                            "vars": {"password": "sensitive-account-data"},
                             "context_line": "sensitive-account-data",
                             "pre_context": ["sensitive-account-data"],
                             "post_context": ["sensitive-account-data"],
@@ -107,10 +101,7 @@ def test_scrubber_keeps_exception_locations_without_account_data() -> (
 def test_expected_http_errors_are_not_reported(
     sentry_events, client, account, credentials
 ) -> None:
-    assert (
-        client.post("/auth/register", json=credentials).status_code
-        == 409
-    )
+    assert client.post("/auth/register", json=credentials).status_code == 409
     assert (
         client.post(
             "/auth/login",
@@ -159,9 +150,7 @@ def test_caught_delivery_failure_is_reported_once(
             mailer,
             "send",
             Mock(
-                side_effect=PasswordResetDeliveryError(
-                    "sensitive-account-data"
-                )
+                side_effect=PasswordResetDeliveryError("sensitive-account-data")
             ),
         )
         response = client.post(
@@ -172,9 +161,7 @@ def test_caught_delivery_failure_is_reported_once(
         assert response.json() == {"status": "accepted"}
         expected_operation = "password_reset_delivery"
     else:
-        app.dependency_overrides[get_event_publisher] = (
-            AccountEventPublisher
-        )
+        app.dependency_overrides[get_event_publisher] = AccountEventPublisher
         monkeypatch.setattr(
             pika,
             "BlockingConnection",
@@ -189,9 +176,9 @@ def test_caught_delivery_failure_is_reported_once(
             json={"languages": ["en"]},
         )
         assert response.status_code == 200
-        assert client.get(
-            f"/users/{account['user_id']}/preferences"
-        ).json()["languages"] == ["en"]
+        assert client.get(f"/users/{account['user_id']}/preferences").json()[
+            "languages"
+        ] == ["en"]
         expected_operation = "publish_account_event"
     assert len(sentry_events) == 1
     event = sentry_events[0]

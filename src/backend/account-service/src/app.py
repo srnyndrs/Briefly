@@ -17,7 +17,7 @@ logging.basicConfig(
     level=settings.log_level,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
-logger = logging.getLogger(TAG_NAME)
+logger = logging.getLogger(__name__)
 
 
 def scrub_sentry_event(event: dict, _hint: dict) -> dict:
@@ -45,7 +45,10 @@ def scrub_sentry_event(event: dict, _hint: dict) -> dict:
     return event
 
 
-if settings.sentry_dsn:
+def init_sentry() -> None:
+    if not settings.sentry_dsn:
+        return
+
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.env,
@@ -59,17 +62,19 @@ if settings.sentry_dsn:
     sentry_sdk.set_tag("service", TAG_NAME)
 
 
+init_sentry()
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if not getattr(application.state, "testing", False):
-        init_db()
-        logger.info(
-            "Account Service started on port=%d", settings.app_port
-        )
+    try:
+        if not getattr(application.state, "testing", False):
+            init_db()
+            logger.info("Account Service started on port=%d", settings.app_port)
 
-    yield
-
-    logger.info("Account Service stopped.")
+        yield
+    finally:
+        logger.info("Account Service stopped.")
 
 
 app = FastAPI(
@@ -82,7 +87,7 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", service="account-service")
+    return HealthResponse(status="ok", service=TAG_NAME)
 
 
 app.include_router(auth.router)

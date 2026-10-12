@@ -29,9 +29,7 @@ class PasswordResetMailer:
         )
 
         try:
-            with smtplib.SMTP(
-                settings.smtp_host, settings.smtp_port
-            ) as smtp:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
                 if settings.smtp_use_tls:
                     smtp.starttls()
                 if settings.smtp_username:
@@ -39,9 +37,7 @@ class PasswordResetMailer:
                         raise PasswordResetDeliveryError(
                             "SMTP password is not configured"
                         )
-                    smtp.login(
-                        settings.smtp_username, settings.smtp_password
-                    )
+                    smtp.login(settings.smtp_username, settings.smtp_password)
                 smtp.send_message(message)
         except (OSError, smtplib.SMTPException) as exc:
             raise PasswordResetDeliveryError(

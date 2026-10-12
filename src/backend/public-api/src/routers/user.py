@@ -10,8 +10,8 @@ from src.adapters.service_clients import (
     account_get_preferences,
     account_get_user,
     account_list_subscriptions,
-    account_patch_user,
     account_patch_preferences,
+    account_patch_user,
     map_service_error,
 )
 from src.schemas.api import (

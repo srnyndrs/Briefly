@@ -32,9 +32,7 @@ class RecordingPasswordResetMailer:
         self.messages: list[dict[str, str]] = []
 
     def send(self, *, email: str, reset_token: str) -> None:
-        self.messages.append(
-            {"email": email, "reset_token": reset_token}
-        )
+        self.messages.append({"email": email, "reset_token": reset_token})
 
 
 @pytest.fixture(scope="session")
@@ -51,9 +49,7 @@ def engine():
 
 @pytest.fixture(autouse=True)
 def auth_settings(monkeypatch) -> None:
-    monkeypatch.setattr(
-        settings, "jwt_secret", "account-service-test-key"
-    )
+    monkeypatch.setattr(settings, "jwt_secret", "account-service-test-key")
     monkeypatch.setattr(settings, "admin_user_ids_csv", "")
 
 
@@ -78,9 +74,7 @@ def mailer() -> RecordingPasswordResetMailer:
 
 
 @pytest.fixture()
-def client(
-    db_session, publisher, mailer
-) -> Generator[TestClient, None, None]:
+def client(db_session, publisher, mailer) -> Generator[TestClient, None, None]:
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 

@@ -4,8 +4,8 @@ from uuid import uuid4
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from src.models.read_models import PostProjection
 from src.config.database import Base
+from src.models.read_models import PostProjection
 from src.repositories.feed_repository import PostRepository
 from src.services.feed_models import EffectiveFeedQuery
 

@@ -19,16 +19,20 @@ class AuthError(Exception):
 class AuthService:
     def __init__(self, repo: AccountRepository) -> None:
         self._repo = repo
-        self._pwd_context = CryptContext(
-            schemes=["argon2"], deprecated="auto"
-        )
+        self._pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
     def hash_password(self, password: str) -> str:
         return self._pwd_context.hash(password)
 
     def login(self, *, email: str, password: str) -> tuple[str, str]:
         user = self._authenticate_user(email=email, password=password)
-        return self.issue_token_pair(user_id=user.user_id)
+        try:
+            tokens = self.issue_token_pair(user_id=user.user_id)
+            self._repo.commit()
+            return tokens
+        except Exception:
+            self._repo.rollback()
+            raise
 
     def _authenticate_user(self, *, email: str, password: str) -> User:
         user = self._repo.get_user_by_email(email)
@@ -97,9 +101,14 @@ class AuthService:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("User not found")
-        stored.revoked_at = self._utc_now().replace(tzinfo=None)
-        self._repo.commit()
-        return self.issue_token_pair(user_id=user.user_id)
+        try:
+            stored.revoked_at = self._utc_now().replace(tzinfo=None)
+            tokens = self.issue_token_pair(user_id=user.user_id)
+            self._repo.commit()
+            return tokens
+        except Exception:
+            self._repo.rollback()
+            raise
 
     def revoke_refresh_token(self, refresh_token: str) -> None:
         claims = self._decode_token(refresh_token)
@@ -117,32 +126,35 @@ class AuthService:
         if stored.token_hash != self._token_hash(refresh_token):
             raise AuthError("Refresh token mismatch")
 
-        stored.revoked_at = self._utc_now().replace(tzinfo=None)
-        self._repo.commit()
+        try:
+            stored.revoked_at = self._utc_now().replace(tzinfo=None)
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
-    def create_password_reset(
-        self, *, email: str
-    ) -> tuple[str, str] | None:
+    def create_password_reset(self, *, email: str) -> tuple[str, str] | None:
         user = self._repo.get_user_by_email(email)
         if user is None:
             return None
 
         reset_token = secrets.token_urlsafe(32)
         now = self._utc_now().replace(tzinfo=None)
-        self._repo.replace_password_reset_token(
-            user_id=user.user_id,
-            token_hash=self._token_hash(reset_token),
-            expires_at=now
-            + timedelta(
-                seconds=settings.password_reset_token_ttl_seconds
-            ),
-            created_at=now,
-        )
+        try:
+            self._repo.replace_password_reset_token(
+                user_id=user.user_id,
+                token_hash=self._token_hash(reset_token),
+                expires_at=now
+                + timedelta(seconds=settings.password_reset_token_ttl_seconds),
+                created_at=now,
+            )
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
         return user.email, reset_token
 
-    def reset_password(
-        self, *, reset_token: str, new_password: str
-    ) -> None:
+    def reset_password(self, *, reset_token: str, new_password: str) -> None:
         stored = self._repo.get_password_reset_token(
             self._token_hash(reset_token), lock=True
         )
@@ -156,10 +168,14 @@ class AuthService:
         user = self._repo.get_user_by_id(stored.user_id)
         if user is None:
             raise AuthError("Invalid password reset token")
-        user.password_hash = self.hash_password(new_password)
-        self._repo.revoke_active_refresh_tokens(user.user_id, now)
-        self._repo.delete_password_reset_token(user.user_id)
-        self._repo.commit()
+        try:
+            user.password_hash = self.hash_password(new_password)
+            self._repo.revoke_active_refresh_tokens(user.user_id, now)
+            self._repo.delete_password_reset_token(user.user_id)
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
 
     @staticmethod
     def _utc_now() -> datetime:
@@ -180,9 +196,7 @@ class AuthService:
             "aud": settings.jwt_audience,
             "sub": user_id,
             "iat": int(now.timestamp()),
-            "exp": int(
-                (now + timedelta(seconds=ttl_seconds)).timestamp()
-            ),
+            "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
             "type": token_type,
         }
         if token_id:
@@ -205,9 +219,7 @@ class AuthService:
     @staticmethod
     def _encode_token(claims: dict[str, Any]) -> str:
         header = {"alg": "HS256", "typ": "JWT"}
-        return jwt.encode(header, claims, settings.jwt_secret).decode(
-            "utf-8"
-        )
+        return jwt.encode(header, claims, settings.jwt_secret).decode("utf-8")
 
     @staticmethod
     def _decode_token(token: str) -> dict[str, Any]:

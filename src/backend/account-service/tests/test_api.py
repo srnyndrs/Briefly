@@ -28,9 +28,7 @@ def test_account_display_name(client, account) -> None:
 
     for invalid_name in ("   ", "x" * 81):
         assert (
-            client.patch(
-                path, json={"display_name": invalid_name}
-            ).status_code
+            client.patch(path, json={"display_name": invalid_name}).status_code
             == 422
         )
     assert client.get(path).json()["display_name"] == "Reader"

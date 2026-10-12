@@ -5,8 +5,8 @@ import pytest
 from src.services.categories import CATEGORY_DEFINITIONS
 from src.services.classification import (
     ArticleInput,
-    Classifier,
     ClassificationResult,
+    Classifier,
     classify_article,
     normalize_article,
 )

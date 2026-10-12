@@ -4,7 +4,7 @@ from uuid import UUID
 
 from src.adapters.service_clients import (
     account_list_subscriptions,
-    ingestion_list_sources,
+    crawler_list_sources,
 )
 from src.repositories.feed_repository import (
     PostRepository,
@@ -112,7 +112,7 @@ class FeedService:
         )
 
     def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
-        verified_sources = ingestion_list_sources(verified_only=True)
+        verified_sources = crawler_list_sources(verified_only=True)
         allowed_source_ids = [
             str(source["source_id"])
             for source in verified_sources

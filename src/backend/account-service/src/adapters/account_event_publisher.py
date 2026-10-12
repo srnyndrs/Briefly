@@ -9,7 +9,7 @@ import sentry_sdk
 from src.config.settings import settings
 from src.events.envelope import build_envelope
 
-logger = logging.getLogger("account-service.events")
+logger = logging.getLogger(__name__)
 
 
 class AccountEventPublisher:

@@ -59,7 +59,7 @@ services:
       APP_PORT: 8001
       ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FEED_EXCHANGE: feed.content
       VERIFIED_CRAWL_INTERVAL_SECONDS: 300
@@ -107,8 +107,8 @@ services:
       FEED_EXCHANGE: feed.content
       PARSED_EXCHANGE: content.parsed
       ARTICLE_REQUEST_TIMEOUT_SECONDS: 5
-      RABBITMQ_BLOCKED_TIMEOUT_SECONDS: 15
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      BLOCKED_TIMEOUT_SECONDS: 15
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -186,7 +186,7 @@ services:
       APP_PORT: 8003
       ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ACCOUNT_EXCHANGE: account.events
       JWT_SECRET: local-dev-secret-change-me
@@ -228,7 +228,7 @@ services:
       APP_PORT: 8000
       ENV: development
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/briefly
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ACCOUNT_EXCHANGE: account.events
       CONTENT_EXCHANGE: content.parsed
@@ -238,7 +238,7 @@ services:
       JWT_ISSUER: briefly-account-service
       JWT_AUDIENCE: briefly-public-api
       ACCOUNT_SERVICE_URL: http://account-service:8003
-      INGESTION_SERVICE_URL: http://crawler-service:8001
+      CRAWLER_SERVICE_URL: http://crawler-service:8001
       CONTENT_SERVICE_URL: http://content-service:8002
       REQUEST_TIMEOUT_SECONDS: 10
       SOURCE_DISCOVERY_TIMEOUT_SECONDS: 15

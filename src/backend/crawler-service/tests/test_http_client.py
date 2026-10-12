@@ -26,10 +26,14 @@ def test_fetch_sends_saved_validators_and_logs_actual_response(
     monkeypatch.setattr("src.adapters.http_client.requests.get", get)
 
     with caplog.at_level(logging.INFO, logger="src.adapters.http_client"):
-        result = RequestsHttpClient.fetch("https://example.com/feed?secret=x", headers)
+        result = RequestsHttpClient.fetch(
+            "https://example.com/feed?secret=x", headers
+        )
 
     sent = get.call_args.kwargs["headers"]
-    assert {key: sent[key] for key in expected_request_headers} == expected_request_headers
+    assert {
+        key: sent[key] for key in expected_request_headers
+    } == expected_request_headers
     assert result.body == "<feed/>"
     assert result.etag == '"fresh"'
     assert result.last_modified == "fresh-date"
@@ -37,12 +41,19 @@ def test_fetch_sends_saved_validators_and_logs_actual_response(
     assert "status=200" in caplog.text
     assert "secret" not in caplog.text
     assert "fresh-date" in caplog.text
-    assert "saved-date" in caplog.text if expected_request_headers else "<absent>" in caplog.text
+    assert (
+        "saved-date" in caplog.text
+        if expected_request_headers
+        else "<absent>" in caplog.text
+    )
 
 
 def test_fetch_logs_response_headers_before_304_return(monkeypatch, caplog):
     response = Mock(status_code=304, text="")
-    response.headers = {"ETag": '"response-etag"', "Last-Modified": "response-date"}
+    response.headers = {
+        "ETag": '"response-etag"',
+        "Last-Modified": "response-date",
+    }
     response.raise_for_status.return_value = None
     get = Mock(return_value=response)
     monkeypatch.setattr("src.adapters.http_client.requests.get", get)
@@ -63,7 +74,9 @@ def test_validator_log_values_are_escaped_and_bounded(monkeypatch, caplog):
     response = Mock(status_code=200, text="<feed/>")
     response.headers = {"ETag": "tag\n" + "x" * 1000}
     response.raise_for_status.return_value = None
-    monkeypatch.setattr("src.adapters.http_client.requests.get", Mock(return_value=response))
+    monkeypatch.setattr(
+        "src.adapters.http_client.requests.get", Mock(return_value=response)
+    )
 
     with caplog.at_level(logging.INFO, logger="src.adapters.http_client"):
         RequestsHttpClient.fetch("https://example.com/feed", FetchHeaders())

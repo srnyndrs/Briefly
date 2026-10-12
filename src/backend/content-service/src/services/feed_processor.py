@@ -9,7 +9,6 @@ from uuid import UUID
 
 import feedparser
 import langcodes
-from sqlalchemy.orm import Session
 
 from src.adapters import content_extractor, post_publisher
 from src.models.post import Post
@@ -248,9 +247,9 @@ def _build_post_data(
     }
 
 
-class SourceProcessorService:
-    def __init__(self, db: Session) -> None:
-        self._repo = PostRepository(db)
+class FeedProcessor:
+    def __init__(self, repository: PostRepository) -> None:
+        self._repo = repository
 
     def reextract_post(self, channel: Any, post_id: UUID) -> bool:
         """Refresh one post body while preserving stored metadata and identity."""
@@ -274,7 +273,7 @@ class SourceProcessorService:
             "parsed_at": datetime.now(timezone.utc),
             "content": content.strip(),
         }
-        snapshot = self._repo.create_post(data)
+        snapshot = self._repo.upsert_post(data)
         if snapshot is None:
             raise RuntimeError("Post save returned no snapshot")
         _publish_success_events(channel, snapshot, f"reextract-{uuid.uuid4()}")
@@ -357,7 +356,7 @@ class SourceProcessorService:
                     or not post_data["content"]
                 )
 
-                snapshot = self._repo.create_post(post_data)
+                snapshot = self._repo.upsert_post(post_data)
                 if snapshot is None:
                     raise RuntimeError("Post save returned no snapshot")
                 stored_posts[item_guid] = snapshot

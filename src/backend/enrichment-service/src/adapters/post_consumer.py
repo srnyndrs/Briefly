@@ -6,36 +6,36 @@ from typing import Any
 
 import pika
 from pika.adapters.blocking_connection import (
-    BlockingConnection,
     BlockingChannel,
+    BlockingConnection,
 )
 from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 
+from src.adapters.result_publisher import publish_result
 from src.config.settings import settings
 from src.repositories.enrichment_repository import StoredEnrichment
-from src.services.post_processor import PostEventProcessor
+from src.services.post_processor import PostProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class PostConsumer:
-    def __init__(self, process_event: PostEventProcessor) -> None:
-        self._process_event = process_event
+    def __init__(self, processor: PostProcessor) -> None:
+        self._processor = processor
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
-        self._worker: threading.Thread | None = None # Why?
+        self._worker: threading.Thread | None = None
 
     def run(self) -> None:
         delay = 1
         while not self._stop_event.is_set():
             try:
-                ### ---
+                # Wait for old delivery work before reconnecting its broker channel.
                 while self._worker is not None and self._worker.is_alive():
                     self._worker.join(timeout=0.1)
                     if self._stop_event.is_set():
                         return
-                ### ---
                 self._connect_and_consume()
                 delay = 1
             except Exception as exc:
@@ -46,7 +46,6 @@ class PostConsumer:
                     exc,
                     delay,
                 )
-                # time.sleep(delay)
                 self._stop_event.wait(delay)
                 delay = min(delay * 2, 60)
 
@@ -69,9 +68,10 @@ class PostConsumer:
     def _connect_and_consume(self) -> None:
         params = pika.URLParameters(settings.rabbitmq_url)
         params.blocked_connection_timeout = settings.blocked_timeout_seconds
-        self._connection = BlockingConnection(params)
+        connection = BlockingConnection(params)
+        self._connection = connection
         try:
-            self._channel = self._connection.channel()
+            self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
 
             self._channel.exchange_declare(
@@ -120,15 +120,13 @@ class PostConsumer:
             )
             self._channel.start_consuming()
         finally:
-            if self._connection.is_open:
-                self._connection.close()
-            self._channel = None # Why
-            self._connection = None # Why
-
-    def _service_connection(self) -> None:
-        if self._connection is None or not self._connection.is_open:
-            raise ConnectionWrongStateError("Consumer connection is closed")
-        self._connection.process_data_events(time_limit=0)
+            try:
+                if connection.is_open:
+                    connection.close()
+            finally:
+                if self._connection is connection:
+                    self._channel = None
+                    self._connection = None
 
     def _on_message(
         self, ch: Any, method: Any, properties: Any, body: bytes
@@ -154,7 +152,7 @@ class PostConsumer:
         saved = None
         error = None
         try:
-            saved = self._process_event(json.loads(body))
+            saved = self._processor.process(json.loads(body))
         except Exception as exc:
             error = exc
         self._schedule(connection, self._complete, delivery_tag, saved, error)
@@ -173,6 +171,7 @@ class PostConsumer:
             )
 
     def _is_current(self, connection: BlockingConnection) -> bool:
+        # A worker may finish after reconnect; settle only on its original channel.
         return (
             not self._stop_event.is_set()
             and connection is self._connection
@@ -197,7 +196,9 @@ class PostConsumer:
             self._settle(connection, delivery_tag, saved, None)
             return
         try:
-            self._process_event.publish(saved, self._channel)
+            if saved.result_event is None or saved.event_id is None:
+                raise RuntimeError("Pending result has no saved event")
+            publish_result(self._channel, saved.result_event)
         except Exception as exc:
             self._settle(connection, delivery_tag, saved, exc)
             return
@@ -217,7 +218,7 @@ class PostConsumer:
     ) -> None:
         error = None
         try:
-            saved = self._process_event.mark_published(saved)
+            saved = self._processor.mark_published(saved)
         except Exception as exc:
             error = exc
         self._schedule(connection, self._settle, delivery_tag, saved, error)

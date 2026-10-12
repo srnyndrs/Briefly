@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.adapters.service_clients import (

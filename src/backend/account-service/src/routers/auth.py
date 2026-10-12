@@ -27,9 +27,7 @@ from src.services.auth_service import AuthError, AuthService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post(
-    "/register", response_model=TokenPairResponse, status_code=201
-)
+@router.post("/register", response_model=TokenPairResponse, status_code=201)
 def register(
     body: RegisterRequest,
     service: AccountService = Depends(get_account_service),
@@ -76,9 +74,7 @@ def refresh(
     service: AuthService = Depends(get_auth_service),
 ) -> TokenPairResponse:
     try:
-        access_token, refresh_token = service.refresh_tokens(
-            body.refresh_token
-        )
+        access_token, refresh_token = service.refresh_tokens(body.refresh_token)
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

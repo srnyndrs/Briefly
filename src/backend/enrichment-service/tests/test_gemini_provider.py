@@ -258,8 +258,22 @@ def test_evaluation_rejects_example_overlap(tmp_path: Path) -> None:
         )
 
 
-def test_examples_file_has_valid_labels() -> None:
-    path = Path(__file__).resolve().parents[1] / "examples" / "categories.jsonl"
+def test_load_articles_accepts_valid_labeled_examples(tmp_path: Path) -> None:
+    path = tmp_path / "categories.jsonl"
+    path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "id": f"example-{index}",
+                    "title": f"Example {index}",
+                    "category_ids": ["science"],
+                }
+            )
+            + "\n"
+            for index in range(6)
+        ),
+        encoding="utf-8",
+    )
     assert len(load_articles(path)) == 6
 
 

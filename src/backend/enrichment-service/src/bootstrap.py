@@ -13,9 +13,9 @@ from src.config.database import SessionLocal
 from src.config.settings import settings
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.services.categories import CATEGORY_TAXONOMY_VERSION
-from src.services.classification import ArticleInput, INPUT_POLICY_VERSION
-from src.services.enrichment import EnrichmentService
-from src.services.post_processor import PostEventProcessor
+from src.services.classification import INPUT_POLICY_VERSION, ArticleInput
+from src.services.enrichment_service import EnrichmentService
+from src.services.post_processor import PostProcessor
 from src.services.provider import PROMPT_VERSION, instructions
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def enrichment_version(model: str, digest: str, prompt: str) -> str:
     return f"ollama-{hashlib.sha256(encoded).hexdigest()}"
 
 
-def create_post_processor() -> PostEventProcessor:
+def create_post_processor() -> PostProcessor:
     """Use the configured model and the existing scoped repository sessions."""
     if not settings.ollama_model or not settings.ollama_model.strip():
         raise ValueError("OLLAMA_MODEL is required for runtime enrichment")
@@ -66,4 +66,4 @@ def create_post_processor() -> PostEventProcessor:
         classify,
         version,
     )
-    return PostEventProcessor(service)
+    return PostProcessor(service)

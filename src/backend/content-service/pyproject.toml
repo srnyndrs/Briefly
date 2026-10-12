@@ -43,5 +43,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 80
 
+[tool.ruff.lint]
+extend-select = ["I"]
+
 [tool.ruff.format]
 quote-style = "double"
