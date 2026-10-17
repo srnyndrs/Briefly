@@ -93,7 +93,7 @@ def test_gemini_sends_shared_prompt_and_parses_result(monkeypatch) -> None:
     config = payload["generationConfig"]
     assert config["temperature"] == 0
     assert config["maxOutputTokens"] == 128
-    assert config["responseFormat"]["text"]["mimeType"] == "application/json"
+    assert config["responseFormat"]["text"]["mimeType"] == "APPLICATION_JSON"
     assert (
         config["responseFormat"]["text"]["schema"]["properties"][
             "category_ids"

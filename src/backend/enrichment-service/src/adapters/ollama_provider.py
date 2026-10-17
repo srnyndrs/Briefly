@@ -115,6 +115,18 @@ class OllamaProvider:
             "format": ollama_category_schema(),
             "options": GENERATION_OPTIONS,
         }
+        content, data = self._chat(payload)
+        response_model = data.get("model", self.model)
+        if not isinstance(response_model, str) or not response_model:
+            raise ValueError("Provider returned invalid model")
+        return ProviderResult(
+            category_ids=parse_categories(json.loads(content)),
+            model=response_model,
+            input_tokens=_tokens(data.get("prompt_eval_count")),
+            output_tokens=_tokens(data.get("eval_count")),
+        )
+
+    def _chat(self, payload: dict) -> tuple[str, dict]:
         request = Request(
             f"{self.base_url}/api/chat",
             data=json.dumps(payload).encode("utf-8"),
@@ -151,13 +163,4 @@ class OllamaProvider:
         content = message.get("content")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("Ollama returned no answer content")
-        categories = parse_categories(json.loads(content))
-        response_model = data.get("model", self.model)
-        if not isinstance(response_model, str) or not response_model:
-            raise ValueError("Provider returned invalid model")
-        return ProviderResult(
-            category_ids=categories,
-            model=response_model,
-            input_tokens=_tokens(data.get("prompt_eval_count")),
-            output_tokens=_tokens(data.get("eval_count")),
-        )
+        return content, data

@@ -144,3 +144,4 @@ cython_debug/
 
 # Local article samples and evaluation output
 .local-evaluation/
+evaluation

@@ -53,12 +53,24 @@ class GeminiProvider:
                 "maxOutputTokens": 128,
                 "responseFormat": {
                     "text": {
-                        "mimeType": "application/json",
+                        "mimeType": "APPLICATION_JSON",
                         "schema": category_schema(),
                     }
                 },
             },
         }
+        data = self._post(payload)
+        content = self._content(data)
+        categories = parse_categories(json.loads(content))
+        usage = data.get("usageMetadata") or {}
+        return ProviderResult(
+            category_ids=categories,
+            model=data.get("modelVersion") or self.model,
+            input_tokens=_tokens(usage.get("promptTokenCount")),
+            output_tokens=_tokens(usage.get("candidatesTokenCount")),
+        )
+
+    def _post(self, payload: dict) -> dict:
         request = Request(
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model}:generateContent",
@@ -97,23 +109,29 @@ class GeminiProvider:
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise ValueError("Provider response must be an object")
+        return data
+
+    @staticmethod
+    def _content(data: dict) -> str:
         candidates = data.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise ValueError("Gemini returned no candidate")
         candidate = candidates[0]
+        if not isinstance(candidate, dict):
+            raise ValueError("Provider candidate must be an object")
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Provider response did not finish normally")
-        parts = candidate["content"]["parts"]
+        body = candidate.get("content")
+        parts = body.get("parts") if isinstance(body, dict) else None
+        if not isinstance(parts, list) or any(
+            not isinstance(part, dict)
+            or ("text" in part and not isinstance(part["text"], str))
+            for part in parts
+        ):
+            raise ValueError("Provider returned invalid content parts")
         content = "".join(
             part["text"]
             for part in parts
             if "text" in part and not part.get("thought")
         )
-        categories = parse_categories(json.loads(content))
-        usage = data.get("usageMetadata") or {}
-        return ProviderResult(
-            category_ids=categories,
-            model=data.get("modelVersion") or self.model,
-            input_tokens=_tokens(usage.get("promptTokenCount")),
-            output_tokens=_tokens(usage.get("candidatesTokenCount")),
-        )
+        return content
