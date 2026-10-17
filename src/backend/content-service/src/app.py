@@ -5,7 +5,11 @@ from contextlib import asynccontextmanager
 import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
-from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.logging import (
+    LoggingIntegration,
+    ignore_logger,
+    ignore_logger_for_sentry_logs,
+)
 from sqlalchemy.orm import Session
 
 from src.adapters.feed_consumer import FeedConsumer
@@ -32,6 +36,12 @@ if settings.sentry_dsn:
         integrations=[LoggingIntegration(sentry_logs_level=logging.WARNING)],
         enable_logs=True,
     )
+    for name in (
+        "pika.adapters.utils.connection_workflow",
+        "pika.adapters.blocking_connection",
+    ):
+        ignore_logger(name)
+        ignore_logger_for_sentry_logs(name)
 
 
 def _create_feed_processor(db: Session) -> FeedProcessor:
