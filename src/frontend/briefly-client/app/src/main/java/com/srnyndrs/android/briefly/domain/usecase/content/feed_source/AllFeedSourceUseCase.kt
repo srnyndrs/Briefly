@@ -5,7 +5,8 @@ import javax.inject.Inject
 class AllFeedSourceUseCase @Inject constructor(
     val getFeedSourceDetailsUseCase: GetFeedSourceDetailsUseCase,
     val getFeedSourceSubscriptionsUseCase: GetFeedSourceSubscriptionsUseCase,
-    val getFeedSourceUseCase: GetFeedSourcesUseCase,
+    val getFeedSourcesUseCase: GetFeedSourcesUseCase,
+    val discoverFeedSourceUseCase: DiscoverFeedSourceUseCase,
     val subscribeFeedSourceUseCase: SubscribeFeedSourceUseCase,
     val unsubscribeFeedSourceUseCase: UnsubscribeFeedSourceUseCase,
 )

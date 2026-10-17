@@ -28,7 +28,9 @@ fun PostSummaryResponseDto.toDomain(): Post {
         url = canonicalUrl,
         description = description,
         source = sourceTitle,
-        categories = categories?.map { Category.valueOf(it.uppercase()) },
+        categories = categories?.map { rawCategory ->
+            Category.valueOf(rawCategory.uppercase())
+        },
         imageUrl = imageRef,
         publishDate = publishedAt,
         hasContent = hasContent,
@@ -60,7 +62,7 @@ fun PostResponseDto.toDomain(): PostDetails {
         url = canonicalUrl,
         publishedAt = publishedAt ?: Instant.fromEpochMilliseconds(0),
         language = language,
-        source = sourceTitle
+        source = sourceTitle,
     )
 }
 
@@ -81,7 +83,7 @@ fun SubscriptionResponseDto.toDomain(): Subscription {
     return Subscription(
         userId = userId,
         sourceId = sourceId,
-        createdAt = createdAt
+        createdAt = createdAt,
     )
 }
 
@@ -96,7 +98,7 @@ fun SourceDetailsResponseDto.toDomain(): SourceDetails {
         subscribed = isSubscribed,
         verified = verified,
         followed = false, // TODO
-        lastUpdatedAt = updatedAt
+        lastUpdatedAt = updatedAt,
     )
 }
 

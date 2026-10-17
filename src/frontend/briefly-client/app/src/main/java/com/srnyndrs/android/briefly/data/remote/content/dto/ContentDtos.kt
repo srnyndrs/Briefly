@@ -161,6 +161,15 @@ data class SourceDiscoveryResultDto(
 
     val favicon: String? = null,
     val description: String? = null,
+
+    @SerialName("site_url")
+    val siteUrl: String? = null,
+
+    @SerialName("site_name")
+    val siteName: String? = null,
+
+    @SerialName("language")
+    val language: String? = null,
 )
 
 
@@ -274,5 +283,5 @@ data class SourceDetailsResponseDto(
     val updatedAt: Instant,
 
     @SerialName("is_subscribed")
-    val isSubscribed: Boolean
+    val isSubscribed: Boolean,
 )

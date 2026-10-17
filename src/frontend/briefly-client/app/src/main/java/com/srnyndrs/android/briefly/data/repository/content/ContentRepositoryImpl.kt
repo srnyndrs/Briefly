@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
 import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.ExploreFeed
@@ -17,6 +18,7 @@ import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
 import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
@@ -161,6 +163,17 @@ class ContentRepositoryImpl @Inject constructor(
 
             Result.success(result)
         }  catch (exception: Exception) {
+            Result.failure(exception)
+        }
+    }
+
+    override suspend fun discoverFeedSources(url: String): Result<List<SourceDiscoveryResult>> {
+        return try {
+            val response = contentApiService.discoverSources(SourceDiscoverRequestDto(url))
+            val result = response.map { it.toDomain() }
+
+            Result.success(result)
+        } catch (exception: Exception) {
             Result.failure(exception)
         }
     }

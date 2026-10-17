@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,11 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.CheckBadge
-import com.composables.icons.heroicons.outline.Heart
-import com.composables.icons.heroicons.outline.ShieldCheck
-import com.composables.icons.heroicons.solid.Heart
 import com.composables.icons.heroicons.solid.Photo
-import com.composables.icons.heroicons.solid.ShieldCheck
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.SearchTextField
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem

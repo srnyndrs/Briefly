@@ -9,6 +9,7 @@ import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
 import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
+import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
 import com.srnyndrs.android.briefly.domain.model.content.Subscription
 import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
@@ -22,6 +23,7 @@ interface ContentRepository {
     suspend fun fetchFeedSources(query: String? = null): Result<List<Source>>
     suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions>
     suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>>
+    suspend fun discoverFeedSources(url: String): Result<List<SourceDiscoveryResult>>
     suspend fun getFeedSourceDetails(sourceId: String): Result<SourceDetails>
     suspend fun subscribeFeedSource(sourceId: String): Result<Subscription>
     suspend fun unsubscribeFeedSource(sourceId: String): Result<String>

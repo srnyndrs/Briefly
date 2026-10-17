@@ -2,9 +2,7 @@ package com.srnyndrs.android.briefly.ui.screen.main.screen.feed_sources
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourcesUseCase
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.SubscribeFeedSourceUseCase
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.UnsubscribeFeedSourceUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.AllFeedSourceUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,9 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FeedSourcesViewModel @Inject constructor(
-    private val getFeedSourcesUseCase: GetFeedSourcesUseCase,
-    private val subscribeFeedSourceUseCase: SubscribeFeedSourceUseCase,
-    private val unsubscribeFeedSourceUseCase: UnsubscribeFeedSourceUseCase,
+    private val allFeedSourceUseCase: AllFeedSourceUseCase,
 ): ViewModel() {
 
     private val _state = MutableStateFlow(FeedSourcesState())
@@ -41,6 +37,10 @@ class FeedSourcesViewModel @Inject constructor(
                 val query = event.query
                 getFeedSources(query)
             }
+            is FeedSourcesEvent.DiscoverFeedSource -> {
+                val url = event.url
+                discoverFeedSources(url)
+            }
             is FeedSourcesEvent.SubscribeFeedSource -> {
                 val sourceId = event.sourceId
                 subscribeFeedSource(sourceId)
@@ -55,7 +55,7 @@ class FeedSourcesViewModel @Inject constructor(
     private fun getFeedSources(query: String? = null) = viewModelScope.launch {
         _state.value = _state.value.copy(results = UiState.Loading)
         queryState.value = query
-        getFeedSourcesUseCase(query).fold(
+        allFeedSourceUseCase.getFeedSourcesUseCase(query).fold(
             onSuccess = { results ->
                 _state.value = _state.value.copy(
                     results = UiState.Success(data = results)
@@ -69,8 +69,19 @@ class FeedSourcesViewModel @Inject constructor(
         )
     }
 
+    private fun discoverFeedSources(url: String) = viewModelScope.launch {
+        allFeedSourceUseCase.discoverFeedSourceUseCase(url).fold(
+            onSuccess = {
+
+            },
+            onFailure = {
+
+            }
+        )
+    }
+
     private fun subscribeFeedSource(sourceId: String) = viewModelScope.launch {
-        subscribeFeedSourceUseCase(sourceId).fold(
+        allFeedSourceUseCase.subscribeFeedSourceUseCase(sourceId).fold(
             onSuccess = {
                 getFeedSources(queryState.value)
             },
@@ -81,7 +92,7 @@ class FeedSourcesViewModel @Inject constructor(
     }
 
     private fun unsubscribeFeedSource(sourceId: String) = viewModelScope.launch {
-        unsubscribeFeedSourceUseCase(sourceId).fold(
+        allFeedSourceUseCase.unsubscribeFeedSourceUseCase(sourceId).fold(
             onSuccess = { sourceId ->
                 getFeedSources(queryState.value)
             },
