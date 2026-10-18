@@ -50,6 +50,8 @@ if settings.sentry_dsn:
     for name in (
         "pika.adapters.utils.connection_workflow",
         "pika.adapters.blocking_connection",
+        "pika.adapters.utils.io_services_utils",
+        "pika.adapters.utils.selector_ioloop_adapter",
     ):
         ignore_logger(name)
         ignore_logger_for_sentry_logs(name)
