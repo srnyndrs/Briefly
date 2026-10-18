@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,36 @@ fun PostCard(
     isLoading: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
+    if (isLoading) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ShimmerItem(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(16f / 9f),
+                isLoading = true,
+            ) {}
+            Column(
+                modifier = Modifier.weight(2f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                repeat(2) {
+                    ShimmerItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .requiredHeight(if (it == 0) 32.dp else 48.dp),
+                        isLoading = true,
+                        cornerRadius = 5.dp,
+                    ) {}
+                }
+            }
+        }
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -51,7 +82,7 @@ fun PostCard(
         verticalAlignment = Alignment.Top
     ) {
         // Image
-        ShimmerItem(
+        Box(
             modifier = Modifier
                 .let {
                     if(imageUrl != null) {
@@ -67,7 +98,6 @@ fun PostCard(
                             )
                     } else it.size(0.dp)
                 },
-            isLoading = isLoading
         ) {
             if(imageUrl != null) {
                 RemoteImageContainer(
@@ -87,12 +117,10 @@ fun PostCard(
             verticalArrangement = Arrangement.Top
         ) {
             // Title
-            ShimmerItem(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 16.dp),
-                isLoading = isLoading,
-                cornerRadius = 5.dp
             ) {
                 Text(
                     modifier = Modifier.fillMaxWidth(),
@@ -108,12 +136,10 @@ fun PostCard(
                 modifier = Modifier.requiredHeight(4.dp)
             )
             // Description
-            ShimmerItem(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 16.dp),
-                isLoading = isLoading,
-                cornerRadius = 5.dp
             ) {
                 Text(
                     modifier = Modifier.fillMaxWidth(),

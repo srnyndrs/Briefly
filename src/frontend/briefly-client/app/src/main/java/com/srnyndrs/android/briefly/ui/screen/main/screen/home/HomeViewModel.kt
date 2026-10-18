@@ -64,7 +64,9 @@ class HomeViewModel @Inject constructor(
     fun onEvent(event: HomeEvent) {
         when (event) {
             is HomeEvent.SelectCategory -> _state.update {
-                it.copy(selectedCategory = event.category)
+                if (it.selectedCategory == event.category) it else it.copy(
+                    selectedCategory = event.category,
+                )
             }
         }
     }

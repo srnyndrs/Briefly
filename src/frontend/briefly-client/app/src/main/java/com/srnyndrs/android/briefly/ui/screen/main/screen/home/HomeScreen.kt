@@ -35,6 +35,7 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.ui.components.ShimmerGroup
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.TopAppBar
 import com.srnyndrs.android.briefly.ui.screen.main.components.PostRow
@@ -58,34 +59,36 @@ fun HomeScreen(
     val refreshState = posts.loadState.refresh
 
     when {
-        refreshState is LoadState.Loading && state.headlines.isEmpty() -> {
-            Column(
-                modifier = Modifier.then(modifier)
-                    .padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ShimmerItem(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                        .border(1.dp, MaterialTheme.colorScheme.onSurface, RectangleShape),
-                    isLoading = true,
-                    contentAlignment = Alignment.BottomCenter,
-                ) {}
-                repeat(3) {
+        refreshState is LoadState.Loading && state.categories == null -> {
+            ShimmerGroup {
+                Column(
+                    modifier = modifier
+                        .padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     ShimmerItem(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 42.dp),
+                            .aspectRatio(16f / 9)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface, RectangleShape),
                         isLoading = true,
-                        cornerRadius = 3.dp,
+                        contentAlignment = Alignment.BottomCenter,
                     ) {}
+                    repeat(3) {
+                        ShimmerItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 42.dp),
+                            isLoading = true,
+                            cornerRadius = 3.dp,
+                        ) {}
+                    }
                 }
             }
         }
 
-        refreshState is LoadState.Error && state.headlines.isEmpty() -> {
+        refreshState is LoadState.Error && state.categories == null -> {
             Box(
                 modifier = modifier
                     .padding(16.dp),
@@ -173,7 +176,7 @@ fun HomeScreen(
                 }
 
                 when {
-                    refreshState is LoadState.Loading && state.headlines.isNotEmpty() -> {
+                    refreshState is LoadState.Loading -> {
                         item(key = "content_loading") {
                             Box(
                                 modifier = Modifier
@@ -188,7 +191,7 @@ fun HomeScreen(
                         }
                     }
 
-                    refreshState is LoadState.Error && state.headlines.isNotEmpty() -> {
+                    refreshState is LoadState.Error -> {
                         item(key = "content_error") {
                             Column(
                                 modifier = Modifier
@@ -228,7 +231,7 @@ fun HomeScreen(
                 }
 
                 items(
-                    count = posts.itemCount,
+                    count = if (refreshState is LoadState.Loading) 0 else posts.itemCount,
                     key = { index -> posts.peek(index)?.id ?: "article_$index" },
                 ) { index ->
                     val article = posts[index] ?: return@items
@@ -257,7 +260,11 @@ fun HomeScreen(
                     )
                 }
 
-                when (val appendState = posts.loadState.append) {
+                when (
+                    val appendState = posts.loadState.append.takeUnless {
+                        refreshState is LoadState.Loading
+                    }
+                ) {
                     is LoadState.Loading -> item(key = "append_loading") {
                         Box(
                             modifier = Modifier

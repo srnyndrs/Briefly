@@ -1,39 +1,29 @@
 package com.srnyndrs.android.briefly.ui.components
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.srnyndrs.android.briefly.ui.model.UiState
 
 @Composable
-fun <T> UiStateContainer(
+fun <T : Any> UiStateContainer(
     modifier: Modifier = Modifier,
     state: UiState<T>,
-    content: @Composable (data: T?, isLoading: Boolean) -> Unit
+    idle: @Composable () -> Unit = {},
+    loading: @Composable () -> Unit,
+    error: @Composable (message: String) -> Unit,
+    success: @Composable (data: T) -> Unit,
 ) {
     Box(
-        modifier = Modifier.then(modifier),
-        contentAlignment = Alignment.Center
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
     ) {
-        when(state) {
-            is UiState.Idle -> {}
-            is UiState.Error -> {
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = state.message,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            else -> {
-                val data = (state as? UiState.Success)?.data
-                val isLoading = state == UiState.Loading
-
-                content(data, isLoading)
-            }
+        when (state) {
+            UiState.Idle -> idle()
+            UiState.Loading -> loading()
+            is UiState.Error -> error(state.message)
+            is UiState.Success -> success(state.data)
         }
     }
 }

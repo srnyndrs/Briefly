@@ -1,4 +1,10 @@
 <resources>
+    <string name="source_details_more_actions">Source actions</string>
+    <string name="source_details_block_source">Block source</string>
+    <string name="source_details_block_saving">Saving…</string>
+    <string name="source_details_block_loading">Loading block status…</string>
+    <string name="source_details_block_retry">Could not load block status. Try again</string>
+    <string name="source_details_block_failed">Could not save. Try the action again.</string>
     <string name="app_name">Briefly</string>
     <string name="session_unavailable">Unable to reach Briefly. Check your connection and try again.</string>
     <string name="session_retry">Try again</string>
@@ -72,4 +78,5 @@
     <string name="category_type_society">Society</string>
     <string name="category_type_automotive">Automotive</string>
     <string name="category_type_other">Other</string>
+    <string name="navigate_back">Back</string>
 </resources>

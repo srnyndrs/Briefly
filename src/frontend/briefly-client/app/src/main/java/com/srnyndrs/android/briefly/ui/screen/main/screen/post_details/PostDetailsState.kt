@@ -4,5 +4,5 @@ import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.ui.model.UiState
 
 data class PostDetailsState(
-    val details: UiState<PostDetails>
+    val details: UiState<PostDetails> = UiState.Idle,
 )

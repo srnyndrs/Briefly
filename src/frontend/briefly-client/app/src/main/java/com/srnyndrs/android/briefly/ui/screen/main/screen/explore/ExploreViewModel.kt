@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import androidx.paging.filter
 import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.usecase.content.feed.GetExploreFeedUseCase
@@ -50,6 +51,10 @@ class ExploreViewModel @Inject constructor(
                 }
                 exploreFeed.posts.collect { send(it) }
             }
+        }
+        .map { pagingData ->
+            val seenPostIds = mutableSetOf<String>()
+            pagingData.filter { post -> seenPostIds.add(post.id) }
         }
         .cachedIn(viewModelScope)
 

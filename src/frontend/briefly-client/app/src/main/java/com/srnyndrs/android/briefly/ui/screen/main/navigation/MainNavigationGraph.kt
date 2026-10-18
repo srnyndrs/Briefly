@@ -1,12 +1,17 @@
 package com.srnyndrs.android.briefly.ui.screen.main.navigation
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -15,22 +20,24 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.paging.compose.collectAsLazyPagingItems
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.components.UiStateContainer
-import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsViewModel
-import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsScreen
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeScreen
-import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreViewModel
-import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.SourceDetailsScreen
-import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.SourceDetailsViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.feed_sources.FeedSourcesScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.feed_sources.FeedSourcesViewModel
-import com.srnyndrs.android.briefly.ui.util.openCustomTab
-
-import androidx.paging.compose.collectAsLazyPagingItems
+import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeScreen
+import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeViewModel
+import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsEvent
+import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsScreen
+import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsViewModel
+import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.components.PostDetailsPlaceholder
 import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsViewModel
+import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.SourceDetailsScreen
+import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.SourceDetailsViewModel
+import com.srnyndrs.android.briefly.ui.util.openCustomTab
 
 @Composable
 fun MainNavigationGraph(
@@ -130,17 +137,34 @@ fun MainNavigationGraph(
 
                 UiStateContainer(
                     modifier = Modifier.fillMaxSize(),
-                    state = state
-                ) { data, isLoading ->
-                    PostDetailsScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        isLoading = isLoading,
-                        article = data,
-                        onNavigationEvent = handleNavigationEvent
-                    ) { event ->
-                        viewModel.onEvent(event)
-                    }
-                }
+                    state = state.details,
+                    loading = {
+                        PostDetailsPlaceholder(
+                            modifier = Modifier.fillMaxSize(),
+                            onBack = { handleNavigationEvent(MainNavigationEvent.NavigateBack) },
+                        )
+                    },
+                    error = { message ->
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(text = message)
+                            Button(onClick = { viewModel.onEvent(PostDetailsEvent.RetryLoad) }) {
+                                Text(text = stringResource(R.string.session_retry))
+                            }
+                        }
+                    },
+                    success = { data ->
+                        PostDetailsScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            article = data,
+                            onNavigationEvent = handleNavigationEvent,
+                            onEvent = viewModel::onEvent,
+                        )
+                    },
+                )
             } ?: Column {
                 // TODO: handle null state
             }

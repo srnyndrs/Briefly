@@ -41,6 +41,9 @@ data class ExploreRequestDto(
 
     val sort: String? = null,
 
+    @SerialName("apply_user_preferences")
+    val applyUserPreferences: Boolean = true,
+
     @SerialName("include_filter_options")
     val includeFilterOptions: Boolean = false,
 )

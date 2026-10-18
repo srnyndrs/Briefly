@@ -10,8 +10,14 @@ class GetArticlesUseCase @Inject constructor(
     suspend operator fun invoke(
         page: Int? = 1,
         pageSize: Int? = 20,
-        sourceIds: List<String>? = null
+        sourceIds: List<String>? = null,
+        applyUserPreferences: Boolean = true,
     ): Result<PostPagingResult> {
-        return repository.fetchArticles(page, pageSize, sourceIds)
+        return repository.fetchArticles(
+            page = page,
+            pageSize = pageSize,
+            sourceIds = sourceIds,
+            applyUserPreferences = applyUserPreferences,
+        )
     }
 }

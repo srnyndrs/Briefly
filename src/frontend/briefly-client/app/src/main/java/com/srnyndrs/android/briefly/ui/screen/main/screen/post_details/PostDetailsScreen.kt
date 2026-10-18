@@ -66,7 +66,7 @@ import com.composables.icons.heroicons.outline.Tag
 import com.composables.icons.heroicons.solid.SpeakerXMark
 import com.srnyndrs.android.briefly.domain.model.content.PostDetails
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
-import com.srnyndrs.android.briefly.ui.components.ShimmerItem
+import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.components.PostDetailsPlaceholder
 import com.srnyndrs.android.briefly.ui.components.UiStateContainer
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.preview.PostDetailsStateProvider
@@ -83,8 +83,7 @@ private enum class PostDetailsDialogContent {
 @Composable
 fun PostDetailsScreen(
     modifier: Modifier = Modifier,
-    isLoading: Boolean = false,
-    article: PostDetails?,
+    article: PostDetails,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
     onEvent: (PostDetailsEvent) -> Unit,
 ) {
@@ -110,16 +109,15 @@ fun PostDetailsScreen(
                 contentAlignment = Alignment.TopCenter
             ) {
                 // Image
-                ShimmerItem(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .requiredHeight(356.dp),
-                    isLoading = isLoading
                 ) {
                     // Picture
                     RemoteImageContainer(
                         modifier = Modifier.fillMaxWidth(),
-                        imageUrl = article?.imageUrl ?: "",
+                        imageUrl = article.imageUrl.orEmpty(),
                         contentScale = ContentScale.Crop
                     )
                     // Fade layer
@@ -150,20 +148,18 @@ fun PostDetailsScreen(
                             .padding(top = 22.dp, start = 12.dp, end = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        if (isLoading || article?.categories.orEmpty().isNotEmpty()) {
-                            ShimmerItem(
+                        if (!article.categories.isNullOrEmpty()) {
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(bottom = 12.dp),
-                                isLoading = isLoading,
-                                cornerRadius = 8.dp,
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    article?.categories.orEmpty().forEach { category ->
+                                    article.categories.orEmpty().forEach { category ->
                                         Box(
                                             modifier = Modifier
                                                 .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
@@ -184,68 +180,29 @@ fun PostDetailsScreen(
                                         }
                                     }
                                 }
-                                //PostCategoryChips(categories = article?.categories.orEmpty())
+                                //PostCategoryChips(categories = article.categories)
 
                             }
                         }
-                        /*
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Category
-                            ShimmerItem(
-                                modifier = Modifier
-                                    .defaultMinSize(minHeight = 36.dp, minWidth = 56.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if(isLoading) MaterialTheme.colorScheme.onSurface.copy(0.112f)
-                                        else Color.Transparent
-                                    ),
-                                isLoading = isLoading,
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (!article?.category.isNullOrBlank()) {
-                                    Text(
-                                        modifier = Modifier.padding(
-                                            horizontal = 8.dp,
-                                            vertical = 2.dp
-                                        ),
-                                        text = article.category,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            }
-                        }
-                         */
                         // Title
-                        ShimmerItem(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp),
-                            isLoading = isLoading,
-                            cornerRadius = 3.dp
                         ) {
                             Text(
                                 modifier = Modifier.fillMaxWidth(),
-                                text = article?.title ?: "",
+                                text = article.title,
                                 style = MaterialTheme.typography.titleLarge,
                                 textAlign = TextAlign.Start,
                                 minLines = 1,
                             )
                         }
                         // Information's
-                        ShimmerItem(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 26.dp),
-                            isLoading = isLoading,
-                            cornerRadius = 3.dp
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -256,9 +213,9 @@ fun PostDetailsScreen(
                                     modifier = Modifier
                                         .wrapContentSize()
                                         .clickable(
-                                            enabled = article?.sourceId != null
+                                            enabled = article.sourceId != null
                                         ) {
-                                            article?.sourceId?.let {
+                                            article.sourceId?.let {
                                                 onNavigationEvent(
                                                     MainNavigationEvent.ShowSourceDetails(
                                                         it
@@ -268,7 +225,7 @@ fun PostDetailsScreen(
                                         }
                                 ) {
                                     Text(
-                                        text = article?.source ?: "",
+                                        text = article.source ?: "",
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                 }
@@ -279,7 +236,7 @@ fun PostDetailsScreen(
                                         .background(MaterialTheme.colorScheme.onSurface),
                                 )
                                 Text(
-                                    text = article?.publishedAt?.toRelativeArticleTime() ?: "",
+                                    text = article.publishedAt.toRelativeArticleTime(),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
@@ -290,26 +247,14 @@ fun PostDetailsScreen(
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
                         // Content
-                        if (isLoading) {
-                            repeat(5) {
-                                ShimmerItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .requiredHeight(24.dp),
-                                    isLoading = true,
-                                    cornerRadius = 3.dp
-                                ) {}
-                            }
-                        } else {
-                            Text(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = article?.content ?: "",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    letterSpacing = TextUnit.Unspecified
-                                ),
-                                textAlign = TextAlign.Justify
-                            )
-                        }
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = article.content.orEmpty(),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                letterSpacing = TextUnit.Unspecified
+                            ),
+                            textAlign = TextAlign.Justify,
+                        )
                         Spacer(
                             modifier = Modifier.requiredHeight(72.dp)
                         )
@@ -380,7 +325,7 @@ fun PostDetailsScreen(
                         TextButton(
                             //modifier = Modifier.size(42.dp),
                             shape = RoundedCornerShape(8.dp),
-                            enabled = !isLoading,
+                            enabled = true,
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = Color.Transparent,
                                 disabledContainerColor = Color.Transparent,
@@ -415,7 +360,7 @@ fun PostDetailsScreen(
                         TextButton(
                             //modifier = Modifier.size(42.dp),
                             shape = RoundedCornerShape(8.dp),
-                            enabled = !isLoading,
+                            enabled = true,
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = Color.Transparent,
                                 disabledContainerColor = Color.Transparent,
@@ -450,7 +395,7 @@ fun PostDetailsScreen(
                         TextButton(
                             //modifier = Modifier.size(42.dp),
                             shape = RoundedCornerShape(8.dp),
-                            enabled = !isLoading,
+                            enabled = true,
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = Color.Transparent,
                                 disabledContainerColor = Color.Transparent,
@@ -462,7 +407,7 @@ fun PostDetailsScreen(
                                 color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
                             ),
                             onClick = {
-                                onNavigationEvent(MainNavigationEvent.OpenCustomTab(article?.url))
+                                onNavigationEvent(MainNavigationEvent.OpenCustomTab(article.url))
                             },
                         ) {
                             Row(
@@ -521,7 +466,7 @@ fun PostDetailsScreen(
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                     Text(
-                                        text = article?.author.orEmpty(),
+                                        text = article.author.orEmpty(),
                                         style = MaterialTheme.typography.bodyLarge,
                                     )
                                 }
@@ -531,7 +476,7 @@ fun PostDetailsScreen(
                                 LazyColumn(
                                     modifier = Modifier.fillMaxSize(),
                                 ) {
-                                    items(article?.keywords.orEmpty()) { keyword ->
+                                    items(article.keywords) { keyword ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -581,15 +526,23 @@ fun PostDetailsScreenPreview(
         Surface {
             UiStateContainer(
                 modifier = Modifier.fillMaxSize(),
-                state = state.details
-            ) { data, isLoading ->
-                PostDetailsScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    article = data,
-                    isLoading =  isLoading,
-                    onNavigationEvent = {}
-                ) {}
-            }
+                state = state.details,
+                loading = {
+                    PostDetailsPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = {},
+                    )
+                },
+                error = {},
+                success = { data ->
+                    PostDetailsScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        article = data,
+                        onNavigationEvent = {},
+                        onEvent = {},
+                    )
+                },
+            )
         }
     }
 }

@@ -19,7 +19,12 @@ interface ContentRepository {
     fun getHomeFeed(filter: HomePostFilter): HomeFeed
     fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>>
     fun getExploreFeed(filter: ExplorePostFilter): ExploreFeed
-    suspend fun fetchArticles(page: Int? = 1, pageSize: Int? = 20, sourceIds: List<String>? = null): Result<PostPagingResult>
+    suspend fun fetchArticles(
+        page: Int? = 1,
+        pageSize: Int? = 20,
+        sourceIds: List<String>? = null,
+        applyUserPreferences: Boolean = true,
+    ): Result<PostPagingResult>
     suspend fun fetchFeedSources(query: String? = null): Result<List<Source>>
     suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions>
     suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>>

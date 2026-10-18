@@ -111,7 +111,8 @@ class ContentRepositoryImpl @Inject constructor(
     override suspend fun fetchArticles(
         page: Int?,
         pageSize: Int?,
-        sourceIds: List<String>?
+        sourceIds: List<String>?,
+        applyUserPreferences: Boolean,
     ): Result<PostPagingResult> {
         return try {
             val response = contentApiService.getExplore(
@@ -119,6 +120,7 @@ class ContentRepositoryImpl @Inject constructor(
                     page = page ?: 1,
                     pageSize = pageSize ?: PAGE_SIZE,
                     sourceIds = sourceIds,
+                    applyUserPreferences = applyUserPreferences,
                 )
             )
             val items = response.items.map { it.toDomain() }

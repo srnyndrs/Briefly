@@ -39,14 +39,6 @@ fun MainScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val interactDrawer = {
-        scope.launch {
-            drawerState.apply {
-                if(isClosed) open() else close()
-            }
-        }
-    }
-
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -113,12 +105,14 @@ fun MainScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                AnimatedVisibility(
-                    visible = isTopBarShow
-                ) {
+                AnimatedVisibility(visible = isTopBarShow) {
                     TopAppBar(
                         modifier = Modifier.fillMaxWidth(),
-                        onMenuSelect = { interactDrawer() },
+                        onMenuSelect = {
+                            scope.launch {
+                                drawerState.open()
+                            }
+                        },
                         onProfileSelect = {
                             onProfileNavigation()
                         }

@@ -37,6 +37,10 @@ class ContentApiService (
 
     suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
         return client.get("explore") {
+            parameter(
+                key = "apply_user_preferences",
+                value = request.applyUserPreferences,
+            )
             parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)

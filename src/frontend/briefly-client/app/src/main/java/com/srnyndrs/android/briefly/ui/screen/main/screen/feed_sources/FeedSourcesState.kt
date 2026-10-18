@@ -4,5 +4,7 @@ import com.srnyndrs.android.briefly.domain.model.content.Source
 import com.srnyndrs.android.briefly.ui.model.UiState
 
 data class FeedSourcesState(
-    val results: UiState<List<Source>> = UiState.Idle
+    val results: UiState<List<Source>> = UiState.Idle,
+    val isRefreshing: Boolean = false,
+    val refreshError: String? = null,
 )

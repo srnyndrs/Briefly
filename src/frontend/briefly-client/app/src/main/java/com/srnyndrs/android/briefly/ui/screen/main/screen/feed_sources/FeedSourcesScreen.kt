@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -33,8 +36,10 @@ import androidx.compose.ui.unit.sp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.CheckBadge
 import com.composables.icons.heroicons.solid.Photo
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.SearchTextField
+import com.srnyndrs.android.briefly.ui.components.ShimmerGroup
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.TopAppBar
 import com.srnyndrs.android.briefly.ui.components.UiStateContainer
@@ -47,142 +52,162 @@ fun FeedSourcesScreen(
     modifier: Modifier = Modifier,
     state: FeedSourcesState,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
-    onEvent: (FeedSourcesEvent) -> Unit
+    onEvent: (FeedSourcesEvent) -> Unit,
 ) {
 
     val (searchText, setSearchText) = remember { mutableStateOf("") }
 
     Column(
-        modifier = Modifier.then(modifier),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Search
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SearchTextField(
                 modifier = Modifier.weight(1f),
                 value = searchText,
                 onValueChange = setSearchText,
-                placeholder = "Search feeds",
-                onSearch = {
-                    onEvent(FeedSourcesEvent.SearchFeedSource(searchText))
-                }
+                placeholder = "Search feeds", // TODO: stringResource
+                onSearch = { onEvent(FeedSourcesEvent.SearchFeedSource(searchText)) },
             )
         }
-        //
         Text(
             modifier = Modifier.fillMaxWidth(),
             text = "Results",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
-        // Results
         UiStateContainer(
             modifier = Modifier.fillMaxSize(),
-            state = state.results
-        ) { data, isLoading ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(22.dp)
-            ) {
-                if(isLoading) {
-                    items(3) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .requiredHeight(64.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Image
-                            ShimmerItem(
-                                modifier = Modifier.size(64.dp),
-                                isLoading = true,
-                                cornerRadius = 5.dp
-                            ) {}
-                            // Text
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                // Title
-                                ShimmerItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .defaultMinSize(minHeight = 28.dp),
-                                    isLoading = true,
-                                    cornerRadius = 5.dp
-                                ) {}
-                                // URL
-                                ShimmerItem(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .defaultMinSize(minHeight = 28.dp),
-                                    isLoading = true,
-                                    cornerRadius = 5.dp
-                                ) {}
-                            }
-                        }
-                    }
-                } else {
-                    if(data?.isEmpty() == true) {
-                        item {
-                            Text(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = "No results found for this query"
-                            )
-                        }
-                    } else {
-                        items(data!!) { feedSource ->
-                            val favourite = feedSource.isSubscribed
+            state = state.results,
+            loading = {
+                ShimmerGroup {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                    ) {
+                        items(3) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(56.dp)
+                                    .requiredHeight(64.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ShimmerItem(
+                                    modifier = Modifier.size(64.dp),
+                                    isLoading = true,
+                                    cornerRadius = 5.dp,
+                                ) {}
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    repeat(2) {
+                                        ShimmerItem(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .defaultMinSize(minHeight = 28.dp),
+                                            isLoading = true,
+                                            cornerRadius = 5.dp,
+                                        ) {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            error = { message ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(text = message, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { onEvent(FeedSourcesEvent.RetrySearch) }) {
+                        Text(text = stringResource(R.string.session_retry))
+                    }
+                }
+            },
+            success = { data ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                ) {
+                    if (state.isRefreshing) {
+                        item(key = "refresh_loading") {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                    state.refreshError?.let { message ->
+                        item(key = "refresh_error") {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = message,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                                Button(onClick = { onEvent(FeedSourcesEvent.RetrySearch) }) {
+                                    Text(text = stringResource(R.string.session_retry))
+                                }
+                            }
+                        }
+                    }
+                    if (data.isEmpty()) {
+                        item {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = "No results found for this query",
+                            )
+                        }
+                    } else {
+                        items(data) { feedSource ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .requiredHeight(64.dp)
                                     .clickable {
-                                        onNavigationEvent(MainNavigationEvent.ShowSourceDetails((feedSource.id)))
+                                        onNavigationEvent(
+                                            MainNavigationEvent.ShowSourceDetails(feedSource.id),
+                                        )
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Row(
                                     modifier = Modifier.weight(0.8f),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    // Image
                                     Box(
                                         modifier = Modifier.size(64.dp),
-                                        contentAlignment = Alignment.Center
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        feedSource.favicon?.let { imageUrl ->
+                                        if (feedSource.favicon != null) {
                                             RemoteImageContainer(
                                                 modifier = Modifier.fillMaxSize(),
-                                                imageUrl = imageUrl,
+                                                imageUrl = feedSource.favicon,
                                                 contentScale = ContentScale.Fit,
                                             )
-                                        } ?:
-                                        Icon(
-                                            modifier = Modifier.size(64.dp),
-                                            imageVector = Heroicons.Solid.Photo,
-                                            contentDescription = null
-                                        )
+                                        } else {
+                                            Icon(
+                                                modifier = Modifier.size(64.dp),
+                                                imageVector = Heroicons.Solid.Photo,
+                                                contentDescription = null,
+                                            )
+                                        }
                                     }
-                                    // Text
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                                    ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            // Title
                                             Text(
                                                 modifier = Modifier.wrapContentWidth(),
                                                 text = feedSource.title,
@@ -191,81 +216,46 @@ fun FeedSourcesScreen(
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyLarge.copy(
                                                     fontSize = 20.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
+                                                    fontWeight = FontWeight.Medium,
+                                                ),
                                             )
-                                            // Verified badge
-                                            if(feedSource.verified) {
+                                            if (feedSource.verified) {
                                                 Icon(
                                                     modifier = Modifier.size(22.dp),
                                                     imageVector = Heroicons.Outline.CheckBadge,
                                                     tint = MaterialTheme.colorScheme.primary,
-                                                    contentDescription = null
+                                                    contentDescription = null,
                                                 )
                                             }
                                         }
-                                        // URL
                                         Text(
                                             modifier = Modifier.fillMaxWidth(),
                                             text = feedSource.url,
                                             minLines = 1,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.labelLarge
+                                            style = MaterialTheme.typography.labelLarge,
                                         )
                                     }
-                                }
-                                Row(
-                                    modifier = Modifier.weight(0.15f),
-                                    horizontalArrangement = Arrangement.End,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    /*
-                                    IconButton(
-                                        modifier = Modifier.size(48.dp),
-                                        onClick = {
-                                            if(!favourite) {
-                                                onEvent(FeedSourcesEvent.SubscribeFeedSource(feedSource.id))
-                                            } else {
-                                                onEvent(FeedSourcesEvent.UnsubscribeFeedSource(feedSource.id))
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            modifier = Modifier.size(36.dp),
-                                            imageVector =
-                                                if(!favourite) {
-                                                    Heroicons.Outline.Heart
-                                                } else {
-                                                    Heroicons.Solid.Heart
-                                                },
-                                            contentDescription = null
-                                        )
-                                    }
-                                     */
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
+            },
+        )
     }
 }
 
 @PreviewLightDark
 @Composable
 fun FeedSourcesScreenPreview(
-    @PreviewParameter(FeedSourcesStateProvider::class) state: FeedSourcesState
+    @PreviewParameter(FeedSourcesStateProvider::class) state: FeedSourcesState,
 ) {
     BrieflyTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    onMenuSelect = {}
-                ) { }
-            }
+            topBar = { TopAppBar(onMenuSelect = {}) { } },
         ) { paddingValues ->
             FeedSourcesScreen(
                 modifier = Modifier
@@ -273,8 +263,9 @@ fun FeedSourcesScreenPreview(
                     .padding(paddingValues)
                     .padding(6.dp),
                 state = state,
-                onNavigationEvent = {}
-            ) { }
+                onNavigationEvent = {},
+                onEvent = {},
+            )
         }
     }
 }

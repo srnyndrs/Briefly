@@ -12,10 +12,12 @@ class SourceDetailsStateProvider : PreviewParameterProvider<SourceDetailsState> 
     @OptIn(ExperimentalTime::class)
     override val values = sequenceOf(
         SourceDetailsState(
+            blockStatus = UiState.Loading,
             feedDetails = UiState.Loading,
             articles = UiState.Loading,
         ),
         SourceDetailsState(
+            blockStatus = UiState.Success(false),
             feedDetails = UiState.Success(
                 data = SourceDetails(
                     id = "1",

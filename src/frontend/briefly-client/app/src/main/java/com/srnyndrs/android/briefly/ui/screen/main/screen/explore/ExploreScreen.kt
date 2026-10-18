@@ -14,6 +14,7 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -219,9 +220,30 @@ fun ExploreScreen(
 
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp),
+                        modifier = Modifier.padding(top = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
+                        when (refreshState) {
+                            is LoadState.Loading -> item(key = "refresh_loading") {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
+                            is LoadState.Error -> item(key = "refresh_error") {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = refreshState.error.localizedMessage
+                                            ?: stringResource(R.string.home_load_error),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                    OutlinedButton(onClick = posts::retry) {
+                                        Text(text = stringResource(R.string.home_retry))
+                                    }
+                                }
+                            }
+                            else -> Unit
+                        }
                         items(
                             count = posts.itemCount,
                             key = { index -> posts.peek(index)?.id ?: "explore_$index" },
@@ -248,6 +270,34 @@ fun ExploreScreen(
                                 thickness = 1.dp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                             )
+                        }
+                        when (val appendState = posts.loadState.append) {
+                            is LoadState.Loading -> item(key = "append_loading") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            is LoadState.Error -> item(key = "append_error") {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = appendState.error.localizedMessage
+                                            ?: stringResource(R.string.home_append_error),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                    OutlinedButton(onClick = posts::retry) {
+                                        Text(text = stringResource(R.string.home_retry))
+                                    }
+                                }
+                            }
+                            else -> Unit
                         }
                     }
                 }

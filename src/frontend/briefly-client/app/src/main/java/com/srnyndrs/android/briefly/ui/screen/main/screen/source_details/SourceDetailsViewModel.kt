@@ -4,16 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticlesUseCase
 import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.AllFeedSourceUseCase
+import com.srnyndrs.android.briefly.domain.usecase.profile.GetProfileUseCase
+import com.srnyndrs.android.briefly.domain.usecase.profile.SetSourceBlockedUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.ExperimentalTime
 
@@ -22,6 +21,8 @@ class SourceDetailsViewModel @AssistedInject constructor(
     @Assisted private val sourceId: String,
     private val feedSourceUseCases: AllFeedSourceUseCase,
     private val getArticlesUseCase: GetArticlesUseCase,
+    private val getProfileUseCase: GetProfileUseCase,
+    private val setSourceBlockedUseCase: SetSourceBlockedUseCase,
 ): ViewModel() {
 
     @AssistedFactory
@@ -31,18 +32,25 @@ class SourceDetailsViewModel @AssistedInject constructor(
 
     private val _state = MutableStateFlow(SourceDetailsState())
     val state = _state.asStateFlow()
-        .onStart {
-            fetchSourceDetails()
-            fetchFeedArticles()
-        }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            SourceDetailsState()
-        )
+
+    init {
+        fetchBlockStatus()
+        fetchSourceDetails()
+        fetchFeedArticles()
+    }
 
     fun onEvent(event: SourceDetailsEvent) {
         when(event) {
+            SourceDetailsEvent.RetryBlockStatus -> {
+                if (_state.value.blockStatus is UiState.Error) fetchBlockStatus()
+            }
+            SourceDetailsEvent.ToggleBlock -> changeBlockState()
+            SourceDetailsEvent.RetryFeedDetails -> {
+                if (_state.value.feedDetails is UiState.Error) fetchSourceDetails()
+            }
+            SourceDetailsEvent.RetryArticles -> {
+                if (_state.value.articles is UiState.Error) fetchFeedArticles()
+            }
             is SourceDetailsEvent.ToggleFollow -> {
                 val isFollowed = event.followed
                 changeFollowState(!isFollowed)
@@ -51,6 +59,45 @@ class SourceDetailsViewModel @AssistedInject constructor(
                 val isSubscribed = event.subscribed
                 changeSubscription(!isSubscribed)
             }
+        }
+    }
+
+    private fun fetchBlockStatus() = viewModelScope.launch {
+        _state.value = _state.value.copy(blockStatus = UiState.Loading)
+        getProfileUseCase().fold(
+            onSuccess = { profile ->
+                _state.value = _state.value.copy(
+                    blockStatus = UiState.Success(sourceId in profile.preferences.blockedSourceIds),
+                )
+            },
+            onFailure = {
+                _state.value = _state.value.copy(blockStatus = UiState.Error("Unable to load block status"))
+            },
+        )
+    }
+
+    private fun changeBlockState() {
+        val blocked = (_state.value.blockStatus as? UiState.Success)?.data ?: return
+        if (_state.value.isUpdatingBlock) return
+        _state.value = _state.value.copy(isUpdatingBlock = true, blockUpdateFailed = false)
+        viewModelScope.launch {
+            setSourceBlockedUseCase(
+                sourceId = sourceId,
+                blocked = !blocked,
+            ).fold(
+                onSuccess = { preferences ->
+                    _state.value = _state.value.copy(
+                        blockStatus = UiState.Success(sourceId in preferences.blockedSourceIds),
+                        isUpdatingBlock = false,
+                    )
+                },
+                onFailure = {
+                    _state.value = _state.value.copy(
+                        isUpdatingBlock = false,
+                        blockUpdateFailed = true,
+                    )
+                },
+            )
         }
     }
 
@@ -76,7 +123,10 @@ class SourceDetailsViewModel @AssistedInject constructor(
         _state.value = _state.value.copy(
             articles = UiState.Loading
         )
-        getArticlesUseCase(sourceIds = listOf(sourceId)).fold(
+        getArticlesUseCase(
+            sourceIds = listOf(sourceId),
+            applyUserPreferences = false,
+        ).fold(
             onSuccess = { (_, _, items) ->
                 _state.value = _state.value.copy(
                     articles = UiState.Success(items)
