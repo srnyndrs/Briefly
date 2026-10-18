@@ -308,6 +308,34 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions() -> None:
         "Newer English Story",
     ]
 
+    for apply_preferences in (True, False):
+        response = client.get(
+            "/explore",
+            params={
+                "source_ids": blocked_source_id,
+                "apply_user_preferences": apply_preferences,
+                "include_filter_options": True,
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == (0 if apply_preferences else 1)
+        assert [item["title"] for item in payload["items"]] == (
+            [] if apply_preferences else ["Blocked Story"]
+        )
+
+    response = client.get(
+        "/explore",
+        params={"apply_user_preferences": False, "languages": "en"},
+    )
+    assert response.status_code == 200
+    assert {item["title"] for item in response.json()["items"]} == {
+        "Older English Story",
+        "Newer English Story",
+        "Blocked Story",
+        "Muted Story",
+    }
+
 
 def test_auth_login_endpoint(monkeypatch) -> None:
     client = _build_client()
@@ -1513,6 +1541,10 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch) -> None:
     assert payload["total"] == 1
     assert payload["items"][0]["title"] == "Clean Post"
 
+    response = client.get("/explore", params={"apply_user_preferences": False})
+    assert response.status_code == 200
+    assert response.json()["total"] == 3
+
     monkeypatch.setattr(
         "src.services.feed_service.account_list_subscriptions",
         lambda _: [
@@ -1528,8 +1560,10 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch) -> None:
     assert [item["title"] for item in payload["headlines"]] == ["Clean Post"]
 
 
+@pytest.mark.parametrize("apply_preferences", ["true", "false"])
 def test_explore_explicit_source_filter_cannot_include_unverified(
     monkeypatch,
+    apply_preferences: str,
 ) -> None:
     client = _build_client()
     db = next(app.dependency_overrides[get_db]())
@@ -1578,6 +1612,7 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
         params=[
             ("source_ids", verified_source_id),
             ("source_ids", unverified_source_id),
+            ("apply_user_preferences", apply_preferences),
         ],
     )
 

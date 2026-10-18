@@ -60,6 +60,10 @@ sources, subject to saved languages and visibility exclusions. `GET /explore`
 returns posts from verified Sources only, with explicit category, language,
 source, date, and optional full-text search filters; it applies the same
 visibility exclusions without applying saved languages or subscriptions.
+Set `apply_user_preferences=false` on `/explore` to skip blocked sources,
+muted keywords, and muted categories when deliberately browsing a source.
+The parameter defaults to `true`; explicit filters and the verified-source
+allowlist still apply when it is `false`.
 Before each Explore query, public-api fetches current verified Source IDs from
 crawler-service and applies them as a hard allowlist to items, totals, and
 filter options. Repeatable `source_ids` selections intersect that allowlist;

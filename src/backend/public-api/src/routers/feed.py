@@ -140,6 +140,10 @@ def get_explore(
     from_: datetime | None = Query(default=None, alias="from"),
     to_: datetime | None = Query(default=None, alias="to"),
     sort: str | None = Query(default=None, pattern="^(freshness|oldest)$"),
+    apply_user_preferences: bool = Query(
+        default=True,
+        description="Apply blocked sources, muted keywords, and muted categories",
+    ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     include_filter_options: bool = False,
@@ -167,6 +171,7 @@ def get_explore(
                 published_from=from_,
                 published_to=to_,
                 sort=sort,
+                apply_user_preferences=apply_user_preferences,
                 include_filter_options=include_filter_options,
             )
         )

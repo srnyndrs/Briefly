@@ -14,6 +14,7 @@ from src.services.feed_models import (
     EffectiveFeedQuery,
     FilterOptionsDTO,
     PostDTO,
+    UserPreferencesDTO,
 )
 
 
@@ -38,6 +39,7 @@ class ExploreFeedInput:
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str | None = None
+    apply_user_preferences: bool = True
     include_filter_options: bool = False
 
 
@@ -132,7 +134,11 @@ class FeedService:
             )
             return FeedOutput(items=[], total=0, filter_options=options)
 
-        preferences = self._preferences_repository.get_preferences(data.user_id)
+        preferences = (
+            self._preferences_repository.get_preferences(data.user_id)
+            if data.apply_user_preferences
+            else UserPreferencesDTO()
+        )
         query = EffectiveFeedQuery(
             allowed_source_ids=allowed_source_ids,
             blocked_source_ids=preferences.blocked_source_ids,

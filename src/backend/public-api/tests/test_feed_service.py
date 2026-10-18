@@ -132,7 +132,10 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope(
     repository = Mock()
     preferences = Mock()
     preferences.get_preferences.return_value = UserPreferencesDTO(
-        languages=["hu"], blocked_source_ids=["blocked"]
+        languages=["hu"],
+        blocked_source_ids=["blocked"],
+        muted_keywords=["crypto"],
+        muted_categories=["sports"],
     )
     repository.list_candidates.return_value = ([], 0)
     repository.list_filter_options.return_value = FilterOptionsDTO(
@@ -163,7 +166,54 @@ def test_explore_feed_uses_explicit_filters_not_saved_scope(
     assert query.source_ids is None
     assert query.sort == "oldest"
     assert query.blocked_source_ids == ["blocked"]
+    assert query.muted_keywords == ["crypto"]
+    assert query.muted_categories == ["sports"]
     assert query.allowed_source_ids == [verified_source_id]
+    repository.list_filter_options.assert_called_once_with(
+        query, include_sources=True
+    )
+
+
+def test_explore_feed_can_skip_preferences_and_keep_explicit_filters(
+    monkeypatch,
+):
+    repository = Mock()
+    preferences = Mock()
+    repository.list_candidates.return_value = ([], 0)
+    repository.list_filter_options.return_value = FilterOptionsDTO(
+        categories=[], languages=[]
+    )
+    monkeypatch.setattr(
+        "src.services.feed_service.crawler_list_sources",
+        lambda *, verified_only: [{"source_id": "verified"}],
+    )
+
+    FeedService(repository, preferences).get_explore_feed(
+        ExploreFeedInput(
+            user_id=uuid4(),
+            limit=10,
+            offset=10,
+            source_ids=["verified", "unverified"],
+            categories=["sports"],
+            languages=["en"],
+            sort="oldest",
+            include_filter_options=True,
+            apply_user_preferences=False,
+        )
+    )
+
+    preferences.get_preferences.assert_not_called()
+    query = repository.list_candidates.call_args.args[0]
+    assert query.blocked_source_ids == []
+    assert query.muted_keywords == []
+    assert query.muted_categories == []
+    assert query.allowed_source_ids == ["verified"]
+    assert query.source_ids == ["verified", "unverified"]
+    assert query.categories == ["sports"]
+    assert query.languages == ["en"]
+    assert query.sort == "oldest"
+    assert query.limit == 10
+    assert query.offset == 10
     repository.list_filter_options.assert_called_once_with(
         query, include_sources=True
     )
