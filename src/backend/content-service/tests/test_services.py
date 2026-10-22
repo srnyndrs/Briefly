@@ -292,12 +292,73 @@ def test_entry_guid_uses_first_nonblank_identity(
     assert _entry_guid(entry) == expected
 
 
+@pytest.mark.parametrize(
+    ("identity", "link"),
+    [
+        (
+            "https://example.com/posts/42#section",
+            "https://example.com/posts/42",
+        ),
+        ("https://example.com/posts/42#١", "https://example.com/posts/42"),
+        ("https://example.com/posts/42#0", "https://example.com/posts/other"),
+        ("https://example.com/posts/42#0", "https://other.test/posts/42"),
+        ("https://[invalid#0", "https://example.com/posts/42"),
+        ("https://example.com/posts/42#0", None),
+    ],
+)
+def test_entry_guid_preserves_unrecognized_identity(
+    identity: str, link: str | None
+) -> None:
+    assert _entry_guid({"guid": identity, "link": link}) == identity
+
+
 def test_process_source_rejects_missing_entry_identity() -> None:
     with pytest.raises(ValueError, match="item_guid"):
         FeedProcessor(PostRepository(MagicMock())).process(
             MagicMock(),
             _make_event(raw_xml="<rss><channel><item/></channel></rss>"),
         )
+
+
+def test_numeric_fragment_variants_reuse_saved_post(
+    db_session: Session,
+) -> None:
+    def event(*fragments: str, title: str = "RSS title") -> dict[str, Any]:
+        items = "".join(
+            f"<item><guid>https://example.com/posts/42#{fragment}</guid>"
+            "<link>https://example.com/posts/42?rss=1</link>"
+            f"<title>{title}</title></item>"
+            for fragment in fragments
+        )
+        return _make_event(raw_xml=f"<rss><channel>{items}</channel></rss>")
+
+    service = FeedProcessor(PostRepository(db_session))
+    with (
+        patch(
+            "src.adapters.content_extractor.extract_article",
+            return_value={"content": "Body"},
+        ) as extract,
+        patch(
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+        ) as publish,
+    ):
+        service.process(MagicMock(), event("0", "1"))
+        service.process(MagicMock(), event("12"))
+        service.process(MagicMock(), event("0", title="Updated RSS title"))
+
+    extract.assert_called_once_with("https://example.com/posts/42?rss=1")
+    snapshots = [call.kwargs for call in publish.call_args_list]
+    assert [snapshot["post_revision"] for snapshot in snapshots] == [1, 1, 1, 2]
+    assert snapshots[0] == snapshots[1] == snapshots[2]
+    assert len({snapshot["post_id"] for snapshot in snapshots}) == 1
+    assert {snapshot["item_guid"] for snapshot in snapshots} == {
+        "https://example.com/posts/42"
+    }
+    db_session.expire_all()
+    post = db_session.query(Post).one()
+    assert str(post.post_id) == snapshots[0]["post_id"]
+    assert post.post_revision == 2
+    assert post.title == "Updated RSS title"
 
 
 def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(

@@ -129,8 +129,38 @@ def _entry_guid(entry: Any) -> str:
     for field in ("guid", "id", "link"):
         value = _clean_text(entry.get(field))
         if value:
-            return value
-    raise ValueError("item_guid must be nonblank")
+            break
+    else:
+        raise ValueError("item_guid must be nonblank")
+
+    link = _clean_text(entry.get("link"))
+    if link is None:
+        return value
+    try:
+        identity = urlsplit(value)
+        article = urlsplit(link)
+        for url, parts in ((value, identity), (link, article)):
+            if (
+                parts.scheme not in {"http", "https"}
+                or not parts.hostname
+                or parts.username is not None
+                or parts.password is not None
+                or parts.port
+                not in (None, 443 if parts.scheme == "https" else 80)
+                or any(char.isspace() or ord(char) < 32 for char in url)
+            ):
+                return value
+    except ValueError:
+        return value
+
+    if (
+        article.hostname == identity.hostname
+        and article.path == identity.path
+        and identity.fragment
+        and all("0" <= char <= "9" for char in identity.fragment)
+    ):
+        return value.rsplit("#", 1)[0]
+    return value
 
 
 def _stored_post_data(post: Post) -> dict[str, Any]:
