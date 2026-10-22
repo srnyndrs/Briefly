@@ -18,10 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.XMark
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
@@ -30,11 +33,13 @@ fun ActiveFilterChip(
     label: String,
     onRemove: () -> Unit,
 ) {
+
     val shape = RoundedCornerShape(20.dp)
     val contentColor = MaterialTheme.colorScheme.onSurface
 
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .then(modifier)
             .wrapContentSize()
             .clip(shape)
             .border(
@@ -43,8 +48,15 @@ fun ActiveFilterChip(
                 shape = shape,
             )
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-            .clickable(onClick = onRemove)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .clickable(
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.explore_remove_filter, label),
+                onClick = onRemove,
+            )
+            .padding(
+                horizontal = 10.dp,
+                vertical = 6.dp,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -79,4 +91,3 @@ fun ActiveFilterChipPreview() {
         }
     }
 }
-

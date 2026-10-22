@@ -1,31 +1,22 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
-import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.PostListItemsResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.PersonalFeedResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.HttpStatusCode
 
-class ContentApiService (
-    private val client: HttpClient
+class ContentApiService(
+    private val client: HttpClient,
 ) {
 
+    companion object {
+        private const val BASE_FEED_PATH = "feed"
+        private const val BASE_EXPLORE_PATH = "explore"
+        private const val BASE_POSTS_PATH = "posts"
+    }
+
     suspend fun getFeed(request: FeedRequestDto): PersonalFeedResponseDto {
-        return client.get("feed") {
+        return client.get(BASE_FEED_PATH) {
             parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
@@ -36,11 +27,8 @@ class ContentApiService (
     }
 
     suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
-        return client.get("explore") {
-            parameter(
-                key = "apply_user_preferences",
-                value = request.applyUserPreferences,
-            )
+        return client.get(BASE_EXPLORE_PATH) {
+            parameter("apply_user_preferences", request.applyUserPreferences)
             parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)
             parameter("page_size", request.pageSize)
@@ -80,41 +68,8 @@ class ContentApiService (
         )
     }
 
-    suspend fun getFeedSources(query: String? = null): List<SourceResponseDto> {
-        return client.get("sources") {
-            parameter("query", query ?: "")
-        }.body()
-    }
-
-    suspend fun discoverSources(request: SourceDiscoverRequestDto): List<SourceDiscoveryResultDto> {
-        return client.post("sources/discover") {
-            setBody(request)
-        }.body()
-    }
-
-    suspend fun getFeedSourceSubscriptions(): List<SubscriptionResponseDto> {
-        return client.get("me/subscriptions")
-            .body()
-    }
-
-    suspend fun subscribeFeedSource(request: SubscriptionCreateRequestDto): SubscriptionResponseDto {
-        return client.post("me/subscriptions") {
-            setBody(request)
-        }.body()
-    }
-
-    suspend fun unsubscribeFeedSource(sourceId: String): HttpStatusCode {
-        return client.delete("me/subscriptions/${sourceId}")
-            .status
-    }
-
-    suspend fun getFeedSourceDetails(sourceId: String): SourceDetailsResponseDto {
-        return client.get("sources/${sourceId}")
-            .body()
-    }
-
     suspend fun getPostById(postId: String): PostResponseDto {
-        return client.get("posts/${postId}")
+        return client.get("$BASE_POSTS_PATH/$postId")
             .body()
     }
 

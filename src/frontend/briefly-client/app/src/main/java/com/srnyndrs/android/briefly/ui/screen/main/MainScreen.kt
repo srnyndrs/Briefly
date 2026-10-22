@@ -4,7 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -12,12 +12,8 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -32,35 +28,27 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
-    onProfileNavigation: () -> Unit,
-    onLogout: () -> Unit,
+    state: MainState,
+    onMainEvent: (MainEvent) -> Unit,
 ) {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
-    var isTopBarShow by remember { mutableStateOf(true) }
+    val showTopBar = currentRoute != MainRoutes.PostDetails.route &&
+        currentRoute != MainRoutes.SourceDetails.route
 
     val navigateToRoute = { route: String ->
-        navController.navigate(route) {
+        navController.navigate(route = route) {
             launchSingleTop = true
             restoreState = true
-            popUpTo(navController.graph.startDestinationId) {
+            popUpTo(id = navController.graph.startDestinationId) {
                 saveState = true
             }
         }
         scope.launch { drawerState.close() }
-    }
-
-    LaunchedEffect(currentRoute) {
-        isTopBarShow = currentRoute !in listOf(
-            MainRoutes.PostDetails.route,
-            MainRoutes.SourceDetails.route,
-        )
     }
 
     ModalNavigationDrawer(
@@ -68,72 +56,43 @@ fun MainScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
+                modifier = Modifier.widthIn(max = 320.dp),
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
                 drawerContentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                ModalDrawerSheet(
-                    modifier = Modifier.requiredWidth(320.dp),
-                    drawerContainerColor = MaterialTheme.colorScheme.surface,
-                    drawerContentColor = MaterialTheme.colorScheme.onSurface,
-                ) {
-                    MainDrawerContent(
-                        modifier = Modifier.fillMaxWidth(),
-                        currentRoute = currentRoute
-                    ) { event ->
-                        when(event) {
-                            MainDrawerContentEvent.NavigateHomeScreen -> {
-                                navigateToRoute(MainRoutes.Home.route)
-                            }
-                            MainDrawerContentEvent.NavigateExploreScreen -> {
-                                navigateToRoute(MainRoutes.Explore.route)
-                            }
-                            MainDrawerContentEvent.NavigateFeedsScreen -> {
-                                navigateToRoute(MainRoutes.FeedSources.route)
-                            }
-                            MainDrawerContentEvent.NavigateSettingsScreen -> {
-                                navigateToRoute(MainRoutes.Settings.route)
-                            }
-                            MainDrawerContentEvent.SignOutUser -> {
-                                onLogout()
-                            }
+                MainDrawerContent(
+                    modifier = Modifier.fillMaxWidth(),
+                    currentRoute = currentRoute,
+                    isSigningOut = state.isSigningOut,
+                    onDrawerEvent = { event ->
+                        when (event) {
+                            MainDrawerContentEvent.NavigateHomeScreen -> navigateToRoute(MainRoutes.Home.route)
+                            MainDrawerContentEvent.NavigateExploreScreen -> navigateToRoute(MainRoutes.Explore.route)
+                            MainDrawerContentEvent.NavigateFeedsScreen -> navigateToRoute(MainRoutes.FeedSources.route)
+                            MainDrawerContentEvent.NavigateSettingsScreen -> navigateToRoute(MainRoutes.Settings.route)
+                            MainDrawerContentEvent.SignOutUser -> onMainEvent(MainEvent.SignOut)
                         }
-                    }
-                }
+                    },
+                )
             }
         },
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                AnimatedVisibility(visible = isTopBarShow) {
+                AnimatedVisibility(visible = showTopBar) {
                     TopAppBar(
                         modifier = Modifier.fillMaxWidth(),
-                        onMenuSelect = {
-                            scope.launch {
-                                drawerState.open()
-                            }
-                        },
-                        onProfileSelect = {
-                            onProfileNavigation()
-                        }
+                        onMenuSelect = { scope.launch { drawerState.open() } },
                     )
                 }
-            }
+            },
         ) { innerPadding ->
             MainNavigationGraph(
                 modifier = Modifier
                     .fillMaxSize()
-                    .let {
-                        if(isTopBarShow) {
-                            it.padding(
-                                top = innerPadding.calculateTopPadding(),
-                                bottom = 0.dp
-                            )
-                        } else {
-                            it.padding(top = 0.dp)
-                        }
-                    },
-                navController = navController
+                    .padding(top = if (showTopBar) innerPadding.calculateTopPadding() else 0.dp),
+                navController = navController,
             )
         }
     }
@@ -145,8 +104,8 @@ fun MainScreenPreview() {
     BrieflyTheme {
         MainScreen(
             modifier = Modifier.fillMaxSize(),
-            onProfileNavigation = {},
-            onLogout = {},
+            state = MainState(),
+            onMainEvent = {},
         )
     }
 }

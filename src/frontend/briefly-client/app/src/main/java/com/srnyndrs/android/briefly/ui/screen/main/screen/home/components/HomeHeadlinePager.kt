@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,10 +32,9 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.paging.PagingData
-import com.srnyndrs.android.briefly.ui.screen.main.components.PostCategoryChips
-import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
-import com.srnyndrs.android.briefly.ui.components.ShimmerItem
+import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeArticle
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeState
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.preview.HomeStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -50,12 +50,12 @@ fun HomeHeadlinePager(
     val pagerState = rememberPagerState { headlines.size }
 
     Column(
-        modifier = Modifier.then(modifier)
+        modifier = Modifier.then(modifier),
     ) {
         HorizontalPager(
             modifier = Modifier
                 .fillMaxWidth()
-                .requiredHeight(356.dp),
+                .requiredHeight(height = 356.dp),
             state = pagerState,
             pageSpacing = 12.dp,
         ) { page ->
@@ -68,36 +68,36 @@ fun HomeHeadlinePager(
                     .clickable { onHeadlineSelected(article) },
                 verticalArrangement = Arrangement.Top,
             ) {
-                ShimmerItem(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(16f / 9)
+                        .aspectRatio(ratio = 16f / 9)
                         .padding(bottom = 12.dp)
                         .background(
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                         )
                         .border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.onSurface,
                             shape = RectangleShape,
                         ),
-                    isLoading = false,
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     article.imageUrl?.let { imageUrl ->
                         RemoteImageContainer(
                             modifier = Modifier.fillMaxSize(),
                             imageUrl = imageUrl,
+                            contentDescription = null,
                         )
                     }
                 }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 6.dp),
                 ) {
                     Text(
                         modifier = Modifier.fillMaxWidth(),
-                        text = article.source.orEmpty(),
+                        text = article.sourceTitle.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
@@ -123,21 +123,21 @@ fun HomeHeadlinePager(
             modifier = Modifier
                 .padding(vertical = 12.dp)
                 .fillMaxWidth()
-                .requiredHeight(32.dp),
+                .requiredHeight(height = 32.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            repeat(pagerState.pageCount) { page ->
+            repeat(times = pagerState.pageCount) { page ->
                 HorizontalDivider(
                     modifier = Modifier
-                        .weight(1f / pagerState.pageCount)
-                        .clip(RoundedCornerShape(3.dp)),
+                        .weight(weight = 1f / pagerState.pageCount)
+                        .clip(RoundedCornerShape(size = 3.dp)),
                     thickness = if (pagerState.currentPage == page) 3.dp else 1.dp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                 )
                 if (page < pagerState.pageCount - 1) {
                     Spacer(
-                        modifier = Modifier.requiredWidth(3.dp)
+                        modifier = Modifier.requiredWidth(width = 3.dp),
                     )
                 }
             }
@@ -148,14 +148,14 @@ fun HomeHeadlinePager(
 @PreviewLightDark
 @Composable
 fun HomeHeadlinePagerPreview(
-    @PreviewParameter(HomeStateProvider::class) state: Pair<HomeState, Flow<PagingData<Post>>>
+    @PreviewParameter(HomeStateProvider::class) state: Pair<HomeState, Flow<PagingData<HomeArticle>>>,
 ) {
     BrieflyTheme {
         Surface {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(6.dp)
+                    .padding(all = 6.dp),
             ) {
                 HomeHeadlinePager(
                     modifier = Modifier.fillMaxWidth(),

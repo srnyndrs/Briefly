@@ -24,11 +24,12 @@ import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -36,14 +37,12 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.outline.Calendar
 import com.srnyndrs.android.briefly.R
+import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.formatExploreDate
+import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.selectedDateEnd
+import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.selectedDateStart
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
-import java.time.Instant as JavaInstant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-
-private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTime::class)
 @Composable
@@ -54,27 +53,29 @@ fun DateRangeSelector(
     onDateRangeSelected: (Instant?, Instant?) -> Unit,
     onClearDateRange: () -> Unit,
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by rememberSaveable { mutableStateOf(false) }
 
     val shape = RoundedCornerShape(12.dp)
     val hasDateSelected = publishedFrom != null || publishedTo != null
 
-    val fromText = remember(publishedFrom) {
-        publishedFrom?.let {
-            val javaInstant = JavaInstant.ofEpochMilli(it.toEpochMilliseconds())
-            dateFormatter.format(javaInstant.atZone(ZoneId.systemDefault()))
-        }
+    val locale = LocalConfiguration.current.locales[0]
+    val fromText = publishedFrom?.let {
+        formatExploreDate(
+            instant = it,
+            locale = locale,
+        )
     }
-
-    val toText = remember(publishedTo) {
-        publishedTo?.let {
-            val javaInstant = JavaInstant.ofEpochMilli(it.toEpochMilliseconds())
-            dateFormatter.format(javaInstant.atZone(ZoneId.systemDefault()))
-        }
+    val toText = publishedTo?.let {
+        formatExploreDate(
+            instant = it,
+            locale = locale,
+        )
     }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .then(modifier)
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
@@ -99,7 +100,10 @@ fun DateRangeSelector(
                         }
                     )
                     .clickable { showDialog = true }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = 10.dp,
+                    ),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +150,10 @@ fun DateRangeSelector(
                         }
                     )
                     .clickable { showDialog = true }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = 10.dp,
+                    ),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -202,12 +209,16 @@ fun DateRangeSelector(
             onDismissRequest = { showDialog = false },
             confirmButton = {
                 TextButton(
+                    enabled = pickerState.selectedStartDateMillis != null && pickerState.selectedEndDateMillis != null,
                     onClick = {
                         val startMillis = pickerState.selectedStartDateMillis
                         val endMillis = pickerState.selectedEndDateMillis
-                        val fromInstant = startMillis?.let { Instant.fromEpochMilliseconds(it) }
-                        val toInstant = endMillis?.let { Instant.fromEpochMilliseconds(it) }
-                        onDateRangeSelected(fromInstant, toInstant)
+                        val fromInstant = startMillis?.let { selectedDateStart(millis = it) }
+                        val toInstant = endMillis?.let { selectedDateEnd(millis = it) }
+                        onDateRangeSelected(
+                            fromInstant,
+                            toInstant,
+                        )
                         showDialog = false
                     },
                 ) {
@@ -233,7 +244,10 @@ fun DateRangeSelector(
                 state = pickerState,
                 title = {
                     Text(
-                        modifier = Modifier.padding(start = 24.dp, top = 16.dp),
+                        modifier = Modifier.padding(
+                            start = 24.dp,
+                            top = 16.dp,
+                        ),
                         text = stringResource(R.string.explore_filter_date_select_range),
                         style = MaterialTheme.typography.titleMedium,
                     )
@@ -267,12 +281,11 @@ fun DateRangeSelectorPreview() {
         Surface {
             DateRangeSelector(
                 modifier = Modifier.padding(16.dp),
-                publishedFrom = Instant.fromEpochMilliseconds(1726500000000L),
-                publishedTo = Instant.fromEpochMilliseconds(1727000000000L),
+                publishedFrom = Instant.fromEpochMilliseconds(epochMilliseconds = 1726500000000L),
+                publishedTo = Instant.fromEpochMilliseconds(epochMilliseconds = 1727000000000L),
                 onDateRangeSelected = { _, _ -> },
                 onClearDateRange = {},
             )
         }
     }
 }
-

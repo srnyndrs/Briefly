@@ -15,22 +15,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.FilterSource
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.FilterSource
+import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.formatExploreDate
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.Instant as JavaInstant
+import java.util.Locale
 import kotlin.time.ExperimentalTime
-
-private val activeDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
 
 @OptIn(ExperimentalTime::class)
 @Composable
@@ -45,27 +43,28 @@ fun ExploreActiveFiltersRow(
     onResetSort: () -> Unit,
     onClearAll: () -> Unit,
 ) {
-    val dateRangeText = remember(filter.publishedFrom, filter.publishedTo) {
-        when {
-            filter.publishedFrom != null && filter.publishedTo != null -> {
-                val from = JavaInstant.ofEpochMilli(filter.publishedFrom.toEpochMilliseconds())
-                    .atZone(ZoneId.systemDefault())
-                val to = JavaInstant.ofEpochMilli(filter.publishedTo.toEpochMilliseconds())
-                    .atZone(ZoneId.systemDefault())
-                "${activeDateFormatter.format(from)} – ${activeDateFormatter.format(to)}"
-            }
-            filter.publishedFrom != null -> {
-                val from = JavaInstant.ofEpochMilli(filter.publishedFrom.toEpochMilliseconds())
-                    .atZone(ZoneId.systemDefault())
-                "From: ${activeDateFormatter.format(from)}"
-            }
-            filter.publishedTo != null -> {
-                val to = JavaInstant.ofEpochMilli(filter.publishedTo.toEpochMilliseconds())
-                    .atZone(ZoneId.systemDefault())
-                "To: ${activeDateFormatter.format(to)}"
-            }
-            else -> null
-        }
+    val locale = LocalConfiguration.current.locales[0]
+    val fromText = filter.publishedFrom?.let {
+        formatExploreDate(
+            instant = it,
+            locale = locale,
+        )
+    }
+    val toText = filter.publishedTo?.let {
+        formatExploreDate(
+            instant = it,
+            locale = locale,
+        )
+    }
+    val dateRangeText = when {
+        fromText != null && toText != null -> stringResource(
+            R.string.explore_date_range,
+            fromText,
+            toText,
+        )
+        fromText != null -> stringResource(R.string.explore_date_from, fromText)
+        toText != null -> stringResource(R.string.explore_date_to, toText)
+        else -> null
     }
 
     val sourceTitleMap = remember(filterOptions.sources) {
@@ -73,7 +72,9 @@ fun ExploreActiveFiltersRow(
     }
 
     LazyRow(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .then(modifier)
+            .fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -83,7 +84,7 @@ fun ExploreActiveFiltersRow(
             Box(
                 modifier = Modifier
                     .clickable(onClick = onClearAll)
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
+                    .padding(all = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -100,7 +101,13 @@ fun ExploreActiveFiltersRow(
         if (filter.sort != null && filter.sort != "freshness") {
             item(key = "sort_${filter.sort}") {
                 ActiveFilterChip(
-                    label = "Sort: ${filter.sort.replaceFirstChar { it.uppercase() }}",
+                    label = stringResource(
+                        R.string.explore_active_sort,
+                        stringResource(
+                            if (filter.sort == "oldest") R.string.explore_filter_sort_oldest
+                            else R.string.explore_filter_sort_freshness,
+                        ),
+                    ),
                     onRemove = onResetSort,
                 )
             }
@@ -118,7 +125,10 @@ fun ExploreActiveFiltersRow(
 
         // Category filters
         filter.categories?.let { categories ->
-            items(categories, key = { "cat_$it" }) { category ->
+            items(
+                items = categories,
+                key = { "cat_$it" },
+            ) { category ->
                 ActiveFilterChip(
                     label = category,
                     onRemove = { onRemoveCategory(category) },
@@ -128,9 +138,15 @@ fun ExploreActiveFiltersRow(
 
         // Language filters
         filter.languages?.let { languages ->
-            items(languages, key = { "lang_$it" }) { language ->
+            items(
+                items = languages,
+                key = { "lang_$it" },
+            ) { language ->
                 ActiveFilterChip(
-                    label = "Lang: ${language.uppercase()}",
+                    label = stringResource(
+                        R.string.explore_active_language,
+                        language.uppercase(locale = Locale.ROOT),
+                    ),
                     onRemove = { onRemoveLanguage(language) },
                 )
             }
@@ -138,7 +154,10 @@ fun ExploreActiveFiltersRow(
 
         // Source filters
         filter.sourceIds?.let { sourceIds ->
-            items(sourceIds, key = { "source_$it" }) { sourceId ->
+            items(
+                items = sourceIds,
+                key = { "source_$it" },
+            ) { sourceId ->
                 val title = sourceTitleMap[sourceId] ?: sourceId
                 ActiveFilterChip(
                     label = title,
@@ -167,7 +186,12 @@ fun ExploreActiveFiltersRowPreview() {
                 filterOptions = ExploreFilterOptions(
                     categories = listOf("Technology", "Science"),
                     languages = listOf("en"),
-                    sources = listOf(FilterSource(id = "1", title = "The Verge")),
+                    sources = listOf(
+                        FilterSource(
+                            id = "1",
+                            title = "Technology Review",
+                        ),
+                    ),
                 ),
                 onRemoveCategory = {},
                 onRemoveLanguage = {},
@@ -179,4 +203,3 @@ fun ExploreActiveFiltersRowPreview() {
         }
     }
 }
-

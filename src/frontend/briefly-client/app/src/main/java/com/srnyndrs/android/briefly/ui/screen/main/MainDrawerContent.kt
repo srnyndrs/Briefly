@@ -2,33 +2,30 @@ package com.srnyndrs.android.briefly.ui.screen.main
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemColors
 import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -40,7 +37,6 @@ import com.composables.icons.heroicons.solid.MagnifyingGlass
 import com.composables.icons.heroicons.solid.Newspaper
 import com.composables.icons.heroicons.solid.Rss
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.ui.components.TopAppBar
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainRoutes
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
@@ -48,203 +44,155 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun MainDrawerContent(
     modifier: Modifier = Modifier,
     currentRoute: String?,
-    onDrawerEvent: (MainDrawerContentEvent) -> Unit
+    isSigningOut: Boolean,
+    onDrawerEvent: (MainDrawerContentEvent) -> Unit,
 ) {
-
-    val scrollState = rememberScrollState()
     val itemColors = NavigationDrawerItemDefaults.colors(
-        selectedContainerColor = MaterialTheme.colorScheme.onSurface
-            .copy(0.125f),
+        selectedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.125f),
         unselectedContainerColor = MaterialTheme.colorScheme.surface,
     )
-
     Column(
-        modifier = Modifier.then(modifier)
-            .padding(horizontal = 16.dp)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        modifier = Modifier
+            .then(modifier)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                modifier = Modifier.size(32.dp),
-                imageVector = Heroicons.Solid.Newspaper,
-                contentDescription = null // TODO
-            )
-            Text(
-                modifier = Modifier.padding(16.dp),
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-        HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp)),
-            thickness = 2.dp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    modifier = Modifier.size(32.dp),
+                    imageVector = Heroicons.Solid.Newspaper,
+                    contentDescription = null,
+                )
+                Text(
+                    modifier = Modifier.padding(16.dp),
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+            HorizontalDivider(thickness = 2.dp)
             NavigationDrawerItem(
                 colors = itemColors,
-                label = {
-                    Text(
-                        text = "Home"
-                    )
-                },
+                label = { Text(text = stringResource(R.string.main_home)) },
                 selected = currentRoute == MainRoutes.Home.route,
                 icon = {
                     Icon(
                         modifier = Modifier.size(24.dp),
                         imageVector = Heroicons.Solid.Home,
-                        contentDescription = null
+                        contentDescription = null,
                     )
                 },
-                onClick = {
-                    onDrawerEvent(MainDrawerContentEvent.NavigateHomeScreen)
-                }
+                onClick = { onDrawerEvent(MainDrawerContentEvent.NavigateHomeScreen) },
             )
             NavigationDrawerItem(
                 colors = itemColors,
-                label = {
-                    Text(
-                        text = "Explore"
-                    )
-                },
+                label = { Text(text = stringResource(R.string.main_explore)) },
                 selected = currentRoute == MainRoutes.Explore.route,
                 icon = {
                     Icon(
                         modifier = Modifier.size(24.dp),
                         imageVector = Heroicons.Solid.MagnifyingGlass,
-                        contentDescription = null
+                        contentDescription = null,
                     )
                 },
-                onClick = {
-                    onDrawerEvent(MainDrawerContentEvent.NavigateExploreScreen)
-                }
+                onClick = { onDrawerEvent(MainDrawerContentEvent.NavigateExploreScreen) },
             )
-        }
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.onSurface.copy(0.125f)
-        )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+            HorizontalDivider()
             NavigationDrawerItem(
                 colors = itemColors,
-                label = {
-                    Text(
-                        text = "Feed Sources"
-                    )
-                },
+                label = { Text(text = stringResource(R.string.main_feed_sources)) },
                 selected = currentRoute == MainRoutes.FeedSources.route,
                 icon = {
                     Icon(
                         modifier = Modifier.size(24.dp),
                         imageVector = Heroicons.Solid.Rss,
-                        contentDescription = null
+                        contentDescription = null,
                     )
                 },
-                onClick = {
-                    onDrawerEvent(MainDrawerContentEvent.NavigateFeedsScreen)
-                }
+                onClick = { onDrawerEvent(MainDrawerContentEvent.NavigateFeedsScreen) },
+            )
+            HorizontalDivider()
+            NavigationDrawerItem(
+                colors = itemColors,
+                label = { Text(text = stringResource(R.string.main_settings)) },
+                selected = currentRoute == MainRoutes.Settings.route,
+                icon = {
+                    Icon(
+                        modifier = Modifier.size(24.dp),
+                        imageVector = Heroicons.Outline.Cog6Tooth,
+                        contentDescription = null,
+                    )
+                },
+                onClick = { onDrawerEvent(MainDrawerContentEvent.NavigateSettingsScreen) },
             )
         }
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.onSurface.copy(0.125f)
-        )
-        NavigationDrawerItem(
-            colors = itemColors,
-            label = {
+        TextButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .height(56.dp),
+            enabled = !isSigningOut,
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            onClick = { onDrawerEvent(MainDrawerContentEvent.SignOutUser) },
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (isSigningOut) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = LocalContentColor.current,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        modifier = Modifier.size(24.dp),
+                        imageVector = Heroicons.Solid.ArrowRightOnRectangle,
+                        contentDescription = null,
+                    )
+                }
                 Text(
-                    text = "Settings"
+                    text = stringResource(
+                        if (isSigningOut) R.string.main_signing_out else R.string.main_sign_out,
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
                 )
-            },
-            selected = currentRoute == MainRoutes.Settings.route,
-            icon = {
-                Icon(
-                    imageVector = Heroicons.Outline.Cog6Tooth,
-                    contentDescription = null // TODO
-                )
-            },
-            onClick = {
-                onDrawerEvent(MainDrawerContentEvent.NavigateSettingsScreen)
             }
-        )
-        NavigationDrawerItem(
-            colors = itemColors,
-            label = {
-                Text(
-                    text = "Sign Out"
-                )
-            },
-            selected = false,
-            icon = {
-                Icon(
-                    imageVector = Heroicons.Solid.ArrowRightOnRectangle,
-                    contentDescription = null // TODO
-                )
-            },
-            onClick = {
-                onDrawerEvent(MainDrawerContentEvent.SignOutUser)
-            }
-        )
+        }
     }
 }
 
-sealed class MainDrawerContentEvent {
-    data object NavigateHomeScreen: MainDrawerContentEvent()
-    data object NavigateExploreScreen: MainDrawerContentEvent()
-    data object NavigateFeedsScreen: MainDrawerContentEvent()
-    data object NavigateSettingsScreen: MainDrawerContentEvent()
-    data object SignOutUser: MainDrawerContentEvent()
+sealed interface MainDrawerContentEvent {
+    data object NavigateHomeScreen : MainDrawerContentEvent
+    data object NavigateExploreScreen : MainDrawerContentEvent
+    data object NavigateFeedsScreen : MainDrawerContentEvent
+    data object NavigateSettingsScreen : MainDrawerContentEvent
+    data object SignOutUser : MainDrawerContentEvent
 }
 
 @PreviewLightDark
 @Composable
 fun MainDrawerContentPreview() {
     BrieflyTheme {
-        ModalNavigationDrawer(
-            drawerState = rememberDrawerState(initialValue = DrawerValue.Open),
-            drawerContent = {
-                ModalDrawerSheet(
-                    modifier = Modifier.requiredWidth(320.dp)
-                ) {
-                    MainDrawerContent(
-                        modifier = Modifier.fillMaxWidth(),
-                        currentRoute = "home"
-                    ) { _ -> }
-                }
-            }
-        ) {
-            Scaffold(
+        Surface {
+            MainDrawerContent(
                 modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    TopAppBar(
-                        modifier = Modifier.fillMaxWidth(),
-                        onMenuSelect = {}
-                    ) { }
-                }
-            ) { paddingValues ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-
-                }
-            }
+                currentRoute = MainRoutes.Home.route,
+                isSigningOut = false,
+                onDrawerEvent = {},
+            )
         }
     }
 }

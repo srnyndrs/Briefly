@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -34,48 +35,58 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.domain.model.content.Post
 import com.srnyndrs.android.briefly.ui.components.ShimmerGroup
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.TopAppBar
 import com.srnyndrs.android.briefly.ui.screen.main.components.PostRow
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationEvent
+import com.srnyndrs.android.briefly.ui.screen.main.screen.home.components.HomeArticlePlaceholder
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.components.HomeCategorySelector
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.components.HomeHeadlinePager
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.preview.HomeStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 import kotlinx.coroutines.flow.Flow
-import kotlin.time.ExperimentalTime
 
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    posts: LazyPagingItems<Post>,
+    posts: LazyPagingItems<HomeArticle>,
     state: HomeState,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
     onHomeEvent: (HomeEvent) -> Unit,
 ) {
 
     val refreshState = posts.loadState.refresh
+    val hasCurrentArticles = posts.itemCount > 0 &&
+        posts.peek(index = 0)?.category == state.selectedCategory
+    val awaitingCategory = posts.itemCount > 0 && !hasCurrentArticles
+    val isLoading = refreshState is LoadState.Loading ||
+        (refreshState !is LoadState.Error && (awaitingCategory || state.categories == null))
 
     when {
-        refreshState is LoadState.Loading && state.categories == null -> {
+        isLoading && state.categories == null -> {
             ShimmerGroup {
                 Column(
-                    modifier = modifier
+                    modifier = Modifier
+                        .then(modifier)
+                        .verticalScroll(state = rememberScrollState())
                         .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                 ) {
                     ShimmerItem(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(16f / 9)
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                            .border(1.dp, MaterialTheme.colorScheme.onSurface, RectangleShape),
+                            .aspectRatio(ratio = 16f / 9)
+                            .background(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                shape = RectangleShape,
+                            ),
                         isLoading = true,
                         contentAlignment = Alignment.BottomCenter,
                     ) {}
-                    repeat(3) {
+                    repeat(times = 3) {
                         ShimmerItem(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -84,29 +95,33 @@ fun HomeScreen(
                             cornerRadius = 3.dp,
                         ) {}
                     }
+                    repeat(times = 3) {
+                        HomeArticlePlaceholder(modifier = Modifier.fillMaxWidth())
+                    }
                 }
             }
         }
 
         refreshState is LoadState.Error && state.categories == null -> {
             Box(
-                modifier = modifier
-                    .padding(16.dp),
+                modifier = Modifier
+                    .then(modifier)
+                    .padding(all = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                 ) {
                     Text(
-                        text = refreshState.error.localizedMessage ?: stringResource(R.string.home_load_error),
+                        text = stringResource(id = R.string.home_load_error),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center,
                     )
                     Button(onClick = posts::retry) {
                         Text(
-                            text = stringResource(R.string.home_retry)
+                            text = stringResource(id = R.string.home_retry),
                         )
                     }
                 }
@@ -114,25 +129,28 @@ fun HomeScreen(
         }
 
         state.headlines.isEmpty() &&
-            posts.itemCount == 0 &&
+            !hasCurrentArticles &&
+            !isLoading &&
+            refreshState is LoadState.NotLoading &&
             state.selectedCategory == null -> {
             Box(
-                modifier = modifier
-                    .padding(16.dp),
+                modifier = Modifier
+                    .then(modifier)
+                    .padding(all = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.home_empty),
+                        text = stringResource(id = R.string.home_empty),
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center,
                     )
                     OutlinedButton(onClick = posts::refresh) {
                         Text(
-                            text = stringResource(R.string.home_refresh)
+                            text = stringResource(id = R.string.home_refresh),
                         )
                     }
                 }
@@ -141,8 +159,14 @@ fun HomeScreen(
 
         else -> {
             LazyColumn(
-                modifier = modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                modifier = Modifier
+                    .then(modifier)
+                    .padding(
+                        start = 8.dp,
+                        end = 8.dp,
+                        top = 6.dp,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(space = 0.dp),
             ) {
                 if (state.headlines.isNotEmpty()) {
                     item(key = "headlines") {
@@ -151,9 +175,9 @@ fun HomeScreen(
                             headlines = state.headlines,
                             onHeadlineSelected = { post ->
                                 if (post.hasContent) {
-                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(post.id))
+                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(postId = post.id))
                                 } else {
-                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(post.url))
+                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(url = post.url))
                                 }
                             },
                         )
@@ -169,14 +193,26 @@ fun HomeScreen(
                             categories = state.categories ?: emptyList(),
                             selectedCategory = state.selectedCategory,
                             onCategorySelected = {
-                                onHomeEvent(HomeEvent.SelectCategory(it))
+                                onHomeEvent(HomeEvent.SelectCategory(category = it))
                             },
                         )
                     }
                 }
 
                 when {
-                    refreshState is LoadState.Loading -> {
+                    isLoading && !hasCurrentArticles -> {
+                        item(key = "content_loading") {
+                            ShimmerGroup {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    repeat(times = 3) {
+                                        HomeArticlePlaceholder(modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    isLoading -> {
                         item(key = "content_loading") {
                             Box(
                                 modifier = Modifier
@@ -184,8 +220,8 @@ fun HomeScreen(
                                     .padding(vertical = 16.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                CircularProgressIndicator(
-                                    color = MaterialTheme.colorScheme.primary,
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -196,18 +232,18 @@ fun HomeScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(all = 16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                             ) {
                                 Text(
-                                    text = refreshState.error.localizedMessage ?: stringResource(R.string.home_load_error),
+                                    text = stringResource(id = R.string.home_load_error),
                                     color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center,
                                 )
                                 OutlinedButton(onClick = posts::retry) {
                                     Text(
-                                        text = stringResource(R.string.home_retry)
+                                        text = stringResource(id = R.string.home_retry),
                                     )
                                 }
                             }
@@ -220,7 +256,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 24.dp),
-                                text = stringResource(R.string.home_content_empty),
+                                text = stringResource(id = R.string.home_content_empty),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
                             )
@@ -231,22 +267,22 @@ fun HomeScreen(
                 }
 
                 items(
-                    count = if (refreshState is LoadState.Loading) 0 else posts.itemCount,
-                    key = { index -> posts.peek(index)?.id ?: "article_$index" },
+                    count = if (hasCurrentArticles) posts.itemCount else 0,
+                    key = { index -> posts.peek(index = index)?.post?.id ?: "article_$index" },
                 ) { index ->
-                    val article = posts[index] ?: return@items
+                    val article = posts[index]?.post ?: return@items
                     PostRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 12.dp),
                         title = article.title,
-                        source = article.source,
+                        source = article.sourceTitle,
                         onClick = {
                             onNavigationEvent(
                                 if (article.hasContent) {
-                                    MainNavigationEvent.ShowPostDetails(article.id)
+                                    MainNavigationEvent.ShowPostDetails(postId = article.id)
                                 } else {
-                                    MainNavigationEvent.OpenCustomTab(article.url)
+                                    MainNavigationEvent.OpenCustomTab(url = article.url)
                                 },
                             )
                         },
@@ -254,7 +290,10 @@ fun HomeScreen(
                     HorizontalDivider(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp, bottom = 12.dp),
+                            .padding(
+                                top = 4.dp,
+                                bottom = 12.dp,
+                            ),
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                     )
@@ -262,7 +301,7 @@ fun HomeScreen(
 
                 when (
                     val appendState = posts.loadState.append.takeUnless {
-                        refreshState is LoadState.Loading
+                        isLoading || !hasCurrentArticles
                     }
                 ) {
                     is LoadState.Loading -> item(key = "append_loading") {
@@ -274,14 +313,14 @@ fun HomeScreen(
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                             ) {
                                 LinearProgressIndicator(
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                                 Text(
-                                    text = "Loading items...", // TODO: extract string
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = stringResource(id = R.string.home_loading_items),
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
                         }
@@ -291,18 +330,18 @@ fun HomeScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(all = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                         ) {
                             Text(
-                                text = appendState.error.localizedMessage ?: stringResource(R.string.home_append_error),
+                                text = stringResource(id = R.string.home_append_error),
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
                             )
                             OutlinedButton(onClick = posts::retry) {
                                 Text(
-                                    text = stringResource(R.string.home_retry)
+                                    text = stringResource(id = R.string.home_retry),
                                 )
                             }
                         }
@@ -315,11 +354,10 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalTime::class)
 @PreviewLightDark
 @Composable
 fun HomeScreenPreview(
-    @PreviewParameter(HomeStateProvider::class) previewContent: Pair<HomeState, Flow<PagingData<Post>>>,
+    @PreviewParameter(HomeStateProvider::class) previewContent: Pair<HomeState, Flow<PagingData<HomeArticle>>>,
 ) {
 
     val (homeState, content) = previewContent
@@ -328,7 +366,7 @@ fun HomeScreenPreview(
         Surface {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { TopAppBar(onMenuSelect = {}) {} },
+                topBar = { TopAppBar(onMenuSelect = {}) },
             ) { paddingValues ->
                 HomeScreen(
                     modifier = Modifier
@@ -336,7 +374,7 @@ fun HomeScreenPreview(
                         .padding(paddingValues),
                     posts = content.collectAsLazyPagingItems(),
                     state = homeState,
-                    onNavigationEvent = {}
+                    onNavigationEvent = {},
                 ) {}
             }
         }

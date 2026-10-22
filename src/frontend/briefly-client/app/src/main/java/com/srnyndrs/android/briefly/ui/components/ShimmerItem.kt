@@ -18,7 +18,8 @@ fun ShimmerItem(
     content: @Composable () -> Unit,
 ) {
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .then(modifier)
             .shimmer(
                 isLoading = isLoading,
                 cornerRadius = cornerRadius,

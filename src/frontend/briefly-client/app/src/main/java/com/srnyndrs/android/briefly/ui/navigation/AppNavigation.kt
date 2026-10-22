@@ -28,8 +28,6 @@ import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthScreen
 import com.srnyndrs.android.briefly.ui.screen.auth.screen.AuthViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.MainScreen
 import com.srnyndrs.android.briefly.ui.screen.main.MainViewModel
-import com.srnyndrs.android.briefly.ui.screen.profile.ProfileScreen
-import com.srnyndrs.android.briefly.ui.screen.profile.ProfileViewModel
 
 @Composable
 fun AppNavigation(
@@ -43,7 +41,7 @@ fun AppNavigation(
     when (authState) {
         AuthState.Loading -> {
             SessionSplash(
-                modifier = Modifier.then(modifier)
+                modifier = Modifier.then(modifier),
             )
         }
         AuthState.Unavailable -> {
@@ -92,23 +90,17 @@ fun AppNavigation(
             }
 
             NavHost(
-                modifier = modifier,
+                modifier = Modifier.then(modifier),
                 navController = navController,
                 startDestination = when (authState) {
                     AuthState.Authenticated -> Graph.Main
                     AuthState.Unauthenticated -> Graph.Auth
                     AuthState.Loading,
-                    AuthState.Unavailable -> error("Session state must select a navigation graph")
+                    AuthState.Unavailable -> error("Session state must select a navigation graph") // TODO: revisit error handling
                 },
             ) {
                 authGraph(modifier = Modifier.fillMaxSize())
-                mainGraph(
-                    modifier = Modifier.fillMaxSize(),
-                    onProfileNavigation = {
-                        navController.navigate(Graph.Profile)
-                    },
-                )
-                profileGraph(modifier = Modifier.fillMaxSize())
+                mainGraph(modifier = Modifier.fillMaxSize())
             }
         }
     }
@@ -119,11 +111,11 @@ fun NavGraphBuilder.authGraph(
 ) {
     navigation<Graph.Auth>(startDestination = Screen.Auth) {
         composable<Screen.Auth> {
-            val viewModel: AuthViewModel = hiltViewModel()
+            val viewModel = hiltViewModel<AuthViewModel>()
             val state by viewModel.state.collectAsStateWithLifecycle()
 
             AuthScreen(
-                modifier = modifier,
+                modifier = Modifier.then(modifier),
                 state = state,
                 onAuthEvent = viewModel::onEvent,
             )
@@ -133,32 +125,16 @@ fun NavGraphBuilder.authGraph(
 
 fun NavGraphBuilder.mainGraph(
     modifier: Modifier = Modifier,
-    onProfileNavigation: () -> Unit,
 ) {
     navigation<Graph.Main>(startDestination = Screen.Main) {
         composable<Screen.Main> {
             val viewModel = hiltViewModel<MainViewModel>()
-
-            MainScreen(
-                modifier = modifier,
-                onProfileNavigation = onProfileNavigation,
-                onLogout = viewModel::logoutUser,
-            )
-        }
-    }
-}
-
-fun NavGraphBuilder.profileGraph(
-    modifier: Modifier = Modifier,
-) {
-    navigation<Graph.Profile>(startDestination = Screen.Profile) {
-        composable<Screen.Profile> {
-            val viewModel = hiltViewModel<ProfileViewModel>()
             val state by viewModel.state.collectAsStateWithLifecycle()
 
-            ProfileScreen(
-                modifier = modifier,
+            MainScreen(
+                modifier = Modifier.then(modifier),
                 state = state,
+                onMainEvent = viewModel::onEvent
             )
         }
     }

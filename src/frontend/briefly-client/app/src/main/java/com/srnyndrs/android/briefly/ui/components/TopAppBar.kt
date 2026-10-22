@@ -1,9 +1,8 @@
 package com.srnyndrs.android.briefly.ui.components
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
@@ -25,7 +24,6 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.Bars3
-import com.composables.icons.heroicons.solid.User
 import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
@@ -33,40 +31,44 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun TopAppBar(
     modifier: Modifier = Modifier,
     onMenuSelect: () -> Unit,
-    onProfileSelect: () -> Unit,
 ) {
 
     Column(
-        modifier = Modifier.then(modifier)
+        modifier = Modifier
+            .then(modifier)
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 6.dp),
+            .padding(
+                start = 12.dp,
+                end = 12.dp,
+                top = 6.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .requiredHeight(56.dp),
-            horizontalArrangement = Arrangement.Absolute.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            contentAlignment = Alignment.Center,
         ) {
             // Hamburger menu
             IconButton(
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .size(48.dp)
                     .clip(CircleShape),
                 onClick = onMenuSelect,
                 colors = IconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     disabledContainerColor = MaterialTheme.colorScheme.surface,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface,
                 )
             ) {
                 Icon(
                     modifier = Modifier.size(32.dp),
                     imageVector = Heroicons.Solid.Bars3,
-                    contentDescription = null // TODO
+                    contentDescription = stringResource(id = R.string.main_open_menu),
                 )
             }
             // Title
@@ -74,38 +76,10 @@ fun TopAppBar(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleLarge,
             )
-            // User settings
-            IconButton(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
-                onClick = onProfileSelect,
-                enabled = true,
-                colors = IconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    disabledContainerColor = MaterialTheme.colorScheme.surface,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Icon(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.onSurface,
-                                CircleShape
-                        )
-                        .padding(3.dp),
-                    imageVector = Heroicons.Solid.User,
-                    contentDescription = null // TODO
-                )
-            }
-
         }
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             HorizontalDivider(
                 thickness = 2.dp,
@@ -126,7 +100,6 @@ fun TopAppBarPreview() {
         Surface {
             TopAppBar(
                 onMenuSelect = {},
-                onProfileSelect = {}
             )
         }
     }

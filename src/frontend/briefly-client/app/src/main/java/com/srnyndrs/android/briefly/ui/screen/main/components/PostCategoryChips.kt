@@ -9,31 +9,39 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
+import com.srnyndrs.android.briefly.ui.util.stringResId
 
 @Composable
 fun PostCategoryChips(
     modifier: Modifier = Modifier,
-    categories: List<String>,
+    categories: List<Category>,
+    maxLines: Int = Int.MAX_VALUE,
 ) {
     if (categories.isEmpty()) return
 
     FlowRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.then(modifier),
+        maxLines = maxLines,
+        horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(space = 4.dp),
     ) {
         categories.forEach { category ->
             Surface(
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(size = 5.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Text(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    text = category,
+                    modifier = Modifier.padding(
+                        horizontal = 8.dp,
+                        vertical = 4.dp,
+                    ),
+                    text = stringResource(id = category.stringResId),
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
@@ -45,6 +53,6 @@ fun PostCategoryChips(
 @Composable
 fun PostCategoryChipsPreview() {
     BrieflyTheme {
-        PostCategoryChips(categories = listOf("science", "health"))
+        PostCategoryChips(categories = listOf(Category.SCIENCE, Category.HEALTH))
     }
 }

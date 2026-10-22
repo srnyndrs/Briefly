@@ -18,7 +18,8 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity: ComponentActivity() {
+
     private val appViewModel: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {

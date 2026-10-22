@@ -15,6 +15,7 @@ import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.domain.model.content.Category
 import com.srnyndrs.android.briefly.ui.components.SelectionChip
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
+import com.srnyndrs.android.briefly.ui.util.stringResId
 
 private const val MAX_VISIBLE_CATEGORIES = 5
 
@@ -38,12 +39,12 @@ fun HomeCategorySelector(
 
     LazyRow(
         modifier = Modifier.then(modifier),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(space = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         item(key = "all") {
             SelectionChip(
-                label = stringResource(R.string.home_category_all),
+                label = stringResource(id = R.string.home_category_all),
                 selected = selectedCategory == null,
                 onClick = { onCategorySelected(null) },
             )
@@ -56,7 +57,7 @@ fun HomeCategorySelector(
             val category = visibleCategories[index]
 
             SelectionChip(
-                label = stringResource(category.stringResId),
+                label = stringResource(id = category.stringResId),
                 selected = selectedCategory == category,
                 onClick = { onCategorySelected(category) },
             )
@@ -72,9 +73,12 @@ fun HomeCategorySelectorPreview() {
             HomeCategorySelector(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 18.dp),
+                    .padding(
+                        horizontal = 6.dp,
+                        vertical = 18.dp,
+                    ),
                 categories = Category.entries,
-                selectedCategory = Category.POLITICS
+                selectedCategory = Category.POLITICS,
             ) {}
         }
     }

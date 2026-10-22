@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -21,8 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -55,11 +52,9 @@ fun FeedSourcesScreen(
     onEvent: (FeedSourcesEvent) -> Unit,
 ) {
 
-    val (searchText, setSearchText) = remember { mutableStateOf("") }
-
     Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = Modifier.then(modifier),
+        verticalArrangement = Arrangement.spacedBy(space = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
@@ -67,19 +62,19 @@ fun FeedSourcesScreen(
                 .fillMaxWidth()
                 .padding(vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
         ) {
             SearchTextField(
-                modifier = Modifier.weight(1f),
-                value = searchText,
-                onValueChange = setSearchText,
-                placeholder = "Search feeds", // TODO: stringResource
-                onSearch = { onEvent(FeedSourcesEvent.SearchFeedSource(searchText)) },
+                modifier = Modifier.weight(weight = 1f),
+                value = state.searchText,
+                onValueChange = { onEvent(FeedSourcesEvent.UpdateSearchText(text = it)) },
+                placeholder = stringResource(id = R.string.feed_sources_search_placeholder),
+                onSearch = { onEvent(FeedSourcesEvent.SearchFeedSource) },
             )
         }
         Text(
             modifier = Modifier.fillMaxWidth(),
-            text = "Results",
+            text = stringResource(id = R.string.feed_sources_results),
             style = MaterialTheme.typography.bodyMedium,
         )
         UiStateContainer(
@@ -89,26 +84,26 @@ fun FeedSourcesScreen(
                 ShimmerGroup {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 22.dp),
                     ) {
-                        items(3) {
+                        items(count = 3) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(64.dp),
+                                    .requiredHeight(height = 64.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
                             ) {
                                 ShimmerItem(
-                                    modifier = Modifier.size(64.dp),
+                                    modifier = Modifier.size(size = 64.dp),
                                     isLoading = true,
                                     cornerRadius = 5.dp,
                                 ) {}
                                 Column(
                                     modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                                 ) {
-                                    repeat(2) {
+                                    repeat(times = 2) {
                                         ShimmerItem(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -123,37 +118,40 @@ fun FeedSourcesScreen(
                     }
                 }
             },
-            error = { message ->
+            error = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                 ) {
-                    Text(text = message, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = stringResource(id = R.string.feed_sources_load_error),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                     Button(onClick = { onEvent(FeedSourcesEvent.RetrySearch) }) {
-                        Text(text = stringResource(R.string.session_retry))
+                        Text(text = stringResource(id = R.string.session_retry))
                     }
                 }
             },
             success = { data ->
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(space = 22.dp),
                 ) {
                     if (state.isRefreshing) {
                         item(key = "refresh_loading") {
                             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         }
                     }
-                    state.refreshError?.let { message ->
+                    if (state.refreshError != null) {
                         item(key = "refresh_error") {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(space = 8.dp)) {
                                 Text(
-                                    text = message,
+                                    text = stringResource(id = R.string.feed_sources_load_error),
                                     color = MaterialTheme.colorScheme.error,
                                 )
                                 Button(onClick = { onEvent(FeedSourcesEvent.RetrySearch) }) {
-                                    Text(text = stringResource(R.string.session_retry))
+                                    Text(text = stringResource(id = R.string.session_retry))
                                 }
                             }
                         }
@@ -162,54 +160,58 @@ fun FeedSourcesScreen(
                         item {
                             Text(
                                 modifier = Modifier.fillMaxWidth(),
-                                text = "No results found for this query",
+                                text = stringResource(id = R.string.feed_sources_empty),
                             )
                         }
                     } else {
-                        items(data) { feedSource ->
+                        items(
+                            items = data,
+                            key = { it.id },
+                        ) { feedSource ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(64.dp)
+                                    .requiredHeight(height = 64.dp)
                                     .clickable {
                                         onNavigationEvent(
-                                            MainNavigationEvent.ShowSourceDetails(feedSource.id),
+                                            MainNavigationEvent.ShowSourceDetails(sourceId = feedSource.id),
                                         )
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(0.8f),
+                                    modifier = Modifier.weight(weight = 0.8f),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
                                 ) {
                                     Box(
-                                        modifier = Modifier.size(64.dp),
+                                        modifier = Modifier.size(size = 64.dp),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        if (feedSource.favicon != null) {
+                                        if (feedSource.faviconUrl != null) {
                                             RemoteImageContainer(
                                                 modifier = Modifier.fillMaxSize(),
-                                                imageUrl = feedSource.favicon,
+                                                imageUrl = feedSource.faviconUrl,
+                                                contentDescription = null,
                                                 contentScale = ContentScale.Fit,
                                             )
                                         } else {
                                             Icon(
-                                                modifier = Modifier.size(64.dp),
+                                                modifier = Modifier.size(size = 64.dp),
                                                 imageVector = Heroicons.Solid.Photo,
                                                 contentDescription = null,
                                             )
                                         }
                                     }
-                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(space = 3.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(space = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Text(
-                                                modifier = Modifier.wrapContentWidth(),
+                                                modifier = Modifier.weight(weight = 1f),
                                                 text = feedSource.title,
                                                 minLines = 1,
                                                 maxLines = 1,
@@ -221,10 +223,10 @@ fun FeedSourcesScreen(
                                             )
                                             if (feedSource.verified) {
                                                 Icon(
-                                                    modifier = Modifier.size(22.dp),
+                                                    modifier = Modifier.size(size = 22.dp),
                                                     imageVector = Heroicons.Outline.CheckBadge,
                                                     tint = MaterialTheme.colorScheme.primary,
-                                                    contentDescription = null,
+                                                    contentDescription = stringResource(id = R.string.feed_sources_verified),
                                                 )
                                             }
                                         }
@@ -255,13 +257,13 @@ fun FeedSourcesScreenPreview(
     BrieflyTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            topBar = { TopAppBar(onMenuSelect = {}) { } },
+            topBar = { TopAppBar(onMenuSelect = {}) },
         ) { paddingValues ->
             FeedSourcesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(6.dp),
+                    .padding(all = 6.dp),
                 state = state,
                 onNavigationEvent = {},
                 onEvent = {},

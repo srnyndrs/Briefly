@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.filter
-import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
+import androidx.paging.map
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
 import com.srnyndrs.android.briefly.domain.usecase.content.feed.GetExploreFeedUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,124 +22,128 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ExploreViewModel @Inject constructor(
     private val getExploreFeedUseCase: GetExploreFeedUseCase,
-) : ViewModel() {
+): ViewModel() {
 
     private val _state = MutableStateFlow(ExploreState())
     val state = _state.asStateFlow()
 
-    val posts: Flow<PagingData<Post>> = state
+    val posts: Flow<PagingData<ExploreArticle>> = state
         .map { it.filter }
         .distinctUntilChanged()
         .flatMapLatest { filter ->
             channelFlow {
-                val exploreFeed = getExploreFeedUseCase(filter)
+                val exploreFeed = getExploreFeedUseCase(filter = filter)
                 launch {
                     exploreFeed.metadata
                         .filterNotNull()
                         .collect { metadata ->
                             _state.update { current ->
-                                current.copy(
-                                    filterOptions = metadata,
-                                )
+                                if (current.filter == filter) {
+                                    current.copy(
+                                        filterOptions = metadata,
+                                        filterOptionsFilter = filter,
+                                    )
+                                } else {
+                                    current
+                                }
                             }
                         }
                 }
-                exploreFeed.posts.collect { send(it) }
+                exploreFeed.posts.collect { pagingData ->
+                    val seenPostIds = mutableSetOf<String>()
+                    send(
+                        pagingData
+                            .filter { post -> seenPostIds.add(element = post.id) }
+                            .map { post ->
+                                ExploreArticle(
+                                    post = post,
+                                    filter = filter,
+                                )
+                            },
+                    )
+                }
             }
         }
-        .map { pagingData ->
-            val seenPostIds = mutableSetOf<String>()
-            pagingData.filter { post -> seenPostIds.add(post.id) }
-        }
-        .cachedIn(viewModelScope)
+        .cachedIn(scope = viewModelScope)
 
     fun onEvent(event: ExploreEvent) {
-        when (event) {
-            is ExploreEvent.UpdateQuery -> _state.update { it.copy(query = event.query) }
-            ExploreEvent.SubmitQuery -> _state.update { current ->
-                val normalizedQuery = current.query.trim().ifBlank { null }
-                val updatedFilter = current.filter.copy(
-                    query = normalizedQuery,
-                    sort = if (normalizedQuery != null) null else (current.filter.sort ?: "freshness"),
-                )
-                current.copy(
-                    filter = updatedFilter,
-                    draftFilter = updatedFilter,
-                )
-            }
-            ExploreEvent.ClearQuery -> _state.update { current ->
-                val updatedFilter = current.filter.copy(
-                    query = null,
-                    sort = current.filter.sort ?: "freshness",
-                )
-                current.copy(
-                    query = "",
-                    filter = updatedFilter,
-                    draftFilter = updatedFilter,
-                )
-            }
-            ExploreEvent.OpenFilterSheet -> _state.update { current ->
-                current.copy(
+        _state.update { current ->
+            when (event) {
+                is ExploreEvent.UpdateQuery -> current.copy(query = event.query)
+                ExploreEvent.SubmitQuery -> {
+                    val query = current.query.trim().ifBlank { null }
+                    current.withFilter(
+                        filter = current.filter.copy(
+                            query = query,
+                            sort = if (query != null) null else current.filter.sort ?: "freshness",
+                        ),
+                    )
+                }
+                ExploreEvent.ClearQuery -> current.withFilter(
+                    filter = current.filter.copy(
+                        query = null,
+                        sort = current.filter.sort ?: "freshness",
+                    ),
+                ).copy(query = "")
+                ExploreEvent.OpenFilterSheet -> current.copy(
                     isFilterSheetOpen = true,
                     draftFilter = current.filter,
                 )
-            }
-            ExploreEvent.DismissFilterSheet -> _state.update { it.copy(isFilterSheetOpen = false) }
-            is ExploreEvent.UpdateDraftFilter -> _state.update { it.copy(draftFilter = event.filter) }
-            ExploreEvent.ApplyDraftFilter -> _state.update { current ->
-                current.copy(
-                    filter = current.draftFilter,
-                    isFilterSheetOpen = false,
-                )
-            }
-            ExploreEvent.ResetDraftFilters -> _state.update { current ->
-                current.copy(
+                ExploreEvent.DismissFilterSheet -> current.copy(isFilterSheetOpen = false)
+                is ExploreEvent.UpdateDraftFilter -> current.copy(draftFilter = event.filter)
+                ExploreEvent.ApplyDraftFilter -> current.withFilter(
+                    filter = current.draftFilter.copy(
+                        query = current.filter.query,
+                        sort = if (current.filter.query != null) null else current.draftFilter.sort,
+                    ),
+                ).copy(isFilterSheetOpen = false)
+                ExploreEvent.ResetDraftFilters -> current.copy(
                     draftFilter = ExplorePostFilter(
                         query = current.filter.query,
-                        sort = if (current.filter.query.isNullOrBlank()) "freshness" else null,
-                    )
+                        sort = if (current.filter.query == null) "freshness" else null,
+                    ),
                 )
-            }
-            is ExploreEvent.RemoveCategory -> _state.update { current ->
-                val newCategories = current.filter.categories?.filter { it != event.category }?.ifEmpty { null }
-                val updatedFilter = current.filter.copy(categories = newCategories)
-                current.copy(filter = updatedFilter, draftFilter = updatedFilter)
-            }
-            is ExploreEvent.RemoveLanguage -> _state.update { current ->
-                val newLanguages = current.filter.languages?.filter { it != event.language }?.ifEmpty { null }
-                val updatedFilter = current.filter.copy(languages = newLanguages)
-                current.copy(filter = updatedFilter, draftFilter = updatedFilter)
-            }
-            is ExploreEvent.RemoveSource -> _state.update { current ->
-                val newSources = current.filter.sourceIds?.filter { it != event.sourceId }?.ifEmpty { null }
-                val updatedFilter = current.filter.copy(sourceIds = newSources)
-                current.copy(filter = updatedFilter, draftFilter = updatedFilter)
-            }
-            ExploreEvent.ClearDateRange -> _state.update { current ->
-                val updatedFilter = current.filter.copy(publishedFrom = null, publishedTo = null)
-                current.copy(filter = updatedFilter, draftFilter = updatedFilter)
-            }
-            is ExploreEvent.ChangeSort -> _state.update { current ->
-                val updatedFilter = current.filter.copy(sort = event.sort)
-                current.copy(filter = updatedFilter, draftFilter = updatedFilter)
-            }
-            ExploreEvent.ClearAllFilters -> _state.update { current ->
-                val updatedFilter = ExplorePostFilter(
-                    query = current.filter.query,
-                    sort = if (current.filter.query.isNullOrBlank()) "freshness" else null,
+                is ExploreEvent.RemoveCategory -> current.withFilter(
+                    filter = current.filter.copy(
+                        categories = current.filter.categories?.filter { it != event.category }?.ifEmpty { null },
+                    ),
                 )
-                current.copy(
-                    filter = updatedFilter,
-                    draftFilter = updatedFilter,
+                is ExploreEvent.RemoveLanguage -> current.withFilter(
+                    filter = current.filter.copy(
+                        languages = current.filter.languages?.filter { it != event.language }?.ifEmpty { null },
+                    ),
+                )
+                is ExploreEvent.RemoveSource -> current.withFilter(
+                    filter = current.filter.copy(
+                        sourceIds = current.filter.sourceIds?.filter { it != event.sourceId }?.ifEmpty { null },
+                    ),
+                )
+                ExploreEvent.ClearDateRange -> current.withFilter(
+                    filter = current.filter.copy(
+                        publishedFrom = null,
+                        publishedTo = null,
+                    ),
+                )
+                is ExploreEvent.ChangeSort -> current.withFilter(
+                    filter = current.filter.copy(sort = if (current.filter.query == null) event.sort else null),
+                )
+                ExploreEvent.ClearAllFilters -> current.withFilter(
+                    filter = ExplorePostFilter(
+                        query = current.filter.query,
+                        sort = if (current.filter.query == null) "freshness" else null,
+                    ),
                 )
             }
         }
     }
+
+    private fun ExploreState.withFilter(filter: ExplorePostFilter) = copy(
+        filter = filter,
+        draftFilter = filter,
+    )
 }

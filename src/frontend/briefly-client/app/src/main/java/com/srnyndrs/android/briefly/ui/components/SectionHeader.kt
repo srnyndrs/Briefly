@@ -23,7 +23,12 @@ fun SectionHeader(
     title: String,
     subtitle: String? = null,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = Modifier
+            .then(modifier)
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(space = 4.dp),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -44,7 +49,9 @@ fun SectionHeader(
             )
         }
         HorizontalDivider(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
         )
@@ -57,7 +64,9 @@ private fun SectionHeaderPreview() {
     BrieflyTheme {
         Surface {
             SectionHeader(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = 16.dp),
                 title = "Categories",
                 subtitle = "Filter articles by primary topics",
             )

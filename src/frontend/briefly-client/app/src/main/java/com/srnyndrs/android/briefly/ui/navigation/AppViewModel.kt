@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.srnyndrs.android.briefly.domain.repository.auth.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -14,11 +15,16 @@ class AppViewModel @Inject constructor(
 
     val authState = authRepository.observeAuthState()
 
+    private var refreshJob: Job? = null
+
     init {
         refreshSession()
     }
 
-    fun refreshSession() = viewModelScope.launch {
-        authRepository.refreshSession()
+    fun refreshSession() {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            authRepository.refreshSession()
+        }
     }
 }

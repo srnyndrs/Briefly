@@ -1,20 +1,22 @@
 package com.srnyndrs.android.briefly.data.remote.profile
 
-import com.srnyndrs.android.briefly.data.remote.profile.dto.PreferencesDto
-import com.srnyndrs.android.briefly.data.remote.profile.dto.ProfileDataResponseDto
-import com.srnyndrs.android.briefly.data.remote.profile.dto.PreferenceUpdateRequestDto
-import com.srnyndrs.android.briefly.domain.model.profile.ProfileData
-import com.srnyndrs.android.briefly.domain.model.profile.ProfilePreferences
+import com.srnyndrs.android.briefly.domain.model.profile.Profile
+import com.srnyndrs.android.briefly.domain.model.preferences.UserPreferences
 
-fun ProfileDataResponseDto.toDomain(): ProfileData {
-    return ProfileData(
+fun ProfileDataResponseDto.toDomain(): Profile {
+    return Profile(
         email = this.email,
-        preferences = this.preferences.toDomain()
+        preferences = preferences?.toDomain() ?: UserPreferences(
+            mutedKeywords = emptyList(),
+            mutedCategories = emptyList(),
+            blockedSourceIds = emptySet(),
+            languages = emptySet(),
+        ),
     )
 }
 
-fun PreferencesDto.toDomain(): ProfilePreferences {
-    return ProfilePreferences(
+fun PreferencesDto.toDomain(): UserPreferences {
+    return UserPreferences(
         mutedKeywords = this.mutedKeywords,
         mutedCategories = this.mutedCategories,
         blockedSourceIds = this.blockedSourceIds.toSet(),
@@ -22,11 +24,11 @@ fun PreferencesDto.toDomain(): ProfilePreferences {
     )
 }
 
-fun ProfilePreferences.toPatchDto(): PreferenceUpdateRequestDto {
+fun UserPreferences.toPatchDto(): PreferenceUpdateRequestDto {
     return PreferenceUpdateRequestDto(
         mutedKeywords = mutedKeywords,
         mutedCategories = mutedCategories,
-        blockedSourceIds = blockedSourceIds.toList(),
-        languages = languages.toList(),
+        blockedSourceIds = blockedSourceIds.toList(), // TODO: revisit base type if it could be a Set
+        languages = languages.toList(), // TODO: revisit base type if it could be a Set
     )
 }

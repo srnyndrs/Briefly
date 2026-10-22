@@ -42,12 +42,12 @@ fun PostDetailsPlaceholder(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(state = rememberScrollState()),
             ) {
                 ShimmerItem(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .requiredHeight(356.dp),
+                        .requiredHeight(height = 356.dp),
                     isLoading = true,
                 ) {}
                 Surface(
@@ -66,48 +66,48 @@ fun PostDetailsPlaceholder(
                             start = 12.dp,
                             end = 12.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                     ) {
                         ShimmerItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .requiredHeight(36.dp),
+                                .requiredHeight(height = 36.dp),
                             isLoading = true,
                             cornerRadius = 8.dp,
                         ) {}
                         ShimmerItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .requiredHeight(48.dp),
+                                .requiredHeight(height = 48.dp),
                             isLoading = true,
                             cornerRadius = 3.dp,
                         ) {}
                         ShimmerItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .requiredHeight(26.dp),
+                                .requiredHeight(height = 26.dp),
                             isLoading = true,
                             cornerRadius = 3.dp,
                         ) {}
-                        repeat(5) {
+                        repeat(times = 5) {
                             ShimmerItem(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(24.dp),
+                                    .requiredHeight(height = 24.dp),
                                 isLoading = true,
                                 cornerRadius = 3.dp,
                             ) {}
                         }
-                        Spacer(modifier = Modifier.requiredHeight(72.dp))
+                        Spacer(modifier = Modifier.requiredHeight(height = 72.dp))
                     }
                 }
             }
             IconButton(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(12.dp)
-                    .size(48.dp)
-                    .clip(CircleShape),
+                    .align(alignment = Alignment.TopStart)
+                    .padding(all = 12.dp)
+                    .size(size = 48.dp)
+                    .clip(shape = CircleShape),
                 onClick = onBack,
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
@@ -115,9 +115,9 @@ fun PostDetailsPlaceholder(
                 ),
             ) {
                 Icon(
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(size = 28.dp),
                     imageVector = Heroicons.Outline.ChevronLeft,
-                    contentDescription = stringResource(R.string.navigate_back),
+                    contentDescription = stringResource(id = R.string.navigate_back),
                 )
             }
         }

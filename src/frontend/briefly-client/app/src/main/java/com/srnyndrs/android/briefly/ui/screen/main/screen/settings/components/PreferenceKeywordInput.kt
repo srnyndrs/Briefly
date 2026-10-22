@@ -1,14 +1,17 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.settings.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,9 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Surface
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
@@ -32,61 +32,59 @@ fun PreferenceKeywordInput(
     modifier: Modifier = Modifier,
     value: String,
     keywords: List<String>,
+    enabled: Boolean,
     onValueChange: (String) -> Unit,
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
 ) {
-
-    val removeDescription = stringResource(R.string.settings_remove_keyword)
-
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            modifier = Modifier.weight(1f),
-            value = value,
-            onValueChange = onValueChange,
-            label = {
-                Text(
-                    text = stringResource(R.string.settings_muted_placeholder)
-                )
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onAdd() }),
-        )
-        AssistChip(
-            onClick = onAdd,
-            label = {
-                Text(
-                    text = stringResource(R.string.settings_add_keyword)
-                )
-            },
-        )
-    }
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        keywords.forEach { keyword ->
-            AssistChip(
-                onClick = { onRemove(keyword) },
-                label = { Text(text = keyword) },
-                trailingIcon = {
-                    Icon(
-                        imageVector = Heroicons.Solid.XMark,
-                        contentDescription = stringResource(R.string.settings_remove_keyword),
-                    )
-                },
-                modifier = Modifier.semantics {
-                    contentDescription = "$keyword: $removeDescription"
-                },
+    val canAdd = enabled && value.isNotBlank()
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
+        ) {
+            OutlinedTextField(
+                modifier = Modifier.weight(weight = 1f),
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                label = { Text(text = stringResource(id = R.string.settings_muted_placeholder)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (canAdd) onAdd() }),
             )
+            AssistChip(
+                enabled = canAdd,
+                onClick = onAdd,
+                label = { Text(text = stringResource(id = R.string.settings_add_keyword)) },
+            )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(space = 4.dp),
+        ) {
+            keywords.forEach { keyword ->
+                val removeDescription = stringResource(
+                    id = R.string.settings_unmute_keyword,
+                    keyword,
+                )
+                AssistChip(
+                    modifier = Modifier.semantics { contentDescription = removeDescription },
+                    enabled = enabled,
+                    onClick = { onRemove(keyword) },
+                    label = { Text(text = keyword) },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Heroicons.Solid.XMark,
+                            contentDescription = null,
+                        )
+                    },
+                )
+            }
         }
     }
 }
@@ -96,19 +94,17 @@ fun PreferenceKeywordInput(
 fun PreferenceKeywordInputPreview() {
     BrieflyTheme {
         Surface {
-            Row(
+            PreferenceKeywordInput(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
-            ) {
-                PreferenceKeywordInput(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = "",
-                    keywords = listOf("Donald", "Trump"),
-                    onValueChange = {},
-                    onAdd = {},
-                ) {}
-            }
+                    .padding(all = 12.dp),
+                value = "research",
+                keywords = listOf("batteries", "recycling"),
+                enabled = true,
+                onValueChange = {},
+                onAdd = {},
+                onRemove = {},
+            )
         }
     }
 }

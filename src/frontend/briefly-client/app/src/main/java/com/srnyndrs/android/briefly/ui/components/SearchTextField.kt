@@ -18,32 +18,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.MagnifyingGlass
+import com.srnyndrs.android.briefly.R
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 
 @Composable
 fun SearchTextField(
+    modifier: Modifier = Modifier,
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = "Search",
-    onSearch: (() -> Unit)? = null
+    placeholder: String = stringResource(id = R.string.search),
+    onSearch: (() -> Unit)? = null,
 ) {
     OutlinedTextField(
-        modifier = modifier.requiredHeight(58.dp),
+        modifier = Modifier
+            .then(modifier)
+            .requiredHeight(height = 58.dp),
         value = value,
         onValueChange = onValueChange,
         placeholder = {
             Text(
                 text = placeholder,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
             )
         },
         singleLine = true,
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(size = 22.dp),
         textStyle = MaterialTheme.typography.bodyLarge,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
@@ -59,14 +63,14 @@ fun SearchTextField(
         ),
         trailingIcon = {
             IconButton(
-                onClick = { onSearch?.invoke() }
+                onClick = { onSearch?.invoke() },
             ) {
                 Icon(
                     imageVector = Heroicons.Solid.MagnifyingGlass,
-                    contentDescription = null
+                    contentDescription = stringResource(id = R.string.search),
                 )
             }
-        }
+        },
     )
 }
 
@@ -79,7 +83,7 @@ fun SearchTextFieldPreview() {
             SearchTextField(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(6.dp),
+                    .padding(all = 6.dp),
                 value = value,
                 onValueChange = {
                     value = it

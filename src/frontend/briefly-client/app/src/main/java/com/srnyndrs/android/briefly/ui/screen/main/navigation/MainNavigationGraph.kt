@@ -1,14 +1,9 @@
 package com.srnyndrs.android.briefly.ui.screen.main.navigation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -22,17 +17,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.ui.components.UiStateContainer
+import com.srnyndrs.android.briefly.ui.screen.main.navigation.components.UnavailableDestination
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.ExploreViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.feed_sources.FeedSourcesScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.feed_sources.FeedSourcesViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.home.HomeViewModel
-import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsEvent
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.PostDetailsViewModel
-import com.srnyndrs.android.briefly.ui.screen.main.screen.post_details.components.PostDetailsPlaceholder
 import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsScreen
 import com.srnyndrs.android.briefly.ui.screen.main.screen.settings.SettingsViewModel
 import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.SourceDetailsScreen
@@ -46,34 +39,42 @@ fun MainNavigationGraph(
 ) {
 
     val context = LocalContext.current
-    val handleNavigationEvent = { event: MainNavigationEvent ->
-        when(event) {
+    val navigateBack: () -> Unit = {
+        val popped = navController.previousBackStackEntry != null && navController.popBackStack()
+        if (!popped) {
+            navController.navigate(route = MainRoutes.Home.route) {
+                popUpTo(id = navController.graph.id)
+                launchSingleTop = true
+            }
+        }
+    }
+    val handleNavigationEvent: (MainNavigationEvent) -> Unit = { event: MainNavigationEvent ->
+        when (event) {
             is MainNavigationEvent.ShowPostDetails -> {
-                navController.navigate(MainRoutes.PostDetails.createRoute(event.postId))
+                navController.navigate(MainRoutes.PostDetails.createRoute(postId = event.postId))
             }
             is MainNavigationEvent.ShowSourceDetails -> {
-                navController.navigate(MainRoutes.SourceDetails.createRoute(event.sourceId))
+                navController.navigate(MainRoutes.SourceDetails.createRoute(sourceId = event.sourceId))
             }
             is MainNavigationEvent.OpenCustomTab -> {
                 event.url?.let {
-                    openCustomTab(context, it)
+                    openCustomTab(
+                        context = context,
+                        url = it,
+                    )
                 } ?: Unit
             }
-            MainNavigationEvent.NavigateBack -> {
-                if (navController.previousBackStackEntry != null) {
-                    navController.popBackStack()
-                }
-            }
+            MainNavigationEvent.NavigateBack -> navigateBack()
         }
     }
 
     NavHost(
         modifier = Modifier.then(modifier),
         navController = navController,
-        startDestination = MainRoutes.Home.route
+        startDestination = MainRoutes.Home.route,
     ) {
         composable(
-            route = MainRoutes.Home.route
+            route = MainRoutes.Home.route,
         ) {
 
             val viewModel = hiltViewModel<HomeViewModel>()
@@ -85,12 +86,12 @@ fun MainNavigationGraph(
                 posts = posts,
                 state = state,
                 onNavigationEvent = handleNavigationEvent,
-                onHomeEvent = viewModel::onEvent
+                onHomeEvent = viewModel::onEvent,
             )
         }
 
         composable(
-            route = MainRoutes.FeedSources.route
+            route = MainRoutes.FeedSources.route,
         ) {
 
             val viewModel = hiltViewModel<FeedSourcesViewModel>()
@@ -99,14 +100,17 @@ fun MainNavigationGraph(
             FeedSourcesScreen(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = 6.dp,
+                    ),
                 state = state,
                 onNavigationEvent = handleNavigationEvent,
-                onEvent = viewModel::onEvent
+                onEvent = viewModel::onEvent,
             )
         }
         composable(
-            route = MainRoutes.Explore.route
+            route = MainRoutes.Explore.route,
         ) {
             val viewModel = hiltViewModel<ExploreViewModel>()
             val state by viewModel.state.collectAsStateWithLifecycle()
@@ -127,47 +131,25 @@ fun MainNavigationGraph(
             ),
         ) { entry ->
 
-            val postId = entry.arguments?.getString(MainRoutes.ARTICLE_ID_ARG)
+            val postId = entry.arguments?.getString(MainRoutes.ARTICLE_ID_ARG)?.takeIf { it.isNotBlank() }
             postId?.let {
                 val viewModel = hiltViewModel<PostDetailsViewModel, PostDetailsViewModel.Factory>(
-                    creationCallback = { factory -> factory.create(postId) }
+                    creationCallback = { factory -> factory.create(postId = postId) },
                 )
 
                 val state by viewModel.state.collectAsStateWithLifecycle()
 
-                UiStateContainer(
+                PostDetailsScreen(
                     modifier = Modifier.fillMaxSize(),
-                    state = state.details,
-                    loading = {
-                        PostDetailsPlaceholder(
-                            modifier = Modifier.fillMaxSize(),
-                            onBack = { handleNavigationEvent(MainNavigationEvent.NavigateBack) },
-                        )
-                    },
-                    error = { message ->
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Text(text = message)
-                            Button(onClick = { viewModel.onEvent(PostDetailsEvent.RetryLoad) }) {
-                                Text(text = stringResource(R.string.session_retry))
-                            }
-                        }
-                    },
-                    success = { data ->
-                        PostDetailsScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            article = data,
-                            onNavigationEvent = handleNavigationEvent,
-                            onEvent = viewModel::onEvent,
-                        )
-                    },
+                    state = state,
+                    onNavigationEvent = handleNavigationEvent,
+                    onEvent = viewModel::onEvent,
                 )
-            } ?: Column {
-                // TODO: handle null state
-            }
+            } ?: UnavailableDestination(
+                modifier = Modifier.fillMaxSize(),
+                message = stringResource(id = R.string.navigation_article_unavailable),
+                onBack = navigateBack,
+            )
         }
         composable(
             route = MainRoutes.SourceDetails.route,
@@ -175,10 +157,10 @@ fun MainNavigationGraph(
                 navArgument(MainRoutes.FEED_SOURCE_ID_ARG) { type = NavType.StringType },
             ),
         ) { entry ->
-            val sourceId = entry.arguments?.getString(MainRoutes.FEED_SOURCE_ID_ARG)
+            val sourceId = entry.arguments?.getString(MainRoutes.FEED_SOURCE_ID_ARG)?.takeIf { it.isNotBlank() }
             sourceId?.let {
                 val viewModel = hiltViewModel<SourceDetailsViewModel, SourceDetailsViewModel.SourceDetailsViewModelFactory>(
-                    creationCallback = { factory -> factory.create(sourceId) }
+                    creationCallback = { factory -> factory.create(sourceId = sourceId) },
                 )
                 val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -186,9 +168,13 @@ fun MainNavigationGraph(
                     modifier = Modifier.fillMaxSize(),
                     state = state,
                     onNavigationEvent = handleNavigationEvent,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
-            }
+            } ?: UnavailableDestination(
+                modifier = Modifier.fillMaxSize(),
+                message = stringResource(id = R.string.navigation_source_unavailable),
+                onBack = navigateBack,
+            )
         }
         composable(
             route = MainRoutes.Settings.route,

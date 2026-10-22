@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +26,6 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,7 +38,9 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.ui.components.ShimmerGroup
+import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.TopAppBar
 import com.srnyndrs.android.briefly.ui.screen.main.components.PostRow
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationEvent
@@ -47,52 +49,38 @@ import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.components.Exp
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.components.ExploreSearchBar
 import com.srnyndrs.android.briefly.ui.screen.main.screen.explore.preview.ExploreStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.flow.Flow
 
 @OptIn(ExperimentalTime::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ExploreScreen(
     modifier: Modifier = Modifier,
-    posts: LazyPagingItems<Post>,
+    posts: LazyPagingItems<ExploreArticle>,
     state: ExploreState,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
     onExploreEvent: (ExploreEvent) -> Unit,
 ) {
 
-    val scope = rememberCoroutineScope()
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
         skipHiddenState = false,
     )
     val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = bottomSheetState,
+        bottomSheetState = bottomSheetState
     )
 
-    LaunchedEffect(state.isFilterSheetOpen) {
-        if (state.isFilterSheetOpen) {
-            bottomSheetState.expand()
-        } else {
-            bottomSheetState.hide()
-        }
-    }
-
-    LaunchedEffect(bottomSheetState.currentValue) {
-        if (
-            bottomSheetState.currentValue != SheetValue.Expanded &&
-            state.isFilterSheetOpen
-        ) {
-            onExploreEvent(ExploreEvent.DismissFilterSheet)
-        }
+    LaunchedEffect(key1 = state.isFilterSheetOpen) {
+        if (state.isFilterSheetOpen) bottomSheetState.expand() else bottomSheetState.hide()
     }
 
     BackHandler(enabled = state.isFilterSheetOpen) {
-        scope.launch { bottomSheetState.hide() }
         onExploreEvent(ExploreEvent.DismissFilterSheet)
     }
 
     val refreshState = posts.loadState.refresh
+    val hasCurrentArticles = posts.itemSnapshotList.items.firstOrNull()?.filter == state.filter
+    val currentOptions = if (state.hasCurrentFilterOptions) state.filterOptions else ExploreFilterOptions()
 
     BottomSheetScaffold(
         modifier = Modifier.then(modifier),
@@ -100,27 +88,35 @@ fun ExploreScreen(
         sheetPeekHeight = 0.dp,
         sheetDragHandle = null,
         sheetSwipeEnabled = false,
-        sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        sheetShape = RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 16.dp,
+        ),
         sheetContainerColor = MaterialTheme.colorScheme.surface,
         sheetContentColor = MaterialTheme.colorScheme.onSurface,
         sheetContent = {
             ExploreFilterBottomSheet(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.onSurface,
-                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        shape = RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                        ),
                     ),
                 draftFilter = state.draftFilter,
-                filterOptions = state.filterOptions,
-                onDraftFilterChange = { onExploreEvent(ExploreEvent.UpdateDraftFilter(it)) },
+                filterOptions = currentOptions,
+                isLoadingOptions = !state.hasCurrentFilterOptions && refreshState !is LoadState.Error,
+                optionsFailed = !state.hasCurrentFilterOptions && refreshState is LoadState.Error,
+                onRetryOptions = posts::retry,
+                onDraftFilterChange = { onExploreEvent(ExploreEvent.UpdateDraftFilter(filter = it)) },
                 onApply = {
-                    scope.launch { bottomSheetState.hide() }
                     onExploreEvent(ExploreEvent.ApplyDraftFilter)
                 },
                 onReset = { onExploreEvent(ExploreEvent.ResetDraftFilters) },
                 onDismiss = {
-                    scope.launch { bottomSheetState.hide() }
                     onExploreEvent(ExploreEvent.DismissFilterSheet)
                 },
             )
@@ -139,11 +135,10 @@ fun ExploreScreen(
                 query = state.query,
                 hasActiveFilters = state.hasActiveFilters,
                 activeFilterCount = state.activeFilterCount,
-                onQueryChange = { onExploreEvent(ExploreEvent.UpdateQuery(it)) },
+                onQueryChange = { onExploreEvent(ExploreEvent.UpdateQuery(query = it)) },
                 onSearch = { onExploreEvent(ExploreEvent.SubmitQuery) },
                 onOpenFilter = {
                     onExploreEvent(ExploreEvent.OpenFilterSheet)
-                    scope.launch { bottomSheetState.expand() }
                 },
             )
 
@@ -152,30 +147,51 @@ fun ExploreScreen(
                     modifier = Modifier.fillMaxWidth(),
                     filter = state.filter,
                     filterOptions = state.filterOptions,
-                    onRemoveCategory = { onExploreEvent(ExploreEvent.RemoveCategory(it)) },
-                    onRemoveLanguage = { onExploreEvent(ExploreEvent.RemoveLanguage(it)) },
-                    onRemoveSource = { onExploreEvent(ExploreEvent.RemoveSource(it)) },
+                    onRemoveCategory = { onExploreEvent(ExploreEvent.RemoveCategory(category = it)) },
+                    onRemoveLanguage = { onExploreEvent(ExploreEvent.RemoveLanguage(language = it)) },
+                    onRemoveSource = { onExploreEvent(ExploreEvent.RemoveSource(sourceId = it)) },
                     onClearDateRange = { onExploreEvent(ExploreEvent.ClearDateRange) },
-                    onResetSort = { onExploreEvent(ExploreEvent.ChangeSort("freshness")) },
+                    onResetSort = { onExploreEvent(ExploreEvent.ChangeSort(sort = "freshness")) },
                     onClearAll = { onExploreEvent(ExploreEvent.ClearAllFilters) },
                 )
             }
 
             when {
-                refreshState is LoadState.Loading && posts.itemCount == 0 -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                !hasCurrentArticles && refreshState !is LoadState.Error &&
+                    (refreshState is LoadState.Loading || !state.hasCurrentFilterOptions) -> {
+                    ShimmerGroup {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            items(count = 5) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    ShimmerItem(
+                                        modifier = Modifier
+                                            .fillMaxWidth(fraction = 0.3f)
+                                            .height(16.dp),
+                                        isLoading = true,
+                                    ) {}
+                                    repeat(times = 2) {
+                                        ShimmerItem(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(24.dp),
+                                            isLoading = true,
+                                        ) {}
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
-                refreshState is LoadState.Error && posts.itemCount == 0 -> {
+                refreshState is LoadState.Error && !hasCurrentArticles -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -188,8 +204,7 @@ fun ExploreScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(
-                                text = refreshState.error.localizedMessage
-                                    ?: stringResource(R.string.home_load_error),
+                                text = stringResource(R.string.explore_load_error),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
@@ -201,7 +216,7 @@ fun ExploreScreen(
                     }
                 }
 
-                posts.itemCount == 0 -> {
+                !hasCurrentArticles -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -210,7 +225,7 @@ fun ExploreScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = stringResource(R.string.home_empty),
+                            text = stringResource(R.string.explore_empty),
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -220,7 +235,9 @@ fun ExploreScreen(
 
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.padding(top = 6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(top = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         when (refreshState) {
@@ -233,8 +250,7 @@ fun ExploreScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     Text(
-                                        text = refreshState.error.localizedMessage
-                                            ?: stringResource(R.string.home_load_error),
+                                        text = stringResource(R.string.explore_load_error),
                                         color = MaterialTheme.colorScheme.error,
                                     )
                                     OutlinedButton(onClick = posts::retry) {
@@ -246,21 +262,23 @@ fun ExploreScreen(
                         }
                         items(
                             count = posts.itemCount,
-                            key = { index -> posts.peek(index)?.id ?: "explore_$index" },
+                            key = { index -> posts.peek(index)?.post?.id ?: "explore_$index" },
                         ) { index ->
-                            val post = posts[index] ?: return@items
+                            val article = posts[index] ?: return@items
+                            if (article.filter != state.filter) return@items
+                            val post = article.post
                             PostRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 12.dp),
                                 title = post.title,
-                                source = post.source,
+                                source = post.sourceTitle,
                                 onClick = {
                                     onNavigationEvent(
                                         if (post.hasContent) {
-                                            MainNavigationEvent.ShowPostDetails(post.id)
+                                            MainNavigationEvent.ShowPostDetails(postId = post.id)
                                         } else {
-                                            MainNavigationEvent.OpenCustomTab(post.url)
+                                            MainNavigationEvent.OpenCustomTab(url = post.url)
                                         }
                                     )
                                 },
@@ -271,7 +289,7 @@ fun ExploreScreen(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                             )
                         }
-                        when (val appendState = posts.loadState.append) {
+                        when (posts.loadState.append) {
                             is LoadState.Loading -> item(key = "append_loading") {
                                 Box(
                                     modifier = Modifier
@@ -288,8 +306,7 @@ fun ExploreScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     Text(
-                                        text = appendState.error.localizedMessage
-                                            ?: stringResource(R.string.home_append_error),
+                                        text = stringResource(R.string.explore_append_error),
                                         color = MaterialTheme.colorScheme.error,
                                     )
                                     OutlinedButton(onClick = posts::retry) {
@@ -304,14 +321,13 @@ fun ExploreScreen(
             }
         }
     }
-
 }
 
 @OptIn(ExperimentalTime::class, ExperimentalMaterial3Api::class)
 @PreviewLightDark
 @Composable
 fun ExploreScreenPreview(
-    @PreviewParameter(ExploreStateProvider::class) previewContent: Pair<ExploreState, Flow<PagingData<Post>>>,
+    @PreviewParameter(ExploreStateProvider::class) previewContent: Pair<ExploreState, Flow<PagingData<ExploreArticle>>>,
 ) {
 
     val (exploreState, content) = previewContent
@@ -320,7 +336,11 @@ fun ExploreScreenPreview(
         Surface {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { TopAppBar(onMenuSelect = {}) {} },
+                topBar = {
+                    TopAppBar(
+                        onMenuSelect = {},
+                    )
+                },
             ) { paddingValues ->
                 ExploreScreen(
                     modifier = Modifier

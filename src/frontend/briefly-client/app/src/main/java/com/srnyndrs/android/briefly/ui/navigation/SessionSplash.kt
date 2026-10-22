@@ -21,14 +21,15 @@ fun SessionSplash(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier.then(modifier)
-            .background(colorResource(R.color.splash_background)),
+        modifier = Modifier
+            .then(modifier)
+            .background(color = colorResource(R.color.splash_background)),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
                 .size(108.dp)
-                .background(colorResource(R.color.splash_icon_background)),
+                .background(color = colorResource(R.color.splash_icon_background)),
         ) {
             Image(
                 modifier = Modifier.fillMaxSize(),
@@ -45,7 +46,7 @@ fun SessionSplashPreview() {
     BrieflyTheme {
         Surface {
             SessionSplash(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

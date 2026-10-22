@@ -2,144 +2,247 @@ package com.srnyndrs.android.briefly.ui.screen.main.screen.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.srnyndrs.android.briefly.domain.model.content.Source
-import com.srnyndrs.android.briefly.domain.model.profile.ProfilePreferences
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.GetFeedSourcesUseCase
-import com.srnyndrs.android.briefly.domain.usecase.profile.GetPreferenceOptionsUseCase
-import com.srnyndrs.android.briefly.domain.usecase.profile.GetProfileUseCase
-import com.srnyndrs.android.briefly.domain.usecase.profile.UpdatePreferencesUseCase
+import com.srnyndrs.android.briefly.domain.model.content.source.Source
+import com.srnyndrs.android.briefly.domain.model.preferences.UserPreferences
+import com.srnyndrs.android.briefly.domain.usecase.content.source.GetFeedSourcesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.feed.GetExploreFilterOptionsUseCase
+import com.srnyndrs.android.briefly.domain.usecase.preferences.GetPreferencesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.preferences.UpdatePreferencesUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val getProfileUseCase: GetProfileUseCase,
-    private val getPreferenceOptionsUseCase: GetPreferenceOptionsUseCase,
+    private val getPreferencesUseCase: GetPreferencesUseCase,
+    private val getExploreFilterOptionsUseCase: GetExploreFilterOptionsUseCase,
     private val getFeedSourcesUseCase: GetFeedSourcesUseCase,
     private val updatePreferencesUseCase: UpdatePreferencesUseCase,
-) : ViewModel() {
+): ViewModel() {
 
-    private val _state = MutableStateFlow<UiState<SettingsUiModel>>(UiState.Idle)
+    private val _state = MutableStateFlow<UiState<SettingsUiModel>>(value = UiState.Idle)
     val state = _state.asStateFlow()
 
-    init { load() }
+    private var sourceCatalog: Map<String, Source> = emptyMap()
+    private var availableLanguages: List<String> = emptyList()
+    private var failedUpdate: ((UserPreferences) -> UserPreferences)? = null
+
+    init {
+        load()
+    }
 
     fun onEvent(event: SettingsEvent) {
         when (event) {
             SettingsEvent.RetryLoad -> {
-                load()
+                if (_state.value is UiState.Error) load()
             }
+            SettingsEvent.RetryUpdate -> failedUpdate?.let { updatePreferences(transform = it) }
             is SettingsEvent.ToggleLanguage -> {
-                updatePreferences { it.copy(languages = toggle(it.languages, event.code)) }
-            }
-            is SettingsEvent.RemoveMutedCategory -> {
-                updatePreferences { it.copy(mutedCategories = it.mutedCategories.filterNot { value -> value.equals(event.category, true) }) }
-            }
-            is SettingsEvent.KeywordDraftChanged -> {
-                edit { it.copy(keywordDraft = event.value) }
-            }
-            SettingsEvent.AddMutedKeyword -> {
-                val model = (_state.value as? UiState.Success)?.data ?: return
-                val keyword = model.keywordDraft.trim()
-                if (keyword.isNotBlank() && model.mutedKeywords.none { it.equals(keyword, true) }) {
-                    updatePreferences { it.copy(mutedKeywords = it.mutedKeywords + keyword) }
+                val current = (_state.value as? UiState.Success)?.data ?: return
+                val code = event.code.trim().lowercase(Locale.ROOT)
+                val select = code !in current.selectedLanguageCodes
+                updatePreferences { preferences ->
+                    preferences.copy(
+                        languages = if (select) {
+                            preferences.languages + code
+                        } else {
+                            preferences.languages.filterNot {
+                                it.equals(
+                                    other = code,
+                                    ignoreCase = true,
+                                )
+                            }.toSet()
+                        },
+                    )
                 }
             }
-            is SettingsEvent.RemoveMutedKeyword -> {
-                updatePreferences { it.copy(mutedKeywords = it.mutedKeywords.filterNot { value -> value.equals(event.keyword, true) }) }
+            is SettingsEvent.RemoveMutedCategory -> updatePreferences { preferences ->
+                preferences.copy(
+                    mutedCategories = preferences.mutedCategories.filterNot {
+                        it.equals(
+                            other = event.category,
+                            ignoreCase = true,
+                        )
+                    },
+                )
             }
-            is SettingsEvent.UnblockSource -> {
-                updatePreferences { it.copy(blockedSourceIds = it.blockedSourceIds - event.sourceId) }
+            is SettingsEvent.KeywordDraftChanged -> edit {
+                if (it.isUpdating) it else it.copy(keywordDraft = event.value)
+            }
+            SettingsEvent.AddMutedKeyword -> {
+                val current = (_state.value as? UiState.Success)?.data ?: return
+                val keyword = current.keywordDraft.trim()
+                if (keyword.isBlank()) return
+                updatePreferences { preferences ->
+                    val alreadyMuted = preferences.mutedKeywords.any {
+                        it.equals(
+                            other = keyword,
+                            ignoreCase = true,
+                        )
+                    }
+                    if (alreadyMuted) preferences else preferences.copy(
+                        mutedKeywords = preferences.mutedKeywords + keyword,
+                    )
+                }
+            }
+            is SettingsEvent.RemoveMutedKeyword -> updatePreferences { preferences ->
+                preferences.copy(
+                    mutedKeywords = preferences.mutedKeywords.filterNot {
+                        it.equals(
+                            other = event.keyword,
+                            ignoreCase = true,
+                        )
+                    },
+                )
+            }
+            is SettingsEvent.UnblockSource -> updatePreferences {
+                it.copy(blockedSourceIds = it.blockedSourceIds - event.sourceId)
             }
             SettingsEvent.DismissError -> {
-                edit { it.copy(errorMessage = null) }
+                failedUpdate = null
+                edit { it.copy(updateFailed = false) }
             }
         }
     }
 
-    private fun load() = viewModelScope.launch {
+    private fun load() {
         _state.value = UiState.Loading
-        runCatching { coroutineScope {
-                Triple(
-                    async { getProfileUseCase().getOrThrow() },
-                    async { getPreferenceOptionsUseCase().getOrThrow() },
-                    async { getFeedSourcesUseCase().getOrThrow() }
-                ).let {
+        viewModelScope.launch {
+            val result = runCatching {
+                coroutineScope {
+                    val preferences = async { getPreferencesUseCase().getOrThrow() }
+                    val options = async { getExploreFilterOptionsUseCase().getOrThrow() }
+                    val sources = async { getFeedSourcesUseCase().getOrThrow() }
                     Triple(
-                        it.first.await(),
-                        it.second.await(),
-                        it.third.await()
+                        first = preferences.await(),
+                        second = options.await(),
+                        third = sources.await(),
                     )
                 }
             }
-        }.fold(
-            onSuccess = { (profile, options, sources) ->
-                _state.value = UiState.Success(normalize(profile.preferences)
-                    .toUiModel(options.languages, sources)
-                )},
-            onFailure = {
-                _state.value = UiState.Error(it.message ?: "Unable to load preferences")
-            }
-        )
-    }
-
-    private fun edit(transform: (SettingsUiModel) -> SettingsUiModel) {
-        val current = (_state.value as? UiState.Success)?.data ?: return
-        _state.value = UiState.Success(transform(current))
-    }
-
-    private fun updatePreferences(transform: (ProfilePreferences) -> ProfilePreferences) {
-        val current = (_state.value as? UiState.Success)?.data ?: return
-        if (current.isUpdating) return
-        val previous = current.preferences
-        val next = normalize(transform(previous))
-        if (next == previous) return
-        _state.value = UiState.Success(current.copy(preferences = next, isUpdating = true, errorMessage = null).withPreferences(next))
-        viewModelScope.launch {
-            updatePreferencesUseCase(next).fold(
-                onSuccess = { saved ->
-                    edit { it.copy(
-                        preferences = normalize(saved),
-                        isUpdating = false
-                    ).withPreferences(normalize(saved)) } },
-                onFailure = { error ->
-                    edit { it.copy(
-                        preferences = previous,
-                        isUpdating = false,
-                        errorMessage = error.message ?: "Unable to update settings"
-                    ).withPreferences(previous) }
+            currentCoroutineContext().ensureActive()
+            result.fold(
+                onSuccess = { (preferences, options, sources) ->
+                    sourceCatalog = sources.associateBy { it.id }
+                    availableLanguages = options.languages
+                    failedUpdate = null
+                    _state.value = UiState.Success(
+                        data = SettingsUiModel().withPreferences(preferences = preferences),
+                    )
+                },
+                onFailure = { exception ->
+                    _state.value = UiState.Error(message = exception.message.orEmpty())
                 },
             )
         }
     }
 
-    private fun SettingsUiModel.withPreferences(preferences: ProfilePreferences) = copy(
-        selectedLanguageCodes = preferences.languages,
-        mutedCategories = preferences.mutedCategories,
-        mutedKeywords = preferences.mutedKeywords,
-        blockedSources = blockedSources.filter {
-            it.id in preferences.blockedSourceIds
+    private fun edit(transform: (SettingsUiModel) -> SettingsUiModel) {
+        _state.update { state ->
+            val current = (state as? UiState.Success)?.data ?: return@update state
+            UiState.Success(data = transform(current))
         }
-    )
+    }
 
-    private fun toggle(values: Set<String>, value: String): Set<String> =
-        values.firstOrNull { it.equals(value, true) }?.let { values - it } ?: (values + value)
+    private fun updatePreferences(transform: (UserPreferences) -> UserPreferences) {
+        val current = (_state.value as? UiState.Success)?.data ?: return
+        if (current.isUpdating) return
+        val next = normalize(preferences = transform(current.preferences))
+        if (next == current.preferences) return
+        failedUpdate = null
+        _state.value = UiState.Success(
+            data = current.copy(
+                isUpdating = true,
+                updateFailed = false,
+            ).withPreferences(preferences = next),
+        )
+        viewModelScope.launch {
+            val result = updatePreferencesUseCase(transform = transform)
+            currentCoroutineContext().ensureActive()
+            result.fold(
+                onSuccess = { saved ->
+                    edit {
+                        it.copy(isUpdating = false).withPreferences(preferences = saved)
+                    }
+                },
+                onFailure = {
+                    failedUpdate = transform
+                    edit {
+                        it.copy(
+                            isUpdating = false,
+                            updateFailed = true,
+                        ).withPreferences(preferences = current.preferences)
+                    }
+                },
+            )
+        }
+    }
+
+    private fun SettingsUiModel.withPreferences(preferences: UserPreferences): SettingsUiModel {
+        val normalized = normalize(preferences)
+        return copy(
+            preferences = normalized,
+            languageOptions = languageOptions(
+                values = availableLanguages,
+                selected = normalized.languages,
+            ),
+            selectedLanguageCodes = normalized.languages,
+            mutedCategories = normalized.mutedCategories,
+            mutedKeywords = normalized.mutedKeywords,
+            blockedSources = normalized.blockedSourceIds.map { id ->
+                sourceCatalog[id] ?: Source(
+                    id = id,
+                    url = "",
+                    title = "",
+                )
+            },
+        )
+    }
 }
 
-private fun ProfilePreferences.toUiModel(languages: List<String>, sources: List<Source>): SettingsUiModel {
-    val normalized = normalize(this)
-    val merged = sources + normalized.blockedSourceIds.filterNot { id -> sources.any { it.id == id } }.map { Source(it, "", "Unavailable source") }
-    return SettingsUiModel(languageOptions = languageOptions(languages, normalized.languages), selectedLanguageCodes = normalized.languages, mutedCategories = normalized.mutedCategories, mutedKeywords = normalized.mutedKeywords, blockedSources = merged.filter { it.id in normalized.blockedSourceIds }, preferences = normalized)
+fun languageOptions(
+    values: List<String>,
+    selected: Set<String>,
+): List<LanguageOption> {
+    val isoCodes = Locale.getISOLanguages().toSet()
+    val available = values.map { it.trim().lowercase(Locale.ROOT) }.filter { it in isoCodes }
+    val retained = selected.map { it.trim().lowercase(Locale.ROOT) }.filter(String::isNotBlank)
+    return (available + retained)
+        .distinct()
+        .map { code ->
+            LanguageOption(
+                code = code,
+                displayName = if (code in isoCodes) {
+                    Locale.forLanguageTag(code).getDisplayLanguage(Locale.getDefault())
+                } else {
+                    code.uppercase(Locale.ROOT)
+                },
+            )
+        }
+        .sortedWith(
+            comparator = compareBy<LanguageOption> { it.displayName.lowercase(Locale.ROOT) }
+                .thenBy { it.code },
+        )
 }
 
-fun languageOptions(values: List<String>, selected: Set<String>): List<LanguageOption> = (values + selected).map { it.trim().lowercase(Locale.ROOT) }.filter { it.length == 2 && it.all(Char::isLetter) }.distinct().map { code -> LanguageOption(code, Locale.forLanguageTag(code).getDisplayLanguage(Locale.getDefault()).ifBlank { code.uppercase(Locale.ROOT) }) }.sortedWith(compareBy<LanguageOption> { it.displayName.lowercase(Locale.ROOT) }.thenBy { it.code })
-private fun normalize(p: ProfilePreferences) = p.copy(mutedKeywords = clean(p.mutedKeywords), mutedCategories = clean(p.mutedCategories), languages = clean(p.languages).map { it.lowercase(Locale.ROOT) }.toSet())
-private fun clean(values: List<String>) = values.map(String::trim).filter(String::isNotBlank).distinctBy { it.lowercase(Locale.ROOT) }
-private fun clean(values: Set<String>) = clean(values.toList()).toSet()
+private fun normalize(preferences: UserPreferences) = preferences.copy(
+    mutedKeywords = clean(values = preferences.mutedKeywords),
+    mutedCategories = clean(values = preferences.mutedCategories),
+    languages = clean(values = preferences.languages.toList()).map {
+        it.lowercase(Locale.ROOT)
+    }.toSet(),
+)
+
+private fun clean(values: List<String>) = values
+    .map(String::trim)
+    .filter(String::isNotBlank)
+    .distinctBy { it.lowercase(Locale.ROOT) }

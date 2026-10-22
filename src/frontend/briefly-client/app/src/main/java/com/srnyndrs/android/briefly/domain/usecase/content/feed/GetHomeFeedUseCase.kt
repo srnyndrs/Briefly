@@ -1,7 +1,7 @@
 package com.srnyndrs.android.briefly.domain.usecase.content.feed
 
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
-import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.HomePostFilter
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
 import javax.inject.Inject
 

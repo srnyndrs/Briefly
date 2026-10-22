@@ -1,7 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.home
 
 import com.srnyndrs.android.briefly.domain.model.content.Category
-import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
 
 data class HomeState(
     val headlines: List<Post> = emptyList(),

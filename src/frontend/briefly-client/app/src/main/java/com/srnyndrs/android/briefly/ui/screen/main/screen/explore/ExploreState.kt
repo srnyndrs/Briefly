@@ -1,7 +1,7 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.explore
 
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -11,7 +11,12 @@ data class ExploreState(
     val draftFilter: ExplorePostFilter = ExplorePostFilter(sort = "freshness"),
     val isFilterSheetOpen: Boolean = false,
     val filterOptions: ExploreFilterOptions = ExploreFilterOptions(),
+    val filterOptionsFilter: ExplorePostFilter? = null,
 ) {
+
+    val hasCurrentFilterOptions: Boolean
+        get() = filterOptionsFilter == filter
+
     val activeFilterCount: Int
         get() {
             var count = 0

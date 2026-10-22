@@ -2,14 +2,13 @@ package com.srnyndrs.android.briefly.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,31 +29,52 @@ fun SelectionChip(
     isLoading: Boolean = false,
     onClick: () -> Unit,
 ) {
+
     val shape = RoundedCornerShape(24.dp)
     val contentColor = MaterialTheme.colorScheme.onSurface
+
     ShimmerItem(
-        modifier = if (isLoading) modifier.size(width = 96.dp, height = 40.dp) else modifier,
+        modifier = if (isLoading) {
+            Modifier
+                .then(modifier)
+                .size(
+                    width = 96.dp,
+                    height = 48.dp,
+                )
+        } else {
+            Modifier.then(modifier)
+        },
         isLoading = isLoading,
         cornerRadius = 24.dp,
     ) {
         Box(
             modifier = Modifier
-                .wrapContentSize()
-                .clip(shape)
+                .defaultMinSize(minHeight = 48.dp)
+                .clip(shape = shape)
                 .border(
                     width = 1.dp,
                     color = contentColor,
                     shape = shape,
                 )
                 .background(
-                    if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                    color = if (selected) contentColor.copy(alpha = 0.2f)
                     else MaterialTheme.colorScheme.surface,
                 )
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp, horizontal = 12.dp),
+                .selectable(
+                    selected = selected,
+                    onClick = onClick,
+                )
+                .padding(
+                    vertical = 8.dp,
+                    horizontal = 12.dp,
+                ),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = label, style = MaterialTheme.typography.bodyLarge, color = contentColor)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor,
+            )
         }
     }
 }
@@ -65,12 +85,26 @@ private fun SelectionChipPreview() {
     BrieflyTheme {
         Surface {
             Row(
-                modifier = Modifier.wrapContentWidth().padding(6.dp),
+                modifier = Modifier.padding(all = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(space = 12.dp),
             ) {
-                SelectionChip(label = "Economics", selected = true) {}
-                SelectionChip(label = "Politics", selected = false) {}
+                SelectionChip(
+                    label = "Science",
+                    selected = true,
+                    onClick = {},
+                )
+                SelectionChip(
+                    label = "Health",
+                    selected = false,
+                    onClick = {},
+                )
+                SelectionChip(
+                    label = "",
+                    selected = false,
+                    isLoading = true,
+                    onClick = {},
+                )
             }
         }
     }

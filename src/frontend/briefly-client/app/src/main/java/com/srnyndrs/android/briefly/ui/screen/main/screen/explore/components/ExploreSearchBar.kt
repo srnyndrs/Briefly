@@ -46,7 +46,9 @@ fun ExploreSearchBar(
     val buttonShape = RoundedCornerShape(22.dp)
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .then(modifier)
+            .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -92,7 +94,10 @@ fun ExploreSearchBar(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = (-6).dp, y = 6.dp)
+                        .offset(
+                            x = (-6).dp,
+                            y = 6.dp,
+                        )
                         .size(18.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurface),
@@ -131,4 +136,3 @@ fun ExploreSearchBarPreview() {
         }
     }
 }
-

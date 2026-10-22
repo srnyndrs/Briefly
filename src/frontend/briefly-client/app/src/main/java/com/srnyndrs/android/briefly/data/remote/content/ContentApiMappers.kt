@@ -1,24 +1,11 @@
 package com.srnyndrs.android.briefly.data.remote.content
 
-import com.srnyndrs.android.briefly.data.remote.content.dto.PostResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.PostSummaryResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDetailsResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoveryResultDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceResponseDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionResponseDto
-import com.srnyndrs.android.briefly.domain.model.content.PostDetails
-import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
-import com.srnyndrs.android.briefly.domain.model.content.Source
-import com.srnyndrs.android.briefly.domain.model.content.Subscription
-import com.srnyndrs.android.briefly.data.remote.content.dto.FilterOptionsDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceEntry
 import com.srnyndrs.android.briefly.domain.model.content.Category
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.FilterSource
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.FilterSource
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 fun PostSummaryResponseDto.toDomain(): Post {
@@ -27,24 +14,13 @@ fun PostSummaryResponseDto.toDomain(): Post {
         title = title,
         url = canonicalUrl,
         description = description,
-        source = sourceTitle,
-        categories = categories?.map { rawCategory ->
+        sourceTitle = sourceTitle,
+        categories = categories.orEmpty().map { rawCategory ->
             Category.valueOf(rawCategory.uppercase())
         },
         imageUrl = imageRef,
-        publishDate = publishedAt,
+        publishedAt = publishedAt,
         hasContent = hasContent,
-    )
-}
-
-fun SourceDiscoveryResultDto.toDomain(): SourceDiscoveryResult {
-    return SourceDiscoveryResult(
-        id = url,
-        url = url,
-        title = title ?: url,
-        favicon = favicon,
-        description = description,
-        isSubscribed = false,
     )
 }
 
@@ -58,47 +34,13 @@ fun PostResponseDto.toDomain(): PostDetails {
         author = author,
         keywords = keywords,
         imageUrl = imageRef,
-        categories = categories?.map { Category.valueOf(it.uppercase()) },
+        categories = categories.orEmpty().map { rawCategory ->
+            Category.valueOf(rawCategory.uppercase())
+        },
         url = canonicalUrl,
-        publishedAt = publishedAt ?: Instant.fromEpochMilliseconds(0),
+        publishedAt = publishedAt,
         language = language,
-        source = sourceTitle,
-    )
-}
-
-fun SourceResponseDto.toDomain(): Source {
-    return Source(
-        id = sourceId,
-        url = url,
-        title = title ?: "",
-        favicon = favicon,
-        description = description,
-        verified = verified,
-        isSubscribed = isSubscribed,
-    )
-}
-
-@OptIn(ExperimentalTime::class)
-fun SubscriptionResponseDto.toDomain(): Subscription {
-    return Subscription(
-        userId = userId,
-        sourceId = sourceId,
-        createdAt = createdAt,
-    )
-}
-
-@OptIn(ExperimentalTime::class)
-fun SourceDetailsResponseDto.toDomain(): SourceDetails {
-    return SourceDetails(
-        id = sourceId,
-        title = title,
-        description = description,
-        siteUrl = siteUrl,
-        imageUrl = favicon,
-        subscribed = isSubscribed,
-        verified = verified,
-        followed = false, // TODO
-        lastUpdatedAt = updatedAt,
+        sourceTitle = sourceTitle,
     )
 }
 
@@ -115,7 +57,8 @@ fun FilterOptionsDto.toDomain(): ExploreFilterOptions {
         languages = languages,
         authors = authors,
         keywords = keywords,
-        sources = sources.map { it.toDomain() },
+        sources = sources.map { source ->
+            source.toDomain()
+        },
     )
 }
-

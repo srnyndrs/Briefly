@@ -5,6 +5,5 @@ sealed class SourceDetailsEvent {
     data object ToggleBlock : SourceDetailsEvent()
     data object RetryFeedDetails : SourceDetailsEvent()
     data object RetryArticles : SourceDetailsEvent()
-    data class ToggleFollow(val followed: Boolean): SourceDetailsEvent()
-    data class ToggleSubscribe(val subscribed: Boolean): SourceDetailsEvent()
+    data object ToggleSubscribe : SourceDetailsEvent()
 }

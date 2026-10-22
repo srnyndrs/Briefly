@@ -4,30 +4,23 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SourceDiscoverRequestDto
-import com.srnyndrs.android.briefly.data.remote.content.dto.SubscriptionCreateRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFeed
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeed
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
-import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.model.content.PostDetails
-import com.srnyndrs.android.briefly.domain.model.content.PostPagingResult
-import com.srnyndrs.android.briefly.domain.model.content.Source
-import com.srnyndrs.android.briefly.domain.model.content.SourceDetails
-import com.srnyndrs.android.briefly.domain.model.content.SourceDiscoveryResult
-import com.srnyndrs.android.briefly.domain.model.content.Subscription
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
-import com.srnyndrs.android.briefly.domain.model.content.filter.HomePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.PostDetails
+import com.srnyndrs.android.briefly.domain.model.content.post.PostPagingResult
+import com.srnyndrs.android.briefly.domain.model.content.feed.ExploreFeed
+import com.srnyndrs.android.briefly.domain.model.content.feed.HomeFeed
+import com.srnyndrs.android.briefly.domain.model.content.feed.HomeFeedMetadata
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.HomePostFilter
 import com.srnyndrs.android.briefly.domain.repository.content.ContentRepository
-import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @OptIn(ExperimentalTime::class)
 class ContentRepositoryImpl @Inject constructor(
@@ -84,10 +77,6 @@ class ContentRepositoryImpl @Inject constructor(
         )
     }
 
-    override fun getExplorePostPagingFlow(filter: ExplorePostFilter): Flow<PagingData<Post>> {
-        return getExploreFeed(filter).posts
-    }
-
     private fun getHomePostPagingFlow(
         request: FeedRequestDto,
         metadata: MutableStateFlow<HomeFeedMetadata?>,
@@ -126,7 +115,7 @@ class ContentRepositoryImpl @Inject constructor(
             val items = response.items.map { it.toDomain() }
             val result = PostPagingResult(
                 page = response.page,
-                count = response.pageCount,
+                pageCount = response.pageCount,
                 items = items,
             )
 
@@ -136,84 +125,14 @@ class ContentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun fetchFeedSources(query: String?): Result<List<Source>> {
-        return try {
-            val response = contentApiService.getFeedSources(query)
-            val result = response.map { it.toDomain() }
-
-            Result.success(result)
-        }  catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
     override suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions> {
         return try {
             val response = contentApiService.getExploreFilterOptions()
+            // TODO: revisit this error handling
             val options = response.filterOptions
                 ?: error("Explore response did not include filter options")
             Result.success(options.toDomain())
         } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    override suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>> {
-        return try {
-            val response = contentApiService.getFeedSourceSubscriptions()
-            val result = response.map { it.toDomain() }
-
-            Result.success(result)
-        }  catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    override suspend fun discoverFeedSources(url: String): Result<List<SourceDiscoveryResult>> {
-        return try {
-            val response = contentApiService.discoverSources(SourceDiscoverRequestDto(url))
-            val result = response.map { it.toDomain() }
-
-            Result.success(result)
-        } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    override suspend fun getFeedSourceDetails(sourceId: String): Result<SourceDetails> {
-        return try {
-            val response = contentApiService.getFeedSourceDetails(sourceId)
-            val result = response.toDomain()
-
-            Result.success(result)
-        }  catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    override suspend fun subscribeFeedSource(sourceId: String): Result<Subscription> {
-        return try {
-            val request = SubscriptionCreateRequestDto(sourceId)
-            val response = contentApiService.subscribeFeedSource(request)
-
-            Result.success(response.toDomain())
-        }  catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    override suspend fun unsubscribeFeedSource(sourceId: String): Result<String> {
-        return try {
-            when(val response = contentApiService.unsubscribeFeedSource(sourceId)) {
-                HttpStatusCode.NoContent -> {
-                    Result.success(sourceId)
-                }
-                else -> {
-                    val exception = Exception(response.description)
-                    Result.failure(exception)
-                }
-            }
-        }  catch (exception: Exception) {
             Result.failure(exception)
         }
     }

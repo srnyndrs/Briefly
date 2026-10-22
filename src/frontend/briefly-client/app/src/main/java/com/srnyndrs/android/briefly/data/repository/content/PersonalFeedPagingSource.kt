@@ -3,11 +3,11 @@ package com.srnyndrs.android.briefly.data.repository.content
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.FeedRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.FeedRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.Category
-import com.srnyndrs.android.briefly.domain.model.content.Post
-import com.srnyndrs.android.briefly.domain.model.content.HomeFeedMetadata
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
+import com.srnyndrs.android.briefly.domain.model.content.feed.HomeFeedMetadata
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class PersonalFeedPagingSource(

@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -35,9 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.heroicons.Heroicons
 import com.composables.icons.heroicons.solid.XMark
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.FilterSource
-import com.srnyndrs.android.briefly.domain.model.content.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExplorePostFilter
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.FilterSource
 import com.srnyndrs.android.briefly.ui.components.SectionHeader
 import com.srnyndrs.android.briefly.ui.components.SelectionChip
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -49,6 +50,9 @@ fun ExploreFilterBottomSheet(
     modifier: Modifier = Modifier,
     draftFilter: ExplorePostFilter,
     filterOptions: ExploreFilterOptions,
+    isLoadingOptions: Boolean,
+    optionsFailed: Boolean,
+    onRetryOptions: () -> Unit,
     onDraftFilterChange: (ExplorePostFilter) -> Unit,
     onApply: () -> Unit,
     onReset: () -> Unit,
@@ -60,10 +64,17 @@ fun ExploreFilterBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false)
+                .weight(
+                    weight = 1f,
+                    fill = false,
+                )
                 .verticalScroll(rememberScrollState())
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(
+                    top = 16.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Header: Title, Close button, and Newspaper dividers
             Column(
@@ -86,7 +97,7 @@ fun ExploreFilterBottomSheet(
                     ) {
                         Icon(
                             imageVector = Heroicons.Solid.XMark,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.explore_close_filters),
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -96,6 +107,19 @@ fun ExploreFilterBottomSheet(
                     thickness = 2.dp,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+            }
+
+            if (isLoadingOptions) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(text = stringResource(R.string.explore_loading_filters))
+            } else if (optionsFailed) {
+                Text(
+                    text = stringResource(R.string.explore_filter_error),
+                    color = MaterialTheme.colorScheme.error,
+                )
+                OutlinedButton(onClick = onRetryOptions) {
+                    Text(text = stringResource(R.string.home_retry))
+                }
             }
 
             // Scrollable filter sections
@@ -149,7 +173,7 @@ fun ExploreFilterBottomSheet(
                                 draftFilter.copy(
                                     publishedFrom = from,
                                     publishedTo = to,
-                                )
+                                ),
                             )
                         },
                         onClearDateRange = {
@@ -157,7 +181,7 @@ fun ExploreFilterBottomSheet(
                                 draftFilter.copy(
                                     publishedFrom = null,
                                     publishedTo = null,
-                                )
+                                ),
                             )
                         },
                     )
@@ -187,8 +211,8 @@ fun ExploreFilterBottomSheet(
                                         }
                                         onDraftFilterChange(
                                             draftFilter.copy(
-                                                categories = updatedList.ifEmpty { null }
-                                            )
+                                                categories = updatedList.ifEmpty { null },
+                                            ),
                                         )
                                     },
                                 )
@@ -221,8 +245,8 @@ fun ExploreFilterBottomSheet(
                                         }
                                         onDraftFilterChange(
                                             draftFilter.copy(
-                                                languages = updatedList.ifEmpty { null }
-                                            )
+                                                languages = updatedList.ifEmpty { null },
+                                            ),
                                         )
                                     },
                                 )
@@ -255,8 +279,8 @@ fun ExploreFilterBottomSheet(
                                         }
                                         onDraftFilterChange(
                                             draftFilter.copy(
-                                                sourceIds = updatedList.ifEmpty { null }
-                                            )
+                                                sourceIds = updatedList.ifEmpty { null },
+                                            ),
                                         )
                                     },
                                 )
@@ -276,7 +300,10 @@ fun ExploreFilterBottomSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 12.dp,
+                ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -285,7 +312,10 @@ fun ExploreFilterBottomSheet(
                     .weight(1f)
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
@@ -326,6 +356,9 @@ fun ExploreFilterBottomSheetPreview() {
         Surface {
             ExploreFilterBottomSheet(
                 modifier = Modifier.fillMaxSize(),
+                isLoadingOptions = false,
+                optionsFailed = false,
+                onRetryOptions = {},
                 draftFilter = ExplorePostFilter(
                     categories = listOf("Politics"),
                     languages = listOf("en"),
@@ -334,9 +367,18 @@ fun ExploreFilterBottomSheetPreview() {
                     categories = listOf("Politics", "Business", "Technology", "Science", "Culture"),
                     languages = listOf("en", "hu", "de"),
                     sources = listOf(
-                        FilterSource("1", "The New York Times"),
-                        FilterSource("2", "BBC News"),
-                        FilterSource("3", "Reuters"),
+                        FilterSource(
+                            id = "1",
+                            title = "Daily Science",
+                        ),
+                        FilterSource(
+                            id = "2",
+                            title = "City Journal",
+                        ),
+                        FilterSource(
+                            id = "3",
+                            title = "Technology Review",
+                        ),
                     ),
                 ),
                 onDraftFilterChange = {},

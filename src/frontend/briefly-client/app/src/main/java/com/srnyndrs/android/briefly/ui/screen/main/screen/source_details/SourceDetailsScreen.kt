@@ -18,8 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -33,15 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,18 +59,18 @@ import com.composables.icons.heroicons.outline.Bell
 import com.composables.icons.heroicons.outline.BellSlash
 import com.composables.icons.heroicons.outline.ChevronLeft
 import com.composables.icons.heroicons.outline.CloudArrowDown
-import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.outline.EllipsisVertical
+import com.composables.icons.heroicons.outline.Heart
 import com.composables.icons.heroicons.solid.Heart
 import com.srnyndrs.android.briefly.R
-import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.components.OutlinedVerifiedBadge
 import com.srnyndrs.android.briefly.ui.components.RemoteImageContainer
 import com.srnyndrs.android.briefly.ui.components.ShimmerGroup
 import com.srnyndrs.android.briefly.ui.components.ShimmerItem
 import com.srnyndrs.android.briefly.ui.components.UiStateContainer
-import com.srnyndrs.android.briefly.ui.screen.main.components.PostItemCardPlaceholder
+import com.srnyndrs.android.briefly.ui.model.UiState
 import com.srnyndrs.android.briefly.ui.screen.main.components.PostItemCard
+import com.srnyndrs.android.briefly.ui.screen.main.components.PostItemCardPlaceholder
 import com.srnyndrs.android.briefly.ui.screen.main.navigation.MainNavigationEvent
 import com.srnyndrs.android.briefly.ui.screen.main.screen.source_details.preview.SourceDetailsStateProvider
 import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
@@ -80,22 +83,24 @@ fun SourceDetailsScreen(
     modifier: Modifier = Modifier,
     state: SourceDetailsState,
     onNavigationEvent: (MainNavigationEvent) -> Unit,
-    onEvent: (SourceDetailsEvent) -> Unit
+    onEvent: (SourceDetailsEvent) -> Unit,
 ) {
 
     val scrollState = rememberScrollState()
     var isSourceMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    val subscriptionSavingLabel = stringResource(id = R.string.source_details_subscription_saving)
 
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .then(modifier)
             .padding(horizontal = 12.dp)
-            .verticalScroll(scrollState)
+            .verticalScroll(state = scrollState)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 70.dp),
-            verticalArrangement = Arrangement.spacedBy(32.dp)
+            verticalArrangement = Arrangement.spacedBy(space = 32.dp),
         ) {
             UiStateContainer(
                 modifier = Modifier.fillMaxWidth(),
@@ -104,13 +109,13 @@ fun SourceDetailsScreen(
                     ShimmerGroup {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                         ) {
-                            repeat(5) { index ->
+                            repeat(times = 5) { index ->
                                 ShimmerItem(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .requiredHeight(if (index == 0) 56.dp else 16.dp),
+                                        .requiredHeight(height = if (index == 0) 56.dp else 16.dp),
                                     isLoading = true,
                                     cornerRadius = 5.dp,
                                 ) {}
@@ -118,15 +123,18 @@ fun SourceDetailsScreen(
                         }
                     }
                 },
-                error = { message ->
+                error = {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                     ) {
-                        Text(text = message, color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = stringResource(id = R.string.source_details_load_error),
+                            color = MaterialTheme.colorScheme.error,
+                        )
                         Button(onClick = { onEvent(SourceDetailsEvent.RetryFeedDetails) }) {
-                            Text(text = stringResource(R.string.session_retry))
+                            Text(text = stringResource(id = R.string.session_retry))
                         }
                     }
                 },
@@ -135,12 +143,12 @@ fun SourceDetailsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(22.dp)
+                        verticalArrangement = Arrangement.spacedBy(space = 22.dp),
                     ) {
                         // New source card
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                            verticalArrangement = Arrangement.spacedBy(space = 18.dp),
                         ) {
                             Box(
                                 modifier = Modifier
@@ -151,102 +159,111 @@ fun SourceDetailsScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Row(
-                                        modifier = Modifier.weight(0.7f)
-                                            .requiredHeight(42.dp),
+                                        modifier = Modifier
+                                            .weight(weight = 0.7f)
+                                            .requiredHeight(height = 42.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         // Picture
                                         RemoteImageContainer(
-                                            modifier = Modifier.size(42.dp),
-                                            imageUrl = feedDetails.imageUrl.orEmpty(),
-                                            contentScale = ContentScale.Fit
+                                            modifier = Modifier.size(size = 42.dp),
+                                            imageUrl = feedDetails.faviconUrl.orEmpty(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit,
                                         )
-                                        Spacer(modifier = Modifier.requiredWidth(4.dp))
+                                        Spacer(modifier = Modifier.requiredWidth(width = 4.dp))
                                         // Title
                                         Text(
-                                            modifier = Modifier.padding(horizontal = 8.dp),
+                                            modifier = Modifier
+                                                .weight(weight = 1f)
+                                                .padding(horizontal = 8.dp),
                                             text = feedDetails.title.orEmpty(),
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontSize = 24.sp,
                                             textAlign = TextAlign.Start,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
                                         )
                                         // Verified badge
                                         if (feedDetails.verified) {
-                                            /*Icon(
-                                                modifier = Modifier.size(28.dp),
-                                                imageVector = Heroicons.Outline.CheckBadge,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                contentDescription = null
-                                            )*/
                                             OutlinedVerifiedBadge(
-                                                modifier = Modifier.size(20.dp),
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(0.7f),
+                                                modifier = Modifier.size(size = 20.dp),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                                 innerPadding = 4.dp,
                                                 wavesCount = 8,
-                                                waveAmplitude = 3f
+                                                waveAmplitude = 3f,
                                             )
                                         }
                                     }
                                     Row(
-                                        modifier = Modifier.weight(0.3f),
+                                        modifier = Modifier.weight(weight = 0.3f),
                                         horizontalArrangement = Arrangement.End,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         OutlinedIconButton(
-                                            modifier = Modifier.size(42.dp),
-                                            enabled = true,
+                                            modifier = Modifier.size(size = 42.dp),
+                                            enabled = !state.isUpdatingSubscription,
                                             onClick = {
-                                                onEvent(SourceDetailsEvent.ToggleFollow(feedDetails.followed))
-                                            }
+                                                onEvent(SourceDetailsEvent.ToggleSubscribe)
+                                            },
                                         ) {
-                                            Icon(
-                                                modifier = Modifier.size(32.dp),
-                                                imageVector = if (feedDetails.followed) Heroicons.Outline.BellSlash else Heroicons.Outline.Bell,
-                                                contentDescription = null
-                                            )
-                                        }
-                                        Spacer(
-                                            modifier = Modifier.requiredWidth(16.dp)
-                                        )
-                                        OutlinedIconButton(
-                                            modifier = Modifier.size(42.dp),
-                                            enabled = true,
-                                            onClick = {
-                                                onEvent(SourceDetailsEvent.ToggleSubscribe(feedDetails.subscribed))
+                                            if (state.isUpdatingSubscription) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier
+                                                        .size(size = 24.dp)
+                                                        .semantics { contentDescription = subscriptionSavingLabel },
+                                                    strokeWidth = 2.dp,
+                                                )
+                                            } else {
+                                                Icon(
+                                                    modifier = Modifier.size(size = 32.dp),
+                                                    imageVector = if (feedDetails.isSubscribed) {
+                                                        Heroicons.Solid.Heart
+                                                    } else {
+                                                        Heroicons.Outline.Heart
+                                                    },
+                                                    contentDescription = stringResource(
+                                                        id = if (feedDetails.isSubscribed) R.string.source_details_unsubscribe
+                                                        else R.string.source_details_subscribe,
+                                                    ),
+                                                )
                                             }
-                                        ) {
-                                            Icon(
-                                                modifier = Modifier.size(32.dp),
-                                                imageVector = if (feedDetails.subscribed) Heroicons.Solid.Heart else Heroicons.Outline.Heart,
-                                                contentDescription = null
-                                            )
                                         }
+                                    }
+                                }
+                            }
+                            if (state.subscriptionUpdateFailed) {
+                                Column(verticalArrangement = Arrangement.spacedBy(space = 8.dp)) {
+                                    Text(
+                                        text = stringResource(id = R.string.source_details_subscription_failed),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                    Button(onClick = { onEvent(SourceDetailsEvent.ToggleSubscribe) }) {
+                                        Text(text = stringResource(id = R.string.session_retry))
                                     }
                                 }
                             }
                             // Description
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalArrangement = Arrangement.spacedBy(space = 4.dp),
                             ) {
                                 Text(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(bottom = 8.dp),
-                                    text = "Description",
+                                    text = stringResource(id = R.string.source_details_description),
                                     style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Black
+                                    fontWeight = FontWeight.Black,
                                 )
                                 Text(
                                     modifier = Modifier.fillMaxWidth(),
                                     text = feedDetails.description ?: "",
                                     style = MaterialTheme.typography.bodyLarge.copy(
-                                        letterSpacing = TextUnit.Unspecified
+                                        letterSpacing = TextUnit.Unspecified,
                                     ),
                                     textAlign = TextAlign.Justify,
                                 )
@@ -262,29 +279,27 @@ fun SourceDetailsScreen(
                                         .fillMaxWidth()
                                         .padding(top = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    TextButton(
-                                        shape = RoundedCornerShape(8.dp),
-                                        enabled = true,
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = Color.Transparent,
-                                            disabledContainerColor = Color.Transparent,
-                                            contentColor = MaterialTheme.colorScheme.onSurface,
-                                            disabledContentColor = MaterialTheme.colorScheme.onSurface,
-                                        ),
+                                    Surface(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        shape = RoundedCornerShape(size = 8.dp),
+                                        color = Color.Transparent,
                                         border = BorderStroke(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                                         ),
-                                        onClick = {},
                                     ) {
                                         Row(
+                                            modifier = Modifier.padding(
+                                                horizontal = 12.dp,
+                                                vertical = 8.dp,
+                                            ),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
                                         ) {
                                             Icon(
-                                                modifier = Modifier.size(22.dp),
+                                                modifier = Modifier.size(size = 22.dp),
                                                 imageVector = Heroicons.Outline.CloudArrowDown,
                                                 contentDescription = null,
                                             )
@@ -296,7 +311,7 @@ fun SourceDetailsScreen(
                                         }
                                     }
                                     TextButton(
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = RoundedCornerShape(size = 8.dp),
                                         enabled = feedDetails.siteUrl != null,
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = Color.Transparent,
@@ -306,27 +321,27 @@ fun SourceDetailsScreen(
                                         ),
                                         border = BorderStroke(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(0.2f)
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                                         ),
                                         onClick = {
                                             onNavigationEvent(
                                                 MainNavigationEvent.OpenCustomTab(
-                                                    url = feedDetails.siteUrl
+                                                    url = feedDetails.siteUrl,
                                                 )
                                             )
                                         },
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(space = 6.dp),
                                         ) {
                                             Icon(
-                                                modifier = Modifier.size(22.dp),
+                                                modifier = Modifier.size(size = 22.dp),
                                                 imageVector = Heroicons.Outline.ArrowTopRightOnSquare,
                                                 contentDescription = null,
                                             )
                                             Text(
-                                                text = "Visit website",
+                                                text = stringResource(id = R.string.source_details_visit_website),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 maxLines = 1,
                                             )
@@ -345,15 +360,20 @@ fun SourceDetailsScreen(
                     ShimmerGroup {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                         ) {
-                            Text(text = "Latest articles", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                text = stringResource(id = R.string.source_details_latest_articles),
+                                style = MaterialTheme.typography.titleLarge,
+                            )
                             HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
                                 thickness = 1.dp,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
-                            repeat(3) {
+                            repeat(times = 3) {
                                 PostItemCardPlaceholder(
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -361,25 +381,28 @@ fun SourceDetailsScreen(
                         }
                     }
                 },
-                error = { message ->
+                error = {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 8.dp),
                     ) {
-                        Text(text = message, color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = stringResource(id = R.string.source_details_articles_error),
+                            color = MaterialTheme.colorScheme.error,
+                        )
                         Button(onClick = { onEvent(SourceDetailsEvent.RetryArticles) }) {
-                            Text(text = stringResource(R.string.session_retry))
+                            Text(text = stringResource(id = R.string.session_retry))
                         }
                     }
                 },
                 success = { articles ->
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(space = 12.dp),
                     ) {
                         Text(
-                            text = "Latest articles", // TODO: stringResource
+                            text = stringResource(id = R.string.source_details_latest_articles),
                             style = MaterialTheme.typography.titleLarge,
                         )
                         HorizontalDivider(
@@ -390,36 +413,22 @@ fun SourceDetailsScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         for (article in articles) {
-                            /*PostCard(
-                                title = article.title,
-                                description = article.description ?: "",
-                                imageUrl = article.imageUrl
-                            ) {
-                                onNavigationEvent(MainNavigationEvent.ShowPostDetails(article.id))
-                            }*/
                             PostItemCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(128.dp),
+                                    .requiredHeight(height = 128.dp),
                                 title = article.title,
                                 categories = article.categories,
                                 imageUrl = article.imageUrl,
-                                publishDate = article.publishDate,
+                                publishedAt = article.publishedAt,
                                 description = article.description ?: "",
                             ) {
                                 if (article.hasContent) {
-                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(article.id))
+                                    onNavigationEvent(MainNavigationEvent.ShowPostDetails(postId = article.id))
                                 } else {
-                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(article.url))
+                                    onNavigationEvent(MainNavigationEvent.OpenCustomTab(url = article.url))
                                 }
                             }
-                            /*HorizontalDivider(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(0.4f)
-                            )*/
                         }
                     }
                 },
@@ -430,37 +439,38 @@ fun SourceDetailsScreen(
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
                 .align(Alignment.TopStart),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(space = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.weight(0.7f),
-                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .weight(weight = 0.7f),
+                horizontalArrangement = Arrangement.spacedBy(space = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Back button
                 IconButton(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(size = 48.dp)
                         .clip(CircleShape),
                     onClick = { onNavigationEvent(MainNavigationEvent.NavigateBack) },
                     colors = IconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(0.7f),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                         contentColor = MaterialTheme.colorScheme.onSurface,
                         disabledContainerColor = MaterialTheme.colorScheme.surface,
-                        disabledContentColor = MaterialTheme.colorScheme.onSurface
-                    )
+                        disabledContentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
                 ) {
                     Icon(
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(size = 28.dp),
                         imageVector = Heroicons.Outline.ChevronLeft,
-                        contentDescription = null
+                        contentDescription = stringResource(id = R.string.navigate_back),
                     )
                 }
                 // Title
                 Text(
-                    text = "Feed Details",
-                    style = MaterialTheme.typography.headlineSmall
+                    text = stringResource(id = R.string.source_details_title),
+                    style = MaterialTheme.typography.headlineSmall,
                 )
             }
             Box {
@@ -469,7 +479,7 @@ fun SourceDetailsScreen(
                 ) {
                     Icon(
                         imageVector = Heroicons.Outline.EllipsisVertical,
-                        contentDescription = stringResource(R.string.source_details_more_actions),
+                        contentDescription = stringResource(id = R.string.source_details_more_actions),
                     )
                 }
                 DropdownMenu(
@@ -482,7 +492,7 @@ fun SourceDetailsScreen(
                                 text = {
                                     Text(
                                         text = stringResource(
-                                            if (state.isUpdatingBlock) R.string.source_details_block_saving
+                                            id = if (state.isUpdatingBlock) R.string.source_details_block_saving
                                             else if (blockStatus.data) R.string.settings_remove_source
                                             else R.string.source_details_block_source,
                                         ),
@@ -494,17 +504,17 @@ fun SourceDetailsScreen(
                             if (state.blockUpdateFailed) {
                                 Text(
                                     modifier = Modifier.padding(horizontal = 16.dp),
-                                    text = stringResource(R.string.source_details_block_failed),
+                                    text = stringResource(id = R.string.source_details_block_failed),
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }
                         }
                         is UiState.Error -> DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.source_details_block_retry)) },
+                            text = { Text(text = stringResource(id = R.string.source_details_block_retry)) },
                             onClick = { onEvent(SourceDetailsEvent.RetryBlockStatus) },
                         )
                         else -> DropdownMenuItem(
-                            text = { Text(text = stringResource(R.string.source_details_block_loading)) },
+                            text = { Text(text = stringResource(id = R.string.source_details_block_loading)) },
                             enabled = false,
                             onClick = {},
                         )
@@ -518,14 +528,14 @@ fun SourceDetailsScreen(
 @PreviewLightDark
 @Composable
 fun SourceDetailsScreenPreview(
-    @PreviewParameter(SourceDetailsStateProvider::class) state: SourceDetailsState
+    @PreviewParameter(SourceDetailsStateProvider::class) state: SourceDetailsState,
 ) {
     BrieflyTheme {
         Surface {
             SourceDetailsScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = state,
-                onNavigationEvent = {}
+                onNavigationEvent = {},
             ) {}
         }
     }

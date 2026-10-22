@@ -6,7 +6,7 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 
 val AuthTextFieldColors: TextFieldColors
- @Composable
+    @Composable
     get() = OutlinedTextFieldDefaults.colors(
         focusedContainerColor = MaterialTheme.colorScheme.background,
         unfocusedContainerColor = MaterialTheme.colorScheme.background,

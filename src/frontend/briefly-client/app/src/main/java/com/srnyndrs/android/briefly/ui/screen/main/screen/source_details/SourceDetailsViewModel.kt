@@ -2,26 +2,29 @@ package com.srnyndrs.android.briefly.ui.screen.main.screen.source_details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.srnyndrs.android.briefly.domain.usecase.content.article.GetArticlesUseCase
-import com.srnyndrs.android.briefly.domain.usecase.content.feed_source.AllFeedSourceUseCase
-import com.srnyndrs.android.briefly.domain.usecase.profile.GetProfileUseCase
-import com.srnyndrs.android.briefly.domain.usecase.profile.SetSourceBlockedUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.post.GetPostsUseCase
+import com.srnyndrs.android.briefly.domain.usecase.content.source.SourceUseCases
+import com.srnyndrs.android.briefly.domain.usecase.preferences.GetPreferencesUseCase
+import com.srnyndrs.android.briefly.domain.usecase.preferences.SetSourceBlockedUseCase
 import com.srnyndrs.android.briefly.ui.model.UiState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.ExperimentalTime
 
 @HiltViewModel(assistedFactory = SourceDetailsViewModel.SourceDetailsViewModelFactory::class)
 class SourceDetailsViewModel @AssistedInject constructor(
     @Assisted private val sourceId: String,
-    private val feedSourceUseCases: AllFeedSourceUseCase,
-    private val getArticlesUseCase: GetArticlesUseCase,
-    private val getProfileUseCase: GetProfileUseCase,
+    private val sourceUseCases: SourceUseCases,
+    private val getPostsUseCase: GetPostsUseCase,
+    private val getPreferencesUseCase: GetPreferencesUseCase,
     private val setSourceBlockedUseCase: SetSourceBlockedUseCase,
 ): ViewModel() {
 
@@ -30,7 +33,7 @@ class SourceDetailsViewModel @AssistedInject constructor(
         fun create(sourceId: String): SourceDetailsViewModel
     }
 
-    private val _state = MutableStateFlow(SourceDetailsState())
+    private val _state = MutableStateFlow(value = SourceDetailsState())
     val state = _state.asStateFlow()
 
     init {
@@ -40,7 +43,7 @@ class SourceDetailsViewModel @AssistedInject constructor(
     }
 
     fun onEvent(event: SourceDetailsEvent) {
-        when(event) {
+        when (event) {
             SourceDetailsEvent.RetryBlockStatus -> {
                 if (_state.value.blockStatus is UiState.Error) fetchBlockStatus()
             }
@@ -51,27 +54,20 @@ class SourceDetailsViewModel @AssistedInject constructor(
             SourceDetailsEvent.RetryArticles -> {
                 if (_state.value.articles is UiState.Error) fetchFeedArticles()
             }
-            is SourceDetailsEvent.ToggleFollow -> {
-                val isFollowed = event.followed
-                changeFollowState(!isFollowed)
-            }
-            is SourceDetailsEvent.ToggleSubscribe -> {
-                val isSubscribed = event.subscribed
-                changeSubscription(!isSubscribed)
-            }
+            SourceDetailsEvent.ToggleSubscribe -> changeSubscription()
         }
     }
 
     private fun fetchBlockStatus() = viewModelScope.launch {
-        _state.value = _state.value.copy(blockStatus = UiState.Loading)
-        getProfileUseCase().fold(
-            onSuccess = { profile ->
-                _state.value = _state.value.copy(
-                    blockStatus = UiState.Success(sourceId in profile.preferences.blockedSourceIds),
-                )
+        _state.update { it.copy(blockStatus = UiState.Loading) }
+        getPreferencesUseCase().fold(
+            onSuccess = { preferences ->
+                _state.update {
+                    it.copy(blockStatus = UiState.Success(data = sourceId in preferences.blockedSourceIds))
+                }
             },
-            onFailure = {
-                _state.value = _state.value.copy(blockStatus = UiState.Error("Unable to load block status"))
+            onFailure = { exception ->
+                _state.update { it.copy(blockStatus = UiState.Error(message = exception.message.orEmpty())) }
             },
         )
     }
@@ -79,109 +75,103 @@ class SourceDetailsViewModel @AssistedInject constructor(
     private fun changeBlockState() {
         val blocked = (_state.value.blockStatus as? UiState.Success)?.data ?: return
         if (_state.value.isUpdatingBlock) return
-        _state.value = _state.value.copy(isUpdatingBlock = true, blockUpdateFailed = false)
+        _state.update {
+            it.copy(
+                isUpdatingBlock = true,
+                blockUpdateFailed = false,
+            )
+        }
         viewModelScope.launch {
             setSourceBlockedUseCase(
                 sourceId = sourceId,
                 blocked = !blocked,
             ).fold(
                 onSuccess = { preferences ->
-                    _state.value = _state.value.copy(
-                        blockStatus = UiState.Success(sourceId in preferences.blockedSourceIds),
-                        isUpdatingBlock = false,
-                    )
+                    _state.update {
+                        it.copy(
+                            blockStatus = UiState.Success(data = sourceId in preferences.blockedSourceIds),
+                            isUpdatingBlock = false,
+                        )
+                    }
                 },
                 onFailure = {
-                    _state.value = _state.value.copy(
-                        isUpdatingBlock = false,
-                        blockUpdateFailed = true,
-                    )
+                    _state.update {
+                        it.copy(
+                            isUpdatingBlock = false,
+                            blockUpdateFailed = true,
+                        )
+                    }
                 },
             )
         }
     }
 
     private fun fetchSourceDetails() = viewModelScope.launch {
-        _state.value = _state.value.copy(
-            feedDetails = UiState.Loading
-        )
-        feedSourceUseCases.getFeedSourceDetailsUseCase(sourceId).fold(
+        _state.update { it.copy(feedDetails = UiState.Loading) }
+        sourceUseCases.getFeedSourceDetailsUseCase(sourceId = sourceId).fold(
             onSuccess = { data ->
-                _state.value = _state.value.copy(
-                    feedDetails = UiState.Success(data)
-                )
+                _state.update { it.copy(feedDetails = UiState.Success(data = data)) }
             },
             onFailure = { exception ->
-                _state.value = _state.value.copy(
-                    feedDetails = UiState.Error(exception.message ?: "Unknown error occurred")
-                )
-            }
+                _state.update { it.copy(feedDetails = UiState.Error(message = exception.message.orEmpty())) }
+            },
         )
     }
 
     private fun fetchFeedArticles() = viewModelScope.launch {
-        _state.value = _state.value.copy(
-            articles = UiState.Loading
-        )
-        getArticlesUseCase(
+        _state.update { it.copy(articles = UiState.Loading) }
+        getPostsUseCase(
             sourceIds = listOf(sourceId),
             applyUserPreferences = false,
         ).fold(
             onSuccess = { (_, _, items) ->
-                _state.value = _state.value.copy(
-                    articles = UiState.Success(items)
-                )
+                _state.update { it.copy(articles = UiState.Success(data = items)) }
             },
             onFailure = { exception ->
-                _state.value = _state.value.copy(
-                    articles = UiState.Error(exception.message ?: "Unknown error occurred")
-                )
-            }
+                _state.update { it.copy(articles = UiState.Error(message = exception.message.orEmpty())) }
+            },
         )
     }
 
     @OptIn(ExperimentalTime::class)
-    private fun changeSubscription(newValue: Boolean) = viewModelScope.launch {
-        val feedDetails = (_state.value.feedDetails as UiState.Success).data
-        if(newValue) {
-            feedSourceUseCases.subscribeFeedSourceUseCase(sourceId).fold(
-                onSuccess = {
-                    _state.value = _state.value.copy(
-                        feedDetails = UiState.Success(
-                            data = feedDetails.copy(
-                                subscribed = true
-                            )
-                        )
-                    )
-                },
-                onFailure = {}
+    private fun changeSubscription() {
+        val details = (_state.value.feedDetails as? UiState.Success)?.data ?: return
+        if (_state.value.isUpdatingSubscription) return
+        val subscribed = !details.isSubscribed
+        _state.update {
+            it.copy(
+                isUpdatingSubscription = true,
+                subscriptionUpdateFailed = false,
             )
-        } else {
-            feedSourceUseCases.unsubscribeFeedSourceUseCase(sourceId).fold(
+        }
+        viewModelScope.launch {
+            val result = if (subscribed) {
+                sourceUseCases.subscribeFeedSourceUseCase(sourceId = sourceId).map { }
+            } else {
+                sourceUseCases.unsubscribeFeedSourceUseCase(sourceId = sourceId).map { }
+            }
+            currentCoroutineContext().ensureActive()
+            result.fold(
                 onSuccess = {
-                    _state.value = _state.value.copy(
-                        feedDetails = UiState.Success(
-                            data = feedDetails.copy(
-                                subscribed = false
-                            )
+                    _state.update { current ->
+                        val latest = current.feedDetails as? UiState.Success
+                        current.copy(
+                            feedDetails = latest?.let {
+                                UiState.Success(data = it.data.copy(isSubscribed = subscribed))
+                            } ?: current.feedDetails,
+                            isUpdatingSubscription = false,
                         )
-                    )
+                    }
                 },
-                onFailure = {}
+                onFailure = {
+                    _state.update {
+                        it.copy(
+                            isUpdatingSubscription = false,
+                            subscriptionUpdateFailed = true,
+                        )
+                    }
+                },
             )
         }
     }
-
-    @OptIn(ExperimentalTime::class)
-    private fun changeFollowState(newValue: Boolean) = viewModelScope.launch {
-        val feedDetails = (_state.value.feedDetails as UiState.Success).data
-        _state.value = _state.value.copy(
-            feedDetails = UiState.Success(
-                data = feedDetails.copy(
-                    followed = newValue
-                )
-            )
-        )
-    }
-
 }

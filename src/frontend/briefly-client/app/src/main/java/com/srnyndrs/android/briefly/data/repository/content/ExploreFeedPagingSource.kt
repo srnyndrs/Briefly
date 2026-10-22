@@ -3,10 +3,11 @@ package com.srnyndrs.android.briefly.data.repository.content
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.srnyndrs.android.briefly.data.remote.content.ContentApiService
-import com.srnyndrs.android.briefly.data.remote.content.dto.ExploreRequestDto
+import com.srnyndrs.android.briefly.data.remote.content.ExploreRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.toDomain
-import com.srnyndrs.android.briefly.domain.model.content.ExploreFilterOptions
-import com.srnyndrs.android.briefly.domain.model.content.Post
+import com.srnyndrs.android.briefly.domain.model.content.post.Post
+import com.srnyndrs.android.briefly.domain.model.content.feed.filter.ExploreFilterOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class ExploreFeedPagingSource(
@@ -26,10 +27,15 @@ class ExploreFeedPagingSource(
         val page = params.key ?: 1
         return try {
             val response = contentApiService.getExplore(
-                request.copy(page = page, pageSize = params.loadSize)
+                request = request.copy(
+                    page = page,
+                    pageSize = params.loadSize,
+                ),
             )
-            if (page == 1 && response.filterOptions != null) {
-                metadata?.value = response.filterOptions.toDomain()
+            if (page == 1 && request.includeFilterOptions) {
+                metadata?.value = requireNotNull(response.filterOptions) {
+                    "Explore filter options are missing"
+                }.toDomain()
             }
             val items = response.items.map { it.toDomain() }
             val prevKey = if (page <= 1) null else page - 1
@@ -38,10 +44,12 @@ class ExploreFeedPagingSource(
             LoadResult.Page(
                 data = items,
                 prevKey = prevKey,
-                nextKey = nextKey
+                nextKey = nextKey,
             )
+        } catch (exception: CancellationException) {
+            throw exception
         } catch (exception: Exception) {
-            LoadResult.Error(exception)
+            LoadResult.Error(throwable = exception)
         }
     }
 }

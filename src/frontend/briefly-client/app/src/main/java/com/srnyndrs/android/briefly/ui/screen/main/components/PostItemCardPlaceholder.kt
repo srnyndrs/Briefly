@@ -22,7 +22,8 @@ import com.srnyndrs.android.briefly.ui.theme.BrieflyTheme
 fun PostItemCardPlaceholder(modifier: Modifier = Modifier) {
     ShimmerGroup {
         Row(
-            modifier = modifier
+            modifier = Modifier
+                .then(modifier)
                 .fillMaxWidth()
                 .height(128.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
