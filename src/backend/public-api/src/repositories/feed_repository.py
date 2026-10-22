@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import String, cast, func, or_, select, true
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.models.read_models import (
     PostProjection,
@@ -28,7 +29,12 @@ class PostRepository:
 
     def _categories_match(self, categories: list[str]):
         if self._db.get_bind().dialect.name == "postgresql":
-            return PostProjection.categories.bool_op("&&")(categories)
+            return or_(
+                *(
+                    PostProjection.categories.contains([value])
+                    for value in categories
+                )
+            )
         values = func.json_each(PostProjection.categories).table_valued("value")
         return (
             select(1)
@@ -43,7 +49,7 @@ class PostRepository:
         ).subquery()
         if self._db.get_bind().dialect.name == "postgresql":
             values = (
-                func.unnest(eligible.c.categories)
+                func.jsonb_array_elements_text(eligible.c.categories)
                 .table_valued("value")
                 .render_derived()
                 .lateral()
@@ -93,8 +99,17 @@ class PostRepository:
                 fields = (
                     PostProjection.title,
                     PostProjection.description,
-                    cast(PostProjection.keywords, String),
                 )
+                if self._db.get_bind().dialect.name == "postgresql":
+                    keyword_values = (
+                        func.jsonb_array_elements_text(PostProjection.keywords)
+                        .table_valued("value")
+                        .render_derived()
+                    )
+                else:
+                    keyword_values = func.json_each(
+                        PostProjection.keywords
+                    ).table_valued("value")
                 for keyword in normalized_muted:
                     normalized_keyword = keyword.replace("$", "s")
                     escaped_keyword = (
@@ -107,22 +122,30 @@ class PostRepository:
                         .replace("%", "\\%")
                         .replace("_", "\\_")
                     )
+
+                    def matches(field: ColumnElement) -> ColumnElement[bool]:
+                        return or_(
+                            func.coalesce(field, "").ilike(
+                                f"%{escaped_keyword}%", escape="\\"
+                            ),
+                            func.replace(
+                                func.coalesce(field, ""), "$", "s"
+                            ).ilike(
+                                f"%{escaped_normalized_keyword}%",
+                                escape="\\",
+                            ),
+                        )
+
+                    keyword_match = (
+                        select(1)
+                        .select_from(keyword_values)
+                        .where(matches(keyword_values.c.value))
+                        .exists()
+                    )
                     statement = statement.where(
                         ~or_(
-                            *(
-                                or_(
-                                    func.coalesce(field, "").ilike(
-                                        f"%{escaped_keyword}%", escape="\\"
-                                    ),
-                                    func.replace(
-                                        func.coalesce(field, ""), "$", "s"
-                                    ).ilike(
-                                        f"%{escaped_normalized_keyword}%",
-                                        escape="\\",
-                                    ),
-                                )
-                                for field in fields
-                            )
+                            *(matches(field) for field in fields),
+                            keyword_match,
                         )
                     )
 

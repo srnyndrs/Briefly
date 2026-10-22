@@ -6,11 +6,10 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     String,
-    Text,
     Uuid,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -32,7 +31,7 @@ class PostEnrichment(Base):
     input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     enrichment_version: Mapped[str] = mapped_column(String(100), nullable=False)
     category_ids: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"),
+        JSONB().with_variant(JSON, "sqlite"),
         nullable=False,
         default=list,
     )
@@ -58,8 +57,8 @@ class PostEnrichment(Base):
             name="ck_post_enrichments_status",
         ),
         CheckConstraint(
-            "(status = 'completed' AND cardinality(category_ids) BETWEEN 1 AND 2) "
-            "OR (status IN ('abstained', 'failed') AND cardinality(category_ids) = 0)",
+            "(status = 'completed' AND jsonb_array_length(category_ids) BETWEEN 1 AND 2) "
+            "OR (status IN ('abstained', 'failed') AND jsonb_array_length(category_ids) = 0)",
             name="ck_post_enrichments_categories_status",
         ).ddl_if(dialect="postgresql"),
     )

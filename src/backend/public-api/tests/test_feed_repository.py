@@ -1,11 +1,16 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from src.config.database import Base
-from src.models.read_models import PostProjection
+from src.models.read_models import (
+    PostEnrichmentProjection,
+    PostProjection,
+    UserPreferencesProjection,
+)
 from src.repositories.feed_repository import PostRepository
 from src.services.feed_models import EffectiveFeedQuery
 
@@ -18,6 +23,97 @@ def _repository() -> tuple[Session, PostRepository]:
     Base.metadata.create_all(bind=engine)
     session = Session(engine)
     return session, PostRepository(session)
+
+
+@pytest.fixture(params=["sqlite", "postgresql"])
+def collection_db(request):
+    if request.param == "postgresql":
+        yield request.getfixturevalue("postgres_db")
+    else:
+        session, _ = _repository()
+        try:
+            yield session
+        finally:
+            session.close()
+            session.bind.dispose()
+
+
+def test_muting_matches_decoded_keywords_only(collection_db):
+    posts = [
+        _post(
+            categories=[], language="en", source_id="source", keywords=keywords
+        )
+        for keywords in [
+            [r'árvíz "100%_growth" \path'],
+            [r'árvíz "1000xgrowth" \path'],
+            ["Co$t"],
+            ["alpha", "beta"],
+            [],
+        ]
+    ]
+    collection_db.add_all(posts)
+    collection_db.commit()
+    items, total = PostRepository(collection_db).list_candidates(
+        EffectiveFeedQuery(
+            muted_keywords=[
+                r'árvíz "100%_GROWTH" \PATH',
+                "cost",
+                "alpha beta",
+                '", "',
+            ]
+        )
+    )
+    # Decode literal values, preserve escaping, and never join separate keywords.
+    assert total == 3
+    assert {item.post_id for item in items} == {
+        posts[index].post_id for index in (1, 3, 4)
+    }
+
+
+def test_collection_round_trip_and_replacement(collection_db):
+    values = ["science", "health"]
+    post = _post(
+        categories=values, language="en", source_id="source", keywords=values
+    )
+    preferences = UserPreferencesProjection(
+        user_id="user",
+        muted_keywords=values,
+        muted_categories=values,
+        blocked_source_ids=values,
+        languages=values,
+    )
+    enrichment = PostEnrichmentProjection(
+        post_id=post.post_id,
+        post_revision=1,
+        taxonomy_version="categories-v2",
+        status="completed",
+        enrichment_revision=1,
+        category_ids=values,
+    )
+    collection_db.add_all([post, preferences, enrichment])
+    collection_db.commit()
+    collection_db.expire_all()
+    fields = [
+        (post, "categories"),
+        (post, "keywords"),
+        (enrichment, "category_ids"),
+        *[
+            (preferences, name)
+            for name in (
+                "muted_keywords",
+                "muted_categories",
+                "blocked_source_ids",
+                "languages",
+            )
+        ],
+    ]
+    for model, name in fields:
+        assert getattr(model, name) == values
+        setattr(model, name, [])
+    collection_db.commit()
+    collection_db.expire_all()
+    for model, name in fields:
+        assert getattr(model, name) == []
 
 
 def _post(

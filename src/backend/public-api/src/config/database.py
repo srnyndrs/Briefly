@@ -33,13 +33,17 @@ def init_db() -> None:
                 text(
                     """
                     CREATE OR REPLACE FUNCTION
-                    query.keywords_to_search_text(keywords text[])
+                    query.keywords_to_search_text(keywords jsonb)
                     RETURNS text
                     LANGUAGE sql
                     IMMUTABLE
                     STRICT
                     PARALLEL SAFE
-                    RETURN array_to_string(keywords, ' ');
+                    RETURN (
+                        SELECT coalesce(string_agg(value, ' ' ORDER BY position), '')
+                        FROM jsonb_array_elements_text(keywords)
+                            WITH ORDINALITY AS elements(value, position)
+                    );
                     """
                 )
             )

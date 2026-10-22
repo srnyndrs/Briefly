@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import (
-    ARRAY,
     JSON,
     DateTime,
     Index,
@@ -11,6 +10,7 @@ from sqlalchemy import (
     func,
     literal_column,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -72,7 +72,7 @@ class PostProjection(Base):
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     categories: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+        JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list
     )
     source_category: Mapped[str | None] = mapped_column(
         String(128), nullable=True
@@ -85,7 +85,7 @@ class PostProjection(Base):
     )
     author: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+        JSONB().with_variant(JSON, "sqlite"), default=list
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_ref: Mapped[str | None] = mapped_column(String(2048), nullable=True)
@@ -112,11 +112,6 @@ class PostProjection(Base):
             "language",
             "published_at",
         ),
-        Index(
-            "ix_post_projections_keywords_gin",
-            "keywords",
-            postgresql_using="gin",
-        ),
     )
 
 
@@ -125,16 +120,16 @@ class UserPreferencesProjection(Base):
 
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     muted_keywords: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+        JSONB().with_variant(JSON, "sqlite"), default=list
     )
     muted_categories: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+        JSONB().with_variant(JSON, "sqlite"), default=list
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+        JSONB().with_variant(JSON, "sqlite"), default=list
     )
     languages: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), default=list
+        JSONB().with_variant(JSON, "sqlite"), default=list
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
@@ -150,7 +145,7 @@ class PostEnrichmentProjection(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     enrichment_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     category_ids: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"), nullable=False, default=list
+        JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list
     )
 
 
