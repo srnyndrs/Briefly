@@ -98,7 +98,6 @@ class FeedService:
         content_query = replace(
             base_query,
             categories=[data.category] if data.category else None,
-            excluded_post_ids=[post.post_id for post in headlines],
         )
         items, total = self._post_repository.list_candidates(content_query)
         options = (

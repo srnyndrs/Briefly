@@ -22,7 +22,12 @@ Article updates clear old categories; enrichment never changes feed timestamps.
 Category selections match any assigned category, and muting any assigned category
 hides the article. Filters return each article once with stable pagination.
 Category options count each eligible article once per category and preserve the
-existing source, language, keyword, date and headline eligibility rules.
+existing source, language, keyword and date eligibility rules.
+
+Personal `/feed` items, totals, page counts and category options include eligible
+headline posts. The first page also returns category-independent `headlines`.
+Android retains the first successful headline selection for the Home ViewModel's
+lifetime and removes those posts from the displayed list across all pages.
 
 ## Responsibilities
 

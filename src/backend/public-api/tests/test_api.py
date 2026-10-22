@@ -1304,22 +1304,26 @@ def test_feed_pagination_pages_and_counts(monkeypatch) -> None:
         "Post 3",
         "Post 2",
     ]
-    assert p1["total"] == 2
+    assert p1["total"] == 5
     assert p1["page"] == 1
-    assert p1["page_count"] == 1
+    assert p1["page_count"] == 3
     assert p1["page_size"] == 2
     assert len(p1["items"]) == 2
-    assert p1["items"][0]["title"] == "Post 1"
-    assert p1["items"][1]["title"] == "Post 0"
+    assert p1["items"][0]["title"] == "Post 4"
+    assert p1["items"][1]["title"] == "Post 3"
 
     # Page 2 with page_size=2
     res_p2 = client.get("/feed", params={"page": 2, "page_size": 2})
     assert res_p2.status_code == 200
     p2 = res_p2.json()
     assert p2["page"] == 2
-    assert p2["page_count"] == 1
-    assert p2["items"] == []
+    assert p2["page_count"] == 3
+    assert [item["title"] for item in p2["items"]] == ["Post 2", "Post 1"]
     assert "headlines" not in p2
+
+    res_p3 = client.get("/feed", params={"page": 3, "page_size": 2})
+    assert res_p3.status_code == 200
+    assert [item["title"] for item in res_p3.json()["items"]] == ["Post 0"]
 
 
 def test_admin_feed_pagination() -> None:
@@ -1556,7 +1560,8 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch) -> None:
     response = client.get("/feed")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 0
+    assert payload["total"] == 1
+    assert [item["title"] for item in payload["items"]] == ["Clean Post"]
     assert [item["title"] for item in payload["headlines"]] == ["Clean Post"]
 
 
@@ -1858,8 +1863,8 @@ def test_personal_feed_returns_empty_page_without_subscriptions(
 
     personal_res = client.get("/feed")
     assert personal_res.status_code == 200
-    assert personal_res.json()["total"] == 0
-    assert personal_res.json()["items"] == []
+    assert personal_res.json()["total"] == 1
+    assert personal_res.json()["items"][0]["title"] == "Subscribed Post"
     assert personal_res.json()["headlines"][0]["title"] == "Subscribed Post"
 
     subscriptions.clear()

@@ -54,7 +54,7 @@ def test_personal_feed_applies_preferences_and_subscriptions(
     assert query.languages == ["hu"]
     assert query.source_ids == ["subscribed"]
     assert query.sort == "freshness"
-    assert query.excluded_post_ids == [post.post_id]
+    assert query.excluded_post_ids == []
     repository.list_personal_filter_options.assert_called_once_with(query)
 
 
@@ -86,7 +86,7 @@ def test_personal_feed_without_subscriptions_skips_repository(
     repository.list_candidates.assert_not_called()
 
 
-def test_personal_feed_keeps_headlines_unfiltered_and_excludes_them(
+def test_personal_feed_keeps_headlines_unfiltered_without_excluding_them(
     monkeypatch,
 ):
     repository = Mock()
@@ -120,9 +120,7 @@ def test_personal_feed_keeps_headlines_unfiltered_and_excludes_them(
     content_query = repository.list_candidates.call_args.args[0]
     assert headline_query.categories is None
     assert content_query.categories == ["technology"]
-    assert content_query.excluded_post_ids == [
-        post.post_id for post in headlines
-    ]
+    assert content_query.excluded_post_ids == []
     assert result.headlines == headlines
 
 
