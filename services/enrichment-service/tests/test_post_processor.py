@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.adapters.result_publisher import publish_result
+from src.events.post_enriched import build_result_event
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts.republish_result import republish_result
 from src.services.classification import ArticleInput
@@ -17,7 +18,7 @@ from src.services.post_processor import PostProcessor
 def process(processor, event, channel):
     saved = processor.process(event)
     if saved.publication_pending:
-        publish_result(channel, saved.result_event)
+        publish_result(channel, build_result_event(saved))
         saved = processor.mark_published(saved)
     return saved
 
@@ -49,8 +50,8 @@ def test_failed_result_is_published_before_dlq(deliver, session_factory, error):
     saved = repository.get_by_post_id(UUID(post_id))
     assert saved.status == "failed" and saved.category_ids == ()
     assert saved.enrichment_revision == first.enrichment_revision + 1
-    assert saved.result_event["payload"]["status"] == "failed"
-    assert saved.result_event["payload"]["category_ids"] == []
+    assert build_result_event(saved)["payload"]["status"] == "failed"
+    assert build_result_event(saved)["payload"]["category_ids"] == []
     assert not saved.publication_pending
     channel.basic_publish.assert_called_once()
     channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
@@ -139,7 +140,7 @@ def test_duplicate_and_stale_events_do_not_repeat_classification(
     assert duplicate == first
     assert newer_unchanged.post_revision == 5
     assert stale_changed == newer_unchanged
-    assert len(classifier.inputs) == 1
+    assert len(classifier.inputs) == 2
 
 
 def test_consumer_acknowledges_a_saved_parsed_post(
@@ -174,15 +175,23 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     assert saved.post_revision == 3
     assert saved.category_ids == ("science",)
     assert not saved.publication_pending
-    assert saved.result_event is not None
-    result_event = saved.result_event
+    assert saved.event_id is not None
+    result_event = build_result_event(saved)
     assert result_event["event_type"] == "post.enriched.v1"
     assert result_event["schema_version"] == 1
-    assert result_event["correlation_id"] == "correlation-1"
+    assert "correlation_id" not in result_event
+    assert "trace" not in result_event
     assert result_event["payload"]["post_revision"] == 3
     assert result_event["payload"]["enrichment_revision"] == 1
     assert result_event["payload"]["category_ids"] == ["science"]
-    assert result_event["payload"]["taxonomy_version"] == "categories-v2"
+    assert set(result_event["payload"]) == {
+        "post_id",
+        "post_revision",
+        "enrichment_revision",
+        "status",
+        "category_ids",
+    }
+    assert result_event["occurred_at"] == saved.processed_at.isoformat()
     published_event = json.loads(channel.basic_publish.call_args.kwargs["body"])
     assert published_event == result_event
     assert len(classifier.inputs) == 1
@@ -206,7 +215,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
 
     pending = repository.get_by_post_id(UUID(post_id))
     assert pending is not None and pending.publication_pending
-    assert pending.result_event is not None
+    assert pending.event_id is not None
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(delivery_tag=8, requeue=False)
 
@@ -224,9 +233,11 @@ def test_failed_publish_reuses_saved_event_after_restart(
     assert retried.event_id == pending.event_id
     assert retried.enrichment_revision == pending.enrichment_revision
     assert not retried.publication_pending
-    assert json.loads(retry_channel.basic_publish.call_args.kwargs["body"]) == (
-        pending.result_event
+    retried_event = json.loads(
+        retry_channel.basic_publish.call_args.kwargs["body"]
     )
+    assert retried_event["payload"] == build_result_event(pending)["payload"]
+    assert retried_event["event_id"] == pending.event_id
     assert len(classifier.inputs) == 1
 
     process(restarted, event, retry_channel)
@@ -253,6 +264,7 @@ def test_save_failure_prevents_publication(
 
 def test_explicit_republish_uses_saved_event_without_classifier(
     session_factory: sessionmaker[Session],
+    monkeypatch,
 ) -> None:
     post_id = uuid4()
     repository = EnrichmentRepository(session_factory)
@@ -262,8 +274,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     channel = MagicMock(is_open=True)
     process(processor, _event(post_id=str(post_id)), channel)
     saved = repository.get_by_post_id(post_id)
-    assert saved is not None and saved.result_event is not None
-
+    assert saved is not None and saved.event_id is not None
     connection = MagicMock(is_open=True)
     connection.channel.return_value = MagicMock(is_open=True)
     with (
@@ -278,9 +289,61 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     republished = json.loads(
         connection.channel.return_value.basic_publish.call_args.kwargs["body"]
     )
-    assert republished == saved.result_event
+    assert republished == build_result_event(saved)
     connection.channel.return_value.confirm_delivery.assert_called_once()
     connection.close.assert_called_once()
+    assert repository.get_by_post_id(post_id) == saved
+
+
+def test_confirmed_publish_with_failed_completion_can_be_delivered_again(
+    deliver, session_factory
+):
+    repository = EnrichmentRepository(session_factory)
+    classifier = MagicMock(return_value=("science",))
+    processor = PostProcessor(EnrichmentService(repository, classifier))
+    event = _event(post_id=str(uuid4()))
+    first_channel = MagicMock(is_open=True)
+    with patch.object(
+        repository, "mark_published", side_effect=RuntimeError("db")
+    ):
+        deliver(processor, first_channel, json.dumps(event).encode())
+    pending = repository.get_by_post_id(UUID(event["payload"]["post_id"]))
+    assert pending.publication_pending
+    first_channel.basic_publish.assert_called_once()
+    first_channel.basic_ack.assert_not_called()
+    second_channel = MagicMock(is_open=True)
+    recovered = process(processor, event, second_channel)
+    assert recovered.event_id == pending.event_id
+    assert recovered.enrichment_revision == pending.enrichment_revision
+    assert not recovered.publication_pending
+    assert classifier.call_count == 1
+    first_message = json.loads(
+        first_channel.basic_publish.call_args.kwargs["body"]
+    )
+    second_message = json.loads(
+        second_channel.basic_publish.call_args.kwargs["body"]
+    )
+    assert first_message["event_id"] == second_message["event_id"]
+    assert first_message["payload"] == second_message["payload"]
+
+
+@pytest.mark.parametrize("categories", [("science",), ()])
+def test_newer_revision_saves_new_classification(session_factory, categories):
+    repository = EnrichmentRepository(session_factory)
+    classifier = MagicMock(return_value=categories)
+    processor = PostProcessor(EnrichmentService(repository, classifier))
+    post_id = str(uuid4())
+    first = process(processor, _event(post_id=post_id), MagicMock())
+    newer = process(processor, _event(post_id=post_id, revision=2), MagicMock())
+    assert newer.processed_at >= first.processed_at
+    assert newer.category_ids == first.category_ids
+    assert newer.event_id != first.event_id
+    assert newer.enrichment_revision == first.enrichment_revision + 1
+    assert classifier.call_count == 2
+    assert (
+        build_result_event(newer)["occurred_at"]
+        == newer.processed_at.isoformat()
+    )
 
 
 def test_existing_result_gets_an_event_without_reclassification(
@@ -320,7 +383,7 @@ def test_changed_input_at_new_revision_is_classified_again(
     post_id = str(uuid4())
 
     channel = MagicMock(is_open=True)
-    first = process(processor, _event(post_id=post_id, revision=1), channel)
+    process(processor, _event(post_id=post_id, revision=1), channel)
     changed = process(
         processor,
         _event(post_id=post_id, revision=2, content="A new finding"),
@@ -328,7 +391,6 @@ def test_changed_input_at_new_revision_is_classified_again(
     )
 
     assert changed.post_revision == 2
-    assert changed.input_hash != first.input_hash
     assert len(classifier.inputs) == 2
 
 
@@ -365,37 +427,29 @@ def test_changed_source_hints_at_new_revision_are_classified_again(
     assert isinstance(second_payload, dict)
     second_payload["keywords"] = ["medical research"]
 
-    first = process(processor, first_event, MagicMock(is_open=True))
-    second = process(processor, second_event, MagicMock(is_open=True))
+    process(processor, first_event, MagicMock(is_open=True))
+    process(processor, second_event, MagicMock(is_open=True))
 
-    assert second.input_hash != first.input_hash
     assert len(classifier.inputs) == 2
 
 
-def test_changed_input_at_same_revision_replaces_saved_snapshot(
-    session_factory: sessionmaker[Session],
-) -> None:
+def test_same_revision_trusts_canonical_snapshot_and_ignores_payload_force_flag(
+    session_factory,
+):
     classifier = RecordingClassifier()
     processor = PostProcessor(
         EnrichmentService(EnrichmentRepository(session_factory), classifier)
     )
     post_id = str(uuid4())
-
     channel = MagicMock(is_open=True)
     first = process(processor, _event(post_id=post_id, revision=2), channel)
-    duplicate = process(
-        processor,
-        _event(post_id=post_id, revision=2, content="Conflicting body"),
-        channel,
-    )
-
-    assert duplicate.input_hash != first.input_hash
-    assert duplicate.enrichment_revision == first.enrichment_revision + 1
-    assert first.result_event is not None
-    assert duplicate.result_event is not None
-    assert duplicate.result_event["event_id"] != first.result_event["event_id"]
-    assert duplicate.result_event["payload"]["enrichment_revision"] == 2
-    assert len(classifier.inputs) == 2
+    event = _event(post_id=post_id, revision=2, content="Conflicting body")
+    event["force_reclassify"] = True
+    event["payload"]["force_reclassify"] = True
+    del event["correlation_id"]
+    assert process(processor, event, channel) == first
+    assert len(classifier.inputs) == 1
+    assert channel.basic_publish.call_count == 1
 
 
 @pytest.mark.parametrize(

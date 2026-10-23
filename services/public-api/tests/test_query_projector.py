@@ -161,13 +161,9 @@ def test_result_event_before_post_is_projected_after_matching_snapshot() -> (
         "payload": {
             "post_id": "post-1",
             "post_revision": 2,
-            "taxonomy_version": "categories-v2",
             "status": "completed",
             "category_ids": ["science"],
             "enrichment_revision": 1,
-            "input_hash": "a" * 64,
-            "enrichment_version": "test",
-            "processed_at": "2026-10-09T00:00:00Z",
         },
     }
     post_event = {

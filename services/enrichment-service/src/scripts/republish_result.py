@@ -1,6 +1,7 @@
 """Republish one stored enrichment event without classifying again."""
 
 import argparse
+from dataclasses import replace
 from uuid import UUID
 
 import pika
@@ -8,15 +9,27 @@ import pika
 from src.adapters.result_publisher import publish_result
 from src.config.database import SessionLocal
 from src.config.settings import settings
-from src.repositories.enrichment_repository import EnrichmentRepository
+from src.events.post_enriched import build_result_event
+from src.repositories.enrichment_repository import (
+    EnrichmentRepository,
+    StoredEnrichment,
+)
 
 
 def republish_result(post_id: UUID) -> None:
     repository = EnrichmentRepository(SessionLocal)
     saved = repository.get_by_post_id(post_id)
-    if saved is None or saved.result_event is None or saved.event_id is None:
+    if saved is None:
         raise ValueError("No saved result event for this post")
 
+    publish_saved_result(saved, repository)
+
+
+def publish_saved_result(
+    saved: StoredEnrichment, repository: EnrichmentRepository
+) -> StoredEnrichment:
+    """Publish and confirm this exact saved event, then mark its identity."""
+    event = build_result_event(saved)
     parameters = pika.URLParameters(settings.rabbitmq_url)
     parameters.blocked_connection_timeout = settings.blocked_timeout_seconds
     connection = pika.BlockingConnection(parameters)
@@ -28,8 +41,9 @@ def republish_result(post_id: UUID) -> None:
             durable=True,
         )
         channel.confirm_delivery()
-        publish_result(channel, saved.result_event)
-        repository.mark_published(post_id, saved.event_id)
+        publish_result(channel, event)
+        repository.mark_published(saved.post_id, saved.event_id)
+        return replace(saved, publication_pending=False)
     finally:
         if connection.is_open:
             connection.close()

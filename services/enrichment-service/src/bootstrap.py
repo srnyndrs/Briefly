@@ -1,44 +1,22 @@
 """Compose the concrete Ollama runtime and its saved-result identity."""
 
-import hashlib
-import json
 import logging
 
-from src.adapters.ollama_provider import (
-    GENERATION_OPTIONS,
-    OllamaProvider,
-    ollama_category_schema,
-)
+from src.adapters.ollama_provider import OllamaProvider
 from src.config.database import SessionLocal
 from src.config.settings import settings
 from src.repositories.enrichment_repository import EnrichmentRepository
-from src.services.categories import CATEGORY_TAXONOMY_VERSION
-from src.services.classification import INPUT_POLICY_VERSION, ArticleInput
-from src.services.enrichment_service import EnrichmentService
+from src.services.classification import ArticleInput
+from src.services.enrichment_service import (
+    EnrichmentService,
+)
 from src.services.post_processor import PostProcessor
-from src.services.provider import PROMPT_VERSION, instructions
+from src.services.provider import instructions
 
 logger = logging.getLogger(__name__)
 
 
-def enrichment_version(model: str, digest: str, prompt: str) -> str:
-    """Bound the identity while retaining all model and policy components."""
-    identity = {
-        "provider": "ollama",
-        "model": model,
-        "digest": digest,
-        "taxonomy": CATEGORY_TAXONOMY_VERSION,
-        "prompt_version": PROMPT_VERSION,
-        "prompt": prompt,
-        "schema": ollama_category_schema(),
-        "input_policy": INPUT_POLICY_VERSION,
-        "options": GENERATION_OPTIONS,
-    }
-    encoded = json.dumps(identity, sort_keys=True).encode("utf-8")
-    return f"ollama-{hashlib.sha256(encoded).hexdigest()}"
-
-
-def create_post_processor() -> PostProcessor:
+def create_enrichment_service() -> EnrichmentService:
     """Use the configured model and the existing scoped repository sessions."""
     if not settings.ollama_model or not settings.ollama_model.strip():
         raise ValueError("OLLAMA_MODEL is required for runtime enrichment")
@@ -50,20 +28,21 @@ def create_post_processor() -> PostProcessor:
         timeout=settings.ollama_timeout_seconds,
     )
     digest = provider.model_digest()
-    version = enrichment_version(settings.ollama_model, digest, prompt)
     logger.info(
-        "Ollama runtime model=%s digest=%s enrichment_version=%s",
+        "Ollama runtime model=%s digest=%s",
         settings.ollama_model,
         digest,
-        version,
     )
 
     def classify(article: ArticleInput) -> tuple[str, ...]:
         return provider(article).category_ids
 
-    service = EnrichmentService(
+    return EnrichmentService(
         EnrichmentRepository(SessionLocal),
         classify,
-        version,
     )
-    return PostProcessor(service)
+
+
+def create_post_processor() -> PostProcessor:
+    """Compose parsed-event processing for the broker consumer."""
+    return PostProcessor(create_enrichment_service())

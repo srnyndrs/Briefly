@@ -16,15 +16,12 @@ from src.repositories.enrichment_repository import StoredEnrichment
 def result(*, pending=False, status="completed"):
     return StoredEnrichment(
         post_id=uuid4(),
-        input_hash="a" * 64,
-        enrichment_version="test",
         category_ids=("science",) if status == "completed" else (),
         status=status,
         reason=None,
         processed_at=datetime.now(UTC),
         publication_pending=pending,
         event_id="saved-event",
-        result_event={"event_id": "saved-event"},
     )
 
 

@@ -40,12 +40,8 @@ class EnrichmentPayload(BaseModel):
     post_id: str = Field(min_length=1, max_length=64)
     post_revision: int = Field(strict=True, ge=1)
     enrichment_revision: int = Field(strict=True, ge=1)
-    taxonomy_version: Literal["categories-v2"]
     status: Literal["completed", "abstained", "failed"]
     category_ids: list[str] = Field(strict=True, max_length=2)
-    input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
-    enrichment_version: str = Field(min_length=1, max_length=100)
-    processed_at: datetime
 
     @model_validator(mode="after")
     def validate_categories(self) -> "EnrichmentPayload":
@@ -61,11 +57,7 @@ class EnrichmentPayload(BaseModel):
 
 
 def _public_categories(result: PostEnrichmentProjection | None) -> list[str]:
-    if (
-        result is not None
-        and result.taxonomy_version == "categories-v2"
-        and result.status == "completed"
-    ):
+    if result is not None and result.status == "completed":
         return list(result.category_ids)
     return []
 
@@ -162,7 +154,6 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
         db.add(result)
 
     result.post_revision = revision
-    result.taxonomy_version = payload["taxonomy_version"]
     result.status = payload["status"]
     result.enrichment_revision = payload["enrichment_revision"]
     result.category_ids = payload["category_ids"]

@@ -47,12 +47,8 @@ def _result(
         "post_id": post_id,
         "post_revision": revision,
         "enrichment_revision": enrichment_revision,
-        "taxonomy_version": "categories-v2",
         "status": status,
         "category_ids": categories,
-        "input_hash": "a" * 64,
-        "enrichment_version": "test-policy",
-        "processed_at": datetime.now(UTC).isoformat(),
     }
 
 

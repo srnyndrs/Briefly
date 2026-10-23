@@ -8,6 +8,7 @@ class PostResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     post_id: UUID
+    post_revision: int = Field(gt=0)
     source_id: UUID
     item_guid: str
     url: str

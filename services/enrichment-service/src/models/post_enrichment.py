@@ -28,8 +28,6 @@ class PostEnrichment(Base):
         default=1,
         server_default=text("1"),
     )
-    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    enrichment_version: Mapped[str] = mapped_column(String(100), nullable=False)
     category_ids: Mapped[list[str]] = mapped_column(
         JSONB().with_variant(JSON, "sqlite"),
         nullable=False,
@@ -43,12 +41,9 @@ class PostEnrichment(Base):
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    result_event: Mapped[dict | None] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), nullable=True
-    )
+    event_id: Mapped[str] = mapped_column(String(36), nullable=False)
     publication_pending: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=text("false")
+        Boolean, nullable=False, default=True, server_default=text("true")
     )
 
     __table_args__ = (

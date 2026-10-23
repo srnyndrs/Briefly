@@ -1,58 +1,36 @@
 """Build the saved result event for one post revision."""
 
-from datetime import UTC, datetime
-from uuid import uuid4
-
-from src.services.categories import (
-    CATEGORY_TAXONOMY_VERSION,
-    validate_category_ids,
-)
+from src.repositories.enrichment_repository import StoredEnrichment
+from src.services.categories import validate_category_ids
 
 
-def build_result_event(
-    *,
-    post_id: str,
-    post_revision: int,
-    enrichment_revision: int,
-    input_hash: str,
-    enrichment_version: str,
-    status: str,
-    category_ids: tuple[str, ...],
-    processed_at: datetime,
-    correlation_id: str,
-) -> dict:
-    categories = validate_category_ids(category_ids)
+def build_result_event(saved: StoredEnrichment) -> dict:
+    """Build the same event on every attempt from the saved result."""
+    if not saved.event_id:
+        raise ValueError("Result has no saved event ID")
+    categories = validate_category_ids(saved.category_ids)
     if (
-        type(post_revision) is not int
-        or post_revision < 1
-        or type(enrichment_revision) is not int
-        or enrichment_revision < 1
-        or (status == "completed" and not categories)
-        or (status in ("abstained", "failed") and categories)
-        or status not in ("completed", "abstained", "failed")
+        type(saved.post_revision) is not int
+        or saved.post_revision < 1
+        or type(saved.enrichment_revision) is not int
+        or saved.enrichment_revision < 1
+        or (saved.status == "completed" and not categories)
+        or (saved.status in ("abstained", "failed") and categories)
+        or saved.status not in ("completed", "abstained", "failed")
     ):
         raise ValueError("Invalid enrichment result status or revision")
     return {
-        "event_id": str(uuid4()),
+        "event_id": saved.event_id,
         "event_type": "post.enriched.v1",
         "schema_version": 1,
-        "occurred_at": datetime.now(UTC).isoformat(),
+        "occurred_at": saved.processed_at.isoformat(),
         "producer": "enrichment-service",
-        "correlation_id": correlation_id,
-        "partition_key": f"post:{post_id}",
-        "trace": {
-            "trace_id": uuid4().hex,
-            "span_id": uuid4().hex[:16],
-        },
+        "partition_key": f"post:{saved.post_id}",
         "payload": {
-            "post_id": post_id,
-            "post_revision": post_revision,
-            "enrichment_revision": enrichment_revision,
-            "input_hash": input_hash,
-            "enrichment_version": enrichment_version,
-            "taxonomy_version": CATEGORY_TAXONOMY_VERSION,
-            "status": status,
+            "post_id": str(saved.post_id),
+            "post_revision": saved.post_revision,
+            "enrichment_revision": saved.enrichment_revision,
+            "status": saved.status,
             "category_ids": list(categories),
-            "processed_at": processed_at.isoformat(),
         },
     }

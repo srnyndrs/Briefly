@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -11,12 +12,13 @@ from src import app as application
 from src import bootstrap
 from src.adapters.result_publisher import publish_result
 from src.config.settings import Settings, settings
+from src.events.post_enriched import build_result_event
 
 
 def process(processor, event, channel):
     saved = processor.process(event)
     if saved.publication_pending:
-        publish_result(channel, saved.result_event)
+        publish_result(channel, build_result_event(saved))
     return (
         processor.mark_published(saved) if saved.publication_pending else saved
     )
@@ -73,8 +75,6 @@ def test_composed_runtime_persists_publishes_and_reuses(ollama) -> None:
     reused = process(bootstrap.create_post_processor(), event, channel)
     assert saved == reused
     assert saved.category_ids == ("science",)
-    assert saved.enrichment_version.startswith("ollama-")
-    assert len(saved.enrichment_version) <= 100
     assert not saved.publication_pending
     assert len(calls) == 1
     assert (
@@ -84,34 +84,26 @@ def test_composed_runtime_persists_publishes_and_reuses(ollama) -> None:
     assert channel.basic_publish.call_count == 1
 
 
-@pytest.mark.parametrize(
-    "change", ["digest", "model", "prompt", "input_policy"]
-)
-def test_runtime_identity_changes_rerun_same_revision(
-    ollama, monkeypatch, change
-) -> None:
+def test_runtime_new_revision_reruns_unchanged_text(ollama):
+    calls, _ = ollama
+    event = parsed_event()
+    channel = MagicMock()
+    first = process(bootstrap.create_post_processor(), event, channel)
+    event["payload"]["post_revision"] += 1
+    second = process(bootstrap.create_post_processor(), event, channel)
+    assert second.enrichment_revision == first.enrichment_revision + 1
+    assert len(calls) == 2
+
+
+def test_runtime_digest_change_does_not_invalidate_saved_result(ollama) -> None:
     calls, installed = ollama
     event = parsed_event()
     channel = MagicMock()
     first = process(bootstrap.create_post_processor(), event, channel)
-    if change == "digest":
-        installed["digest"] = "digest-two"
-    elif change == "model":
-        # Both spellings resolve to the installed latest tag, but record the
-        # explicit configured model choice in the identity.
-        monkeypatch.setattr(settings, "ollama_model", "test")
-    elif change == "prompt":
-        monkeypatch.setattr(
-            bootstrap, "instructions", lambda _: "Changed policy"
-        )
-    else:
-        monkeypatch.setattr(
-            bootstrap, "INPUT_POLICY_VERSION", "bounded-input-v2"
-        )
+    installed["digest"] = "digest-two"
     second = process(bootstrap.create_post_processor(), event, channel)
-    assert second.enrichment_version != first.enrichment_version
-    assert second.enrichment_revision == first.enrichment_revision + 1
-    assert len(calls) == 2
+    assert second == first
+    assert len(calls) == 1
 
 
 @pytest.mark.parametrize("model", [None, "", "   "])
@@ -139,7 +131,9 @@ def test_startup_composes_starts_and_stops_consumer(
     thread = MagicMock()
     monkeypatch.setattr(application, "init_db", init_db)
     monkeypatch.setattr(application, "PostConsumer", consumer)
-    monkeypatch.setattr(application.threading, "Thread", thread)
+    monkeypatch.setattr(
+        application, "threading", SimpleNamespace(Thread=thread)
+    )
     with TestClient(application.app) as client:
         assert client.get("/health").json()["status"] == "ok"
         init_db.assert_called_once_with()
@@ -171,7 +165,9 @@ def test_lifespan_stops_consumer_when_application_raises(
     consumer = MagicMock()
     monkeypatch.setattr(application, "init_db", MagicMock())
     monkeypatch.setattr(application, "PostConsumer", consumer)
-    monkeypatch.setattr(application.threading, "Thread", MagicMock())
+    monkeypatch.setattr(
+        application, "threading", SimpleNamespace(Thread=MagicMock())
+    )
 
     async def fail() -> None:
         async with application.lifespan(application.app):

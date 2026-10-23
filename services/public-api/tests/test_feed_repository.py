@@ -85,7 +85,6 @@ def test_collection_round_trip_and_replacement(collection_db):
     enrichment = PostEnrichmentProjection(
         post_id=post.post_id,
         post_revision=1,
-        taxonomy_version="categories-v2",
         status="completed",
         enrichment_revision=1,
         category_ids=values,

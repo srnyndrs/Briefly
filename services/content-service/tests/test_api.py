@@ -72,6 +72,7 @@ def test_get_post_by_id(client: TestClient, db_session) -> None:
     by_id = client.get(f"/posts/{post_id}")
     assert by_id.status_code == 200
     assert by_id.json()["post_id"] == str(post_id)
+    assert by_id.json()["post_revision"] == 1
 
 
 def test_list_posts_with_filters(client: TestClient, db_session) -> None:

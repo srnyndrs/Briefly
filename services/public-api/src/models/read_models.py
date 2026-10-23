@@ -141,7 +141,6 @@ class PostEnrichmentProjection(Base):
 
     post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    taxonomy_version: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     enrichment_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     category_ids: Mapped[list[str]] = mapped_column(

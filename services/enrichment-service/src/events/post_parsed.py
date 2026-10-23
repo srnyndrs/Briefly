@@ -34,5 +34,4 @@ class ParsedPostEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     event_type: Literal["post.parsed.v1"]
-    correlation_id: str = Field(min_length=1)
     payload: ParsedPostPayload

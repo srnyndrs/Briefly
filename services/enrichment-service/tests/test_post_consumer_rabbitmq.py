@@ -11,6 +11,7 @@ import pytest
 
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
+from src.events.post_enriched import build_result_event
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts.republish_result import republish_result
 from src.services.enrichment_service import EnrichmentService
@@ -294,7 +295,11 @@ def test_live_missing_binding_retains_saved_event(
         delivered = wait_for(
             lambda: channel.basic_get(queue=result_queue, auto_ack=True)[2]
         )
-        assert json.loads(delivered) == saved.result_event
+        assert (
+            json.loads(delivered)["payload"]
+            == build_result_event(saved)["payload"]
+        )
+        assert json.loads(delivered)["event_id"] == saved.event_id
         assert not repository.get_by_post_id(saved.post_id).publication_pending
     finally:
         stop(consumer, thread)

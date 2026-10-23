@@ -3,7 +3,7 @@
 from dataclasses import replace
 from typing import Any
 
-from src.events.post_parsed import ParsedPostEvent
+from src.events.post_parsed import ParsedPostEvent, ParsedPostPayload
 from src.repositories.enrichment_repository import StoredEnrichment
 from src.services.classification import ArticleInput
 from src.services.enrichment_service import EnrichmentService
@@ -18,16 +18,8 @@ class PostProcessor:
         payload = parsed_event.payload
         return self._enrichment_service.enrich_article(
             payload.post_id,
-            ArticleInput(
-                title=payload.title,
-                description=payload.description,
-                body=payload.content,
-                language=payload.language,
-                source_category=payload.category,
-                keywords=tuple(payload.keywords),
-            ),
+            article_from_payload(payload),
             post_revision=payload.post_revision,
-            correlation_id=parsed_event.correlation_id,
         )
 
     def mark_published(self, saved: StoredEnrichment) -> StoredEnrichment:
@@ -36,3 +28,15 @@ class PostProcessor:
             raise RuntimeError("Published result has no saved event ID")
         self._enrichment_service.mark_published(saved.post_id, saved.event_id)
         return replace(saved, publication_pending=False)
+
+
+def article_from_payload(payload: ParsedPostPayload) -> ArticleInput:
+    """Map both canonical snapshots and parsed events to classifier input."""
+    return ArticleInput(
+        title=payload.title,
+        description=payload.description,
+        body=payload.content,
+        language=payload.language,
+        source_category=payload.category,
+        keywords=tuple(payload.keywords),
+    )

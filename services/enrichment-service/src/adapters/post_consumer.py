@@ -13,6 +13,7 @@ from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 
 from src.adapters.result_publisher import publish_result
 from src.config.settings import settings
+from src.events.post_enriched import build_result_event
 from src.repositories.enrichment_repository import StoredEnrichment
 from src.services.post_processor import PostProcessor
 
@@ -196,9 +197,7 @@ class PostConsumer:
             self._settle(connection, delivery_tag, saved, None)
             return
         try:
-            if saved.result_event is None or saved.event_id is None:
-                raise RuntimeError("Pending result has no saved event")
-            publish_result(self._channel, saved.result_event)
+            publish_result(self._channel, build_result_event(saved))
         except Exception as exc:
             self._settle(connection, delivery_tag, saved, exc)
             return
