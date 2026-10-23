@@ -46,17 +46,17 @@ jobs:
         run: pipx install poetry==2.3.2
 
       - name: Install dependencies
-        working-directory: src/backend/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
         run: poetry install --no-root --no-interaction
 
       - name: Format
-        working-directory: src/backend/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
         run: make format
 
       - name: Lint
-        working-directory: src/backend/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
         run: make lint
 
       - name: Test
-        working-directory: src/backend/${{ matrix.service }}
+        working-directory: services/${{ matrix.service }}
         run: make test

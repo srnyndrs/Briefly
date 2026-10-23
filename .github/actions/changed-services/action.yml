@@ -15,12 +15,12 @@ runs:
       with:
         filters: |
           account-service:
-            - 'src/backend/account-service/**'
+            - 'services/account-service/**'
           content-service:
-            - 'src/backend/content-service/**'
+            - 'services/content-service/**'
           crawler-service:
-            - 'src/backend/crawler-service/**'
+            - 'services/crawler-service/**'
           enrichment-service:
-            - 'src/backend/enrichment-service/**'
+            - 'services/enrichment-service/**'
           public-api:
-            - 'src/backend/public-api/**'
+            - 'services/public-api/**'

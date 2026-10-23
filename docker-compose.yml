@@ -46,11 +46,11 @@ services:
 
   crawler-service:
     build:
-      context: ./src/backend/crawler-service
+      context: ./services/crawler-service
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - path: ./src/backend/crawler-service/.env
+      - path: ./services/crawler-service/.env
         required: false
     ports:
       - "8001:8001"
@@ -90,11 +90,11 @@ services:
 
   content-service:
     build:
-      context: ./src/backend/content-service
+      context: ./services/content-service
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - path: ./src/backend/content-service/.env
+      - path: ./services/content-service/.env
         required: false
     ports:
       - "8002:8002"
@@ -124,11 +124,11 @@ services:
   enrichment-service:
     profiles: ["enrichment"]
     build:
-      context: ./src/backend/enrichment-service
+      context: ./services/enrichment-service
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - path: ./src/backend/enrichment-service/.env
+      - path: ./services/enrichment-service/.env
         required: false
     ports:
       - "8005:8005"
@@ -177,11 +177,11 @@ services:
 
   account-service:
     build:
-      context: ./src/backend/account-service
+      context: ./services/account-service
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - path: ./src/backend/account-service/.env
+      - path: ./services/account-service/.env
         required: false
     ports:
       - "8003:8003"
@@ -219,11 +219,11 @@ services:
 
   public-api:
     build:
-      context: ./src/backend/public-api
+      context: ./services/public-api
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - path: ./src/backend/public-api/.env
+      - path: ./services/public-api/.env
         required: false
     ports:
       - "8000:8000"
