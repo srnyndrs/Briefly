@@ -103,28 +103,19 @@ parse or database operation can still prevent timely heartbeat handling.
 
 ### DLQ setup
 
-The root Compose configuration builds the RabbitMQ image from
-`scripts/rabbitmq/Dockerfile`, which includes the definitions and broker
-configuration. RabbitMQ imports the definitions on startup on Windows and Unix
-hosts. They create the durable `content.failed` exchange, the DLQ and its binding,
-and a policy that routes
-rejected feeds from `feed.raw_fetched.v1.parser` to that DLQ. No host script is
-needed. The definitions also seed the local Compose `guest` account and `/`
-vhost on a fresh RabbitMQ volume; they are local development credentials.
-On a fresh checkout, `docker compose up -d --build` starts this setup.
+Run `docker compose up -d --build` from the repository root. RabbitMQ loads the
+DLQ policy from `config/rabbitmq/definitions.json` at boot via
+the native definitions import. The policy routes rejected feeds to the DLQ. The
+content-service creates the `content.failed` exchange, DLQ, and binding on
+startup. The definitions also create the local development `guest` account and
+`/` vhost, which boot import would otherwise omit. These credentials are for local
+development only. In Kubernetes, use RabbitMQ's Cluster and Messaging Topology
+Operators with a declarative policy and Secret-backed credentials.
 
-For an existing Compose broker, rebuild and recreate its container once without
-removing its named volume:
-
-```bash
-docker compose build rabbitmq
-docker compose up -d --no-deps --force-recreate rabbitmq
-```
-
-The import adds missing definitions without clearing queued messages. The
-consumer's queue declarations keep their existing arguments; changing those
-arguments would require a queue migration. If the queue names, exchanges or
-vhost change, update the definitions and service settings together.
+Existing broker volumes and queued messages are preserved; do not use
+`docker compose down --volumes` when upgrading. If queue names, exchanges, or
+the vhost change, update `config/rabbitmq/definitions.json` and service
+settings together.
 
 ### Inspect and recover
 
@@ -221,32 +212,4 @@ Run tests and lint checks:
 poetry run python -m pytest -p no:cacheprovider -q
 poetry run ruff check --no-cache src tests
 poetry run ruff format --check src tests
-```
-
-Broker integration checks use a disposable Compose project. From the repository
-root, start RabbitMQ and PostgreSQL with:
-
-```powershell
-docker compose -p briefly-content-check -f scripts/rabbitmq/compose.test.yml up -d --wait
-```
-
-Then, from this service directory:
-
-```powershell
-$env:RUN_RABBITMQ_INTEGRATION = '1'
-$env:RUN_POSTGRES_INTEGRATION = '1'
-poetry run python -m pytest -p no:cacheprovider -q tests/test_rabbitmq_integration.py tests/test_postgres_integration.py
-Remove-Item Env:RUN_RABBITMQ_INTEGRATION
-Remove-Item Env:RUN_POSTGRES_INTEGRATION
-```
-
-These checks import policies and purge queues on the disposable broker at ports
-5673/15673. They use SQLite and mocked article extraction. Do not point them at
-the application broker. The separate PostgreSQL check uses the disposable
-`content_check` database at port 5433 to verify real commits, upsert identity,
-metadata updates and preservation after failed extraction. Neither uses the
-application database or publisher websites. Afterward, from the repository root:
-
-```powershell
-docker compose -p briefly-content-check -f scripts/rabbitmq/compose.test.yml down --volumes
 ```

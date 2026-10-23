@@ -11,20 +11,20 @@ From the repository root, start the core platform:
 docker compose up -d --build
 ```
 
-Choose a model explicitly. Set `OLLAMA_MODEL` in this service's `.env` to that
-exact tag, then provision it once (or after deliberately changing the model):
+Compose defines `OLLAMA_MODEL` once as `qwen2.5:3b` via a YAML extension field
+(`x-ollama-model`) and shares it between the `ollama` and `enrichment-service`
+containers using a YAML anchor. Change that single value in `docker-compose.yml`
+to select another model. `config/ollama/Dockerfile` downloads it during the image
+build into `/opt/ollama/models`. Runtime uses the standard Ollama server command;
+no model download or initialization container is needed. Enrichment waits for
+the model health check. The first build downloads the model; subsequent builds
+reuse Docker's cache. Changing the model requires rebuilding the Ollama image.
 
-```powershell
-$model = 'YOUR_CHOSEN_MODEL_TAG'
-docker compose --profile ollama up -d ollama
-docker compose exec ollama ollama pull $model
-docker compose exec ollama ollama list
-$tags = Invoke-RestMethod http://localhost:11434/api/tags
-$tags.models | Where-Object name -EQ $model | Select-Object name, digest
-```
+For Kubernetes, publish the built image and deploy it with the matching model
+name supplied to Ollama and enrichment through a shared ConfigMap. Do not mount
+a volume over `/opt/ollama/models`. The previous `ollama_data` volume is no longer
+used; existing local model files are not deleted.
 
-`/api/tags` must contain the exact configured tag. Model files persist in
-`ollama_data`; neither the image build nor service startup downloads models.
 Ollama runs on the CPU. The `ollama` profile supports standalone experiments.
 
 Enable or stop enrichment from the repository root:
@@ -34,22 +34,23 @@ docker compose --profile enrichment up -d --build
 docker compose stop enrichment-service ollama
 ```
 
-The enrichment profile starts both optional containers alongside the core services.
-Enrichment waits for PostgreSQL, RabbitMQ, Ollama and public-api health checks.
+The enrichment profile starts Ollama and enrichment alongside
+the core services. Enrichment also waits for PostgreSQL, RabbitMQ, Ollama and
+public-api health checks.
 Core services have no optional-service dependency and require no Gemini key.
 Plain `up` does not stop optional containers already running. Use the named `stop`
 command to disable enrichment; profile `down` also stops core services.
 
 | Setting | Runtime use |
 | --- | --- |
-| `OLLAMA_MODEL` | Required chosen installed tag; no default model. |
+| `OLLAMA_MODEL` | Compose selects `qwen2.5:3b`; required explicitly for host development. |
 | `OLLAMA_TIMEOUT_SECONDS` | Request timeout greater than zero and at most 300 seconds; default 60. |
 | `OLLAMA_BASE_URL` | Local default `http://localhost:11434`; Compose uses `http://ollama:11434`. |
 | `DATABASE_URL` | Service PostgreSQL connection; Compose uses internal database DNS. |
 | `RABBITMQ_URL` | Broker connection; Compose uses internal broker DNS. |
 | `GEMINI_API_KEY` | Optional, explicit Gemini evaluation only. |
 
-Compose overrides internal URLs and loads other settings from the optional service
+Compose overrides internal URLs and model selection, and loads other settings from the optional service
 `.env`. Runtime uses the existing non-root `appuser` image and standard logs.
 For host development, start core and Ollama first, then run from this directory:
 

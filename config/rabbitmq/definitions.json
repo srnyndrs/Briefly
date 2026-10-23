@@ -1,0 +1,37 @@
+{
+  "users": [
+    {
+      "name": "guest",
+      "password_hash": "RZkUiS1g70PnJcOJPq9GLZJvI4w9/2yG/QrwcWlJ72mzhxre",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "guest",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "content-feed-dlq",
+      "pattern": "^feed\\.raw_fetched\\.v1\\.parser$",
+      "apply-to": "queues",
+      "priority": 10,
+      "definition": {
+        "dead-letter-exchange": "content.failed",
+        "dead-letter-routing-key": "feed.failed"
+      }
+    }
+  ]
+}
