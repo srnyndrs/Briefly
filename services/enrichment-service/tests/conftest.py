@@ -27,12 +27,17 @@ def deliver():
         consumer._connection = connection
         consumer._channel = channel
         consumer._on_message(channel, MagicMock(delivery_tag=tag), None, body)
-        while True:
+        try:
+            for _ in range(4):
+                consumer._worker.join(timeout=2)
+                assert not consumer._worker.is_alive()
+                if not callbacks:
+                    break
+                callbacks.popleft()()
+            else:
+                raise AssertionError("Delivery callbacks did not complete")
+        finally:
             consumer._worker.join(timeout=2)
-            assert not consumer._worker.is_alive()
-            if not callbacks:
-                break
-            callbacks.popleft()()
         return consumer
 
     return run

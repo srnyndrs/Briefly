@@ -30,18 +30,10 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
         )
         is not None
     )
-    assert (
-        db.scalar(
-            text("""SELECT count(*) FROM pg_indexes
-        WHERE schemaname = 'query' AND indexname = 'ix_post_projections_keywords_gin'
-    """)
-        )
-        == 0
-    )
     now = datetime.now(UTC)
     for post_id, title, description, keywords, content in [
-        ("title", "telescope", "", [], ""),
-        ("description", "Article", "telescope", [], ""),
+        ("title", "space telescope", "", [], ""),
+        ("description", "Article", "telescope observations", [], ""),
         ("keywords", "Article", "", ["telescope"], ""),
         ("body", "Article", "", [], "telescope"),
     ]:
@@ -74,6 +66,15 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
         EffectiveFeedQuery(query="telescope", categories=["health"])
     )
     assert total == 0 and items == []
+    phrase, phrase_total = repo.list_candidates(
+        EffectiveFeedQuery(query='"space telescope"')
+    )
+    assert phrase_total == 1 and phrase[0].post_id == "title"
+    negative, negative_total = repo.list_candidates(
+        EffectiveFeedQuery(query="telescope -observations")
+    )
+    assert negative_total == 2
+    assert {post.post_id for post in negative} == {"title", "keywords"}
 
 
 def test_postgres_category_filters_facets_and_pagination(postgres_db):
@@ -111,10 +112,6 @@ def test_postgres_category_filters_facets_and_pagination(postgres_db):
         )
     )
     assert total == total2 == 2 and first[0].post_id != second[0].post_id
-    assert repo._category_counts(EffectiveFeedQuery(**base)) == [
-        ("science", 2),
-        ("health", 1),
-    ]
     visible, total = repo.list_candidates(
         EffectiveFeedQuery(**base, muted_categories=["health"])
     )

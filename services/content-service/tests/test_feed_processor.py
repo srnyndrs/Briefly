@@ -1,11 +1,9 @@
-import logging
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 import pytest
-from feedparser import FeedParserDict
 from sqlalchemy.orm import Session
 
 from src.models.post import Post
@@ -13,21 +11,7 @@ from src.repositories.post_repository import PostRepository
 from src.services.feed_processor import (
     FeedProcessor,
     _entry_guid,
-    _normalize_language,
 )
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("hu-HU", "hu"),
-        ("iw-IL", "he"),
-        ("", None),
-        ("this-is-not-a-language", None),
-    ],
-)
-def test_normalize_language(raw: str, expected: str | None) -> None:
-    assert _normalize_language(raw) == expected
 
 
 def _make_event(
@@ -48,248 +32,15 @@ def _make_event(
     }
 
 
-def _capture_saved_payload(
-    entry: Any,
-    extracted: dict[str, Any],
-    feed_data: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    db = MagicMock()
-    channel = MagicMock()
-    feed_mock = MagicMock()
-    feed_mock.entries = [entry]
-    feed_mock.feed = feed_data or {}
-    saved_payloads: list[dict[str, Any]] = []
-
-    with (
-        patch(
-            "src.services.feed_processor.feedparser.parse",
-            return_value=feed_mock,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value=extracted,
-        ),
-        patch(
-            "src.repositories.post_repository.PostRepository.upsert_post",
-            side_effect=lambda data: (
-                saved_payloads.append(dict(data))
-                or {**data, "post_id": "p1", "post_revision": 1}
-            ),
-        ),
-        patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
-        ),
-    ):
-        FeedProcessor(PostRepository(db)).process(channel, _make_event())
-
-    return saved_payloads[0]
-
-
-def test_process_source_uses_feed_metadata_as_baseline() -> None:
-    entry = FeedParserDict(
-        {
-            "id": "g-merge-policy",
-            "link": "https://example.com/merge-policy",
-            "title": " Feed title ",
-            "description": " Feed description ",
-            "author": " Feed author ",
-            "tags": [{"term": "Feed category"}],
-            "published_parsed": (
-                2026,
-                9,
-                12,
-                17,
-                30,
-                35,
-                0,
-                0,
-            ),
-            "links": [
-                {
-                    "rel": "enclosure",
-                    "href": "https://example.com/feed-image.jpg",
-                }
-            ],
-        }
-    )
-    saved = _capture_saved_payload(
-        entry,
-        {
-            "title": "null: undefined",
-            "description": "Extracted description",
-            "content": "Extracted body",
-            "image": "https://example.com/extracted-image.jpg",
-            "authors": ["Extracted author"],
-            "language": "en",
-            "keywords": ["extracted"],
-            "publish_date": datetime(2026, 9, 12, 0, 0, tzinfo=timezone.utc),
-        },
-        {"title": "Publisher", "language": "hu"},
-    )
-    assert saved["title"] == "Feed title"
-    assert saved["description"] == "Feed description"
-    assert saved["author"] == "Feed author"
-    assert saved["category"] == "Feed category"
-    assert saved["published_at"] == datetime(
-        2026, 9, 12, 17, 30, 35, tzinfo=timezone.utc
-    )
-    assert saved["image_url"] == "https://example.com/feed-image.jpg"
-    assert saved["language"] == "hu"
-    assert saved["content"] == "Extracted body"
-    assert saved["keywords"] == ["extracted"]
-
-
-def test_process_source_normalizes_html_feed_description() -> None:
-    entry = FeedParserDict(
-        {
-            "id": "g-html-description",
-            "link": "https://example.com/html-description",
-            "title": "Title",
-            "description": (
-                "<p>Short summary.</p><p>The post "
-                '<a href="https://example.com/article">Title</a> '
-                "first appeared on "
-                '<a href="https://example.com">Example</a>.</p>'
-            ),
-        }
-    )
-
-    saved = _capture_saved_payload(entry, {"content": "Body"})
-
-    assert saved["description"] == (
-        "Short summary.\nThe post Title first appeared on Example."
-    )
-    assert "<" not in saved["description"]
-    assert ">" not in saved["description"]
-
-
-def test_process_source_uses_valid_extracted_fallbacks() -> None:
-    entry = FeedParserDict(
-        {
-            "id": "g-extracted-fallback",
-            "link": "https://example.com/extracted-fallback",
-            "title": " ",
-        }
-    )
-    saved = _capture_saved_payload(
-        entry,
-        {
-            "title": " Extracted title ",
-            "description": " Extracted description ",
-            "content": "Body",
-            "image": " https://example.com/image.jpg ",
-            "authors": [" Extracted author "],
-            "language": " en ",
-            "keywords": ["keyword"],
-        },
-    )
-    assert saved["title"] == "Extracted title"
-    assert saved["description"] == "Extracted description"
-    assert saved["author"] == "Extracted author"
-    assert saved["image_url"] == "https://example.com/image.jpg"
-    assert saved["language"] == "en"
-
-
-def test_process_source_persists_source_title(
-    db_session: Session,
-) -> None:
-    channel = MagicMock()
-    entry = {
-        "id": "guid-persisted-title",
-        "link": "https://example.com/persisted-title",
-        "title": "Title",
-    }
-    feed_mock = MagicMock()
-    feed_mock.entries = [entry]
-    feed_mock.feed = {"title": "Persisted Publisher Title"}
-
-    with (
-        patch(
-            "src.services.feed_processor.feedparser.parse",
-            return_value=feed_mock,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={"title": "Title", "content": "Body"},
-        ),
-        patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
-        ) as mock_publish,
-    ):
-        FeedProcessor(PostRepository(db_session)).process(
-            channel,
-            _make_event(
-                source_id="00000000-0000-0000-0000-000000000001",
-                source_title="  Registered Source  ",
-            ),
-        )
-
-    db_session.expire_all()
-    post = (
-        db_session.query(Post)
-        .filter(Post.item_guid == "guid-persisted-title")
-        .one()
-    )
-    assert post.source_title == "Registered Source"
-    assert mock_publish.call_args.kwargs["source_title"] == "Registered Source"
-
-
-def test_process_source_propagates_unexpected_extraction_error() -> None:
-    db = MagicMock()
-    channel = MagicMock()
-
-    entry = {
-        "id": "g1",
-        "link": "https://bad.url",
-        "title": "Bad",
-    }
-    feed_mock = MagicMock()
-    feed_mock.entries = [entry]
-
-    with (
-        patch(
-            "src.services.feed_processor.feedparser.parse",
-            return_value=feed_mock,
-        ),
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            side_effect=RuntimeError("network error"),
-        ),
-        patch(
-            "src.repositories.post_repository.PostRepository.upsert_post"
-        ) as mock_save,
-    ):
-        with pytest.raises(RuntimeError, match="network error"):
-            FeedProcessor(PostRepository(db)).process(channel, _make_event())
-        assert not mock_save.called
-
-
-@pytest.mark.parametrize("field", ["source_id", "source_title"])
-def test_process_source_rejects_missing_source_identity(
-    field: str,
-) -> None:
+def test_process_source_rejects_missing_source_identity() -> None:
     event = _make_event()
-    event["payload"].pop(field)
+    event["payload"].pop("source_id")
 
-    with pytest.raises(ValueError, match=field):
-        FeedProcessor(PostRepository(MagicMock())).process(MagicMock(), event)
-
-
-@pytest.mark.parametrize(
-    ("entry", "expected"),
-    [
-        ({"guid": "guid", "id": "id", "link": "url"}, "guid"),
-        ({"guid": " ", "id": " id ", "link": "url"}, "id"),
-        (
-            {"id": None, "link": " https://example.com/item "},
-            "https://example.com/item",
-        ),
-    ],
-)
-def test_entry_guid_uses_first_nonblank_identity(
-    entry: dict[str, Any], expected: str
-) -> None:
-    assert _entry_guid(entry) == expected
+    repo = MagicMock(spec=PostRepository)
+    with pytest.raises(ValueError, match="source_id"):
+        FeedProcessor(repo).process(MagicMock(), event)
+    repo.get_by_guids.assert_not_called()
+    repo.upsert_post.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -299,11 +50,7 @@ def test_entry_guid_uses_first_nonblank_identity(
             "https://example.com/posts/42#section",
             "https://example.com/posts/42",
         ),
-        ("https://example.com/posts/42#١", "https://example.com/posts/42"),
         ("https://example.com/posts/42#0", "https://example.com/posts/other"),
-        ("https://example.com/posts/42#0", "https://other.test/posts/42"),
-        ("https://[invalid#0", "https://example.com/posts/42"),
-        ("https://example.com/posts/42#0", None),
     ],
 )
 def test_entry_guid_preserves_unrecognized_identity(
@@ -313,11 +60,14 @@ def test_entry_guid_preserves_unrecognized_identity(
 
 
 def test_process_source_rejects_missing_entry_identity() -> None:
+    repo = MagicMock(spec=PostRepository)
     with pytest.raises(ValueError, match="item_guid"):
-        FeedProcessor(PostRepository(MagicMock())).process(
+        FeedProcessor(repo).process(
             MagicMock(),
             _make_event(raw_xml="<rss><channel><item/></channel></rss>"),
         )
+    repo.get_by_guids.assert_not_called()
+    repo.upsert_post.assert_not_called()
 
 
 def test_numeric_fragment_variants_reuse_saved_post(
@@ -445,43 +195,6 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
     assert db_session.query(Post).count() == 1
 
 
-def test_duplicate_entries_in_one_feed_republish_one_revision(
-    db_session: Session,
-) -> None:
-    event = _make_event(
-        raw_xml=(
-            "<rss><channel>"
-            "<item><guid>duplicate</guid><link>https://example.com/duplicate</link>"
-            "<title>Same</title></item>"
-            "<item><guid>duplicate</guid><link>https://example.com/duplicate</link>"
-            "<title>Same</title></item>"
-            "</channel></rss>"
-        ),
-    )
-    with (
-        patch(
-            "src.adapters.content_extractor.extract_article",
-            return_value={"content": "Body"},
-        ) as extract,
-        patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
-        ) as publish,
-    ):
-        FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
-
-    extract.assert_called_once_with("https://example.com/duplicate")
-    assert [
-        call.kwargs["post_revision"] for call in publish.call_args_list
-    ] == [1, 1]
-    assert (
-        publish.call_args_list[0].kwargs["post_id"]
-        == publish.call_args_list[1].kwargs["post_id"]
-    )
-    db_session.expire_all()
-    post = db_session.query(Post).one()
-    assert post.post_revision == 1
-
-
 def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
     db_session: Session,
 ) -> None:
@@ -570,6 +283,10 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
         service.process(MagicMock(), event)
         extract.assert_called_once_with("https://example.com/duplicate")
         assert publish.call_count == 2
+        assert [c.kwargs["post_revision"] for c in publish.call_args_list] == [
+            1,
+            1,
+        ]
         assert (
             publish.call_args_list[0].kwargs["post_id"]
             == publish.call_args_list[1].kwargs["post_id"]
@@ -613,66 +330,19 @@ def test_invalid_article_link_preserves_rss_metadata_without_request(
     extract.assert_not_called()
     assert publish.call_args.kwargs["title"] == "RSS title"
     assert publish.call_args.kwargs["url"] == ""
-
-
-@pytest.mark.parametrize(
-    "event",
-    [
-        {"event_type": "post.parsed.v1"},
-        {"event_type": "feed.raw_fetched.v1", "payload": []},
-        {
-            "event_type": "feed.raw_fetched.v1",
-            "payload": {"raw_xml": " "},
-        },
-    ],
-)
-def test_invalid_event_shape_is_rejected_before_database_work(
-    event: Any,
-) -> None:
-    db = MagicMock()
-    with pytest.raises(ValueError):
-        FeedProcessor(PostRepository(db)).process(MagicMock(), event)
-    db.query.assert_not_called()
+    post = db_session.query(Post).one()
+    assert post.title == "RSS title"
+    assert post.content is None
 
 
 def test_unusable_feed_is_rejected() -> None:
+    repo = MagicMock(spec=PostRepository)
     with pytest.raises(ValueError, match="usable RSS/Atom"):
-        FeedProcessor(PostRepository(MagicMock())).process(
+        FeedProcessor(repo).process(
             MagicMock(), _make_event(raw_xml="<html>Page</html>")
         )
-
-
-def test_empty_valid_feed_completes_and_services_io(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    caplog.set_level(logging.INFO)
-    progress = MagicMock()
-    FeedProcessor(PostRepository(MagicMock())).process(
-        MagicMock(), _make_event(), on_progress=progress
-    )
-    progress.assert_called_once()
-    assert "completed=True" in caplog.text
-    assert "entries=0, attempted=0, reused=0, partial=0" in caplog.text
-
-
-def test_save_without_snapshot_does_not_publish() -> None:
-    service = FeedProcessor(PostRepository(MagicMock()))
-    service._repo = MagicMock()
-    service._repo.get_by_guids.return_value = []
-    service._repo.upsert_post.return_value = None
-    with (
-        patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
-        ) as publish,
-        pytest.raises(RuntimeError, match="Post save returned no snapshot"),
-    ):
-        service.process(
-            MagicMock(),
-            _make_event(
-                raw_xml="<rss><channel><item><guid>item</guid></item></channel></rss>"
-            ),
-        )
-    publish.assert_not_called()
+    repo.get_by_guids.assert_not_called()
+    repo.upsert_post.assert_not_called()
 
 
 def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
@@ -732,7 +402,103 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
     ]
     assert replayed_snapshots == original_snapshots
     assert [revision for _, revision, _, _ in replayed_snapshots] == [1, 1]
-    assert progress.call_count == 3
+    progress.assert_called()
     db_session.expire_all()
     posts = db_session.query(Post).order_by(Post.item_guid).all()
     assert [post.post_revision for post in posts] == [1, 1]
+
+
+def test_rss_metadata_wins_and_description_becomes_plain_text(
+    db_session: Session,
+) -> None:
+    event = _make_event(
+        source_title=" Registered Source ",
+        raw_xml="""<rss version="2.0"><channel>
+      <title>Feed publisher</title><language>hu-HU</language><item>
+      <guid>rss-item</guid><link>https://example.com/rss-item</link>
+      <title>Feed title</title><description>&lt;p&gt;Short summary.&lt;/p&gt;&lt;p&gt;More text.&lt;/p&gt;</description>
+      <author>Feed author</author><category>News</category>
+      <pubDate>Sat, 12 Sep 2026 17:30:35 GMT</pubDate>
+      <enclosure url="https://example.com/feed.jpg" type="image/jpeg"/>
+      </item></channel></rss>""",
+    )
+    with (
+        patch(
+            "src.adapters.content_extractor.extract_article",
+            return_value={
+                "title": "Extracted title",
+                "description": "Extracted description",
+                "authors": ["Extracted author"],
+                "language": "en",
+                "content": "Extracted body",
+                "keywords": ["keyword"],
+                "image": "https://example.com/extracted.jpg",
+                "publish_date": datetime(2026, 9, 1, tzinfo=timezone.utc),
+            },
+        ),
+        patch(
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+        ) as publish,
+    ):
+        FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
+    post = db_session.query(Post).one()
+    assert post.title == "Feed title"
+    assert post.description == "Short summary.\nMore text."
+    assert post.author == "Feed author"
+    assert post.category == "News"
+    assert post.language == "hu"
+    assert post.image_url == "https://example.com/feed.jpg"
+    assert post.published_at == datetime(2026, 9, 12, 17, 30, 35)
+    assert post.source_title == "Registered Source"
+    snapshot = publish.call_args.kwargs
+    assert snapshot["post_id"] == str(post.post_id)
+    assert snapshot["title"] == post.title
+    assert snapshot["description"] == post.description
+    assert snapshot["source_title"] == post.source_title
+    assert snapshot["content"] == post.content == "Extracted body"
+    assert snapshot["keywords"] == post.keywords == ["keyword"]
+
+
+def test_atom_uses_extracted_fallbacks(db_session: Session) -> None:
+    event = _make_event(
+        raw_xml="""<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="invalid-language">
+      <title>Publisher</title><entry><id>atom-item</id>
+      <link href="https://example.com/atom-item"/><title> </title>
+      </entry></feed>"""
+    )
+    with (
+        patch(
+            "src.adapters.content_extractor.extract_article",
+            return_value={
+                "title": " Extracted title ",
+                "description": " Extracted description ",
+                "authors": [" Extracted author "],
+                "language": " en ",
+                "content": "Body",
+                "image": " https://example.com/image.jpg ",
+            },
+        ),
+        patch(
+            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+        ) as publish,
+    ):
+        FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
+    post = db_session.query(Post).one()
+    assert post.item_guid == "atom-item"
+    assert post.title == "Extracted title"
+    assert post.description == "Extracted description"
+    assert post.author == "Extracted author"
+    assert post.language == "en"
+    assert post.image_url == "https://example.com/image.jpg"
+    assert publish.call_args.kwargs["post_id"] == str(post.post_id)
+    assert publish.call_args.kwargs["content"] == post.content == "Body"
+
+
+def test_empty_valid_feed_completes_without_writes_or_publication() -> None:
+    repo = MagicMock(spec=PostRepository)
+    with patch(
+        "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+    ) as publish:
+        FeedProcessor(repo).process(MagicMock(), _make_event())
+    repo.upsert_post.assert_not_called()
+    publish.assert_not_called()

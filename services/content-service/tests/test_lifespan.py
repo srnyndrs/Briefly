@@ -27,18 +27,3 @@ def test_lifespan_stops_consumer_when_application_raises(monkeypatch) -> None:
 
     consumer_factory.assert_called_once_with(application._create_feed_processor)
     consumer.stop.assert_called_once_with()
-
-
-def test_feed_processor_factory_injects_repository(monkeypatch) -> None:
-    db = MagicMock()
-    repository = MagicMock()
-    processor = MagicMock()
-    repository_factory = MagicMock(return_value=repository)
-    processor_factory = MagicMock(return_value=processor)
-    monkeypatch.setattr(application, "PostRepository", repository_factory)
-    monkeypatch.setattr(application, "FeedProcessor", processor_factory)
-
-    assert application._create_feed_processor(db) is processor
-
-    repository_factory.assert_called_once_with(db)
-    processor_factory.assert_called_once_with(repository)

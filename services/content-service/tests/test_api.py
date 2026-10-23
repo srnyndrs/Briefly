@@ -73,12 +73,34 @@ def test_get_post_by_id(client: TestClient, db_session) -> None:
     assert by_id.status_code == 200
     assert by_id.json()["post_id"] == str(post_id)
     assert by_id.json()["post_revision"] == 1
+    assert client.get(f"/posts/{uuid4()}").status_code == 404
 
 
 def test_list_posts_with_filters(client: TestClient, db_session) -> None:
     post_id = uuid4()
     other_id = uuid4()
     _seed_posts(db_session, post_id, other_id)
+
+    # Each decoy differs in just one filtered dimension.
+    for index, changes in enumerate(
+        [
+            {"source_id": SOURCE_TWO},
+            {"language": "fr"},
+            {"category": "sports", "keywords": ["technology"]},
+        ]
+    ):
+        values = {
+            "source_id": SOURCE_ONE,
+            "item_guid": f"decoy-{index}",
+            "url": f"https://example.com/decoy-{index}",
+            "title": "Decoy",
+            "source_title": "Decoy source",
+            "language": "en",
+            "category": "technology",
+        }
+        db_session.add(Post(**(values | changes)))
+    db_session.commit()
+    assert client.get("/posts/count").json() == {"count": 5}
 
     filtered = client.get(
         "/posts",
@@ -92,20 +114,6 @@ def test_list_posts_with_filters(client: TestClient, db_session) -> None:
     payload = filtered.json()
     assert len(payload) == 1
     assert payload[0]["post_id"] == str(post_id)
-
-
-def test_count_posts(client: TestClient, db_session) -> None:
-    _seed_posts(db_session, uuid4(), uuid4())
-
-    response = client.get("/posts/count")
-
-    assert response.status_code == 200
-    assert response.json() == {"count": 2}
-
-
-def test_get_post_not_found(client: TestClient) -> None:
-    missing = client.get(f"/posts/{uuid4()}")
-    assert missing.status_code == 404
 
 
 def test_replay_posts_emits_complete_stored_snapshot(
@@ -147,6 +155,7 @@ def test_replay_posts_emits_complete_stored_snapshot(
         response = client.post(
             "/admin/posts/replay",
             params={"limit": 1},
+            headers={"x-admin-token": "test-admin-token"},
         )
     extract.assert_not_called()
     assert response.status_code == 200
@@ -162,4 +171,36 @@ def test_replay_posts_emits_complete_stored_snapshot(
     assert payload["content_length"] == 7
     assert payload["published_at"] == now.isoformat()
     assert payload["keywords"] == ["technology"]
+    assert payload == {
+        "post_id": str(post_id),
+        "post_revision": 7,
+        "source_id": str(SOURCE_ONE),
+        "item_guid": "guid-replay-title",
+        "url": "https://example.com/replay-title",
+        "source_title": "Tech Blog",
+        "title": "Tech News",
+        "description": "desc",
+        "category": "technology",
+        "content": "content",
+        "content_length": 7,
+        "author": "Author",
+        "published_at": now.isoformat(),
+        "language": "en",
+        "keywords": ["technology"],
+        "image_url": None,
+        "parsed_at": payload["parsed_at"],
+    }
+    assert db_session.get(Post, post_id).post_revision == 7
     channel.connection.close.assert_called_once()
+
+
+def test_replay_rejects_unauthorized_request(
+    client: TestClient, db_session
+) -> None:
+    _seed_posts(db_session, uuid4(), uuid4())
+    with patch(
+        "src.routers.admin.create_replay_publisher_channel"
+    ) as publisher:
+        response = client.post("/admin/posts/replay")
+    assert response.status_code == 401
+    publisher.assert_not_called()

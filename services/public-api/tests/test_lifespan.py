@@ -7,7 +7,11 @@ import src.app as application
 
 
 def test_lifespan_stops_projector_when_application_raises(monkeypatch) -> None:
-    monkeypatch.setattr(application.app.state, "testing", False)
+    monkeypatch.setattr(application.app.state, "testing", False, raising=False)
+    monkeypatch.setattr(application.app.state, "projector", None, raising=False)
+    monkeypatch.setattr(
+        application.app.state, "projector_thread", None, raising=False
+    )
     projector = MagicMock()
     thread = MagicMock()
     thread.is_alive.return_value = False

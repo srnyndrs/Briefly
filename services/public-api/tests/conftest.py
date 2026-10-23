@@ -2,9 +2,10 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 os.environ["SENTRY_DSN"] = ""
 
@@ -42,3 +43,41 @@ def postgres_db(postgres_engine):
                 yield db
         finally:
             transaction.rollback()
+
+
+@pytest.fixture
+def session_factory(tmp_path):
+    from src.models.read_models import Base
+
+    engine = create_engine(
+        f"sqlite:///{(tmp_path / 'query.db').as_posix()}",
+        connect_args={"check_same_thread": False},
+        execution_options={"schema_translate_map": {"query": None}},
+    )
+    try:
+        Base.metadata.create_all(engine)
+        yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+def db(session_factory):
+    with session_factory() as session:
+        yield session
+
+
+@pytest.fixture(autouse=True)
+def reject_upstream_http(monkeypatch):
+    original = httpx.Client.send
+
+    def send(client, request, *args, **kwargs):
+        from fastapi.testclient import TestClient
+
+        if isinstance(client, TestClient):
+            return original(client, request, *args, **kwargs)
+        raise AssertionError(
+            f"Unexpected upstream HTTP: {request.method} {request.url}"
+        )
+
+    monkeypatch.setattr(httpx.Client, "send", send)

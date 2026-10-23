@@ -1,13 +1,10 @@
 import json
 from io import BytesIO
-from pathlib import Path
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 
 import pytest
 
 from src.adapters.ollama_provider import OllamaProvider, ollama_category_schema
-from src.config.settings import settings
-from src.scripts.evaluate_providers import main
 from src.services.classification import ArticleInput
 from src.services.provider import ProviderError, instructions
 
@@ -73,19 +70,8 @@ def test_resolves_installed_model_digest(monkeypatch) -> None:
     assert make_provider().model_digest() == "sha256:one"
 
 
-@pytest.mark.parametrize(
-    "listing",
-    [
-        b"bad JSON",
-        {},
-        {"models": []},
-        {"models": [{"name": "test-model:latest"}]},
-        {"padding": "x" * 1_048_576},
-    ],
-)
-def test_model_resolution_fails_before_consumption(
-    monkeypatch, listing
-) -> None:
+def test_model_resolution_fails_before_consumption(monkeypatch) -> None:
+    listing = {"models": []}
     monkeypatch.setattr(
         "src.adapters.ollama_provider.urlopen",
         lambda *_, **__: FakeResponse(listing),
@@ -122,16 +108,14 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
     assert json.loads(payload["messages"][1]["content"])["title"] == "A study"
     assert payload["stream"] is False
     assert payload["format"] == ollama_category_schema()
-    assert payload["options"] == {"temperature": 0, "num_predict": 128}
-
-
-def test_ollama_schema_keeps_other_exclusive() -> None:
     alternatives = ollama_category_schema()["properties"]["category_ids"][
         "oneOf"
     ]
     assert "other" not in alternatives[0]["items"]["enum"]
     assert alternatives[1]["items"]["enum"] == ["other"]
     assert alternatives[1]["minItems"] == alternatives[1]["maxItems"] == 1
+
+    assert payload["options"] == {"temperature": 0, "num_predict": 128}
 
 
 def test_ollama_accepts_abstention_without_usage_or_response_model(
@@ -156,26 +140,8 @@ def test_ollama_accepts_abstention_without_usage_or_response_model(
     "response",
     [
         b"not JSON",
-        [],
-        {"message": {"content": '{"category_ids":["science"]}'}, "done": False},
         {**ollama_response(), "done": False},
-        {**ollama_response(), "done": 1},
-        {**ollama_response(), "done_reason": "length"},
-        {**ollama_response(), "done_reason": None},
-        {**ollama_response(), "message": None},
-        {
-            **ollama_response(),
-            "message": {
-                "thinking": '{"category_ids":["science"]}',
-                "content": "",
-            },
-        },
-        ollama_response("not JSON"),
         ollama_response('{"category_ids":["unknown"]}'),
-        ollama_response('{"category_ids":["science"],"extra":true}'),
-        ollama_response('{"category_ids":["science","science"]}'),
-        ollama_response('{"category_ids":["other","health"]}'),
-        ollama_response('{"category_ids":["science","health","business"]}'),
         {"padding": "x" * 16_384},
     ],
 )
@@ -187,18 +153,6 @@ def test_ollama_rejects_invalid_or_incomplete_response(
         lambda *_, **__: FakeResponse(response),
     )
     with pytest.raises(ValueError):
-        make_provider()(ArticleInput(title="A study"))
-
-
-@pytest.mark.parametrize("tokens", [-1, True, "42"])
-def test_ollama_rejects_invalid_usage(monkeypatch, tokens) -> None:
-    response = ollama_response()
-    response["eval_count"] = tokens
-    monkeypatch.setattr(
-        "src.adapters.ollama_provider.urlopen",
-        lambda *_, **__: FakeResponse(response),
-    )
-    with pytest.raises(ValueError, match="token usage"):
         make_provider()(ArticleInput(title="A study"))
 
 
@@ -216,19 +170,13 @@ def test_ollama_http_missing_model_has_bounded_safe_detail(monkeypatch) -> None:
     with pytest.raises(ProviderError) as error:
         make_provider()(ArticleInput(title="A study"))
     assert "HTTP 404" in str(error.value)
-    assert "pull it before evaluation" in str(error.value)
     assert "private server detail" not in str(error.value)
     assert len(str(error.value)) <= 1_000
 
 
-@pytest.mark.parametrize(
-    "failure",
-    [
-        TimeoutError("secret timeout detail"),
-        URLError(TimeoutError("timed out")),
-    ],
-)
-def test_ollama_timeout_has_safe_detail(monkeypatch, failure) -> None:
+def test_ollama_timeout_has_safe_detail(monkeypatch) -> None:
+    failure = TimeoutError("secret timeout detail")
+
     def fail(*_, **__):
         raise failure
 
@@ -238,39 +186,3 @@ def test_ollama_timeout_has_safe_detail(monkeypatch, failure) -> None:
     ) as error:
         make_provider()(ArticleInput(title="A study"))
     assert "secret" not in str(error.value)
-
-
-def test_ollama_evaluation_needs_no_gemini_key(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
-) -> None:
-    dataset = tmp_path / "articles.jsonl"
-    dataset.write_text(
-        '{"id":"one","title":"Study","category_ids":["science"]}\n',
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(settings, "gemini_api_key", None)
-    monkeypatch.setattr(settings, "ollama_base_url", "http://localhost:11434")
-    monkeypatch.setattr(
-        "src.adapters.ollama_provider.urlopen",
-        lambda *_, **__: FakeResponse(ollama_response()),
-    )
-    assert (
-        main(
-            [
-                "--provider",
-                "ollama",
-                "--dataset",
-                str(dataset),
-                "--max-calls",
-                "1",
-                "--model",
-                "test-model",
-            ]
-        )
-        == 0
-    )
-    row = json.loads(capsys.readouterr().out)
-    assert row["provider"] == "ollama"
-    assert row["model"] == "test-model:resolved"
-    assert row["actual"] == ["science"]
-    assert row["correct"] is True

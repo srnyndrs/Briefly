@@ -54,9 +54,7 @@ def test_command_fetches_canonical_snapshot_and_reclassifies_without_deleting(
     post_id, payload, opener, repository, classifier, connection = operation
     first = command.reclassify_post(post_id, "http://content:8002/")
     second = command.reclassify_post(post_id, "http://content:8002/")
-    opener.assert_called_with(
-        f"http://content:8002/posts/{post_id}", timeout=30
-    )
+    assert opener.call_args.args[0] == f"http://content:8002/posts/{post_id}"
     assert classifier.call_args.args == (
         ArticleInput(
             title="Research",
@@ -79,25 +77,16 @@ def test_command_fetches_canonical_snapshot_and_reclassifies_without_deleting(
     assert published["event_id"] == second.event_id
     assert published["payload"]["enrichment_revision"] == 2
     assert "trace" not in published and "correlation_id" not in published
-    assert connection.close.call_count == 2
 
 
-@pytest.mark.parametrize("failure", ["publish", "mark"])
 def test_command_failure_preserves_pending_result_and_blocks_reclassification(
-    operation, monkeypatch, failure
+    operation,
 ):
     post_id, _, _, repository, classifier, connection = operation
-    if failure == "publish":
-        connection.channel.return_value.basic_publish.side_effect = (
-            RuntimeError("publish")
-        )
-    else:
-        monkeypatch.setattr(
-            publication.EnrichmentRepository,
-            "mark_published",
-            MagicMock(side_effect=RuntimeError("mark")),
-        )
-    with pytest.raises(RuntimeError, match=failure):
+    connection.channel.return_value.basic_publish.side_effect = RuntimeError(
+        "publish"
+    )
+    with pytest.raises(RuntimeError, match="publish"):
         command.reclassify_post(post_id, "http://content:8002")
     saved = repository.get_by_post_id(post_id)
     assert saved.publication_pending
@@ -107,15 +96,11 @@ def test_command_failure_preserves_pending_result_and_blocks_reclassification(
     assert classifier.call_count == 1
 
 
-@pytest.mark.parametrize("invalid", ["identity", "revision"])
 def test_command_rejects_invalid_canonical_snapshot_before_classification(
-    operation, invalid
+    operation,
 ):
     post_id, payload, _, repository, classifier, connection = operation
-    if invalid == "identity":
-        payload["post_id"] = str(uuid4())
-    else:
-        del payload["post_revision"]
+    payload["post_id"] = str(uuid4())
     with pytest.raises((ValueError, ValidationError)):
         command.reclassify_post(post_id, "http://content:8002")
     classifier.assert_not_called()

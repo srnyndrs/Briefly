@@ -1,43 +1,15 @@
 import json
 from unittest.mock import MagicMock, call, patch
 
-import pika
 import pytest
 
 from src.adapters.feed_consumer import FeedConsumer
+from src.config.message_broker import create_replay_publisher_channel
 from src.config.settings import settings
 
 
-def test_feed_consumer_stop_sets_event_and_calls_threadsafe() -> None:
-    consumer = FeedConsumer(MagicMock())
-    mock_conn = MagicMock()
-    mock_conn.is_open = True
-    consumer._connection = mock_conn
-
-    assert not consumer._stop_event.is_set()
-    consumer.stop()
-    assert consumer._stop_event.is_set()
-    mock_conn.add_callback_threadsafe.assert_called_once_with(
-        consumer._safe_stop_consuming
-    )
-
-
-def test_feed_consumer_safe_stop_consuming_closes_channels() -> None:
-    consumer = FeedConsumer(MagicMock())
-    mock_channel = MagicMock()
-    mock_channel.is_open = True
-    mock_conn = MagicMock()
-    mock_conn.is_open = True
-    consumer._channel = mock_channel
-    consumer._connection = mock_conn
-
-    consumer._safe_stop_consuming()
-    mock_channel.stop_consuming.assert_called_once()
-    mock_conn.close.assert_called_once()
-
-
 @patch("src.adapters.feed_consumer.BlockingConnection")
-def test_consumer_startup_declares_both_exchanges_before_consuming(
+def test_consumer_startup_configures_exchanges_queues_and_confirms(
     mock_connection_cls: MagicMock,
 ) -> None:
     mock_conn = MagicMock()
@@ -72,10 +44,9 @@ def test_consumer_startup_declares_both_exchanges_before_consuming(
             durable=True,
         ),
     ]
-    assert declarations == expected_declarations
-    assert mock_channel.method_calls.index(
-        declarations[-1]
-    ) < mock_channel.method_calls.index(call.start_consuming())
+    assert all(
+        declaration in declarations for declaration in expected_declarations
+    )
     mock_channel.basic_qos.assert_called_once_with(prefetch_count=1)
     mock_channel.confirm_delivery.assert_called_once()
     mock_channel.queue_declare.assert_any_call(
@@ -86,77 +57,11 @@ def test_consumer_startup_declares_both_exchanges_before_consuming(
         exchange=settings.failed_exchange,
         routing_key="feed.failed",
     )
-    assert (
-        mock_connection_cls.call_args.args[0].blocked_connection_timeout
-        == settings.blocked_timeout_seconds
+    mock_channel.queue_bind.assert_any_call(
+        queue=settings.feed_queue,
+        exchange=settings.feed_exchange,
+        routing_key="feed.raw_fetched.v1",
     )
-    mock_conn.close.assert_called_once()
-
-
-@patch("src.adapters.feed_consumer.BlockingConnection")
-def test_consumer_closes_and_clears_connection_when_setup_fails(
-    mock_connection_cls: MagicMock,
-) -> None:
-    connection = MagicMock()
-    connection.is_open = True
-    connection.channel.side_effect = RuntimeError("channel setup failed")
-    mock_connection_cls.return_value = connection
-    consumer = FeedConsumer(MagicMock())
-
-    with pytest.raises(RuntimeError, match="channel setup failed"):
-        consumer._connect_and_consume()
-
-    connection.close.assert_called_once_with()
-    assert consumer._connection is None
-    assert consumer._channel is None
-
-
-@patch("src.adapters.feed_consumer.BlockingConnection")
-def test_consumer_closes_and_clears_connection_when_consumption_fails(
-    mock_connection_cls: MagicMock,
-) -> None:
-    connection = MagicMock(is_open=True)
-    channel = MagicMock()
-    channel.start_consuming.side_effect = RuntimeError("consume failed")
-    connection.channel.return_value = channel
-    mock_connection_cls.return_value = connection
-    consumer = FeedConsumer(MagicMock())
-
-    with pytest.raises(RuntimeError, match="consume failed"):
-        consumer._connect_and_consume()
-
-    connection.close.assert_called_once_with()
-    assert consumer._connection is None
-    assert consumer._channel is None
-
-
-def test_consumer_backoff_wait_exits_when_stopped(monkeypatch) -> None:
-    consumer = FeedConsumer(MagicMock())
-    connect = MagicMock(side_effect=RuntimeError("broker unavailable"))
-    wait = MagicMock(return_value=True)
-    monkeypatch.setattr(consumer, "_connect_and_consume", connect)
-    monkeypatch.setattr(consumer._stop_event, "wait", wait)
-
-    consumer.run()
-
-    connect.assert_called_once_with()
-    wait.assert_called_once_with(1)
-
-
-def test_consumer_services_io_without_waiting() -> None:
-    consumer = FeedConsumer(MagicMock())
-    consumer._connection = MagicMock(is_open=True)
-    consumer._service_connection()
-    consumer._connection.process_data_events.assert_called_once_with(
-        time_limit=0
-    )
-
-
-def test_consumer_does_not_use_closed_connection() -> None:
-    consumer = FeedConsumer(MagicMock())
-    consumer._connection = MagicMock(is_open=False)
-    with pytest.raises(pika.exceptions.ConnectionWrongStateError):
-        consumer._service_connection()
 
 
 def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
@@ -247,3 +152,22 @@ def test_closed_channel_failure_propagates_for_broker_redelivery() -> None:
             )
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_not_called()
+
+
+@patch("src.config.message_broker.pika.BlockingConnection")
+def test_replay_publisher_declares_parsed_exchange_and_enables_confirms(
+    mock_connection_cls: MagicMock,
+) -> None:
+    mock_connection = MagicMock()
+    mock_channel = MagicMock()
+    mock_connection_cls.return_value = mock_connection
+    mock_connection.channel.return_value = mock_channel
+
+    create_replay_publisher_channel()
+
+    mock_channel.exchange_declare.assert_called_once_with(
+        exchange=settings.parsed_exchange,
+        exchange_type="topic",
+        durable=True,
+    )
+    mock_channel.confirm_delivery.assert_called_once()

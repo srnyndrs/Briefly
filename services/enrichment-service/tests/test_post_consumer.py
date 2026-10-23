@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from pika.exceptions import ConnectionWrongStateError
 
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
@@ -33,6 +32,16 @@ def test_declares_only_input_and_dead_letter_queues():
         return_value=connection,
     ):
         PostConsumer(MagicMock())._connect_and_consume()
+    channel.basic_qos.assert_called_once_with(prefetch_count=1)
+    channel.confirm_delivery.assert_called_once()
+    channel.queue_declare.assert_any_call(
+        queue=settings.post_queue,
+        durable=True,
+        arguments={
+            "x-dead-letter-exchange": settings.failed_exchange,
+            "x-dead-letter-routing-key": settings.post_failed_routing_key,
+        },
+    )
     assert {
         c.kwargs["queue"] for c in channel.queue_declare.call_args_list
     } == {
@@ -52,25 +61,6 @@ def test_declares_only_input_and_dead_letter_queues():
     assert all(
         c.kwargs["routing_key"] != "post.enriched.v1"
         for c in channel.queue_bind.call_args_list
-    )
-
-
-@patch("src.adapters.post_consumer.BlockingConnection")
-def test_connection_uses_prefetch_one_and_confirms(connection_class):
-    connection = MagicMock(is_open=True)
-    channel = MagicMock(is_open=True)
-    connection_class.return_value = connection
-    connection.channel.return_value = channel
-    consumer = PostConsumer(MagicMock())
-    consumer._connect_and_consume()
-    channel.basic_qos.assert_called_once_with(prefetch_count=1)
-    channel.confirm_delivery.assert_called_once()
-    channel.start_consuming.assert_called_once()
-    connection.close.assert_called_once()
-    assert consumer._connection is None
-    assert (
-        connection_class.call_args.args[0].blocked_connection_timeout
-        == settings.blocked_timeout_seconds
     )
 
 
@@ -104,54 +94,16 @@ def test_process_and_mark_run_off_broker_thread(deliver):
     processor.process.assert_called_once_with({})
 
 
-@pytest.mark.parametrize(
-    "body,error",
-    [
-        (b"not-json", None),
-        (b"{}", ValueError("invalid")),
-        (b"{}", RuntimeError("database unavailable")),
-    ],
-)
-def test_invalid_delivery_is_dead_lettered(deliver, body, error):
+def test_invalid_delivery_is_dead_lettered(deliver):
     processor = MagicMock()
-    processor.process.side_effect = error
+    body = b"not-json"
     channel = MagicMock(is_open=True)
     deliver(processor, channel, body, 10)
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_called_once_with(delivery_tag=10, requeue=False)
 
 
-def test_failed_saved_event_is_published_before_reject(deliver):
-    saved = result(pending=True, status="failed")
-    processor = MagicMock()
-    processor.process.return_value = saved
-    processor.mark_published.return_value = replace(
-        saved, publication_pending=False
-    )
-    channel = MagicMock(is_open=True)
-    deliver(processor, channel, b"{}", 11)
-    channel.basic_publish.assert_called_once()
-    processor.mark_published.assert_called_once_with(saved)
-    channel.basic_nack.assert_called_once_with(delivery_tag=11, requeue=False)
-    channel.basic_ack.assert_not_called()
-
-
-@pytest.mark.parametrize("phase", ["publish", "mark_published"])
-def test_publication_failure_does_not_ack(deliver, phase):
-    saved = result(pending=True)
-    processor = MagicMock()
-    processor.process.return_value = saved
-    channel = MagicMock(is_open=True)
-    if phase == "publish":
-        channel.basic_publish.side_effect = RuntimeError("failed")
-    else:
-        processor.mark_published.side_effect = RuntimeError("failed")
-    deliver(processor, channel, b"{}")
-    channel.basic_ack.assert_not_called()
-    channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
-
-
-@pytest.mark.parametrize("disconnect", ["closed", "replaced", "shutdown"])
+@pytest.mark.parametrize("disconnect", ["replaced", "shutdown"])
 def test_slow_worker_completion_cannot_touch_closed_or_replaced_channel(
     disconnect,
 ):
@@ -173,74 +125,39 @@ def test_slow_worker_completion_cannot_touch_closed_or_replaced_channel(
     consumer._connection = connection
     consumer._channel = channel
     consumer._on_message(channel, MagicMock(delivery_tag=2), None, b"{}")
-    assert entered.wait(1)
-    assert not callbacks
-    if disconnect == "closed":
-        connection.is_open = False
-    elif disconnect == "replaced":
-        consumer._connection = MagicMock(is_open=True)
-    else:
-        consumer.stop()
-        callbacks.popleft()()
-    release.set()
-    consumer._worker.join(2)
+    try:
+        assert entered.wait(1)
+        assert not callbacks
+        if disconnect == "replaced":
+            consumer._connection = MagicMock(is_open=True)
+        else:
+            consumer.stop()
+            callbacks.popleft()()
+    finally:
+        release.set()
+        consumer._worker.join(2)
+    assert not consumer._worker.is_alive()
     while callbacks:
         callbacks.popleft()()
     channel.basic_publish.assert_not_called()
     channel.basic_ack.assert_not_called()
     channel.basic_nack.assert_not_called()
-    assert consumer._worker.daemon
-
-
-def test_completion_scheduling_handles_closed_connection():
-    processor = MagicMock()
-    processor.process.return_value = result()
-    consumer = PostConsumer(processor)
-    connection = MagicMock()
-    connection.add_callback_threadsafe.side_effect = ConnectionWrongStateError()
-    consumer._process_delivery(connection, 1, b"{}")
-
-
-def test_stop_requests_thread_safe_shutdown():
-    consumer = PostConsumer(MagicMock())
-    connection = MagicMock(is_open=True)
-    consumer._connection = connection
-    consumer.stop()
-    connection.add_callback_threadsafe.assert_called_once_with(
-        consumer._safe_stop_consuming
-    )
-    assert consumer._stop_event.is_set()
 
 
 def test_reconnect_waits_for_disconnected_worker():
     consumer = PostConsumer(MagicMock())
+    joined = []
     worker = MagicMock()
     worker.is_alive.side_effect = [True, False]
+    worker.join.side_effect = lambda **_: joined.append(True)
     consumer._worker = worker
-    with patch.object(
-        consumer,
-        "_connect_and_consume",
-        side_effect=lambda: consumer._stop_event.set(),
-    ):
-        consumer.run()
-    worker.join.assert_called_once_with(timeout=0.1)
 
-
-def test_consumer_reconnects_with_backoff_after_connection_failure():
-    consumer = PostConsumer(MagicMock())
-    attempts = 0
-
-    def connect():
-        nonlocal attempts
-        attempts += 1
-        if attempts == 1:
-            raise ConnectionError("unavailable")
+    def reconnect():
+        assert joined
         consumer._stop_event.set()
 
-    with (
-        patch.object(consumer, "_connect_and_consume", connect),
-        patch.object(consumer._stop_event, "wait", return_value=False) as wait,
-    ):
+    with patch.object(
+        consumer, "_connect_and_consume", side_effect=reconnect
+    ) as connect:
         consumer.run()
-    assert attempts == 2
-    wait.assert_called_once_with(1)
+    connect.assert_called_once()

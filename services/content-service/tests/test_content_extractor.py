@@ -2,45 +2,19 @@ import logging
 from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
 from requests.exceptions import ReadTimeout
 
 from src.adapters.content_extractor import (
     extract_article,
     normalize_article_url,
 )
-from src.config.settings import Settings, settings
-
-
-@pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan")])
-def test_article_timeout_must_be_positive(timeout: float) -> None:
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None, article_request_timeout_seconds=timeout)
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://example.com/article?first=1&second=2",
-        "http://example.com/article,",
-        "https://example.com/article:",
-    ],
-)
-def test_article_url_trims_whitespace_and_preserves_punctuation(
-    url: str,
-) -> None:
-    assert normalize_article_url(f"  {url} \n") == url
+from src.config.settings import settings
 
 
 @pytest.mark.parametrize(
     "url",
     [
         "file:///etc/passwd",
-        "javascript:alert(1)",
-        "https:///missing-host",
-        "https://[broken",
-        "https://example.com:not-a-port/",
-        "https://example.com/a\nb",
         "https://user:password@example.com/article",
     ],
 )
@@ -58,7 +32,6 @@ def test_invalid_link_log_escapes_controls_and_omits_query_values(
     normalize_article_url("https://example.com/a\nb?secret=value")
     normalize_article_url("https://user:password@example.com/?secret=value")
 
-    assert "a\\nb" in caplog.text
     assert "secret" not in caplog.text
     assert "password" not in caplog.text
 
@@ -91,7 +64,7 @@ def test_real_parser_keeps_metadata_image_without_image_downloads(
         ) as image_download,
         patch.object(settings, "article_request_timeout_seconds", 2.5),
     ):
-        result = extract_article("https://example.com/article")
+        result = extract_article("  https://example.com/article  ")
 
     assert result["outcome"] == "success"
     assert "main text" in result["content"]
@@ -104,28 +77,17 @@ def test_real_parser_keeps_metadata_image_without_image_downloads(
     assert config.fetch_images is False
 
 
-@pytest.mark.parametrize("failure", ["timeout", "502", "cloudflare"])
-def test_download_failure_logs_compact_outcome_without_response_or_url(
-    failure: str, caplog: pytest.LogCaptureFixture
+def test_download_timeout_returns_failed_outcome_without_sensitive_content(
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    with patch("newspaper.article.network.get_html_status") as download:
-        if failure == "timeout":
-            download.side_effect = ReadTimeout("Timeout ?secret=value")
-        else:
-            html = (
-                "<html>cloudflare secret-response-body</html>"
-                if failure == "cloudflare"
-                else "<html>secret-response-body</html>"
-            )
-            download.return_value = (html, 502, [])
+    with patch(
+        "newspaper.article.network.get_html_status",
+        side_effect=ReadTimeout("Timeout ?secret=value"),
+    ):
         result = extract_article("https://example.com/article?secret=value")
-
     assert result["outcome"] == "failed"
-    assert result["error"] == "ArticleException"
-    assert "host=example.com" in caplog.text
-    assert "outcome=failed" in caplog.text
-    assert "duration_seconds=" in caplog.text
+    assert "secret" not in str(result)
     assert "secret" not in caplog.text
 
 

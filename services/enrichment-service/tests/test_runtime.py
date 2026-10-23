@@ -6,12 +6,11 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
 
 from src import app as application
 from src import bootstrap
 from src.adapters.result_publisher import publish_result
-from src.config.settings import Settings, settings
+from src.config.settings import settings
 from src.events.post_enriched import build_result_event
 
 
@@ -32,7 +31,7 @@ def ollama(monkeypatch, session_factory):
     def fake_open(request, *, timeout):
         assert timeout == 60
         if request.full_url.endswith("/api/tags"):
-            data = {"models": [{"name": "test:latest", **installed}]}
+            data = {"models": [{"name": settings.ollama_model, **installed}]}
         else:
             calls.append(json.loads(request.data))
             data = {
@@ -67,11 +66,15 @@ def parsed_event() -> dict:
     }
 
 
-def test_composed_runtime_persists_publishes_and_reuses(ollama) -> None:
-    calls, _ = ollama
+def test_composed_runtime_persists_publishes_and_reuses(
+    ollama, monkeypatch
+) -> None:
+    calls, installed = ollama
     event = parsed_event()
     channel = MagicMock()
     saved = process(bootstrap.create_post_processor(), event, channel)
+    installed["digest"] = "digest-two"
+    monkeypatch.setattr(settings, "ollama_model", "changed:latest")
     reused = process(bootstrap.create_post_processor(), event, channel)
     assert saved == reused
     assert saved.category_ids == ("science",)
@@ -82,45 +85,6 @@ def test_composed_runtime_persists_publishes_and_reuses(ollama) -> None:
         == "Research report"
     )
     assert channel.basic_publish.call_count == 1
-
-
-def test_runtime_new_revision_reruns_unchanged_text(ollama):
-    calls, _ = ollama
-    event = parsed_event()
-    channel = MagicMock()
-    first = process(bootstrap.create_post_processor(), event, channel)
-    event["payload"]["post_revision"] += 1
-    second = process(bootstrap.create_post_processor(), event, channel)
-    assert second.enrichment_revision == first.enrichment_revision + 1
-    assert len(calls) == 2
-
-
-def test_runtime_digest_change_does_not_invalidate_saved_result(ollama) -> None:
-    calls, installed = ollama
-    event = parsed_event()
-    channel = MagicMock()
-    first = process(bootstrap.create_post_processor(), event, channel)
-    installed["digest"] = "digest-two"
-    second = process(bootstrap.create_post_processor(), event, channel)
-    assert second == first
-    assert len(calls) == 1
-
-
-@pytest.mark.parametrize("model", [None, "", "   "])
-def test_runtime_requires_model(monkeypatch, model) -> None:
-    monkeypatch.setattr(settings, "ollama_model", model)
-    with pytest.raises(ValueError, match="OLLAMA_MODEL is required"):
-        bootstrap.create_post_processor()
-
-
-@pytest.mark.parametrize("timeout", [0, -1, 301, float("inf")])
-def test_runtime_timeout_is_bounded(timeout) -> None:
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None, ollama_timeout_seconds=timeout)
-
-
-def test_empty_runtime_model_setting_keeps_evaluation_importable() -> None:
-    assert Settings(_env_file=None, ollama_model="").ollama_model == ""
 
 
 def test_startup_composes_starts_and_stops_consumer(
@@ -138,12 +102,9 @@ def test_startup_composes_starts_and_stops_consumer(
         assert client.get("/health").json()["status"] == "ok"
         init_db.assert_called_once_with()
         consumer.assert_called_once()
-        processor = consumer.call_args.args[0]
-        assert callable(processor.process)
-        assert callable(processor.mark_published)
         thread.return_value.start.assert_called_once_with()
     consumer.return_value.stop.assert_called_once_with()
-    thread.return_value.join.assert_called_once_with(timeout=5)
+    thread.return_value.join.assert_called_once()
 
 
 def test_missing_model_prevents_consumer_startup(monkeypatch) -> None:

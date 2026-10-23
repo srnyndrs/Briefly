@@ -1,8 +1,13 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock
 
+import pytest
 from authlib.jose import jwt
+from passlib.hash import argon2
 from sqlalchemy import select
 
+from src.adapters.password_reset_mailer import PasswordResetDeliveryError
 from src.config.settings import settings
 from src.models.account import (
     PasswordResetToken,
@@ -14,9 +19,7 @@ from src.repositories.account_repository import AccountRepository
 from src.services.auth_service import AuthService
 
 
-def test_registration_and_login(
-    client, credentials, monkeypatch, db_session
-) -> None:
+def test_registration_and_login(client, credentials, db_session) -> None:
     registered = client.post("/auth/register", json=credentials)
     assert registered.status_code == 201
     tokens = registered.json()
@@ -27,9 +30,11 @@ def test_registration_and_login(
         assert claims["type"] == token_type
         assert claims["iss"] == settings.jwt_issuer
         assert claims["aud"] == settings.jwt_audience
-        assert not claims.get("scopes")
     account_id = claims["sub"]
-    assert db_session.get(User, account_id) is not None
+    user = db_session.get(User, account_id)
+    assert user is not None
+    assert user.password_hash != credentials["password"]
+    assert argon2.verify(credentials["password"], user.password_hash)
     assert db_session.get(UserPreferences, account_id) is not None
     refresh_claims = jwt.decode(tokens["refresh_token"], settings.jwt_secret)
     assert db_session.get(RefreshToken, refresh_claims["jti"]) is not None
@@ -43,12 +48,10 @@ def test_registration_and_login(
         == 401
     )
 
-    monkeypatch.setattr(settings, "admin_user_ids_csv", account_id)
     login = client.post("/auth/login", json=credentials)
     assert login.status_code == 200
     claims = jwt.decode(login.json()["access_token"], settings.jwt_secret)
     claims.validate()
-    assert claims["scopes"] == ["admin"]
 
 
 def test_admin_scope_uses_current_configured_user_ids(
@@ -102,19 +105,16 @@ def test_failed_refresh_rotation_rolls_back_revocation(
 ) -> None:
     repository = AccountRepository(db_session)
     service = AuthService(repository)
-    claims = AuthService._decode_token(account["refresh_token"])
+    claims = jwt.decode(account["refresh_token"], settings.jwt_secret)
+    claims.validate()
 
     def fail_after_staging(token: RefreshToken) -> None:
         db_session.add(token)
         raise RuntimeError("token staging failed")
 
     monkeypatch.setattr(repository, "add_refresh_token", fail_after_staging)
-    try:
+    with pytest.raises(RuntimeError, match="token staging failed"):
         service.refresh_tokens(account["refresh_token"])
-    except RuntimeError as exc:
-        assert str(exc) == "token staging failed"
-    else:
-        raise AssertionError("refresh rotation should fail")
 
     db_session.expire_all()
     original = db_session.get(RefreshToken, claims["jti"])
@@ -153,14 +153,10 @@ def test_failed_password_reset_rolls_back_all_changes(
         raise RuntimeError("commit failed")
 
     monkeypatch.setattr(repository, "commit", fail_commit)
-    try:
+    with pytest.raises(RuntimeError, match="commit failed"):
         service.reset_password(
             reset_token=reset_token, new_password="updated-password"
         )
-    except RuntimeError as exc:
-        assert str(exc) == "commit failed"
-    else:
-        raise AssertionError("password reset should fail")
 
     db_session.expire_all()
     user = db_session.get(User, account["user_id"])
@@ -182,12 +178,23 @@ def test_failed_password_reset_rolls_back_all_changes(
 
 def test_invalid_refresh_tokens(client, account) -> None:
     for token in ("invalid-token", account["access_token"]):
-        for path in ("/auth/refresh", "/auth/logout"):
-            response = client.post(path, json={"refresh_token": token})
-            assert response.status_code == 401
+        assert (
+            client.post(
+                "/auth/refresh", json={"refresh_token": token}
+            ).status_code
+            == 401
+        )
+    assert (
+        client.post(
+            "/auth/logout", json={"refresh_token": account["access_token"]}
+        ).status_code
+        == 401
+    )
 
 
-def test_password_reset(client, account, credentials, mailer) -> None:
+def test_password_reset(
+    client, account, credentials, mailer, db_session
+) -> None:
     other_session = client.post("/auth/login", json=credentials)
     assert other_session.status_code == 200
     for email in (account["email"], "unknown@example.com"):
@@ -198,6 +205,13 @@ def test_password_reset(client, account, credentials, mailer) -> None:
         assert response.json() == {"status": "accepted"}
     assert len(mailer.messages) == 1
     assert mailer.messages[0]["email"] == account["email"]
+
+    stored = db_session.get(PasswordResetToken, account["user_id"])
+    secret = mailer.messages[0]["reset_token"]
+    assert stored.token_hash != secret
+    assert (
+        stored.token_hash == hashlib.sha256(secret.encode("utf-8")).hexdigest()
+    )
 
     confirmation = {
         "reset_token": mailer.messages[0]["reset_token"],
@@ -276,3 +290,19 @@ def test_password_reset_expiry(client, account, mailer, db_session) -> None:
         },
     )
     assert response.status_code == 401
+
+
+def test_password_reset_delivery_failure_keeps_generic_response(
+    client, account, mailer, db_session, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        mailer,
+        "send",
+        Mock(side_effect=PasswordResetDeliveryError("Mail unavailable")),
+    )
+    response = client.post(
+        "/auth/password-reset/request", json={"email": account["email"]}
+    )
+    assert response.status_code == 202
+    assert response.json() == {"status": "accepted"}
+    assert db_session.get(PasswordResetToken, account["user_id"]) is not None

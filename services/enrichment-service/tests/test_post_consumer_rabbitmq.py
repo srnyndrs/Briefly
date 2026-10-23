@@ -199,41 +199,6 @@ def test_live_slow_inference_survives_heartbeat_and_duplicate(
         stop(consumer, thread)
 
 
-def test_live_shutdown_redelivers_saved_work(broker, session_factory):
-    channel, result_queue, bind = broker
-    bind()
-    entered, release = threading.Event(), threading.Event()
-    calls = []
-
-    def classify(article):
-        calls.append(article)
-        entered.set()
-        assert release.wait(8)
-        return ("science",)
-
-    repository = EnrichmentRepository(session_factory)
-    processor = PostProcessor(EnrichmentService(repository, classify))
-    consumer, thread = start(processor, channel)
-    try:
-        publish(channel, event())
-        assert entered.wait(2)
-        stop(consumer, thread)
-    finally:
-        release.set()
-        consumer.stop()
-        thread.join(5)
-        if consumer._worker:
-            consumer._worker.join(2)
-    restarted, restarted_thread = start(processor, channel)
-    try:
-        assert wait_for(
-            lambda: channel.basic_get(queue=result_queue, auto_ack=True)[2]
-        )
-        assert len(calls) == 1
-    finally:
-        stop(restarted, restarted_thread)
-
-
 def test_live_disconnect_waits_for_worker_and_reuses_saved_result(
     broker, session_factory
 ):

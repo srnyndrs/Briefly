@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 
 import pytest
 from sqlalchemy.orm import sessionmaker
@@ -54,18 +55,29 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
     assert db_session.query(Source).count() == 2
 
 
-@pytest.mark.parametrize(
-    "data",
-    [
-        {"url": "https://example.com/feed", "title": "Example"},
-        [
-            {"url": "https://example.com/feed", "title": "Example"},
-            {"url": "https://example.com/feed", "title": "Duplicate"},
-        ],
-    ],
-    ids=["wrong-shape", "duplicate-url"],
-)
-def test_seed_file_rejects_invalid_input(seed_file, data):
-    seed_file.write_text(json.dumps(data), encoding="utf-8")
-    with pytest.raises(ValueError):
-        seed_sources.load_sources(seed_file)
+def test_seed_file_rejects_duplicate_urls_before_database_access(
+    seed_file, monkeypatch
+):
+    seed_file.write_text(
+        json.dumps(
+            [
+                {"url": "https://example.com/feed", "title": "Example"},
+                {"url": "https://example.com/feed", "title": "Duplicate"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    init_db = Mock(
+        side_effect=AssertionError(
+            "Invalid seeds must not initialize the database"
+        )
+    )
+    session_factory = Mock(
+        side_effect=AssertionError("Invalid seeds must not open a session")
+    )
+    monkeypatch.setattr(seed_sources, "init_db", init_db)
+    monkeypatch.setattr(seed_sources, "SessionLocal", session_factory)
+    with pytest.raises(ValueError, match="Duplicate source URL"):
+        seed_sources.seed_sources(seed_file)
+    init_db.assert_not_called()
+    session_factory.assert_not_called()

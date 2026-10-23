@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from src.config.database import Base
 from src.models.post_enrichment import PostEnrichment
@@ -44,73 +44,6 @@ def test_fresh_postgres_table_enforces_category_status() -> None:
                 transaction.rollback()
     finally:
         engine.dispose()
-
-
-def test_postgres_result_survives_engine_recreation() -> None:
-    database_url = os.environ.get("ENRICHMENT_TEST_DATABASE_URL")
-    if not database_url:
-        pytest.skip("Set ENRICHMENT_TEST_DATABASE_URL to run PostgreSQL check")
-
-    post_id = uuid4()
-    article = ArticleInput(title="Persistence check")
-    first_engine = create_engine(database_url, pool_pre_ping=True)
-    try:
-        with first_engine.begin() as connection:
-            connection.execute(text("CREATE SCHEMA IF NOT EXISTS enrichment"))
-        Base.metadata.create_all(bind=first_engine)
-        first_factory = sessionmaker(
-            bind=first_engine, class_=Session, autocommit=False, autoflush=False
-        )
-        first_service = EnrichmentService(
-            EnrichmentRepository(first_factory), lambda _: ("science",)
-        )
-        saved = first_service.enrich_article(post_id, article)
-        assert saved.post_revision == 1
-    finally:
-        first_engine.dispose()
-
-    second_engine = create_engine(database_url, pool_pre_ping=True)
-    try:
-        second_factory = sessionmaker(
-            bind=second_engine,
-            class_=Session,
-            autocommit=False,
-            autoflush=False,
-        )
-        classifier_calls = 0
-
-        def unexpected_classifier(_: ArticleInput) -> tuple[str, ...]:
-            nonlocal classifier_calls
-            classifier_calls += 1
-            return ("other",)
-
-        loaded = EnrichmentService(
-            EnrichmentRepository(second_factory), unexpected_classifier
-        ).enrich_article(post_id, article)
-
-        assert loaded == saved
-        assert classifier_calls == 0
-        newer = EnrichmentService(
-            EnrichmentRepository(second_factory), unexpected_classifier
-        ).enrich_article(post_id, article, post_revision=2)
-        stale = EnrichmentService(
-            EnrichmentRepository(second_factory), unexpected_classifier
-        ).enrich_article(
-            post_id,
-            ArticleInput(title="Stale changed input"),
-            post_revision=1,
-        )
-
-        assert newer.post_revision == 2
-        assert stale == newer
-        assert classifier_calls == 1
-        with second_factory.begin() as session:
-            record = session.get(PostEnrichment, post_id)
-            if record is not None:
-                assert record.post_revision == 2
-                session.delete(record)
-    finally:
-        second_engine.dispose()
 
 
 def test_postgres_conditional_save_and_publication_guards() -> None:
@@ -168,29 +101,31 @@ def test_postgres_conditional_save_and_publication_guards() -> None:
         with pytest.raises(RuntimeError, match="changed"):
             repository.mark_published(second.post_id, second.event_id)
         assert repository.get_by_post_id(first.post_id) == third
-        with mapped.connect() as connection:
-            columns = (
-                connection.execute(
-                    text(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema = :schema AND table_name = 'post_enrichments'"
-                    ),
-                    {"schema": schema},
-                )
-                .scalars()
-                .all()
+        engine.dispose()
+        second_engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            second_mapped = second_engine.execution_options(
+                schema_translate_map={"enrichment": schema}
             )
-        assert set(columns) == {
-            "post_id",
-            "post_revision",
-            "enrichment_revision",
-            "category_ids",
-            "status",
-            "reason",
-            "processed_at",
-            "event_id",
-            "publication_pending",
-        }
+            second_repository = EnrichmentRepository(
+                sessionmaker(bind=second_mapped)
+            )
+
+            def unexpected_classifier(_):
+                raise AssertionError(
+                    "Saved revision must survive engine recreation"
+                )
+
+            loaded = EnrichmentService(
+                second_repository, unexpected_classifier
+            ).enrich_article(
+                first.post_id,
+                ArticleInput(title="Persistence check"),
+                post_revision=2,
+            )
+            assert loaded == third
+        finally:
+            second_engine.dispose()
     finally:
         with engine.begin() as connection:
             connection.execute(

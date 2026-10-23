@@ -1,7 +1,7 @@
 import json
+from datetime import datetime
 from unittest.mock import Mock
-
-import pika
+from uuid import UUID
 
 from src.adapters import account_event_publisher
 from src.config.settings import settings
@@ -45,12 +45,11 @@ def test_publish_declares_account_exchange_and_sends_envelope(
     assert envelope["producer"] == "account-service"
     assert envelope["correlation_id"] == "request-1"
     assert envelope["partition_key"] == "user:user-1"
-    assert len(envelope["trace"]["trace_id"]) == 32
-    assert len(envelope["trace"]["span_id"]) == 16
+    assert UUID(envelope["event_id"])
+    assert datetime.fromisoformat(envelope["occurred_at"]).tzinfo is not None
     assert envelope["payload"] == {"user_id": "user-1"}
 
     properties = publish_kwargs["properties"]
-    assert isinstance(properties, pika.BasicProperties)
     assert properties.content_type == "application/json"
     assert properties.message_id == envelope["event_id"]
     assert properties.correlation_id == "request-1"

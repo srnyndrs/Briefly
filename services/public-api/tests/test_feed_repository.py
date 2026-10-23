@@ -1,11 +1,8 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
-from src.config.database import Base
 from src.models.read_models import (
     PostEnrichmentProjection,
     PostProjection,
@@ -15,27 +12,12 @@ from src.repositories.feed_repository import PostRepository
 from src.services.feed_models import EffectiveFeedQuery
 
 
-def _repository() -> tuple[Session, PostRepository]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        execution_options={"schema_translate_map": {"query": None}},
-    )
-    Base.metadata.create_all(bind=engine)
-    session = Session(engine)
-    return session, PostRepository(session)
-
-
 @pytest.fixture(params=["sqlite", "postgresql"])
 def collection_db(request):
     if request.param == "postgresql":
         yield request.getfixturevalue("postgres_db")
     else:
-        session, _ = _repository()
-        try:
-            yield session
-        finally:
-            session.close()
-            session.bind.dispose()
+        yield request.getfixturevalue("db")
 
 
 def test_muting_matches_decoded_keywords_only(collection_db):
@@ -89,9 +71,17 @@ def test_collection_round_trip_and_replacement(collection_db):
         enrichment_revision=1,
         category_ids=values,
     )
-    collection_db.add_all([post, preferences, enrichment])
+    overlapping = _post(categories=[], language="en", source_id="other-source")
+    overlapping.canonical_url = post.canonical_url
+    collection_db.add_all([post, overlapping, preferences, enrichment])
     collection_db.commit()
     collection_db.expire_all()
+    assert (
+        collection_db.query(PostProjection)
+        .filter_by(canonical_url=post.canonical_url)
+        .count()
+        == 2
+    )
     fields = [
         (post, "categories"),
         (post, "keywords"),
@@ -139,22 +129,36 @@ def _post(
     )
 
 
-def test_filter_options_ignore_their_own_active_dimension():
-    session, repository = _repository()
+def test_filter_options_ignore_their_own_active_dimension(db):
+    repository = PostRepository(db)
     source = str(uuid4())
     other_source = str(uuid4())
-    session.add_all(
+    db.add_all(
         [
-            _post(categories=["technology"], language="en", source_id=source),
-            _post(categories=["business"], language="hu", source_id=source),
+            _post(
+                categories=["technology"],
+                language="en",
+                source_id=source,
+                author="  Ada Lovelace ",
+                keywords=["Climate", "policy"],
+            ),
+            _post(
+                categories=["business"],
+                language="hu",
+                source_id=source,
+                author="ada lovelace",
+                keywords=[" climate ", "AI"],
+            ),
             _post(categories=[], language="en", source_id=source),
             _post(categories=["sports"], language="de", source_id=other_source),
         ]
     )
-    session.commit()
+    db.commit()
 
     category_options = repository.list_filter_options(
-        EffectiveFeedQuery(source_ids=[source], categories=["technology"])
+        EffectiveFeedQuery(
+            source_ids=[source], categories=["technology"], limit=1
+        )
     )
     language_options = repository.list_filter_options(
         EffectiveFeedQuery(source_ids=[source], languages=["en"])
@@ -166,8 +170,19 @@ def test_filter_options_ignore_their_own_active_dimension():
 
     assert category_options.categories == ["business", "technology"]
     assert language_options.languages == ["en", "hu"]
-    assert category_options.authors == []
-    assert category_options.keywords == []
+    all_options = repository.list_filter_options(
+        EffectiveFeedQuery(source_ids=[source], limit=1)
+    )
+    assert [author.casefold() for author in all_options.authors] == [
+        "ada lovelace"
+    ]
+    assert all(author == author.strip() for author in all_options.authors)
+    assert {keyword.casefold() for keyword in all_options.keywords} == {
+        "ai",
+        "climate",
+        "policy",
+    }
+    assert all(keyword == keyword.strip() for keyword in all_options.keywords)
     assert category_options.sources is None
     assert language_options.sources is None
     assert source_options.sources is not None
@@ -177,39 +192,60 @@ def test_filter_options_ignore_their_own_active_dimension():
     }
 
 
-def test_candidates_apply_exclusions_and_order_before_pagination():
-    session, repository = _repository()
-    allowed = str(uuid4())
-    blocked = str(uuid4())
-    now = datetime.now(UTC)
-    visible = _post(categories=["technology"], language="en", source_id=allowed)
-    visible.published_at = now
-    muted = _post(categories=["sports"], language="en", source_id=allowed)
-    blocked_post = _post(
-        categories=["technology"], language="en", source_id=blocked
+def test_category_collection_selection_muting_and_pagination(db):
+    repository = PostRepository(db)
+    posts = [
+        _post(
+            categories=["science", "health"],
+            language="en",
+            source_id="source",
+            keywords=["business"],
+        ),
+        _post(categories=["science"], language="en", source_id="source"),
+        _post(categories=["health"], language="en", source_id="source"),
+        _post(
+            categories=["business"],
+            language="en",
+            source_id="source",
+            keywords=["science"],
+        ),
+        _post(categories=[], language="en", source_id="source"),
+    ]
+    for post in posts:
+        post.source_category = "science"
+    db.add_all(posts)
+    db.commit()
+    query = dict(categories=[" SCIENCE ", "health"], limit=1)
+    first, total = repository.list_candidates(EffectiveFeedQuery(**query))
+    second, second_total = repository.list_candidates(
+        EffectiveFeedQuery(**query, offset=1)
     )
-    old = _post(categories=["technology"], language="en", source_id=allowed)
-    old.published_at = now - timedelta(days=1)
-    session.add_all([visible, muted, blocked_post, old])
-    session.commit()
-
-    items, total = repository.list_candidates(
-        EffectiveFeedQuery(
-            blocked_source_ids=[blocked],
-            muted_categories=[" sports "],
-            source_ids=[allowed],
-            categories=["technology"],
-            limit=1,
-            offset=0,
-        )
+    third, third_total = repository.list_candidates(
+        EffectiveFeedQuery(**query, offset=2)
     )
+    assert total == second_total == third_total == 3
+    assert {page[0].post_id for page in (first, second, third)} == {
+        post.post_id for post in posts[:3]
+    }
+    visible, total = repository.list_candidates(
+        EffectiveFeedQuery(muted_categories=[" HEALTH "])
+    )
+    assert total == 3
+    assert {post.post_id for post in visible} == {
+        posts[index].post_id for index in (1, 3, 4)
+    }
+    assert repository.list_filter_options(EffectiveFeedQuery()).categories == [
+        "business",
+        "health",
+        "science",
+    ]
+    assert repository.list_filter_options(
+        EffectiveFeedQuery(muted_categories=["health"])
+    ).categories == ["business", "science"]
 
-    assert total == 2
-    assert items[0].post_id == visible.post_id
 
-
-def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
-    session, repository = _repository()
+def test_allowed_source_ids_filter_items_totals_and_every_option_dimension(db):
+    repository = PostRepository(db)
     verified = str(uuid4())
     verified_other = str(uuid4())
     unverified = str(uuid4())
@@ -237,8 +273,8 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
         keywords=["unverified-keyword"],
     )
     unverified_post.source_title = "Unverified Source"
-    session.add_all([verified_post, verified_other_post, unverified_post])
-    session.commit()
+    db.add_all([verified_post, verified_other_post, unverified_post])
+    db.commit()
 
     query = EffectiveFeedQuery(
         allowed_source_ids=[verified, verified_other],
@@ -261,8 +297,8 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension():
     }
 
 
-def test_personal_category_options_rank_categories():
-    session, repository = _repository()
+def test_personal_category_options_rank_categories(db):
+    repository = PostRepository(db)
     source = str(uuid4())
     posts = [
         _post(categories=["technology"], language="en", source_id=source),
@@ -272,53 +308,14 @@ def test_personal_category_options_rank_categories():
         _post(categories=[], language="en", source_id=source),
         _post(categories=[], language="en", source_id=source),
     ]
-    session.add_all(posts)
-    session.commit()
+    db.add_all(posts)
+    db.commit()
 
     options = repository.list_personal_filter_options(
         EffectiveFeedQuery(
             source_ids=[source],
             categories=["technology"],
-            excluded_post_ids=[posts[3].post_id],
         )
     )
 
-    assert options.categories == ["technology", "business"]
-
-
-def test_filter_options_normalize_authors_and_keywords_from_all_rows():
-    session, repository = _repository()
-    source = str(uuid4())
-    session.add_all(
-        [
-            _post(
-                categories=["technology"],
-                language="en",
-                source_id=source,
-                author="  Ada Lovelace ",
-                keywords=["Climate", "policy"],
-            ),
-            _post(
-                categories=["technology"],
-                language="en",
-                source_id=source,
-                author="ada lovelace",
-                keywords=[" climate ", "AI"],
-            ),
-            _post(
-                categories=["technology"],
-                language="en",
-                source_id=source,
-                author=" ",
-                keywords=["", " POLICY "],
-            ),
-        ]
-    )
-    session.commit()
-
-    options = repository.list_filter_options(
-        EffectiveFeedQuery(source_ids=[source], limit=1)
-    )
-
-    assert options.authors == ["Ada Lovelace"]
-    assert options.keywords == ["AI", "Climate", "POLICY"]
+    assert options.categories == ["technology", "business", "world"]

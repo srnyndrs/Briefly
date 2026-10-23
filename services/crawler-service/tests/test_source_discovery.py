@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 
 from src.adapters.source_discovery import (
     SourceDiscoveryAdapter,
-    normalize_feed_url,
 )
 from src.config.settings import settings
 
@@ -15,59 +14,53 @@ def _result(*feeds, root_error=None):
     )
 
 
-def test_discovery_maps_feed_and_site_metadata():
-    feed = {
-        "url": "https://feeds.example.net/feed.xml#fragment",
+def test_discovery_maps_metadata_and_prefers_primary_links():
+    fallback = {
+        "url": "HTTPS://FEEDS.EXAMPLE.NET:443/feed.xml?a=1#fragment",
         "title": "Feed title",
         "description": "News",
         "content_type": "application/rss+xml; charset=utf-8",
-        "favicon": None,
-        "image": "https://example.com/apple-touch-icon.png",
-        "site_url": "https://www.example.com/",
+        "image": "https://example.com/artwork.png",
+        "link": "https://example.com/",
         "site_name": "Example News",
         "language": "hu-HU",
     }
+    primary = {
+        "url": "https://example.com/other.xml",
+        "favicon": "https://example.com/favicon.ico",
+        "image": "https://example.com/ignored-image.png",
+        "site_url": "https://news.example.com/",
+        "link": "https://example.com/ignored-link",
+    }
     with patch(
         "src.adapters.source_discovery.search_with_info",
-        return_value=_result(feed),
+        return_value=_result(fallback, primary),
     ) as search:
         result = SourceDiscoveryAdapter().discover(
-            "HTTPS://FEEDS.EXAMPLE.NET:443/feed.xml#top"
+            "HTTPS://FEEDS.EXAMPLE.NET:443/feed.xml?a=1#top"
         )
 
-    assert len(result) == 1
-    assert result[0].url == "https://feeds.example.net/feed.xml"
+    assert len(result) == 2
+    assert result[0].url == "https://feeds.example.net/feed.xml?a=1"
+    assert result[0].title == "Feed title"
+    assert result[0].description == "News"
     assert result[0].content_type == "application/rss+xml"
-    assert result[0].favicon == feed["image"]
-    assert result[0].site_url == feed["site_url"]
+    assert result[0].favicon == fallback["image"]
+    assert result[0].site_url == fallback["link"]
     assert result[0].site_name == "Example News"
     assert result[0].language == "hu"
-    search.assert_called_once_with(
-        "https://feeds.example.net/feed.xml",
-        try_urls=False,
-        crawl_hosts=True,
-        total_timeout=settings.source_validation_timeout_seconds,
-        max_content_length=settings.source_validation_max_bytes,
-        favicon_data_uri=False,
+    assert result[1].favicon == primary["favicon"]
+    assert result[1].site_url == primary["site_url"]
+    search.assert_called_once()
+    assert search.call_args.args == ("https://feeds.example.net/feed.xml?a=1",)
+    assert (
+        search.call_args.kwargs["total_timeout"]
+        == settings.source_validation_timeout_seconds
     )
-
-
-def test_discovery_prefers_favicon_and_feed_site_link():
-    with patch(
-        "src.adapters.source_discovery.search_with_info",
-        return_value=_result(
-            {
-                "url": "https://example.com/feed",
-                "favicon": "https://example.com/favicon.ico",
-                "image": "https://example.com/artwork.png",
-                "link": "https://example.com/",
-            }
-        ),
-    ):
-        result = SourceDiscoveryAdapter().discover("https://example.com/feed")
-
-    assert result[0].favicon == "https://example.com/favicon.ico"
-    assert result[0].site_url == "https://example.com/"
+    assert (
+        search.call_args.kwargs["max_content_length"]
+        == settings.source_validation_max_bytes
+    )
 
 
 def test_discovery_accepts_bare_domain():
@@ -103,9 +96,5 @@ def test_discovery_handles_empty_and_failed_search():
         search.return_value = _result(root_error="timeout")
         assert SourceDiscoveryAdapter().discover("https://example.com/") == []
 
-
-def test_normalize_feed_url_keeps_path_query_and_removes_defaults():
-    assert (
-        normalize_feed_url("HTTPS://Example.COM:443/feed/?a=1#top")
-        == "https://example.com/feed/?a=1"
-    )
+        search.side_effect = OSError("search failed")
+        assert SourceDiscoveryAdapter().discover("https://example.com/") == []
