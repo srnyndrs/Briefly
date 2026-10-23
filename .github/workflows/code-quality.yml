@@ -1,0 +1,62 @@
+name: Code quality
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.services }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed services
+        uses: ./.github/actions/changed-services
+        id: filter
+
+  quality:
+    name: Check ${{ matrix.service }}
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        run: pipx install poetry==2.3.2
+
+      - name: Install dependencies
+        working-directory: src/backend/${{ matrix.service }}
+        run: poetry install --no-root --no-interaction
+
+      - name: Format
+        working-directory: src/backend/${{ matrix.service }}
+        run: make format
+
+      - name: Lint
+        working-directory: src/backend/${{ matrix.service }}
+        run: make lint
+
+      - name: Test
+        working-directory: src/backend/${{ matrix.service }}
+        run: make test

@@ -1,0 +1,26 @@
+name: List changed backend services
+description: Detect and list backend services affected by changes.
+
+outputs:
+  services:
+    description: JSON array of changed backend service names.
+    value: ${{ steps.filter.outputs.changes }}
+
+runs:
+  using: composite
+  steps:
+    - name: Filter Paths
+      uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          account-service:
+            - 'src/backend/account-service/**'
+          content-service:
+            - 'src/backend/content-service/**'
+          crawler-service:
+            - 'src/backend/crawler-service/**'
+          enrichment-service:
+            - 'src/backend/enrichment-service/**'
+          public-api:
+            - 'src/backend/public-api/**'
