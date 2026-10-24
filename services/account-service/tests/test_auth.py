@@ -1,6 +1,7 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
+from uuid import UUID
 
 import pytest
 from authlib.jose import jwt
@@ -31,13 +32,15 @@ def test_registration_and_login(client, credentials, db_session) -> None:
         assert claims["iss"] == settings.jwt_issuer
         assert claims["aud"] == settings.jwt_audience
     account_id = claims["sub"]
-    user = db_session.get(User, account_id)
+    user = db_session.get(User, UUID(account_id))
     assert user is not None
     assert user.password_hash != credentials["password"]
     assert argon2.verify(credentials["password"], user.password_hash)
-    assert db_session.get(UserPreferences, account_id) is not None
+    assert db_session.get(UserPreferences, UUID(account_id)) is not None
     refresh_claims = jwt.decode(tokens["refresh_token"], settings.jwt_secret)
-    assert db_session.get(RefreshToken, refresh_claims["jti"]) is not None
+    assert (
+        db_session.get(RefreshToken, UUID(refresh_claims["jti"])) is not None
+    )
 
     assert client.post("/auth/register", json=credentials).status_code == 409
     assert (
@@ -117,14 +120,14 @@ def test_failed_refresh_rotation_rolls_back_revocation(
         service.refresh_tokens(account["refresh_token"])
 
     db_session.expire_all()
-    original = db_session.get(RefreshToken, claims["jti"])
+    original = db_session.get(RefreshToken, UUID(claims["jti"]))
     assert original is not None
     assert original.revoked_at is None
     assert (
         len(
             db_session.execute(
                 select(RefreshToken).where(
-                    RefreshToken.user_id == account["user_id"]
+                    RefreshToken.user_id == UUID(account["user_id"])
                 )
             )
             .scalars()
@@ -142,7 +145,7 @@ def test_failed_password_reset_rolls_back_all_changes(
     )
     assert response.status_code == 202
     reset_token = mailer.messages[0]["reset_token"]
-    user = db_session.get(User, account["user_id"])
+    user = db_session.get(User, UUID(account["user_id"]))
     assert user is not None
     original_password_hash = user.password_hash
 
@@ -159,14 +162,16 @@ def test_failed_password_reset_rolls_back_all_changes(
         )
 
     db_session.expire_all()
-    user = db_session.get(User, account["user_id"])
+    user = db_session.get(User, UUID(account["user_id"]))
     assert user is not None
     assert user.password_hash == original_password_hash
-    assert db_session.get(PasswordResetToken, account["user_id"]) is not None
+    assert (
+        db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None
+    )
     active_tokens = (
         db_session.execute(
             select(RefreshToken).where(
-                RefreshToken.user_id == account["user_id"],
+                    RefreshToken.user_id == UUID(account["user_id"]),
                 RefreshToken.revoked_at.is_(None),
             )
         )
@@ -206,7 +211,7 @@ def test_password_reset(
     assert len(mailer.messages) == 1
     assert mailer.messages[0]["email"] == account["email"]
 
-    stored = db_session.get(PasswordResetToken, account["user_id"])
+    stored = db_session.get(PasswordResetToken, UUID(account["user_id"]))
     secret = mailer.messages[0]["reset_token"]
     assert stored.token_hash != secret
     assert (
@@ -276,8 +281,8 @@ def test_password_reset_expiry(client, account, mailer, db_session) -> None:
         "/auth/password-reset/request", json={"email": account["email"]}
     )
     assert requested.status_code == 202
-    stored = db_session.get(PasswordResetToken, account["user_id"])
-    stored.expires_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(
+    stored = db_session.get(PasswordResetToken, UUID(account["user_id"]))
+    stored.expires_at = datetime.now(UTC) - timedelta(
         minutes=1
     )
     db_session.commit()
@@ -305,4 +310,6 @@ def test_password_reset_delivery_failure_keeps_generic_response(
     )
     assert response.status_code == 202
     assert response.json() == {"status": "accepted"}
-    assert db_session.get(PasswordResetToken, account["user_id"]) is not None
+    assert (
+        db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None
+    )

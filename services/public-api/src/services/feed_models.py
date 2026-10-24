@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from uuid import UUID
 
 from src.models.read_models import (
     PostProjection,
@@ -9,9 +10,9 @@ from src.models.read_models import (
 
 @dataclass(frozen=True)
 class PostDTO:
-    post_id: str
+    post_id: UUID
     title: str
-    source_id: str
+    source_id: UUID
     source_title: str
     description: str | None = None
     canonical_url: str | None = None
@@ -35,7 +36,7 @@ class PostDTO:
 
 @dataclass(frozen=True)
 class SourceOptionDTO:
-    source_id: str
+    source_id: UUID
     title: str
 
 
@@ -50,18 +51,18 @@ class FilterOptionsDTO:
 
 @dataclass(frozen=True)
 class EffectiveFeedQuery:
-    allowed_source_ids: list[str] | None = None
-    blocked_source_ids: list[str] = field(default_factory=list)
+    allowed_source_ids: list[UUID] | None = None
+    blocked_source_ids: list[UUID] = field(default_factory=list)
     muted_keywords: list[str] = field(default_factory=list)
     muted_categories: list[str] = field(default_factory=list)
     languages: list[str] | None = None
-    source_ids: list[str] | None = None
+    source_ids: list[UUID] | None = None
     categories: list[str] | None = None
     query: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
     sort: str = "freshness"
-    excluded_post_ids: list[str] = field(default_factory=list)
+    excluded_post_ids: list[UUID] = field(default_factory=list)
     limit: int = 20
     offset: int = 0
 
@@ -70,7 +71,7 @@ class EffectiveFeedQuery:
 class UserPreferencesDTO:
     muted_keywords: list[str] = field(default_factory=list)
     muted_categories: list[str] = field(default_factory=list)
-    blocked_source_ids: list[str] = field(default_factory=list)
+    blocked_source_ids: list[UUID] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
 
 
@@ -101,6 +102,8 @@ def user_preferences_projection_to_dto(
     return UserPreferencesDTO(
         muted_keywords=model.muted_keywords or [],
         muted_categories=model.muted_categories or [],
-        blocked_source_ids=model.blocked_source_ids or [],
+        blocked_source_ids=[
+            UUID(value) for value in model.blocked_source_ids or []
+        ],
         languages=model.languages or [],
     )

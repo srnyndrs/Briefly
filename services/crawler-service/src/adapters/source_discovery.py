@@ -73,9 +73,7 @@ class SourceDiscoveryAdapter:
                     favicon_data_uri=False,
                 )
         except (ValueError, OSError) as exc:
-            logger.info(
-                "Source discovery failed for %s: %s", normalized_url, exc
-            )
+            logger.info("Source discovery failed for %s: %s", normalized_url, exc)
             return []
 
         if result.root_error:

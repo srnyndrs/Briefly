@@ -1,3 +1,5 @@
+import json
+import logging
 from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, text
@@ -5,9 +7,12 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.config.settings import settings
 
+logger = logging.getLogger(__name__)
+SCHEMA_NAME = "account"
+
 
 class Base(DeclarativeBase):
-    metadata = MetaData(schema="account")
+    metadata = MetaData(schema=SCHEMA_NAME)
 
 
 engine = create_engine(
@@ -15,9 +20,12 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
 )
 SessionLocal = sessionmaker(
-    bind=engine, autocommit=False, autoflush=True, class_=Session
+    bind=engine,
+    autoflush=False,
+    class_=Session,
 )
 
 
@@ -26,7 +34,7 @@ def init_db() -> None:
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
-            conn.execute(text("CREATE SCHEMA IF NOT EXISTS account;"))
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};"))
     Base.metadata.create_all(bind=engine)
 
 

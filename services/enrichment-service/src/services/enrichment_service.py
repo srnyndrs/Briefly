@@ -4,11 +4,8 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from src.repositories.enrichment_repository import (
-    EnrichmentRepository,
-    EnrichmentStatus,
-    StoredEnrichment,
-)
+from src.repositories.enrichment_repository import EnrichmentRepository
+from src.repositories.stored_enrichment import EnrichmentStatus, StoredEnrichment
 from src.services.classification import (
     ArticleInput,
     Classifier,
@@ -47,9 +44,7 @@ class EnrichmentService:
         if existing is not None:
             if force_reclassify:
                 if existing.post_revision > post_revision:
-                    raise ReclassificationConflict(
-                        "Canonical snapshot is stale"
-                    )
+                    raise ReclassificationConflict("Canonical snapshot is stale")
                 if existing.publication_pending:
                     raise ReclassificationConflict(
                         "Publish the pending result first with "
@@ -57,9 +52,7 @@ class EnrichmentService:
                     )
             elif existing.post_revision > post_revision or (
                 existing.post_revision == post_revision
-                and (
-                    existing.status != "failed" or existing.publication_pending
-                )
+                and (existing.status != "failed" or existing.publication_pending)
             ):
                 return existing
 

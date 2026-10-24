@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 import pytest
 
@@ -11,9 +12,9 @@ from src.services.projection_handlers import (
 
 def test_post_snapshot_replaces_and_clears_metadata(db):
     payload = {
-        "post_id": "a1",
+        "post_id": "00000000-0000-0000-0000-000000000001",
         "post_revision": 1,
-        "source_id": "s1",
+        "source_id": "00000000-0000-0000-0000-000000000002",
         "source_title": "Source One",
         "url": "https://example.com/a1",
         "title": "Original Title",
@@ -29,7 +30,9 @@ def test_post_snapshot_replaces_and_clears_metadata(db):
     project_post(db, payload)
     db.commit()
     db.expire_all()
-    post = db.get(PostProjection, "a1")
+    post = db.get(
+        PostProjection, UUID("00000000-0000-0000-0000-000000000001")
+    )
     assert post.content == "Full body"
     assert post.description == "Short description"
     assert post.image_ref == payload["image_url"]
@@ -73,33 +76,49 @@ def test_post_snapshot_replaces_and_clears_metadata(db):
 
 def test_post_rejects_missing_source_identity(db):
     with pytest.raises(ValueError, match="source_id"):
-        project_post(db, {"post_id": "a1", "source_title": "Source One"})
-    assert db.get(PostProjection, "a1") is None
+        project_post(
+            db,
+            {
+                "post_id": "00000000-0000-0000-0000-000000000001",
+                "source_title": "Source One",
+            },
+        )
+    assert (
+        db.get(
+            PostProjection, UUID("00000000-0000-0000-0000-000000000001")
+        )
+        is None
+    )
 
 
 def test_preference_snapshots_replace_collections(db):
     project_user_preferences(
         db,
         {
-            "user_id": "u1",
+            "user_id": "00000000-0000-0000-0000-000000000003",
             "muted_keywords": ["crypto", "drama"],
             "muted_categories": ["sports"],
-            "blocked_source_ids": ["blocked"],
+            "blocked_source_ids": [
+                "00000000-0000-0000-0000-000000000004"
+            ],
             "languages": ["en", "hu"],
         },
     )
     db.commit()
     db.expire_all()
-    prefs = db.get(UserPreferencesProjection, "u1")
+    user_id = UUID("00000000-0000-0000-0000-000000000003")
+    prefs = db.get(UserPreferencesProjection, user_id)
     assert prefs.muted_keywords == ["crypto", "drama"]
     assert prefs.muted_categories == ["sports"]
-    assert prefs.blocked_source_ids == ["blocked"]
+    assert prefs.blocked_source_ids == [
+        "00000000-0000-0000-0000-000000000004"
+    ]
     assert prefs.languages == ["en", "hu"]
 
     project_user_preferences(
         db,
         {
-            "user_id": "u1",
+            "user_id": str(user_id),
             "muted_keywords": ["ai"],
             "muted_categories": [],
         },

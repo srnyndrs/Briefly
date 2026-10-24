@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 import langcodes
@@ -12,27 +13,29 @@ from pydantic import (
 )
 
 
-def normalize_source_language(value: str | None) -> str | None:
-    if value is None or not (candidate := value.strip()):
+def normalize_source_language(value: object) -> str | None:
+    if not isinstance(value, str) or not (candidate := value.strip()):
         return None
 
     try:
-        language = langcodes.get(candidate.replace("_", "-"))
+        language = langcodes.get(candidate)
     except ValueError:
         return None
 
-    primary = language.language
-    if not language.is_valid() or primary not in langcodes.LANGUAGE_ALPHA3:
+    if not language.is_valid():
         return None
-    return primary
+
+    return language.language
 
 
 def _validated_language(value: str | None) -> str | None:
     if value is None:
         return None
+
     normalized = normalize_source_language(value)
     if normalized is None:
-        raise ValueError("A valid language tag is required")
+        raise ValueError("A valid language tag is required.")
+
     return normalized
 
 
@@ -83,11 +86,10 @@ class SourcePatchRequest(BaseModel):
 
     @field_validator("url", "title", "verified")
     @classmethod
-    def reject_null(
-        cls, value: HttpUrl | str | bool | None
-    ) -> HttpUrl | str | bool:
+    def reject_null(cls, value: Any) -> HttpUrl | str | bool:
         if value is None:
             raise ValueError("URL, title, and verified must not be null")
+
         return value
 
 
@@ -119,8 +121,10 @@ class SourceResponse(BaseModel):
     def serialize_datetime(self, value: datetime | None) -> str | None:
         if value is None:
             return None
+
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
+
         return value.isoformat()
 
 
@@ -156,7 +160,9 @@ class SourceDiscoverResponse(BaseModel):
     def normalize_discovered_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
+
         normalized = " ".join(value.split())
+
         return normalized or None
 
     @field_validator("language")

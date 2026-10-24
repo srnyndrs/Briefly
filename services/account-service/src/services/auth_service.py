@@ -3,6 +3,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID, uuid4
 
 from authlib.jose import JoseError, jwt
 from passlib.context import CryptContext
@@ -42,21 +43,21 @@ class AuthService:
             raise AuthError("Invalid credentials")
         return user
 
-    def issue_token_pair(self, *, user_id: str) -> tuple[str, str]:
+    def issue_token_pair(self, *, user_id: UUID) -> tuple[str, str]:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("User not found")
         scopes = self._scopes_for_user(user)
 
-        refresh_id = str(uuid.uuid4())
+        refresh_id = uuid4()
         access_claims = self._build_claims(
-            user_id=user.user_id,
+            user_id=str(user.user_id),
             token_type="access",
             ttl_seconds=settings.access_token_ttl_seconds,
             scopes=scopes,
         )
         refresh_claims = self._build_claims(
-            user_id=user.user_id,
+            user_id=str(user.user_id),
             token_type="refresh",
             ttl_seconds=settings.refresh_token_ttl_seconds,
             token_id=refresh_id,
@@ -73,7 +74,7 @@ class AuthService:
                 token_id=refresh_id,
                 user_id=user.user_id,
                 token_hash=self._token_hash(refresh_token),
-                expires_at=expires_at.replace(tzinfo=None),
+                expires_at=expires_at,
             )
         )
         return access_token, refresh_token
@@ -83,9 +84,10 @@ class AuthService:
         if claims.get("type") != "refresh":
             raise AuthError("Invalid refresh token")
 
-        token_id = claims.get("jti")
-        user_id = claims.get("sub")
-        if not token_id or not user_id:
+        try:
+            token_id = UUID(claims.get("jti", ""))
+            user_id = UUID(claims.get("sub", ""))
+        except (ValueError, TypeError):
             raise AuthError("Invalid refresh token")
 
         stored = self._repo.get_refresh_token(token_id)
@@ -93,7 +95,7 @@ class AuthService:
             raise AuthError("Refresh token not found")
         if stored.revoked_at is not None:
             raise AuthError("Refresh token already revoked")
-        if stored.expires_at < self._utc_now().replace(tzinfo=None):
+        if self._as_utc(stored.expires_at) < self._utc_now():
             raise AuthError("Refresh token expired")
         if stored.token_hash != self._token_hash(refresh_token):
             raise AuthError("Refresh token mismatch")
@@ -102,7 +104,7 @@ class AuthService:
         if user is None:
             raise AuthError("User not found")
         try:
-            stored.revoked_at = self._utc_now().replace(tzinfo=None)
+            stored.revoked_at = self._utc_now()
             tokens = self.issue_token_pair(user_id=user.user_id)
             self._repo.commit()
             return tokens
@@ -115,9 +117,10 @@ class AuthService:
         if claims.get("type") != "refresh":
             raise AuthError("Invalid refresh token")
 
-        token_id = claims.get("jti")
-        user_id = claims.get("sub")
-        if not token_id or not user_id:
+        try:
+            token_id = UUID(claims.get("jti", ""))
+            UUID(claims.get("sub", ""))
+        except (ValueError, TypeError):
             raise AuthError("Invalid refresh token")
 
         stored = self._repo.get_refresh_token(token_id)
@@ -127,7 +130,7 @@ class AuthService:
             raise AuthError("Refresh token mismatch")
 
         try:
-            stored.revoked_at = self._utc_now().replace(tzinfo=None)
+            stored.revoked_at = self._utc_now()
             self._repo.commit()
         except Exception:
             self._repo.rollback()
@@ -139,7 +142,7 @@ class AuthService:
             return None
 
         reset_token = secrets.token_urlsafe(32)
-        now = self._utc_now().replace(tzinfo=None)
+        now = self._utc_now()
         try:
             self._repo.replace_password_reset_token(
                 user_id=user.user_id,
@@ -161,8 +164,8 @@ class AuthService:
         if stored is None:
             raise AuthError("Invalid password reset token")
 
-        now = self._utc_now().replace(tzinfo=None)
-        if stored.expires_at <= now:
+        now = self._utc_now()
+        if self._as_utc(stored.expires_at) <= now:
             raise AuthError("Invalid password reset token")
 
         user = self._repo.get_user_by_id(stored.user_id)
@@ -182,25 +185,31 @@ class AuthService:
         return datetime.now(UTC)
 
     @staticmethod
+    def _as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @staticmethod
     def _build_claims(
         *,
         user_id: str,
         token_type: str,
         ttl_seconds: int,
-        token_id: str | None = None,
+        token_id: UUID | None = None,
         scopes: list[str] | None = None,
     ) -> dict[str, Any]:
         now = AuthService._utc_now()
         claims: dict[str, Any] = {
             "iss": settings.jwt_issuer,
             "aud": settings.jwt_audience,
-            "sub": user_id,
+            "sub": str(user_id),
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
             "type": token_type,
         }
         if token_id:
-            claims["jti"] = token_id
+            claims["jti"] = str(token_id)
         if scopes:
             claims["scopes"] = scopes
         return claims
@@ -212,7 +221,7 @@ class AuthService:
             for user_id in settings.admin_user_ids_csv.split(",")
             if user_id.strip()
         }
-        if uuid.UUID(user.user_id) in configured_admin_ids:
+        if user.user_id in configured_admin_ids:
             return ["admin"]
         return []
 

@@ -5,20 +5,16 @@ import json
 from urllib.request import urlopen
 from uuid import UUID
 
-from src.bootstrap import create_enrichment_service
+from src.app import create_enrichment_service
 from src.config.database import SessionLocal
 from src.events.post_parsed import ParsedPostPayload
-from src.repositories.enrichment_repository import (
-    EnrichmentRepository,
-    StoredEnrichment,
-)
+from src.repositories.enrichment_repository import EnrichmentRepository
+from src.repositories.stored_enrichment import StoredEnrichment
 from src.scripts.republish_result import publish_saved_result
 from src.services.post_processor import article_from_payload
 
 
-def reclassify_post(
-    post_id: UUID, content_service_url: str
-) -> StoredEnrichment:
+def reclassify_post(post_id: UUID, content_service_url: str) -> StoredEnrichment:
     """Fetch the canonical revision, classify once, save, and publish its result."""
     url = f"{content_service_url.rstrip('/')}/posts/{post_id}"
     with urlopen(url, timeout=30) as response:

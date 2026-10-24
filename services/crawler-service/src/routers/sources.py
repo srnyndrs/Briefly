@@ -24,9 +24,7 @@ from src.schemas.sources import (
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
-def get_source_repository(
-    db: Session = Depends(get_db),
-) -> SourceRepository:
+def get_source_repository(db: Session = Depends(get_db)) -> SourceRepository:
     return SourceRepository(db)
 
 
@@ -43,17 +41,10 @@ def list_sources(
             verified_only=verified_only,
         )
         if active_only
-        else repository.get_sources(verified_only=verified_only)
+        else repository.list_sources(verified_only=verified_only)
     )
 
     return [SourceResponse.model_validate(source) for source in sources]
-
-
-@router.post("/discover", response_model=list[SourceDiscoverResponse])
-def discover_sources_endpoint(
-    body: SourceDiscoverRequest,
-) -> list[SourceDiscoverResponse]:
-    return SourceDiscoveryAdapter().discover(str(body.url))
 
 
 @router.post("", response_model=SourceResponse, status_code=201)
@@ -66,22 +57,25 @@ def register_source(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    if repository.get_source_by_url(final_url) is not None:
-        raise HTTPException(
-            status_code=409, detail="Source URL already registered."
-        )
+    if repository.get_by_url(final_url) is not None:
+        raise HTTPException(status_code=409, detail="Source URL already registered")
 
-    source = repository.create_source(
-        url=final_url,
-        title=body.title,
-        description=body.description,
-        favicon=str(body.favicon) if body.favicon else None,
-        site_url=str(body.site_url) if body.site_url else None,
-        site_name=body.site_name,
-        language=body.language,
-        verified=False,
-        submitted_by_user_id=body.submitted_by_user_id,
-    )
+    try:
+        source = repository.create_source(
+            url=final_url,
+            title=body.title,
+            description=body.description,
+            favicon=str(body.favicon) if body.favicon else None,
+            site_url=str(body.site_url) if body.site_url else None,
+            site_name=body.site_name,
+            language=body.language,
+            verified=False,
+            submitted_by_user_id=body.submitted_by_user_id,
+        )
+        repository.commit()
+    except Exception:
+        repository.rollback()
+        raise
 
     return SourceResponse.model_validate(source)
 
@@ -91,9 +85,15 @@ def delete_source(
     source_id: UUID,
     repository: SourceRepository = Depends(get_source_repository),
 ) -> None:
-    deleted = repository.delete_source(source_id)
+    try:
+        deleted = repository.delete_source(source_id)
+        if deleted:
+            repository.commit()
+    except Exception:
+        repository.rollback()
+        raise
     if not deleted:
-        raise HTTPException(status_code=404, detail="Source not found.")
+        raise HTTPException(status_code=404, detail="Source not found")
 
 
 @router.get("/{source_id}", response_model=SourceResponse)
@@ -101,9 +101,9 @@ def get_source(
     source_id: UUID,
     repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
-    source = repository.get_source_by_id(source_id)
+    source = repository.get_by_id(source_id)
     if source is None:
-        raise HTTPException(status_code=404, detail="Source not found.")
+        raise HTTPException(status_code=404, detail="Source not found")
 
     return SourceResponse.model_validate(source)
 
@@ -114,9 +114,9 @@ def patch_source(
     body: SourcePatchRequest,
     repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
-    current = repository.get_source_by_id(source_id)
+    current = repository.get_by_id(source_id)
     if current is None:
-        raise HTTPException(status_code=404, detail="Source not found.")
+        raise HTTPException(status_code=404, detail="Source not found")
 
     patch_data = body.model_dump(mode="json", exclude_unset=True)
     try:
@@ -124,24 +124,33 @@ def patch_source(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    existing = repository.get_source_by_url(resolved_url)
+    existing = repository.get_by_url(resolved_url)
     if existing is not None and existing.source_id != source_id:
-        raise HTTPException(
-            status_code=409, detail="Source URL already registered."
-        )
+        raise HTTPException(status_code=409, detail="Source URL already registered")
 
-    updated = repository.update_source(
-        source_id=source_id,
-        url=resolved_url,
-        title=patch_data.get("title", current.title),
-        description=patch_data.get("description", current.description),
-        favicon=patch_data.get("favicon", current.favicon),
-        site_url=patch_data.get("site_url", current.site_url),
-        site_name=patch_data.get("site_name", current.site_name),
-        language=patch_data.get("language", current.language),
-        verified=patch_data.get("verified", current.verified),
-    )
+    try:
+        updated = repository.update_source(
+            source_id=source_id,
+            url=resolved_url,
+            title=patch_data.get("title", current.title),
+            description=patch_data.get("description", current.description),
+            favicon=patch_data.get("favicon", current.favicon),
+            site_url=patch_data.get("site_url", current.site_url),
+            site_name=patch_data.get("site_name", current.site_name),
+            language=patch_data.get("language", current.language),
+            verified=patch_data.get("verified", current.verified),
+        )
+        if updated is not None:
+            repository.commit()
+    except Exception:
+        repository.rollback()
+        raise
     if updated is None:
-        raise HTTPException(status_code=404, detail="Source not found.")
+        raise HTTPException(status_code=404, detail="Source not found")
 
     return SourceResponse.model_validate(updated)
+
+
+@router.post("/discover", response_model=list[SourceDiscoverResponse])
+def discover_sources(body: SourceDiscoverRequest) -> list[SourceDiscoverResponse]:
+    return SourceDiscoveryAdapter().discover(str(body.url))

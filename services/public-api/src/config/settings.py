@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    blocked_timeout_seconds: int = 30
     account_exchange: str = "account.events"
     content_exchange: str = "content.parsed"
     enrichment_exchange: str = "enrichment.events"

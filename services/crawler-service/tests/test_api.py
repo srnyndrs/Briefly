@@ -23,13 +23,12 @@ def discover(monkeypatch):
     monkeypatch.setattr(
         "src.routers.sources.SourceDiscoveryAdapter.discover", discover
     )
+
     return discover
 
 
 def test_source_lifecycle(client, discover, db_session):
-    discover.side_effect = AssertionError(
-        "Registration must not discover feeds"
-    )
+    discover.side_effect = AssertionError("Registration must not discover feeds")
     submitter = str(uuid.uuid4())
     response = client.post(
         "/sources",
@@ -71,7 +70,7 @@ def test_source_lifecycle(client, discover, db_session):
             "favicon": "https://example.com/icon.png",
             "site_url": "https://news.example.com/",
             "site_name": "Example Media",
-            "language": "en-GB",
+            "language": "yue-Hant",
         },
     )
     assert updated.status_code == 200
@@ -80,7 +79,7 @@ def test_source_lifecycle(client, discover, db_session):
     assert updated.json()["favicon"] == "https://example.com/icon.png"
     assert updated.json()["site_url"] == "https://news.example.com/"
     assert updated.json()["site_name"] == "Example Media"
-    assert updated.json()["language"] == "en"
+    assert updated.json()["language"] == "yue"
     assert updated.json()["title"] == source["title"]
     renamed = client.patch(
         f"/sources/{source_id}",
@@ -93,15 +92,13 @@ def test_source_lifecycle(client, discover, db_session):
     read = client.get(f"/sources/{source_id}").json()
     assert read["title"] == "Updated Source"
     assert read["favicon"] is None
-    assert read["language"] == "en"
+    assert read["language"] == "yue"
 
     verified = client.patch(f"/sources/{source_id}", json={"verified": True})
     assert verified.status_code == 200
     assert verified.json()["verified"] is True
     assert (
-        client.patch(
-            f"/sources/{source_id}", json={"verified": None}
-        ).status_code
+        client.patch(f"/sources/{source_id}", json={"verified": None}).status_code
         == 422
     )
 
@@ -173,9 +170,7 @@ def test_registration_allows_other_feeds_on_same_domain(client, source_factory):
     ],
     ids=["credentialed-url", "blank-title", "verification"],
 )
-def test_api_rejects_invalid_or_server_owned_fields(
-    client, db_session, payload
-):
+def test_api_rejects_invalid_or_server_owned_fields(client, db_session, payload):
     assert client.post("/sources", json=payload).status_code == 422
     assert db_session.query(Source).count() == 0
 
@@ -233,10 +228,6 @@ def test_source_list_filters_and_orders(client, source_factory):
 
 def test_patch_rejects_existing_feed_url(client, source_factory):
     first, second = source_factory(), source_factory()
-    response = client.patch(
-        f"/sources/{second.source_id}", json={"url": first.url}
-    )
+    response = client.patch(f"/sources/{second.source_id}", json={"url": first.url})
     assert response.status_code == 409
-    assert (
-        client.get(f"/sources/{second.source_id}").json()["url"] == second.url
-    )
+    assert client.get(f"/sources/{second.source_id}").json()["url"] == second.url

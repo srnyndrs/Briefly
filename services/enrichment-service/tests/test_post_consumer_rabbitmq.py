@@ -11,7 +11,7 @@ import pytest
 
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
-from src.events.post_enriched import build_result_event
+from src.events.post_enriched import build_enrichment_event
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts.republish_result import republish_result
 from src.services.enrichment_service import EnrichmentService
@@ -43,9 +43,7 @@ def broker(monkeypatch):
         "post_dlq",
     ):
         monkeypatch.setattr(settings, field, f"{prefix}.{field}")
-    connection = pika.BlockingConnection(
-        pika.URLParameters(settings.rabbitmq_url)
-    )
+    connection = pika.BlockingConnection(pika.URLParameters(settings.rabbitmq_url))
     channel = connection.channel()
     channel.exchange_declare(
         exchange=settings.parsed_exchange,
@@ -175,9 +173,7 @@ def test_live_slow_inference_survives_heartbeat_and_duplicate(
         )
         saved = repository.get_by_post_id(UUID(value["payload"]["post_id"]))
         wait_for(
-            lambda: (
-                not repository.get_by_post_id(saved.post_id).publication_pending
-            )
+            lambda: not repository.get_by_post_id(saved.post_id).publication_pending
         )
         assert json.loads(delivered)["event_id"] == saved.event_id
         original_connection = consumer._connection
@@ -240,9 +236,7 @@ def test_live_missing_binding_retains_saved_event(
 ):
     channel, result_queue, bind = broker
     repository = EnrichmentRepository(session_factory)
-    processor = PostProcessor(
-        EnrichmentService(repository, lambda _: ("science",))
-    )
+    processor = PostProcessor(EnrichmentService(repository, lambda _: ("science",)))
     consumer, thread = start(processor, channel)
     value = event()
     try:
@@ -262,7 +256,7 @@ def test_live_missing_binding_retains_saved_event(
         )
         assert (
             json.loads(delivered)["payload"]
-            == build_result_event(saved)["payload"]
+            == build_enrichment_event(saved)["payload"]
         )
         assert json.loads(delivered)["event_id"] == saved.event_id
         assert not repository.get_by_post_id(saved.post_id).publication_pending

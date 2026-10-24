@@ -23,8 +23,8 @@ class RecordingPublisher:
     def __init__(self) -> None:
         self.events: list[dict] = []
 
-    def publish(self, **kwargs) -> None:
-        self.events.append(kwargs)
+    def __call__(self, envelope: dict) -> None:
+        self.events.append(envelope)
 
 
 class RecordingPasswordResetMailer:

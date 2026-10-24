@@ -31,7 +31,7 @@ class PostRepository:
         if self._db.get_bind().dialect.name == "postgresql":
             return or_(
                 *(
-                    PostProjection.categories.contains([value])
+                    PostProjection.categories.bool_op("@>")([value])
                     for value in categories
                 )
             )
@@ -375,7 +375,7 @@ class PostRepository:
         return [normalized[key] for key in sorted(normalized)]
 
     def get_post(self, post_id: UUID) -> PostDTO | None:
-        model = self._db.get(PostProjection, str(post_id))
+        model = self._db.get(PostProjection, post_id)
         if model is None:
             return None
         return post_projection_to_dto(model)
@@ -386,5 +386,5 @@ class UserPreferencesRepository:
         self._db = db
 
     def get_preferences(self, user_id: UUID) -> UserPreferencesDTO:
-        model = self._db.get(UserPreferencesProjection, str(user_id))
+        model = self._db.get(UserPreferencesProjection, user_id)
         return user_preferences_projection_to_dto(model)

@@ -29,7 +29,7 @@ class PostEnrichment(Base):
         server_default=text("1"),
     )
     category_ids: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"),
+        JSON().with_variant(JSONB, "postgresql"),
         nullable=False,
         default=list,
     )

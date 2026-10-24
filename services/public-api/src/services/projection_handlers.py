@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
@@ -37,7 +38,7 @@ SUPPORTED_CATEGORIES = frozenset(
 class EnrichmentPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    post_id: str = Field(min_length=1, max_length=64)
+    post_id: UUID
     post_revision: int = Field(strict=True, ge=1)
     enrichment_revision: int = Field(strict=True, ge=1)
     status: Literal["completed", "abstained", "failed"]
@@ -82,7 +83,8 @@ def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
     except ValueError:
         return None
 
@@ -90,9 +92,10 @@ def _parse_dt(value: str | None) -> datetime | None:
 def project_post(db: Session, payload: dict[str, Any]) -> None:
     """Project parsed post event into read model."""
     payload = payload or {}
-    source_id = _require_source_value(payload.get("source_id"), "source_id")
+    source_id = UUID(str(_require_source_value(payload.get("source_id"), "source_id")))
     source_title = _require_source_title(payload.get("source_title"))
-    post_id = payload.get("post_id")
+    post_id_value = payload.get("post_id")
+    post_id = UUID(str(post_id_value)) if post_id_value else None
     if not post_id:
         return
 
@@ -138,7 +141,7 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
 
 def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
     payload = EnrichmentPayload.model_validate(payload).model_dump()
-    post_id = payload["post_id"]
+    post_id = UUID(str(payload["post_id"]))
     revision = payload["post_revision"]
     result = db.get(PostEnrichmentProjection, post_id)
     post = db.get(PostProjection, post_id)
@@ -165,9 +168,10 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
 def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
     """Project user preferences update event."""
     payload = payload or {}
-    user_id = payload.get("user_id")
-    if not user_id:
+    user_id_value = payload.get("user_id")
+    if not user_id_value:
         return
+    user_id = UUID(str(user_id_value))
 
     prefs = db.get(UserPreferencesProjection, user_id)
     if prefs is None:
@@ -176,6 +180,9 @@ def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
 
     prefs.muted_keywords = payload.get("muted_keywords") or []
     prefs.muted_categories = payload.get("muted_categories") or []
-    prefs.blocked_source_ids = payload.get("blocked_source_ids") or []
+    prefs.blocked_source_ids = [
+        str(UUID(str(source_id)))
+        for source_id in payload.get("blocked_source_ids") or []
+    ]
     prefs.languages = payload.get("languages") or []
     prefs.updated_at = _parse_dt(payload.get("updated_at")) or prefs.updated_at

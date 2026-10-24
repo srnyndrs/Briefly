@@ -6,12 +6,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.adapters import post_publisher
+from src.adapters.event_publisher import publish_event
 from src.config.database import get_db
-from src.config.message_broker import (
-    create_replay_publisher_channel,
-)
+from src.config.message_broker import publisher_channel
 from src.config.settings import settings
+from src.events.post_parsed import build_post_parsed_event
 from src.models.post import Post
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -39,16 +38,14 @@ def replay_posts(
     if not posts:
         return {"replayed": 0}
 
-    channel = create_replay_publisher_channel()
     replayed_count = 0
-    try:
+    with publisher_channel(exchange=settings.parsed_exchange) as channel:
         for post in posts:
             correlation_id = f"replay-{uuid.uuid4()}"
             keywords_val = (
                 post.keywords if isinstance(post.keywords, list) else []
             )
-            post_publisher.publish_post_parsed_success(
-                channel,
+            envelope = build_post_parsed_event(
                 post_id=str(post.post_id),
                 source_id=str(post.source_id),
                 post_revision=post.post_revision,
@@ -68,9 +65,11 @@ def replay_posts(
                 source_title=post.source_title,
                 image_url=post.image_url,
             )
+            publish_event(
+                channel,
+                exchange=settings.parsed_exchange,
+                envelope=envelope,
+            )
             replayed_count += 1
-    finally:
-        if channel.connection and channel.connection.is_open:
-            channel.connection.close()
 
     return {"replayed": replayed_count}

@@ -1,5 +1,6 @@
 import os
 import uuid
+from contextlib import contextmanager
 from unittest.mock import Mock
 
 os.environ["SENTRY_DSN"] = ""
@@ -20,13 +21,9 @@ from src.services.crawl_orchestrator import CrawlCycleOrchestrator
 @pytest.fixture(autouse=True)
 def isolated_boundaries_and_settings(monkeypatch):
     def unexpected_call(*args, **kwargs):
-        raise AssertionError(
-            "Unexpected external HTTP, discovery, or broker call"
-        )
+        raise AssertionError("Unexpected external HTTP, discovery, or broker call")
 
-    monkeypatch.setattr(
-        "src.adapters.http_client.requests.get", unexpected_call
-    )
+    monkeypatch.setattr("src.adapters.http_client.requests.get", unexpected_call)
     monkeypatch.setattr(
         "src.adapters.source_discovery.search_with_info", unexpected_call
     )
@@ -90,10 +87,19 @@ def crawl_cycle(engine, monkeypatch):
     http_get = Mock(return_value=response)
     publisher = Mock()
     monkeypatch.setattr("src.adapters.http_client.requests.get", http_get)
-    publisher_factory = Mock(return_value=publisher)
+    publisher_factory = Mock()
+
+    @contextmanager
+    def publisher_context(**kwargs):
+        publisher_factory(**kwargs)
+        yield publisher
+
     monkeypatch.setattr(
-        "src.services.crawl_orchestrator.FeedPublisher",
-        publisher_factory,
+        "src.services.crawl_orchestrator.publisher_channel",
+        publisher_context,
+    )
+    monkeypatch.setattr(
+        "src.services.crawl_orchestrator.publish_event", publisher
     )
     orchestrator = CrawlCycleOrchestrator(
         sessionmaker(bind=engine, autoflush=False)

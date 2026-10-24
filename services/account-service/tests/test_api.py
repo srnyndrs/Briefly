@@ -4,7 +4,6 @@ from uuid import uuid4
 import pika
 from authlib.jose import jwt
 
-from src.adapters.account_event_publisher import AccountEventPublisher
 from src.app import app
 from src.config.settings import settings
 from src.routers.deps import get_event_publisher
@@ -86,14 +85,13 @@ def test_preferences_replacement_patch_and_events(
     assert body["updated_at"].endswith("+00:00")
     assert client.get(path).json() == body
     assert len(publisher.events) == 2
-    assert publisher.events[-1] == {
-        "event_type": "preferences.updated.v1",
-        "partition_key": f"user:{account['user_id']}",
-        "correlation_id": "request-1",
-        "payload": {
-            **body,
-            "updated_at": body["updated_at"].replace("+00:00", "Z"),
-        },
+    event = publisher.events[-1]
+    assert event["event_type"] == "preferences.updated.v1"
+    assert event["partition_key"] == f"user:{account['user_id']}"
+    assert event["correlation_id"] == "request-1"
+    assert event["payload"] == {
+        **body,
+        "updated_at": body["updated_at"],
     }
 
     reset = client.put(path, json={"languages": ["en"]})
@@ -106,7 +104,7 @@ def test_preferences_replacement_patch_and_events(
     assert len(publisher.events) == 3
     assert publisher.events[-1]["payload"] == {
         **reset.json(),
-        "updated_at": reset.json()["updated_at"].replace("+00:00", "Z"),
+        "updated_at": reset.json()["updated_at"],
     }
 
 
@@ -154,9 +152,9 @@ def test_unknown_account(client) -> None:
 def test_preferences_remain_saved_when_publication_fails(
     client, account, monkeypatch
 ) -> None:
-    app.dependency_overrides[get_event_publisher] = AccountEventPublisher
+    app.dependency_overrides.pop(get_event_publisher, None)
     monkeypatch.setattr(
-        "src.adapters.account_event_publisher.pika.BlockingConnection",
+        "src.routers.deps.publisher_channel",
         Mock(
             side_effect=pika.exceptions.AMQPConnectionError(
                 "Broker unavailable"

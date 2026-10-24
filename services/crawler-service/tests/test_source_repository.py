@@ -7,9 +7,7 @@ from src.config.settings import settings
 from src.repositories.source_repository import SourceRepository
 
 
-@pytest.mark.parametrize(
-    "verified", [True, False], ids=["verified", "unverified"]
-)
+@pytest.mark.parametrize("verified", [True, False], ids=["verified", "unverified"])
 def test_retry_scheduling_and_recovery(db_session, source_factory, verified):
     source = source_factory(verified=verified)
     repository = SourceRepository(db_session)
@@ -19,19 +17,17 @@ def test_retry_scheduling_and_recovery(db_session, source_factory, verified):
         else settings.unverified_crawl_interval_seconds
     )
     for failures in (1, 2):
-        assert (
-            repository.save_crawl_failure(source_id=source.source_id)
-            == failures
-        )
+        assert repository.save_crawl_failure(source_id=source.source_id) == failures
+        repository.commit()
         db_session.refresh(source)
         assert source.last_crawl_succeeded is False
-        assert (
-            source.next_crawl_scheduled_at - source.last_crawled_at
-            == timedelta(seconds=base * 2**failures)
+        assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
+            seconds=base * 2**failures
         )
     source.consecutive_failures = 10
     db_session.commit()
     repository.save_crawl_failure(source_id=source.source_id)
+    repository.commit()
     db_session.refresh(source)
     assert source.next_crawl_scheduled_at - source.last_crawled_at == timedelta(
         days=1
@@ -42,6 +38,7 @@ def test_retry_scheduling_and_recovery(db_session, source_factory, verified):
         etag="fresh",
         last_modified="new-date",
     )
+    repository.commit()
     db_session.refresh(source)
     assert source.consecutive_failures == 0
     assert source.last_crawl_succeeded is True
@@ -73,8 +70,6 @@ def test_due_sources_use_tier_time_and_id_order(db_session, source_factory):
     expected = [first, second, third, unverified]
     assert repository.get_active_sources(now, settings.max_retries) == expected
     assert (
-        repository.get_active_sources(
-            now, settings.max_retries, verified_only=True
-        )
+        repository.get_active_sources(now, settings.max_retries, verified_only=True)
         == expected[:3]
     )

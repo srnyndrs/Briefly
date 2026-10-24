@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -78,8 +78,8 @@ def _post(title, source_id, **metadata):
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return PostProjection(
         **{
-            "post_id": str(uuid4()),
-            "source_id": source_id,
+            "post_id": UUID(str(metadata.pop("post_id", uuid4()))),
+            "source_id": UUID(str(source_id)),
             "source_title": "Test Source",
             "title": title,
             "canonical_url": f"https://example.com/{uuid4()}",
@@ -106,7 +106,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
     subscribed, blocked, unsubscribed = (str(uuid4()) for _ in range(3))
     db.add(
         UserPreferencesProjection(
-            user_id=str(user.user_id),
+            user_id=user.user_id,
             muted_keywords=[],
             muted_categories=["sports"],
             blocked_source_ids=[blocked],
@@ -164,7 +164,7 @@ def test_explore_uses_explicit_filters_and_visibility_exclusions(
 
     db.add(
         UserPreferencesProjection(
-            user_id=str(user.user_id),
+            user_id=user.user_id,
             muted_keywords=[],
             muted_categories=["sports"],
             blocked_source_ids=[blocked_source_id],
@@ -515,7 +515,7 @@ def test_admin_get_post_endpoint(monkeypatch, client) -> None:
         assert target_id == post_id
         return {
             "post_id": target_id,
-            "source_id": "source-1",
+            "source_id": str(uuid4()),
             "source_title": "Admin Source",
             "item_guid": "guid-1",
             "url": "https://example.com/article",
@@ -601,7 +601,7 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages(
 
     db.add(
         UserPreferencesProjection(
-            user_id=str(user.user_id),
+            user_id=user.user_id,
             muted_keywords=[],
             muted_categories=[],
             blocked_source_ids=[],
@@ -929,7 +929,7 @@ def test_feed_pagination_pages_and_counts(monkeypatch, client, db) -> None:
 
     db.add(
         UserPreferencesProjection(
-            user_id=str(user.user_id),
+            user_id=user.user_id,
             muted_keywords=[],
             muted_categories=[],
             blocked_source_ids=[],
@@ -1095,7 +1095,7 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch, feed_client, db):
     source = str(uuid4())
     db.add(
         UserPreferencesProjection(
-            user_id=str(user.user_id),
+            user_id=user.user_id,
             muted_keywords=["paramount"],
             muted_categories=[],
             blocked_source_ids=[],

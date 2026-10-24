@@ -32,9 +32,7 @@ class GeminiProvider:
         timeout: float = 30,
     ) -> None:
         if not model or not api_key or timeout <= 0:
-            raise ValueError(
-                "Model, API key, and positive timeout are required"
-            )
+            raise ValueError("Model, API key, and positive timeout are required")
         self.model = model
         self.instructions = instructions
         self.api_key = api_key
@@ -91,9 +89,7 @@ class GeminiProvider:
             except (json.JSONDecodeError, UnicodeDecodeError):
                 pass
             error = (
-                error_data.get("error")
-                if isinstance(error_data, dict)
-                else None
+                error_data.get("error") if isinstance(error_data, dict) else None
             )
             status = error.get("status") if isinstance(error, dict) else None
             message = error.get("message") if isinstance(error, dict) else None

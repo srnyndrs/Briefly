@@ -80,17 +80,16 @@ def test_gemini_sends_shared_prompt_and_parses_result(monkeypatch) -> None:
     assert "test-key" not in request.full_url
     assert payload["systemInstruction"]["parts"][0]["text"] == instructions([])
     assert (
-        json.loads(payload["contents"][0]["parts"][0]["text"])["title"]
-        == "A study"
+        json.loads(payload["contents"][0]["parts"][0]["text"])["title"] == "A study"
     )
     config = payload["generationConfig"]
     assert config["temperature"] == 0
     assert config["maxOutputTokens"] == 128
     assert config["responseFormat"]["text"]["mimeType"] == "APPLICATION_JSON"
     assert (
-        config["responseFormat"]["text"]["schema"]["properties"][
-            "category_ids"
-        ]["maxItems"]
+        config["responseFormat"]["text"]["schema"]["properties"]["category_ids"][
+            "maxItems"
+        ]
         == 2
     )
 
@@ -145,9 +144,7 @@ def test_gemini_accepts_abstention_without_usage(monkeypatch) -> None:
 
 
 def test_gemini_http_error_is_bounded_and_redacts_key(monkeypatch) -> None:
-    body = (
-        b'{"error":{"status":"RESOURCE_EXHAUSTED","message":"test-key quota"}}'
-    )
+    body = b'{"error":{"status":"RESOURCE_EXHAUSTED","message":"test-key quota"}}'
 
     def fail(*_, **__):
         raise HTTPError("https://example.test", 429, "quota", {}, BytesIO(body))

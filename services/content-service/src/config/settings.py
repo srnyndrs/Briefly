@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     parsed_exchange: str = "content.parsed"
     failed_exchange: str = "content.failed"
     feed_dlq: str = "feed.raw_fetched.v1.parser.dlq"
-    blocked_timeout_seconds: int = 5
+    blocked_timeout_seconds: int = 30
     article_request_timeout_seconds: float = Field(
         default=5, gt=0, allow_inf_nan=False
     )

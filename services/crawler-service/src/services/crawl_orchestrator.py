@@ -1,15 +1,18 @@
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import requests
 from sqlalchemy.orm import sessionmaker
 
-from src.adapters.feed_publisher import FeedPublisher
+from src.adapters.event_publisher import publish_event
 from src.adapters.http_client import FetchHeaders, RequestsHttpClient
+from src.config.message_broker import publisher_channel
 from src.config.settings import settings
+from src.events.feed_fetched import build_feed_fetched_event
 from src.models.source import Source
 from src.repositories.source_repository import SourceRepository
 
@@ -52,28 +55,15 @@ class CrawlCycleOrchestrator:
                 )
                 return
 
-            event_publisher = FeedPublisher()
-            try:
+            with publisher_channel(exchange=settings.feed_exchange) as channel:
                 for source in sources:
                     outcome = self._crawl_source(
                         source_repository,
-                        event_publisher,
+                        channel,
                         source,
                         cycle_id,
                     )
                     counts[outcome] += 1
-            except BaseException:
-                try:
-                    event_publisher.close()
-                except Exception:
-                    logger.warning(
-                        "Publisher cleanup failed after cycle error "
-                        "(cycle_id=%s)",
-                        cycle_id,
-                    )
-                raise
-            else:
-                event_publisher.close()
 
             logger.info(
                 "Crawl cycle complete (cycle_id=%s, due=%d, succeeded=%d, "
@@ -89,7 +79,7 @@ class CrawlCycleOrchestrator:
     def _crawl_source(
         self,
         source_repository: SourceRepository,
-        event_publisher: FeedPublisher,
+        channel: Any,
         source: Source,
         correlation_id: str,
     ) -> str:
@@ -110,25 +100,40 @@ class CrawlCycleOrchestrator:
             return "failed" if updated else "skipped"
 
         if result.status_code == 304:
-            source_repository.save_crawl_success(
-                source_id=source.source_id,
-                etag=source.etag,
-                last_modified=source.last_modified,
-            )
+            try:
+                source_repository.save_crawl_success(
+                    source_id=source.source_id,
+                    etag=source.etag,
+                    last_modified=source.last_modified,
+                )
+                source_repository.commit()
+            except Exception:
+                source_repository.rollback()
+                raise
             return "not_modified"
 
-        event_publisher.publish_source_fetched(
+        envelope = build_feed_fetched_event(
             source_id=source.source_id,
             source_url=source.url,
             correlation_id=correlation_id,
-            source_title=source.site_name,
+            source_title=source.site_name or source.title,
             raw_xml=result.body,
         )
-        source_repository.save_crawl_success(
-            source_id=source.source_id,
-            etag=result.etag,
-            last_modified=result.last_modified,
+        publish_event(
+            channel,
+            exchange=settings.feed_exchange,
+            envelope=envelope,
         )
+        try:
+            source_repository.save_crawl_success(
+                source_id=source.source_id,
+                etag=result.etag,
+                last_modified=result.last_modified,
+            )
+            source_repository.commit()
+        except Exception:
+            source_repository.rollback()
+            raise
 
         return "succeeded"
 
@@ -141,7 +146,12 @@ class CrawlCycleOrchestrator:
         error: requests.RequestException,
     ) -> bool:
         host = urlsplit(source_url).hostname or "unknown"
-        failures = source_repository.save_crawl_failure(source_id=source_id)
+        try:
+            failures = source_repository.save_crawl_failure(source_id=source_id)
+            source_repository.commit()
+        except Exception:
+            source_repository.rollback()
+            raise
         if failures is None:
             logger.info(
                 "Skipped failure update for deleted source (source_id=%s, "

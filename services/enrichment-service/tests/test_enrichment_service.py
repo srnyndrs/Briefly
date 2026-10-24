@@ -65,17 +65,17 @@ def test_worker_cannot_overwrite_a_newer_saved_result(session_factory, force):
     repository = EnrichmentRepository(session_factory)
     post_id = uuid4()
     article = ArticleInput(title="Research")
-    first = EnrichmentService(
-        repository, lambda _: ("science",)
-    ).enrich_article(post_id, article)
+    first = EnrichmentService(repository, lambda _: ("science",)).enrich_article(
+        post_id, article
+    )
     repository.mark_published(post_id, first.event_id)
     newer = None
 
     def classify(_):
         nonlocal newer
-        newer = EnrichmentService(
-            repository, lambda _: ("health",)
-        ).enrich_article(post_id, article, post_revision=3)
+        newer = EnrichmentService(repository, lambda _: ("health",)).enrich_article(
+            post_id, article, post_revision=3
+        )
         return ("business",)
 
     service = EnrichmentService(repository, classify)
@@ -83,9 +83,7 @@ def test_worker_cannot_overwrite_a_newer_saved_result(session_factory, force):
         with pytest.raises(ReclassificationConflict, match="changed during"):
             service.enrich_article(post_id, article, force_reclassify=True)
     else:
-        assert (
-            service.enrich_article(post_id, article, post_revision=2) == newer
-        )
+        assert service.enrich_article(post_id, article, post_revision=2) == newer
     assert repository.get_by_post_id(post_id) == newer
 
 
@@ -97,9 +95,9 @@ def test_same_revision_reclassification_conflict_does_not_repeat_model(
     repository = EnrichmentRepository(session_factory)
     post_id = uuid4()
     article = ArticleInput(title="Research")
-    first = EnrichmentService(
-        repository, lambda _: ("science",)
-    ).enrich_article(post_id, article)
+    first = EnrichmentService(repository, lambda _: ("science",)).enrich_article(
+        post_id, article
+    )
     repository.mark_published(post_id, first.event_id)
     calls = 0
     winner = None

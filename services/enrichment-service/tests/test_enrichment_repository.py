@@ -5,10 +5,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.repositories.enrichment_repository import (
-    EnrichmentRepository,
-    StoredEnrichment,
-)
+from src.repositories.enrichment_repository import EnrichmentRepository
+from src.repositories.stored_enrichment import StoredEnrichment
 
 
 def test_revision_lifecycle_rejects_competing_and_stale_results(

@@ -75,9 +75,7 @@ class OllamaProvider:
             with urlopen(request, timeout=self.timeout) as response:
                 raw = response.read(1_048_577)
         except (HTTPError, URLError, TimeoutError) as exc:
-            raise ProviderError(
-                "Cannot resolve installed Ollama model"
-            ) from exc
+            raise ProviderError("Cannot resolve installed Ollama model") from exc
         if len(raw) > 1_048_576:
             raise ProviderError("Ollama model listing exceeds the size limit")
         try:
@@ -97,9 +95,7 @@ class OllamaProvider:
                 digest = model.get("digest")
                 if isinstance(digest, str) and 1 <= len(digest) <= 200:
                     return digest
-                raise ProviderError(
-                    "Installed Ollama model has no valid digest"
-                )
+                raise ProviderError("Installed Ollama model has no valid digest")
         raise ProviderError(
             "Configured Ollama model is missing; pull it before startup"
         )

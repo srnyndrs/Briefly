@@ -62,7 +62,7 @@ def _response(output: FeedOutput, page: int, page_size: int) -> FeedResponse:
             sources=(
                 [
                     SourceOptionResponse(
-                        id=UUID(option.source_id), title=option.title
+                        id=option.source_id, title=option.title
                     )
                     for option in output.filter_options.sources
                 ]
@@ -162,11 +162,7 @@ def get_explore(
                 offset=(page - 1) * page_size,
                 categories=categories,
                 languages=languages,
-                source_ids=(
-                    [str(source_id) for source_id in source_ids]
-                    if source_ids is not None
-                    else None
-                ),
+                source_ids=source_ids,
                 query=normalized_query,
                 published_from=from_,
                 published_to=to_,

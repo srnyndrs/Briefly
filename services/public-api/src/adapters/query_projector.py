@@ -7,6 +7,7 @@ from typing import Any
 import pika
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.config.message_broker import create_connection_parameters
 from src.config.settings import settings
 from src.models.read_models import ProcessedEvent
 from src.services.projection_handlers import (
@@ -62,8 +63,7 @@ class QueryProjector:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
-        params = pika.URLParameters(settings.rabbitmq_url)
-        connection = pika.BlockingConnection(params)
+        connection = pika.BlockingConnection(create_connection_parameters())
         self._connection = connection
         try:
             self._channel = connection.channel()

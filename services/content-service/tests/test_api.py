@@ -1,4 +1,5 @@
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
@@ -147,8 +148,8 @@ def test_replay_posts_emits_complete_stored_snapshot(
     channel = MagicMock()
     with (
         patch(
-            "src.routers.admin.create_replay_publisher_channel",
-            return_value=channel,
+            "src.routers.admin.publisher_channel",
+            return_value=nullcontext(channel),
         ),
         patch("src.adapters.content_extractor.extract_article") as extract,
     ):
@@ -191,7 +192,6 @@ def test_replay_posts_emits_complete_stored_snapshot(
         "parsed_at": payload["parsed_at"],
     }
     assert db_session.get(Post, post_id).post_revision == 7
-    channel.connection.close.assert_called_once()
 
 
 def test_replay_rejects_unauthorized_request(
@@ -199,7 +199,7 @@ def test_replay_rejects_unauthorized_request(
 ) -> None:
     _seed_posts(db_session, uuid4(), uuid4())
     with patch(
-        "src.routers.admin.create_replay_publisher_channel"
+        "src.routers.admin.publisher_channel"
     ) as publisher:
         response = client.post("/admin/posts/replay")
     assert response.status_code == 401

@@ -22,18 +22,18 @@ CATEGORY_DEFINITIONS: dict[str, str] = {
 
 
 def validate_category_ids(value: object) -> tuple[str, ...]:
-    """Validate a bounded category collection and return taxonomy order."""
     if not isinstance(value, (list, tuple)) or len(value) > 2:
         raise ValueError("Expected zero to two category IDs")
+
     if any(
         not isinstance(item, str) or item not in CATEGORY_DEFINITIONS
         for item in value
     ):
         raise ValueError("Unsupported category ID")
+
     if len(set(value)) != len(value) or ("other" in value and len(value) != 1):
         raise ValueError(
             "Category IDs must be distinct and 'other' must stand alone"
         )
-    return tuple(
-        category for category in CATEGORY_DEFINITIONS if category in value
-    )
+
+    return tuple(category for category in CATEGORY_DEFINITIONS if category in value)

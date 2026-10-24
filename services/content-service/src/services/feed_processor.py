@@ -10,7 +10,10 @@ from uuid import UUID
 import feedparser
 import langcodes
 
-from src.adapters import content_extractor, post_publisher
+from src.adapters import content_extractor
+from src.adapters.event_publisher import publish_event
+from src.config.settings import settings
+from src.events.post_parsed import build_post_parsed_event
 from src.models.post import Post
 from src.repositories.post_repository import PostRepository
 
@@ -22,30 +25,33 @@ _INVALID_TITLES = frozenset({"null", "undefined", "null: undefined"})
 def _clean_text(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
+
     cleaned = value.strip()
+
     return cleaned or None
 
 
-def _normalize_language(value: Any) -> str | None:
-    candidate = _clean_text(value)
-    if candidate is None:
+def _normalize_language(value: object) -> str | None:
+    if not isinstance(value, str) or not (candidate := value.strip()):
         return None
 
     try:
-        language = langcodes.get(candidate.replace("_", "-"))
-    except (TypeError, ValueError):
+        language = langcodes.get(candidate)
+    except ValueError:
         return None
 
-    if not language.is_valid() or not language.language:
+    if not language.is_valid():
         return None
-    primary = language.language.lower()
-    return None if primary == "und" or primary.startswith("x-") else primary
+
+    return language.language
 
 
 def _clean_description(value: Any) -> str | None:
     description = _clean_text(value)
+
     if description is None:
         return None
+
     return _clean_text(content_extractor.normalize_html_text(description))
 
 
@@ -53,6 +59,7 @@ def _require_source_value(value: Any, field_name: str) -> str:
     normalized = _clean_text(value)
     if normalized is None:
         raise ValueError(f"{field_name} must be nonblank")
+
     return normalized
 
 
@@ -283,7 +290,7 @@ class FeedProcessor:
 
     def reextract_post(self, channel: Any, post_id: UUID) -> bool:
         """Refresh one post body while preserving stored metadata and identity."""
-        post = self._repo.get_post_by_id(post_id)
+        post = self._repo.get_by_id(post_id)
         if post is None:
             raise ValueError("Post not found")
         extracted = content_extractor.extract_article(post.url)
@@ -303,7 +310,12 @@ class FeedProcessor:
             "parsed_at": datetime.now(timezone.utc),
             "content": content.strip(),
         }
-        snapshot = self._repo.upsert_post(data)
+        try:
+            snapshot = self._repo.upsert_post(data)
+            self._repo.commit()
+        except Exception:
+            self._repo.rollback()
+            raise
         if snapshot is None:
             raise RuntimeError("Post save returned no snapshot")
         _publish_success_events(channel, snapshot, f"reextract-{uuid.uuid4()}")
@@ -386,7 +398,12 @@ class FeedProcessor:
                     or not post_data["content"]
                 )
 
-                snapshot = self._repo.upsert_post(post_data)
+                try:
+                    snapshot = self._repo.upsert_post(post_data)
+                    self._repo.commit()
+                except Exception:
+                    self._repo.rollback()
+                    raise
                 if snapshot is None:
                     raise RuntimeError("Post save returned no snapshot")
                 stored_posts[item_guid] = snapshot
@@ -418,8 +435,7 @@ def _publish_success_events(
     snapshot: dict[str, Any],
     correlation_id: str,
 ) -> None:
-    post_publisher.publish_post_parsed_success(
-        channel,
+    envelope = build_post_parsed_event(
         post_id=str(snapshot["post_id"]),
         source_id=str(snapshot["source_id"]),
         post_revision=snapshot["post_revision"],
@@ -438,4 +454,9 @@ def _publish_success_events(
         author=snapshot["author"],
         source_title=snapshot["source_title"],
         image_url=snapshot.get("image_url"),
+    )
+    publish_event(
+        channel,
+        exchange=settings.parsed_exchange,
+        envelope=envelope,
     )

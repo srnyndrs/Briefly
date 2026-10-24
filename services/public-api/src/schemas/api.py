@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import (
@@ -68,8 +68,6 @@ class UserResponse(BaseModel):
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
 
 
@@ -94,8 +92,6 @@ class PreferencesResponse(BaseModel):
 
     @field_serializer("updated_at")
     def serialize_updated_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
 
 
@@ -146,8 +142,6 @@ class SubscriptionResponse(BaseModel):
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
 
 
@@ -203,14 +197,12 @@ class SourceResponse(BaseModel):
     def serialize_datetimes(self, value: datetime | None) -> str | None:
         if value is None:
             return None
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
 
 
 class AdminPostResponse(BaseModel):
-    post_id: str
-    source_id: str
+    post_id: UUID
+    source_id: UUID
     source_title: str
     item_guid: str
     url: str
@@ -244,8 +236,6 @@ class PostListItemResponse(BaseModel):
     def serialize_published_at(self, value: datetime | None) -> str | None:
         if value is None:
             return None
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
         return value.isoformat()
 
 

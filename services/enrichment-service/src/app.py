@@ -11,11 +11,16 @@ from sentry_sdk.integrations.logging import (
     ignore_logger_for_sentry_logs,
 )
 
+from src.adapters.ollama_provider import OllamaProvider
 from src.adapters.post_consumer import PostConsumer
-from src.bootstrap import create_post_processor
-from src.config.database import init_db
+from src.config.database import SessionLocal, init_db
 from src.config.settings import settings
+from src.repositories.enrichment_repository import EnrichmentRepository
 from src.schemas.common import HealthResponse
+from src.services.classification import ArticleInput
+from src.services.enrichment_service import EnrichmentService
+from src.services.post_processor import PostProcessor
+from src.services.provider import instructions
 
 TAG_NAME = "enrichment-service"
 
@@ -43,12 +48,38 @@ if settings.sentry_dsn:
         ignore_logger_for_sentry_logs(name)
 
 
+def create_enrichment_service() -> EnrichmentService:
+    if not settings.ollama_model or not settings.ollama_model.strip():
+        raise ValueError("OLLAMA_MODEL is required for runtime enrichment")
+    prompt = instructions([])
+    provider = OllamaProvider(
+        model=settings.ollama_model,
+        instructions=prompt,
+        base_url=settings.ollama_base_url,
+        timeout=settings.ollama_timeout_seconds,
+    )
+    digest = provider.model_digest()
+    logger.info(
+        "Ollama runtime model=%s digest=%s",
+        settings.ollama_model,
+        digest,
+    )
+
+    def classify(article: ArticleInput) -> tuple[str, ...]:
+        return provider(article).category_ids
+
+    return EnrichmentService(
+        EnrichmentRepository(SessionLocal),
+        classify,
+    )
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     try:
         if not getattr(application.state, "testing", False):
             init_db()
-            consumer = PostConsumer(create_post_processor())
+            consumer = PostConsumer(PostProcessor(create_enrichment_service()))
             thread = threading.Thread(
                 target=consumer.run,
                 daemon=True,
@@ -57,15 +88,11 @@ async def lifespan(application: FastAPI):
             application.state.consumer = consumer
             application.state.consumer_thread = thread
             thread.start()
-            logger.info(
-                "Enrichment Service started on port=%d", settings.app_port
-            )
+            logger.info("Enrichment Service started on port=%d", settings.app_port)
 
         yield
     finally:
-        consumer: PostConsumer | None = getattr(
-            application.state, "consumer", None
-        )
+        consumer: PostConsumer | None = getattr(application.state, "consumer", None)
         if consumer:
             consumer.stop()
 

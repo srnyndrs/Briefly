@@ -50,7 +50,7 @@ def test_postgres_conditional_save_and_publication_guards() -> None:
     from dataclasses import replace
     from datetime import UTC, datetime
 
-    from src.repositories.enrichment_repository import StoredEnrichment
+    from src.repositories.stored_enrichment import StoredEnrichment
 
     database_url = os.environ.get("ENRICHMENT_TEST_DATABASE_URL")
     if not database_url:
@@ -82,17 +82,13 @@ def test_postgres_conditional_save_and_publication_guards() -> None:
             reason=None,
         )
         assert repository.save(replacement) is None
-        assert (
-            repository.save(replacement, expected_enrichment_revision=1) is None
-        )
+        assert repository.save(replacement, expected_enrichment_revision=1) is None
         repository.mark_published(first.post_id, first.event_id)
         second = repository.save(replacement)
         assert second.enrichment_revision == 2
         repository.mark_published(second.post_id, second.event_id)
         assert repository.save(replace(replacement, post_revision=1)) is None
-        assert (
-            repository.save(replacement, expected_enrichment_revision=1) is None
-        )
+        assert repository.save(replacement, expected_enrichment_revision=1) is None
         third = repository.save(
             replace(replacement, event_id=str(uuid4())),
             expected_enrichment_revision=2,
@@ -128,7 +124,5 @@ def test_postgres_conditional_save_and_publication_guards() -> None:
             second_engine.dispose()
     finally:
         with engine.begin() as connection:
-            connection.execute(
-                text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
-            )
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
         engine.dispose()

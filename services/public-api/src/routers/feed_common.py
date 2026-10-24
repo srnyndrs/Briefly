@@ -1,4 +1,3 @@
-import uuid
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -15,8 +14,8 @@ from src.services.feed_service import FeedService
 
 def to_post_list_item_response(item: PostDTO) -> PostListItemResponse:
     return PostListItemResponse(
-        post_id=uuid.UUID(item.post_id),
-        source_id=uuid.UUID(item.source_id),
+        post_id=item.post_id,
+        source_id=item.source_id,
         title=item.title,
         source_title=item.source_title,
         description=item.description,

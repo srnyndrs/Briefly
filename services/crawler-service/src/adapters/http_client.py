@@ -12,10 +12,12 @@ _VALIDATOR_LOG_LIMIT = 200
 
 def _safe_validator(value: str | None) -> str:
     if value is None:
-        return "<absent>"
+        return "<ABSENT>"
+
     escaped = repr(value)
     if len(escaped) > _VALIDATOR_LOG_LIMIT:
         return escaped[: _VALIDATOR_LOG_LIMIT - 3] + "..."
+
     return escaped
 
 
@@ -72,6 +74,7 @@ class RequestsHttpClient:
             )
 
         response.raise_for_status()
+
         return HttpFetchResult(
             body=response.text,
             status_code=response.status_code,

@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
-from typing import Literal, cast
-from uuid import UUID, uuid4
+from dataclasses import replace
+from datetime import UTC
+from typing import cast
+from uuid import UUID
 
 from sqlalchemy import and_, or_, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -9,22 +9,8 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.models.post_enrichment import PostEnrichment
+from src.repositories.stored_enrichment import EnrichmentStatus, StoredEnrichment
 from src.services.categories import validate_category_ids
-
-EnrichmentStatus = Literal["completed", "abstained", "failed"]
-
-
-@dataclass(frozen=True, slots=True)
-class StoredEnrichment:
-    post_id: UUID
-    category_ids: tuple[str, ...]
-    status: EnrichmentStatus
-    reason: str | None
-    processed_at: datetime
-    post_revision: int = 1
-    enrichment_revision: int = 1
-    event_id: str = field(default_factory=lambda: str(uuid4()))
-    publication_pending: bool = True
 
 
 class EnrichmentRepository:
@@ -63,9 +49,7 @@ class EnrichmentRepository:
             elif dialect_name == "postgresql":
                 insert = postgresql_insert
             else:
-                raise RuntimeError(
-                    f"Unsupported database dialect: {dialect_name}"
-                )
+                raise RuntimeError(f"Unsupported database dialect: {dialect_name}")
 
             statement = insert(PostEnrichment).values(
                 post_id=enrichment.post_id,

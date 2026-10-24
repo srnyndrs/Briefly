@@ -9,9 +9,7 @@ def create_gemini(*, model: str, instructions: str, timeout: float) -> Provider:
     from src.adapters.gemini_provider import GeminiProvider
 
     if not settings.gemini_api_key:
-        raise ValueError(
-            "GEMINI_API_KEY is missing (environment or service .env)"
-        )
+        raise ValueError("GEMINI_API_KEY is missing (environment or service .env)")
     return GeminiProvider(
         model=model,
         instructions=instructions,

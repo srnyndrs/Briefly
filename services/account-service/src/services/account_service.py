@@ -1,18 +1,16 @@
 import logging
-import uuid
-from collections.abc import Sequence
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID, uuid4
 
 import sentry_sdk
 
-from src.adapters.account_event_publisher import (
-    AccountEventPublisher,
-)
 from src.adapters.password_reset_mailer import (
     PasswordResetDeliveryError,
     PasswordResetMailer,
 )
+from src.events.preferences_updated import build_preferences_updated_event
 from src.models.account import User, UserPreferences, UserSubscription
 from src.repositories.account_repository import AccountRepository
 from src.services.auth_service import AuthService
@@ -33,7 +31,7 @@ class AccountService:
         self,
         repo: AccountRepository,
         auth_service: AuthService,
-        publisher: AccountEventPublisher,
+        publisher: Callable[[dict[str, Any]], None],
         mailer: PasswordResetMailer,
     ) -> None:
         self._repo = repo
@@ -51,8 +49,8 @@ class AccountService:
         if existing:
             raise ConflictError("Email already registered")
 
-        now = utc_now_naive()
-        user_id = str(uuid.uuid4())
+        now = datetime.now(UTC)
+        user_id = uuid4()
         password_hash = self._auth_service.hash_password(password)
         user = self._repo.create_user(
             user_id=user_id,
@@ -84,21 +82,21 @@ class AccountService:
                 scope.set_tag("operation", "password_reset_delivery")
                 sentry_sdk.capture_exception(exc)
 
-    def get_user(self, user_id: str) -> User:
+    def get_user(self, user_id: UUID) -> User:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise NotFoundError("User not found")
         return user
 
     def patch_display_name(
-        self, *, user_id: str, fields: dict[str, Any]
+        self, *, user_id: UUID, fields: dict[str, Any]
     ) -> User:
         if "display_name" not in fields:
             return self.get_user(user_id)
         user = self._repo.update_display_name(
             user_id=user_id,
             display_name=fields["display_name"],
-            now=utc_now_naive(),
+            now=datetime.now(UTC),
         )
         if user is None:
             raise NotFoundError("User not found")
@@ -109,7 +107,7 @@ class AccountService:
             raise
         return user
 
-    def get_preferences(self, user_id: str) -> UserPreferences:
+    def get_preferences(self, user_id: UUID) -> UserPreferences:
         preferences = self._repo.get_preferences(user_id)
         if preferences is None:
             raise NotFoundError("User preferences not found")
@@ -118,7 +116,7 @@ class AccountService:
     def update_preferences(
         self,
         *,
-        user_id: str,
+        user_id: UUID,
         muted_keywords: list[str],
         muted_categories: list[str],
         blocked_source_ids: list[str],
@@ -134,33 +132,32 @@ class AccountService:
                 muted_categories=muted_categories,
                 blocked_source_ids=blocked_source_ids,
                 languages=languages,
-                now=utc_now_naive(),
+                now=datetime.now(UTC),
             )
             self._repo.commit()
         except Exception:
             self._repo.rollback()
             raise
 
-        self._publisher.publish(
-            event_type="preferences.updated.v1",
+        envelope = build_preferences_updated_event(
+            preferences=preferences,
             correlation_id=correlation_id,
-            partition_key=f"user:{user_id}",
-            payload={
-                "user_id": user_id,
-                "updated_at": preferences.updated_at.isoformat() + "Z",
-                "muted_keywords": preferences.muted_keywords,
-                "muted_categories": preferences.muted_categories,
-                "blocked_source_ids": preferences.blocked_source_ids,
-                "languages": preferences.languages,
-            },
         )
+        try:
+            self._publisher(envelope)
+        except Exception as exc:
+            logger.exception("Failed to publish preferences updated event")
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("operation", "publish_account_event")
+                scope.set_tag("event_type", envelope["event_type"])
+                sentry_sdk.capture_exception(exc)
 
         return preferences
 
     def patch_preferences(
         self,
         *,
-        user_id: str,
+        user_id: UUID,
         fields: dict[str, Any],
         correlation_id: str,
     ) -> UserPreferences:
@@ -191,8 +188,8 @@ class AccountService:
     def create_subscription(
         self,
         *,
-        user_id: str,
-        source_id: str,
+        user_id: UUID,
+        source_id: UUID,
     ) -> UserSubscription:
         self.get_user(user_id)
         if self._repo.has_subscription(user_id=user_id, source_id=source_id):
@@ -202,7 +199,7 @@ class AccountService:
             subscription = self._repo.create_subscription(
                 user_id=user_id,
                 source_id=source_id,
-                now=utc_now_naive(),
+                now=datetime.now(UTC),
             )
             self._repo.flush()
             self._repo.commit()
@@ -211,15 +208,15 @@ class AccountService:
             self._repo.rollback()
             raise
 
-    def list_subscriptions(self, user_id: str) -> Sequence[UserSubscription]:
+    def list_subscriptions(self, user_id: UUID) -> list[UserSubscription]:
         self.get_user(user_id)
         return self._repo.list_subscriptions(user_id=user_id)
 
     def delete_subscription(
         self,
         *,
-        user_id: str,
-        source_id: str,
+        user_id: UUID,
+        source_id: UUID,
     ) -> None:
         deleted = self._repo.delete_subscription(
             user_id=user_id, source_id=source_id
@@ -231,7 +228,3 @@ class AccountService:
         except Exception:
             self._repo.rollback()
             raise
-
-
-def utc_now_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)

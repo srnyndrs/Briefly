@@ -37,7 +37,7 @@ def get_user(
     service: AccountService = Depends(get_account_service),
 ) -> UserResponse:
     try:
-        user = service.get_user(str(user_id))
+        user = service.get_user(user_id)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -53,7 +53,7 @@ def patch_user(
 ) -> UserResponse:
     try:
         user = service.patch_display_name(
-            user_id=str(user_id),
+            user_id=user_id,
             fields=body.model_dump(mode="json", exclude_unset=True),
         )
     except NotFoundError as exc:
@@ -69,7 +69,7 @@ def get_preferences(
     service: AccountService = Depends(get_account_service),
 ) -> PreferencesResponse:
     try:
-        preferences = service.get_preferences(str(user_id))
+        preferences = service.get_preferences(user_id)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -87,7 +87,7 @@ def update_preferences(
     request_id = correlation_id(x_correlation_id)
     try:
         preferences = service.update_preferences(
-            user_id=str(user_id),
+            user_id=user_id,
             muted_keywords=body.muted_keywords,
             muted_categories=body.muted_categories,
             blocked_source_ids=[
@@ -115,7 +115,7 @@ def patch_preferences(
         patch_data = body.model_dump(mode="json", exclude_unset=True)
         request_id = correlation_id(x_correlation_id)
         preferences = service.patch_preferences(
-            user_id=str(user_id),
+            user_id=user_id,
             fields=patch_data,
             correlation_id=request_id,
         )
@@ -139,8 +139,8 @@ def create_subscription(
 ) -> SubscriptionResponse:
     try:
         subscription = service.create_subscription(
-            user_id=str(user_id),
-            source_id=str(body.source_id),
+            user_id=user_id,
+            source_id=body.source_id,
         )
     except NotFoundError as exc:
         raise HTTPException(
@@ -163,7 +163,7 @@ def list_subscriptions(
     service: AccountService = Depends(get_account_service),
 ) -> list[SubscriptionResponse]:
     try:
-        subscriptions = service.list_subscriptions(str(user_id))
+        subscriptions = service.list_subscriptions(user_id)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -183,8 +183,8 @@ def delete_subscription(
 ) -> Response:
     try:
         service.delete_subscription(
-            user_id=str(user_id),
-            source_id=str(source_id),
+            user_id=user_id,
+            source_id=source_id,
         )
     except NotFoundError as exc:
         raise HTTPException(

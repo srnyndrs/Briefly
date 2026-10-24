@@ -8,9 +8,9 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.config.database import Base
@@ -20,7 +20,7 @@ class Source(Base):
     __tablename__ = "sources"
 
     source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
     )
@@ -35,7 +35,7 @@ class Source(Base):
         Boolean, nullable=False, default=False, server_default="false"
     )
     submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
+        Uuid(as_uuid=True), nullable=True
     )
     last_crawled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -53,9 +53,7 @@ class Source(Base):
     )
 
     etag: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    last_modified: Mapped[str | None] = mapped_column(
-        String(128), nullable=True
-    )
+    last_modified: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

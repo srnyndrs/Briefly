@@ -6,8 +6,9 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.adapters.result_publisher import publish_result
-from src.events.post_enriched import build_result_event
+from src.adapters.event_publisher import publish_event
+from src.config.settings import settings
+from src.events.post_enriched import build_enrichment_event
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts.republish_result import republish_result
 from src.services.classification import ArticleInput
@@ -18,7 +19,11 @@ from src.services.post_processor import PostProcessor
 def process(processor, event, channel):
     saved = processor.process(event)
     if saved.publication_pending:
-        publish_result(channel, build_result_event(saved))
+        publish_event(
+            channel,
+            exchange=settings.result_exchange,
+            envelope=build_enrichment_event(saved),
+        )
         saved = processor.mark_published(saved)
     return saved
 
@@ -55,8 +60,8 @@ def test_failed_result_is_published_before_dlq(deliver, session_factory):
     saved = repository.get_by_post_id(UUID(post_id))
     assert saved.status == "failed" and saved.category_ids == ()
     assert saved.enrichment_revision == first.enrichment_revision + 1
-    assert build_result_event(saved)["payload"]["status"] == "failed"
-    assert build_result_event(saved)["payload"]["category_ids"] == []
+    assert build_enrichment_event(saved)["payload"]["status"] == "failed"
+    assert build_enrichment_event(saved)["payload"]["category_ids"] == []
     assert not saved.publication_pending
     published = json.loads(channel.basic_publish.call_args.kwargs["body"])
     assert published["payload"] == {
@@ -168,8 +173,7 @@ def test_revisions_control_classification_and_saved_identity(
     assert newer_unchanged.enrichment_revision == first.enrichment_revision + 1
     assert newer_changed.event_id != newer_unchanged.event_id
     assert (
-        newer_changed.enrichment_revision
-        == newer_unchanged.enrichment_revision + 1
+        newer_changed.enrichment_revision == newer_unchanged.enrichment_revision + 1
     )
     assert stale_changed == newer_changed
     assert len(classifier.inputs) == 3
@@ -213,7 +217,7 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     assert saved.category_ids == ("science",)
     assert not saved.publication_pending
     assert saved.event_id is not None
-    result_event = build_result_event(saved)
+    result_event = build_enrichment_event(saved)
     assert result_event["event_type"] == "post.enriched.v1"
     assert result_event["schema_version"] == 1
     assert "correlation_id" not in result_event
@@ -262,9 +266,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
         raise AssertionError("saved result should be reused")
 
     restarted = PostProcessor(
-        EnrichmentService(
-            EnrichmentRepository(session_factory), no_classifier_call
-        )
+        EnrichmentService(EnrichmentRepository(session_factory), no_classifier_call)
     )
     retry_channel = MagicMock(is_open=True)
     retried = process(restarted, event, retry_channel)
@@ -272,9 +274,7 @@ def test_failed_publish_reuses_saved_event_after_restart(
     assert retried.event_id == pending.event_id
     assert retried.enrichment_revision == pending.enrichment_revision
     assert not retried.publication_pending
-    retried_event = json.loads(
-        retry_channel.basic_publish.call_args.kwargs["body"]
-    )
+    retried_event = json.loads(retry_channel.basic_publish.call_args.kwargs["body"])
     assert retried_event == json.loads(
         channel.basic_publish.call_args.kwargs["body"]
     )
@@ -294,14 +294,10 @@ def test_save_failure_prevents_publication(
     session_factory: sessionmaker[Session],
 ) -> None:
     repository = EnrichmentRepository(session_factory)
-    processor = PostProcessor(
-        EnrichmentService(repository, RecordingClassifier())
-    )
+    processor = PostProcessor(EnrichmentService(repository, RecordingClassifier()))
     channel = MagicMock(is_open=True)
 
-    with patch.object(
-        repository, "save", side_effect=RuntimeError("save failed")
-    ):
+    with patch.object(repository, "save", side_effect=RuntimeError("save failed")):
         deliver(
             processor,
             channel,
@@ -319,9 +315,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
 ) -> None:
     post_id = uuid4()
     repository = EnrichmentRepository(session_factory)
-    processor = PostProcessor(
-        EnrichmentService(repository, RecordingClassifier())
-    )
+    processor = PostProcessor(EnrichmentService(repository, RecordingClassifier()))
     channel = MagicMock(is_open=True)
     process(processor, _event(post_id=str(post_id)), channel)
     saved = repository.get_by_post_id(post_id)
@@ -331,7 +325,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     with (
         patch("src.scripts.republish_result.SessionLocal", session_factory),
         patch(
-            "src.scripts.republish_result.pika.BlockingConnection",
+            "src.config.message_broker.pika.BlockingConnection",
             return_value=connection,
         ),
     ):
@@ -340,7 +334,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     republished = json.loads(
         connection.channel.return_value.basic_publish.call_args.kwargs["body"]
     )
-    assert republished == build_result_event(saved)
+    assert republished == build_enrichment_event(saved)
     connection.channel.return_value.confirm_delivery.assert_called_once()
     connection.close.assert_called_once()
     assert repository.get_by_post_id(post_id) == saved
@@ -354,9 +348,7 @@ def test_confirmed_publish_with_failed_completion_can_be_delivered_again(
     processor = PostProcessor(EnrichmentService(repository, classifier))
     event = _event(post_id=str(uuid4()))
     first_channel = MagicMock(is_open=True)
-    with patch.object(
-        repository, "mark_published", side_effect=RuntimeError("db")
-    ):
+    with patch.object(repository, "mark_published", side_effect=RuntimeError("db")):
         deliver(processor, first_channel, json.dumps(event).encode())
     pending = repository.get_by_post_id(UUID(event["payload"]["post_id"]))
     assert pending.publication_pending
@@ -368,9 +360,7 @@ def test_confirmed_publish_with_failed_completion_can_be_delivered_again(
     assert recovered.enrichment_revision == pending.enrichment_revision
     assert not recovered.publication_pending
     assert classifier.call_count == 1
-    first_message = json.loads(
-        first_channel.basic_publish.call_args.kwargs["body"]
-    )
+    first_message = json.loads(first_channel.basic_publish.call_args.kwargs["body"])
     second_message = json.loads(
         second_channel.basic_publish.call_args.kwargs["body"]
     )

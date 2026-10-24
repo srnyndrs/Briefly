@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import (
     DateTime,
@@ -7,6 +8,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,18 +24,18 @@ def _json_type():
 class User(Base):
     __tablename__ = "accounts"
 
-    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -51,8 +53,8 @@ class User(Base):
 class UserPreferences(Base):
     __tablename__ = "user_preferences"
 
-    user_id: Mapped[str] = mapped_column(
-        String(36),
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         primary_key=True,
     )
@@ -69,9 +71,9 @@ class UserPreferences(Base):
         _json_type(), default=list, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -87,15 +89,15 @@ class UserSubscription(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True
     )
-    user_id: Mapped[str] = mapped_column(
-        String(36),
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
 
@@ -105,40 +107,40 @@ class UserSubscription(Base):
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    token_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(
-        String(36),
+    token_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False
+        DateTime(timezone=True), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
     revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
+        DateTime(timezone=True), nullable=True
     )
 
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
-    user_id: Mapped[str] = mapped_column(
-        String(36),
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         primary_key=True,
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False
+        DateTime(timezone=True), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )

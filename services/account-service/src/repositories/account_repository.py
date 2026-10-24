@@ -1,5 +1,5 @@
-from collections.abc import Sequence
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,7 +22,7 @@ class AccountRepository:
             select(User).where(User.email == email)
         ).scalar_one_or_none()
 
-    def get_user_by_id(self, user_id: str) -> User | None:
+    def get_user_by_id(self, user_id: UUID) -> User | None:
         return self._db.execute(
             select(User).where(User.user_id == user_id)
         ).scalar_one_or_none()
@@ -30,7 +30,7 @@ class AccountRepository:
     def create_user(
         self,
         *,
-        user_id: str,
+        user_id: UUID,
         email: str,
         password_hash: str,
         now: datetime,
@@ -46,7 +46,7 @@ class AccountRepository:
         return user
 
     def update_display_name(
-        self, *, user_id: str, display_name: str | None, now: datetime
+        self, *, user_id: UUID, display_name: str | None, now: datetime
     ) -> User | None:
         user = self.get_user_by_id(user_id)
         if user is None:
@@ -56,10 +56,10 @@ class AccountRepository:
         user.updated_at = now
         return user
 
-    def create_default_preferences(self, user_id: str) -> None:
+    def create_default_preferences(self, user_id: UUID) -> None:
         self._db.add(UserPreferences(user_id=user_id))
 
-    def get_preferences(self, user_id: str) -> UserPreferences | None:
+    def get_preferences(self, user_id: UUID) -> UserPreferences | None:
         return self._db.execute(
             select(UserPreferences).where(UserPreferences.user_id == user_id)
         ).scalar_one_or_none()
@@ -67,7 +67,7 @@ class AccountRepository:
     def upsert_preferences(
         self,
         *,
-        user_id: str,
+        user_id: UUID,
         muted_keywords: list[str],
         muted_categories: list[str],
         blocked_source_ids: list[str],
@@ -92,7 +92,7 @@ class AccountRepository:
         return preferences
 
     def create_subscription(
-        self, *, user_id: str, source_id: str, now: datetime
+        self, *, user_id: UUID, source_id: UUID, now: datetime
     ) -> UserSubscription:
         subscription = UserSubscription(
             user_id=user_id,
@@ -102,8 +102,8 @@ class AccountRepository:
         self._db.add(subscription)
         return subscription
 
-    def list_subscriptions(self, *, user_id: str) -> Sequence[UserSubscription]:
-        return (
+    def list_subscriptions(self, *, user_id: UUID) -> list[UserSubscription]:
+        return list(
             self._db.execute(
                 select(UserSubscription)
                 .where(UserSubscription.user_id == user_id)
@@ -113,7 +113,7 @@ class AccountRepository:
             .all()
         )
 
-    def has_subscription(self, *, user_id: str, source_id: str) -> bool:
+    def has_subscription(self, *, user_id: UUID, source_id: UUID) -> bool:
         subscription = self._db.execute(
             select(UserSubscription).where(
                 UserSubscription.user_id == user_id,
@@ -122,7 +122,7 @@ class AccountRepository:
         ).scalar_one_or_none()
         return subscription is not None
 
-    def delete_subscription(self, *, user_id: str, source_id: str) -> bool:
+    def delete_subscription(self, *, user_id: UUID, source_id: UUID) -> bool:
         subscription = self._db.execute(
             select(UserSubscription).where(
                 UserSubscription.user_id == user_id,
@@ -134,15 +134,15 @@ class AccountRepository:
         self._db.delete(subscription)
         return True
 
-    def get_refresh_token(self, token_id: str) -> RefreshToken | None:
+    def get_refresh_token(self, token_id: UUID) -> RefreshToken | None:
         return self._db.execute(
             select(RefreshToken).where(RefreshToken.token_id == token_id)
         ).scalar_one_or_none()
 
     def list_active_refresh_tokens(
-        self, user_id: str
-    ) -> Sequence[RefreshToken]:
-        return (
+        self, user_id: UUID
+    ) -> list[RefreshToken]:
+        return list(
             self._db.execute(
                 select(RefreshToken).where(
                     RefreshToken.user_id == user_id,
@@ -159,7 +159,7 @@ class AccountRepository:
     def replace_password_reset_token(
         self,
         *,
-        user_id: str,
+        user_id: UUID,
         token_hash: str,
         expires_at: datetime,
         created_at: datetime,
@@ -184,14 +184,14 @@ class AccountRepository:
             query = query.with_for_update()
         return self._db.execute(query).scalar_one_or_none()
 
-    def delete_password_reset_token(self, user_id: str) -> bool:
+    def delete_password_reset_token(self, user_id: UUID) -> bool:
         token = self._db.get(PasswordResetToken, user_id)
         if token is None:
             return False
         self._db.delete(token)
         return True
 
-    def revoke_active_refresh_tokens(self, user_id: str, now: datetime) -> int:
+    def revoke_active_refresh_tokens(self, user_id: UUID, now: datetime) -> int:
         tokens = self.list_active_refresh_tokens(user_id)
         for token in tokens:
             token.revoked_at = now

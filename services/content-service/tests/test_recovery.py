@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -26,7 +27,7 @@ def stored_post(db_session: Session) -> Post:
         }
     )
     assert snapshot is not None
-    return PostRepository(db_session).get_post_by_id(snapshot["post_id"])
+    return PostRepository(db_session).get_by_id(snapshot["post_id"])
 
 
 def test_reextract_refreshes_body_preserving_identity_and_metadata(
@@ -42,7 +43,7 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
             },
         ) as extract,
         patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.publish_event"
         ) as publish,
     ):
         assert FeedProcessor(PostRepository(db_session)).reextract_post(
@@ -50,15 +51,15 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
         )
     extract.assert_called_once_with("https://example.com/article")
     db_session.expire_all()
-    post = PostRepository(db_session).get_post_by_id(post_id)
+    post = PostRepository(db_session).get_by_id(post_id)
     assert post.content == "New body"
     assert post.title == "RSS title"
     assert post.description == "RSS description"
     assert post.keywords == ["rss"]
     assert post.post_revision == 2
-    assert publish.call_args.kwargs["post_id"] == str(post_id)
-    assert publish.call_args.kwargs["post_revision"] == 2
-    assert publish.call_args.kwargs["content"] == "New body"
+    assert publish.call_args.kwargs["envelope"]["payload"]["post_id"] == str(post_id)
+    assert publish.call_args.kwargs["envelope"]["payload"]["post_revision"] == 2
+    assert publish.call_args.kwargs["envelope"]["payload"]["content"] == "New body"
 
 
 def test_identical_reextract_republishes_stored_revision_and_timestamps(
@@ -72,7 +73,7 @@ def test_identical_reextract_republishes_stored_revision_and_timestamps(
             return_value={"content": " Original body "},
         ) as extract,
         patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.publish_event"
         ) as publish,
     ):
         assert FeedProcessor(PostRepository(db_session)).reextract_post(
@@ -81,12 +82,12 @@ def test_identical_reextract_republishes_stored_revision_and_timestamps(
 
     extract.assert_called_once_with("https://example.com/article")
     db_session.expire_all()
-    saved = PostRepository(db_session).get_post_by_id(post_id)
+    saved = PostRepository(db_session).get_by_id(post_id)
     assert saved.content == "Original body"
     assert saved.post_revision == 1
     assert (saved.crawled_at, saved.parsed_at) == original_times
-    assert publish.call_args.kwargs["post_revision"] == 1
-    assert publish.call_args.kwargs["content"] == "Original body"
+    assert publish.call_args.kwargs["envelope"]["payload"]["post_revision"] == 1
+    assert publish.call_args.kwargs["envelope"]["payload"]["content"] == "Original body"
 
 
 def test_failed_reextract_preserves_post_and_does_not_publish(
@@ -99,7 +100,7 @@ def test_failed_reextract_preserves_post_and_does_not_publish(
             return_value={"error": "Blocked"},
         ),
         patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success"
+            "src.services.feed_processor.publish_event"
         ) as publish,
     ):
         assert not FeedProcessor(PostRepository(db_session)).reextract_post(
@@ -121,7 +122,7 @@ def test_reextract_publish_failure_propagates(
             return_value={"content": "New body"},
         ),
         patch(
-            "src.services.feed_processor.post_publisher.publish_post_parsed_success",
+            "src.services.feed_processor.publish_event",
             side_effect=pika.exceptions.UnroutableError([]),
         ),
         pytest.raises(pika.exceptions.UnroutableError),
@@ -131,7 +132,7 @@ def test_reextract_publish_failure_propagates(
         )
 
     db_session.expire_all()
-    saved = PostRepository(db_session).get_post_by_id(stored_post.post_id)
+    saved = PostRepository(db_session).get_by_id(stored_post.post_id)
     assert saved.content == "New body"
     assert saved.post_revision == 2
 
@@ -147,15 +148,15 @@ def _dlq_channel(body: bytes) -> MagicMock:
 
 
 def test_feed_replay_publishes_original_before_acknowledgement() -> None:
-    body = b'{"event_id":"failed","event_type":"feed.raw_fetched.v1","correlation_id":"original"}'
+    body = b'{"event_id":"failed","event_type":"feed.raw_fetched.v1","occurred_at":"2026-10-25T10:00:00+00:00","correlation_id":"original","payload":{}}'
     channel = _dlq_channel(body)
     assert replay_failed_feed(channel, "failed")
-    assert channel.basic_publish.call_args.kwargs["body"] == body
-    assert (
-        channel.basic_publish.call_args.kwargs["properties"]
-        is channel.basic_get.return_value[1]
-    )
-    assert channel.basic_publish.call_args.kwargs["mandatory"]
+    publish = channel.basic_publish.call_args.kwargs
+    assert publish["body"] == json.dumps(
+        json.loads(body), ensure_ascii=False
+    ).encode("utf-8")
+    assert publish["properties"].message_id == "failed"
+    assert publish["mandatory"] is True
     calls = [call[0] for call in channel.method_calls]
     assert calls.index("basic_publish") < calls.index("basic_ack")
     channel.basic_nack.assert_not_called()
@@ -173,7 +174,7 @@ def test_feed_replay_requeues_unexpected_message() -> None:
 
 def test_feed_replay_preserves_message_when_publication_fails() -> None:
     channel = _dlq_channel(
-        b'{"event_id":"failed","event_type":"feed.raw_fetched.v1"}'
+        b'{"event_id":"failed","event_type":"feed.raw_fetched.v1","occurred_at":"2026-10-25T10:00:00+00:00","payload":{}}'
     )
     channel.basic_publish.side_effect = pika.exceptions.UnroutableError([])
     with pytest.raises(pika.exceptions.UnroutableError):

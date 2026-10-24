@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     feed_exchange: str = "feed.content"
+    blocked_timeout_seconds: int = 30
 
     # How often the scheduler triggers a full crawl cycle
     crawl_interval_seconds: int = 300

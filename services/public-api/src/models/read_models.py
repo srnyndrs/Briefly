@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import (
     JSON,
@@ -7,6 +8,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     func,
     literal_column,
 )
@@ -61,9 +63,9 @@ class ProcessedEvent(Base):
 class PostProjection(Base):
     __tablename__ = "post_projections"
 
-    post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    source_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
+    post_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    source_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), nullable=False, index=True
     )
     source_title: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical_url: Mapped[str | None] = mapped_column(
@@ -72,7 +74,7 @@ class PostProjection(Base):
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     categories: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list
+        JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
     source_category: Mapped[str | None] = mapped_column(
         String(128), nullable=True
@@ -85,7 +87,7 @@ class PostProjection(Base):
     )
     author: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), default=list
+        JSON().with_variant(JSONB, "postgresql"), default=list
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_ref: Mapped[str | None] = mapped_column(String(2048), nullable=True)
@@ -118,18 +120,18 @@ class PostProjection(Base):
 class UserPreferencesProjection(Base):
     __tablename__ = "user_preferences_projections"
 
-    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     muted_keywords: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), default=list
+        JSON().with_variant(JSONB, "postgresql"), default=list
     )
     muted_categories: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), default=list
+        JSON().with_variant(JSONB, "postgresql"), default=list
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), default=list
+        JSON().with_variant(JSONB, "postgresql"), default=list
     )
     languages: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), default=list
+        JSON().with_variant(JSONB, "postgresql"), default=list
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
@@ -139,12 +141,12 @@ class UserPreferencesProjection(Base):
 class PostEnrichmentProjection(Base):
     __tablename__ = "post_enrichments"
 
-    post_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    post_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     enrichment_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     category_ids: Mapped[list[str]] = mapped_column(
-        JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list
+        JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
 
 

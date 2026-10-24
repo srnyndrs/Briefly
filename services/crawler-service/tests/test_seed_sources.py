@@ -68,9 +68,7 @@ def test_seed_file_rejects_duplicate_urls_before_database_access(
         encoding="utf-8",
     )
     init_db = Mock(
-        side_effect=AssertionError(
-            "Invalid seeds must not initialize the database"
-        )
+        side_effect=AssertionError("Invalid seeds must not initialize the database")
     )
     session_factory = Mock(
         side_effect=AssertionError("Invalid seeds must not open a session")

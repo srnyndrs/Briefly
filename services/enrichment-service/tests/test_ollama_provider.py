@@ -108,9 +108,7 @@ def test_ollama_sends_shared_schema_and_parses_answer(monkeypatch) -> None:
     assert json.loads(payload["messages"][1]["content"])["title"] == "A study"
     assert payload["stream"] is False
     assert payload["format"] == ollama_category_schema()
-    alternatives = ollama_category_schema()["properties"]["category_ids"][
-        "oneOf"
-    ]
+    alternatives = ollama_category_schema()["properties"]["category_ids"]["oneOf"]
     assert "other" not in alternatives[0]["items"]["enum"]
     assert alternatives[1]["items"]["enum"] == ["other"]
     assert alternatives[1]["minItems"] == alternatives[1]["maxItems"] == 1
@@ -181,8 +179,6 @@ def test_ollama_timeout_has_safe_detail(monkeypatch) -> None:
         raise failure
 
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fail)
-    with pytest.raises(
-        ProviderError, match="Ollama request timed out"
-    ) as error:
+    with pytest.raises(ProviderError, match="Ollama request timed out") as error:
         make_provider()(ArticleInput(title="A study"))
     assert "secret" not in str(error.value)

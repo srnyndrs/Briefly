@@ -31,6 +31,7 @@ def test_discovery_maps_metadata_and_prefers_primary_links():
         "image": "https://example.com/ignored-image.png",
         "site_url": "https://news.example.com/",
         "link": "https://example.com/ignored-link",
+        "language": "invalid-language",
     }
     with patch(
         "src.adapters.source_discovery.search_with_info",
@@ -51,6 +52,7 @@ def test_discovery_maps_metadata_and_prefers_primary_links():
     assert result[0].language == "hu"
     assert result[1].favicon == primary["favicon"]
     assert result[1].site_url == primary["site_url"]
+    assert result[1].language is None
     search.assert_called_once()
     assert search.call_args.args == ("https://feeds.example.net/feed.xml?a=1",)
     assert (

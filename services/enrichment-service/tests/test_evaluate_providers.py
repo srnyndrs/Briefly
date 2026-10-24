@@ -48,9 +48,7 @@ def test_evaluation_checks_call_cap_before_first_request(
         )
 
 
-def test_evaluation_rejects_example_overlap(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_evaluation_rejects_example_overlap(tmp_path: Path, monkeypatch) -> None:
     dataset = tmp_path / "articles.jsonl"
     dataset.write_text(
         '{"id":"same","title":"Study","category_ids":["science"]}\n',
@@ -143,9 +141,7 @@ def test_evaluation_accepts_fake_provider_and_continues_after_failures(
     ]
     waits = []
     calls = []
-    monkeypatch.setattr(
-        "src.scripts.evaluate_providers.time.sleep", waits.append
-    )
+    monkeypatch.setattr("src.scripts.evaluate_providers.time.sleep", waits.append)
 
     def fake_provider(article: ArticleInput) -> ProviderResult:
         calls.append(article.title)

@@ -12,9 +12,7 @@ from src.schemas.posts import PostCountResponse, PostResponse
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
-def get_post_repository(
-    db: Session = Depends(get_db),
-) -> PostRepository:
+def get_post_repository(db: Session = Depends(get_db)) -> PostRepository:
     return PostRepository(db)
 
 
@@ -31,7 +29,7 @@ def list_posts(
     parsed_to: datetime | None = None,
     repo: PostRepository = Depends(get_post_repository),
 ) -> list[Post]:
-    return repo.get_posts(
+    return repo.list_posts(
         limit=max(1, min(limit, 200)),
         skip=max(0, skip),
         source_id=source_id,
@@ -48,7 +46,7 @@ def list_posts(
 def post_count(
     repo: PostRepository = Depends(get_post_repository),
 ) -> PostCountResponse:
-    return PostCountResponse(count=repo.get_posts_count())
+    return PostCountResponse(count=repo.count_posts())
 
 
 @router.get("/{post_id}", response_model=PostResponse)
@@ -56,7 +54,7 @@ def get_post(
     post_id: UUID,
     repo: PostRepository = Depends(get_post_repository),
 ) -> Post:
-    post = repo.get_post_by_id(post_id)
+    post = repo.get_by_id(post_id)
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
 

@@ -29,17 +29,18 @@ def load_sources(path: Path = SOURCES_FILE) -> list[dict[str, Any]]:
     for index, source in enumerate(sources):
         if not isinstance(source, dict):
             raise ValueError(f"Source at index {index} must be a JSON object.")
+
         for field in ("url", "title"):
-            if (
-                not isinstance(source.get(field), str)
-                or not source[field].strip()
-            ):
+            if not isinstance(source.get(field), str) or not source[field].strip():
                 raise ValueError(
                     f"Source at index {index} must have a non-empty '{field}'."
                 )
-        if source["url"] in seen_urls:
-            raise ValueError(f"Duplicate source URL: {source['url']}")
-        seen_urls.add(source["url"])
+
+        source_url = source["url"]
+        if source_url in seen_urls:
+            raise ValueError(f"Duplicate source URL: {source_url}")
+
+        seen_urls.add(source_url)
 
     return sources
 
@@ -60,6 +61,7 @@ def seed_sources(path: Path = SOURCES_FILE) -> tuple[int, int]:
             if urls
             else set()
         )
+
         missing_sources = []
         for source in sources:
             if source["url"] in existing_urls:
@@ -68,6 +70,7 @@ def seed_sources(path: Path = SOURCES_FILE) -> tuple[int, int]:
 
         session.add_all(missing_sources)
         session.commit()
+
         return len(missing_sources), len(existing_urls)
 
 
@@ -78,15 +81,13 @@ def _build_source(source: dict[str, Any]) -> Source:
     seed_data["language"] = normalize_source_language(seed_data.get("language"))
     seed_data["verified"] = True
     seed_data["submitted_by_user_id"] = None
+
     return Source(**seed_data)
 
 
 def main() -> None:
     added, already_present = seed_sources()
-    print(
-        f"Source seed complete: {added} added, "
-        f"{already_present} already present."
-    )
+    print(f"Seed complete: {added} added, {already_present} already present.")
 
 
 if __name__ == "__main__":

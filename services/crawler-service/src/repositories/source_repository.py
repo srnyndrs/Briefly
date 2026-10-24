@@ -13,16 +13,19 @@ class SourceRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_sources(self, *, verified_only: bool = False) -> list[Source]:
+    def list_sources(self, *, verified_only: bool = False) -> list[Source]:
         query = self._db.query(Source)
+
         if verified_only:
             query = query.filter(Source.verified.is_(True))
 
-        return query.order_by(
+        query = query.order_by(
             Source.verified.desc(),
             func.lower(Source.title),
             Source.source_id,
-        ).all()
+        )
+
+        return query.all()
 
     def get_active_sources(
         self,
@@ -47,12 +50,10 @@ class SourceRepository:
 
         return query.all()
 
-    def get_source_by_id(self, source_id: UUID) -> Source | None:
-        return (
-            self._db.query(Source).filter(Source.source_id == source_id).first()
-        )
+    def get_by_id(self, source_id: UUID) -> Source | None:
+        return self._db.query(Source).filter(Source.source_id == source_id).first()
 
-    def get_source_by_url(self, url: str) -> Source | None:
+    def get_by_url(self, url: str) -> Source | None:
         return self._db.query(Source).filter(Source.url == url).first()
 
     def create_source(
@@ -82,19 +83,17 @@ class SourceRepository:
         )
 
         self._db.add(source)
-        self._db.commit()
+        self._db.flush()
         self._db.refresh(source)
 
         return source
 
     def delete_source(self, source_id: UUID) -> bool:
-        item = self.get_source_by_id(source_id)
+        item = self.get_by_id(source_id)
         if item is None:
             return False
 
         self._db.delete(item)
-        self._db.commit()
-
         return True
 
     def update_source(
@@ -110,7 +109,7 @@ class SourceRepository:
         language: str | None,
         verified: bool,
     ) -> Source | None:
-        item = self.get_source_by_id(source_id)
+        item = self.get_by_id(source_id)
         if item is None:
             return None
 
@@ -124,7 +123,7 @@ class SourceRepository:
         item.verified = verified
         item.updated_at = datetime.now(timezone.utc)
 
-        self._db.commit()
+        self._db.flush()
         self._db.refresh(item)
 
         return item
@@ -136,7 +135,7 @@ class SourceRepository:
         etag: str | None,
         last_modified: str | None,
     ) -> None:
-        source = self.get_source_by_id(source_id)
+        source = self.get_by_id(source_id)
         if not source:
             return
 
@@ -149,10 +148,10 @@ class SourceRepository:
         source.next_crawl_scheduled_at = self._calculate_next_crawl(source, now)
         source.updated_at = now
 
-        self._db.commit()
+        self._db.flush()
 
     def save_crawl_failure(self, *, source_id: UUID) -> int | None:
-        source = self.get_source_by_id(source_id)
+        source = self.get_by_id(source_id)
         if not source:
             return None
 
@@ -163,9 +162,18 @@ class SourceRepository:
         source.next_crawl_scheduled_at = self._calculate_next_crawl(source, now)
         source.updated_at = now
 
-        self._db.commit()
+        self._db.flush()
 
         return source.consecutive_failures
+
+    def commit(self) -> None:
+        self._db.commit()
+
+    def flush(self) -> None:
+        self._db.flush()
+
+    def rollback(self) -> None:
+        self._db.rollback()
 
     @staticmethod
     def _calculate_next_crawl(source: Source, now: datetime) -> datetime:

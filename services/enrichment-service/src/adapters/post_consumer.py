@@ -4,17 +4,17 @@ import threading
 from functools import partial
 from typing import Any
 
-import pika
 from pika.adapters.blocking_connection import (
     BlockingChannel,
     BlockingConnection,
 )
 from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 
-from src.adapters.result_publisher import publish_result
+from src.adapters.event_publisher import publish_event
+from src.config.message_broker import create_connection_parameters
 from src.config.settings import settings
-from src.events.post_enriched import build_result_event
-from src.repositories.enrichment_repository import StoredEnrichment
+from src.events.post_enriched import build_enrichment_event
+from src.repositories.stored_enrichment import StoredEnrichment
 from src.services.post_processor import PostProcessor
 
 logger = logging.getLogger(__name__)
@@ -54,9 +54,7 @@ class PostConsumer:
         self._stop_event.set()
         if self._connection and self._connection.is_open:
             try:
-                self._connection.add_callback_threadsafe(
-                    self._safe_stop_consuming
-                )
+                self._connection.add_callback_threadsafe(self._safe_stop_consuming)
             except Exception:
                 logger.exception("Failed to stop consumer cleanly")
 
@@ -67,9 +65,7 @@ class PostConsumer:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
-        params = pika.URLParameters(settings.rabbitmq_url)
-        params.blocked_connection_timeout = settings.blocked_timeout_seconds
-        connection = BlockingConnection(params)
+        connection = BlockingConnection(create_connection_parameters())
         self._connection = connection
         try:
             self._channel = connection.channel()
@@ -136,9 +132,7 @@ class PostConsumer:
             return
         connection = self._connection
         if connection is None:
-            raise ConnectionWrongStateError(
-                "Delivery has no consumer connection"
-            )
+            raise ConnectionWrongStateError("Delivery has no consumer connection")
         self._worker = threading.Thread(
             target=self._process_delivery,
             args=(connection, method.delivery_tag, body),
@@ -163,9 +157,7 @@ class PostConsumer:
         connection: BlockingConnection, callback: Any, *args: Any
     ) -> None:
         try:
-            connection.add_callback_threadsafe(
-                partial(callback, connection, *args)
-            )
+            connection.add_callback_threadsafe(partial(callback, connection, *args))
         except ConnectionWrongStateError:
             logger.info(
                 "Connection closed before delivery completion; awaiting redelivery"
@@ -197,7 +189,11 @@ class PostConsumer:
             self._settle(connection, delivery_tag, saved, None)
             return
         try:
-            publish_result(self._channel, build_result_event(saved))
+            publish_event(
+                self._channel,
+                exchange=settings.result_exchange,
+                envelope=build_enrichment_event(saved),
+            )
         except Exception as exc:
             self._settle(connection, delivery_tag, saved, exc)
             return
@@ -236,9 +232,7 @@ class PostConsumer:
             logger.error(
                 "Parsed-post delivery rejected (delivery_tag=%s, error_type=%s)",
                 delivery_tag,
-                type(error).__name__
-                if error is not None
-                else "classifier_error",
+                type(error).__name__ if error is not None else "classifier_error",
             )
             if isinstance(error, AMQPConnectionError):
                 raise error

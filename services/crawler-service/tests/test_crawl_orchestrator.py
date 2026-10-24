@@ -5,11 +5,12 @@ import pytest
 import requests
 
 from src.config.settings import settings
+from src.repositories.source_repository import SourceRepository
 
 
 @pytest.mark.parametrize("status", [200, 304])
 def test_crawl_success_persists_state(
-    crawl_cycle, source_factory, db_session, status
+    crawl_cycle, source_factory, db_session, monkeypatch, status
 ):
     source = source_factory(
         etag="old",
@@ -31,7 +32,20 @@ def test_crawl_success_persists_state(
         assert source.last_crawl_succeeded is False
         assert source.next_crawl_scheduled_at == previous_schedule
 
-    publisher.publish_source_fetched.side_effect = publish_before_state_advance
+    order = []
+    commit = SourceRepository.commit
+
+    def record_commit(repository):
+        order.append("commit")
+        commit(repository)
+
+    monkeypatch.setattr(SourceRepository, "commit", record_commit)
+
+    def record_publish(channel, **kwargs):
+        order.append("publish")
+        publish_before_state_advance(**kwargs["envelope"]["payload"])
+
+    publisher.side_effect = record_publish
     orchestrator.run_crawl_cycle()
     db_session.refresh(source)
 
@@ -42,23 +56,24 @@ def test_crawl_success_persists_state(
     headers = http_get.call_args.kwargs["headers"]
     assert headers["If-None-Match"] == "old"
     assert headers["If-Modified-Since"] == "old-date"
-    assert (
-        http_get.call_args.kwargs["timeout"] == settings.fetch_timeout_seconds
-    )
+    assert http_get.call_args.kwargs["timeout"] == settings.fetch_timeout_seconds
     if status == 200:
+        assert order == ["publish", "commit"]
         assert source.etag == "fresh"
         assert source.last_modified == "new-date"
-        event = publisher.publish_source_fetched.call_args.kwargs
-        assert event["source_id"] == source.source_id
+        event = publisher.call_args.kwargs["envelope"]["payload"]
+        assert event["source_id"] == str(source.source_id)
         assert event["source_url"] == source.url
         assert event["source_title"] == "Publisher Name"
         assert event["raw_xml"] == "<feed/>"
-        assert event["correlation_id"]
+        assert publisher.call_args.kwargs["envelope"]["correlation_id"]
     else:
+        assert order == ["commit"]
         assert source.etag == "old"
         assert source.last_modified == "old-date"
-        publisher.publish_source_fetched.assert_not_called()
-    publisher.close.assert_called_once()
+        publisher.assert_not_called()
+    publisher_factory = crawl_cycle[3]
+    publisher_factory.assert_called_once()
 
 
 def test_feed_failure_retries_and_continues(
@@ -80,10 +95,10 @@ def test_feed_failure_retries_and_continues(
     assert first.consecutive_failures == 1
     assert first.next_crawl_scheduled_at > first.last_crawled_at
     assert second.last_crawl_succeeded is True
-    publisher.publish_source_fetched.assert_called_once()
+    publisher.assert_called_once()
     assert (
-        publisher.publish_source_fetched.call_args.kwargs["source_id"]
-        == second.source_id
+        publisher.call_args.kwargs["envelope"]["payload"]["source_id"]
+        == str(second.source_id)
     )
 
 
@@ -92,10 +107,11 @@ def test_cycle_shares_correlation_id(crawl_cycle, source_factory):
     source_factory()
     orchestrator, _, publisher, _ = crawl_cycle
     orchestrator.run_crawl_cycle()
-    events = publisher.publish_source_fetched.call_args_list
+    events = publisher.call_args_list
     assert len(events) == 2
     assert (
-        events[0].kwargs["correlation_id"] == events[1].kwargs["correlation_id"]
+        events[0].kwargs["envelope"]["correlation_id"]
+        == events[1].kwargs["envelope"]["correlation_id"]
     )
 
 
@@ -104,8 +120,7 @@ def test_idle_cycle_skips_external_services(crawl_cycle):
     orchestrator.run_crawl_cycle()
     publisher_factory.assert_not_called()
     http_get.assert_not_called()
-    publisher.publish_source_fetched.assert_not_called()
-    publisher.close.assert_not_called()
+    publisher.assert_not_called()
 
 
 @pytest.mark.parametrize("stage", ["publish", "database"])
@@ -128,8 +143,7 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     orchestrator, http_get, publisher, _ = crawl_cycle
     error = RuntimeError("publication or database failed")
     if stage == "publish":
-        publisher.publish_source_fetched.side_effect = error
-        publisher.close.side_effect = RuntimeError("cleanup failed")
+        publisher.side_effect = error
     else:
 
         def fail_save(*args, **kwargs):
@@ -153,14 +167,13 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     assert source.last_modified == "old-date"
     http_get.assert_called_once()
     assert http_get.call_args.args == (source.url,)
-    publisher.publish_source_fetched.assert_called_once()
+    publisher.assert_called_once()
     assert (
-        publisher.publish_source_fetched.call_args.kwargs["source_id"]
-        == source.source_id
+        publisher.call_args.kwargs["envelope"]["payload"]["source_id"]
+        == str(source.source_id)
     )
     assert later.last_crawled_at is None
     assert later.consecutive_failures == 0
-    publisher.close.assert_called_once()
 
 
 def test_200_republishes_repeated_entries_with_unchanged_validators(
@@ -177,5 +190,5 @@ def test_200_republishes_repeated_entries_with_unchanged_validators(
 
     orchestrator.run_crawl_cycle()
 
-    publisher.publish_source_fetched.assert_called_once()
-    assert publisher.publish_source_fetched.call_args.kwargs["raw_xml"] == body
+    publisher.assert_called_once()
+    assert publisher.call_args.kwargs["envelope"]["payload"]["raw_xml"] == body

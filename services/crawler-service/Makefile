@@ -19,5 +19,5 @@ test:
 seed-sources:
 	poetry run python -m src.scripts.seed_sources
 
-check-feed:
-	poetry run python -m src.scripts.check_feed "$(URL)"
+discover-feeds:
+	poetry run python -m src.scripts.discover_feed "$(URL)"

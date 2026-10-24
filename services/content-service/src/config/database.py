@@ -8,6 +8,12 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
+SCHEMA_NAME = "content"
+
+
+class Base(DeclarativeBase):
+    metadata = MetaData(schema=SCHEMA_NAME)
+
 
 engine = create_engine(
     settings.database_url,
@@ -15,18 +21,9 @@ engine = create_engine(
     pool_size=5,
     max_overflow=10,
     json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
-    echo=False,
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autocommit=False,
-    autoflush=False,
-)
-
-
-class Base(DeclarativeBase):
-    metadata = MetaData(schema="content")
+SessionLocal = sessionmaker(bind=engine, autoflush=False, class_=Session)
 
 
 def init_db() -> None:
@@ -34,7 +31,7 @@ def init_db() -> None:
 
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
-            conn.execute(text("CREATE SCHEMA IF NOT EXISTS content;"))
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};"))
 
     logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)

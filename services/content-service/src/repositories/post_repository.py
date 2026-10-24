@@ -30,7 +30,7 @@ class PostRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_posts(
+    def list_posts(
         self,
         *,
         limit: int,
@@ -65,7 +65,7 @@ class PostRepository:
         )
         return list(self._db.scalars(statement.offset(skip).limit(limit)).all())
 
-    def get_post_by_id(self, post_id: UUID) -> Post | None:
+    def get_by_id(self, post_id: UUID) -> Post | None:
         return self._db.scalar(
             select(Post).where(Post.post_id == post_id).limit(1)
         )
@@ -83,7 +83,7 @@ class PostRepository:
             ).all()
         )
 
-    def get_posts_count(self) -> int:
+    def count_posts(self) -> int:
         return self._db.scalar(select(func.count()).select_from(Post)) or 0
 
     def upsert_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
@@ -133,7 +133,6 @@ class PostRepository:
             snapshot = dict(existing)
             action = "unchanged"
 
-        self._db.commit()
         logger.debug(
             "Post snapshot %s (post_id=%s, post_revision=%d)",
             action,
@@ -141,3 +140,12 @@ class PostRepository:
             snapshot["post_revision"],
         )
         return snapshot
+
+    def commit(self) -> None:
+        self._db.commit()
+
+    def flush(self) -> None:
+        self._db.flush()
+
+    def rollback(self) -> None:
+        self._db.rollback()

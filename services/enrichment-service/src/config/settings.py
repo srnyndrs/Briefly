@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     post_queue: str = "enrichment.posts.v1"
     post_dlq: str = "enrichment.posts.v1.dlq"
     post_failed_routing_key: str = "post.failed"
-    blocked_timeout_seconds: int = 5
+    blocked_timeout_seconds: int = 30
 
 
 settings = Settings()

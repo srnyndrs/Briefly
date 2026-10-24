@@ -156,9 +156,7 @@ def summarize(rows: list[dict]) -> dict:
         }
     micro_denominator = 2 * true_positive + false_positive + false_negative
     two_label = [
-        row
-        for row in rows
-        if row["actual"] is not None and len(row["actual"]) == 2
+        row for row in rows if row["actual"] is not None and len(row["actual"]) == 2
     ]
     by_language = Counter(row["language"] or "unknown" for row in rows)
     successful = [row for row in rows if row["error"] is None]
@@ -174,12 +172,9 @@ def summarize(rows: list[dict]) -> dict:
         if micro_denominator
         else 0.0,
         "abstention_rate": sum(row["actual"] == [] for row in rows) / len(rows),
-        "invalid_output_rate": sum(
-            row.get("invalid_output", False) for row in rows
-        )
+        "invalid_output_rate": sum(row.get("invalid_output", False) for row in rows)
         / len(rows),
-        "failure_rate": sum(row["error"] is not None for row in rows)
-        / len(rows),
+        "failure_rate": sum(row["error"] is not None for row in rows) / len(rows),
         "second_label_precision": sum(
             len(set(row["actual"]) & set(row["expected"])) for row in two_label
         )
@@ -201,9 +196,7 @@ def summarize(rows: list[dict]) -> dict:
             }
             for language, count in by_language.items()
         },
-        "mean_latency_seconds": sum(
-            row["elapsed_seconds"] for row in successful
-        )
+        "mean_latency_seconds": sum(row["elapsed_seconds"] for row in successful)
         / len(successful)
         if successful
         else None,
@@ -269,9 +262,7 @@ def main(argv: list[str] | None = None) -> int:
     if set(row[0] for row in articles) & set(row[0] for row in examples):
         parser.error("example and evaluation IDs must differ")
     if args.validate_only:
-        print(
-            f"Validated {len(articles)} labelled articles; no provider calls."
-        )
+        print(f"Validated {len(articles)} labelled articles; no provider calls.")
         return 0
     if not args.model or args.max_calls is None:
         parser.error("--model and --max-calls are required for a provider run")
@@ -315,9 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     manifest = {
         "created_at": datetime.now(UTC).isoformat(),
         "dataset_sha256": hashlib.sha256(args.dataset.read_bytes()).hexdigest(),
-        "examples_sha256": hashlib.sha256(
-            args.examples.read_bytes()
-        ).hexdigest()
+        "examples_sha256": hashlib.sha256(args.examples.read_bytes()).hexdigest()
         if args.examples
         else None,
         "provider": args.provider,

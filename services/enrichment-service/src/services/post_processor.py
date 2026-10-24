@@ -4,7 +4,7 @@ from dataclasses import replace
 from typing import Any
 
 from src.events.post_parsed import ParsedPostEvent, ParsedPostPayload
-from src.repositories.enrichment_repository import StoredEnrichment
+from src.repositories.stored_enrichment import StoredEnrichment
 from src.services.classification import ArticleInput
 from src.services.enrichment_service import EnrichmentService
 

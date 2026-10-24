@@ -4,11 +4,13 @@ from typing import Any
 
 import pika
 
+from src.adapters.event_publisher import publish_event
+from src.config.message_broker import create_connection_parameters
 from src.config.settings import settings
 
 
 def replay_failed_feed(channel: Any, event_id: str) -> bool:
-    method, properties, body = channel.basic_get(queue=settings.feed_dlq)
+    method, _, body = channel.basic_get(queue=settings.feed_dlq)
     if method is None:
         return False
     try:
@@ -21,12 +23,10 @@ def replay_failed_feed(channel: Any, event_id: str) -> bool:
             raise ValueError(
                 "Failed message is not a feed.raw_fetched.v1 event"
             )
-        channel.basic_publish(
+        publish_event(
+            channel,
             exchange=settings.feed_exchange,
-            routing_key="feed.raw_fetched.v1",
-            body=body,
-            properties=properties,
-            mandatory=True,
+            envelope=event,
         )
     except Exception:
         if channel.is_open:
@@ -42,9 +42,7 @@ def main() -> int:
         "event_id", help="Expected event ID at the head of the DLQ"
     )
     args = parser.parse_args()
-    params = pika.URLParameters(settings.rabbitmq_url)
-    params.blocked_connection_timeout = settings.blocked_timeout_seconds
-    with pika.BlockingConnection(params) as connection:
+    with pika.BlockingConnection(create_connection_parameters()) as connection:
         channel = connection.channel()
         channel.confirm_delivery()
         if not replay_failed_feed(channel, args.event_id):

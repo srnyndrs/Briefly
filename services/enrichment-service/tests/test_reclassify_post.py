@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts import reclassify_post as command
-from src.scripts import republish_result as publication
 from src.services.classification import ArticleInput
 from src.services.enrichment_service import (
     EnrichmentService,
@@ -43,7 +42,7 @@ def operation(monkeypatch, session_factory):
     monkeypatch.setattr(command, "create_enrichment_service", lambda: service)
     connection = MagicMock(is_open=True)
     monkeypatch.setattr(
-        publication.pika, "BlockingConnection", lambda _: connection
+        "src.config.message_broker.pika.BlockingConnection", lambda _: connection
     )
     return post_id, payload, opener, repository, classifier, connection
 

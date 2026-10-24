@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
-from uuid import uuid4
+from unittest.mock import patch
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from src.models.read_models import (
     PostEnrichmentProjection,
@@ -58,7 +60,7 @@ def test_collection_round_trip_and_replacement(collection_db):
         categories=values, language="en", source_id="source", keywords=values
     )
     preferences = UserPreferencesProjection(
-        user_id="user",
+        user_id=uuid4(),
         muted_keywords=values,
         muted_categories=values,
         blocked_source_ids=values,
@@ -115,8 +117,8 @@ def _post(
 ) -> PostProjection:
     now = datetime.now(UTC)
     return PostProjection(
-        post_id=str(uuid4()),
-        source_id=source_id,
+        post_id=uuid4(),
+        source_id=_as_uuid(source_id),
         source_title="Test Source",
         canonical_url=f"https://example.com/{uuid4()}",
         title="Article",
@@ -129,10 +131,19 @@ def _post(
     )
 
 
+def _as_uuid(value: str) -> UUID:
+    if isinstance(value, UUID):
+        return value
+    try:
+        return UUID(value)
+    except ValueError:
+        return uuid5(NAMESPACE_URL, value)
+
+
 def test_filter_options_ignore_their_own_active_dimension(db):
     repository = PostRepository(db)
-    source = str(uuid4())
-    other_source = str(uuid4())
+    source = uuid4()
+    other_source = uuid4()
     db.add_all(
         [
             _post(
@@ -194,6 +205,14 @@ def test_filter_options_ignore_their_own_active_dimension(db):
 
 def test_category_collection_selection_muting_and_pagination(db):
     repository = PostRepository(db)
+    # The generic JSON model type must still use JSONB containment on PostgreSQL.
+    with patch.object(db, "get_bind") as get_bind:
+        get_bind.return_value.dialect.name = "postgresql"
+        condition = repository._categories_match(["science", "health"])
+    postgres_sql = str(condition.compile(dialect=postgresql.dialect()))
+    assert postgres_sql.count("@>") == 2
+    assert "LIKE" not in postgres_sql
+
     posts = [
         _post(
             categories=["science", "health"],
@@ -246,9 +265,9 @@ def test_category_collection_selection_muting_and_pagination(db):
 
 def test_allowed_source_ids_filter_items_totals_and_every_option_dimension(db):
     repository = PostRepository(db)
-    verified = str(uuid4())
-    verified_other = str(uuid4())
-    unverified = str(uuid4())
+    verified = uuid4()
+    verified_other = uuid4()
+    unverified = uuid4()
     verified_post = _post(
         categories=["technology"],
         language="en",
@@ -299,7 +318,7 @@ def test_allowed_source_ids_filter_items_totals_and_every_option_dimension(db):
 
 def test_personal_category_options_rank_categories(db):
     repository = PostRepository(db)
-    source = str(uuid4())
+    source = uuid4()
     posts = [
         _post(categories=["technology"], language="en", source_id=source),
         _post(categories=["technology"], language="en", source_id=source),

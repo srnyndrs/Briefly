@@ -8,19 +8,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src import app as application
-from src import bootstrap
-from src.adapters.result_publisher import publish_result
+from src.adapters.event_publisher import publish_event
 from src.config.settings import settings
-from src.events.post_enriched import build_result_event
+from src.events.post_enriched import build_enrichment_event
+from src.services.post_processor import PostProcessor
 
 
 def process(processor, event, channel):
     saved = processor.process(event)
     if saved.publication_pending:
-        publish_result(channel, build_result_event(saved))
-    return (
-        processor.mark_published(saved) if saved.publication_pending else saved
-    )
+        publish_event(
+            channel,
+            exchange=settings.result_exchange,
+            envelope=build_enrichment_event(saved),
+        )
+    return processor.mark_published(saved) if saved.publication_pending else saved
 
 
 @pytest.fixture
@@ -42,7 +44,7 @@ def ollama(monkeypatch, session_factory):
         return BytesIO(json.dumps(data).encode())
 
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fake_open)
-    monkeypatch.setattr(bootstrap, "SessionLocal", session_factory)
+    monkeypatch.setattr(application, "SessionLocal", session_factory)
     monkeypatch.setattr(settings, "ollama_model", "test:latest")
     monkeypatch.setattr(settings, "ollama_timeout_seconds", 60)
     monkeypatch.setattr(settings, "gemini_api_key", None)
@@ -72,32 +74,31 @@ def test_composed_runtime_persists_publishes_and_reuses(
     calls, installed = ollama
     event = parsed_event()
     channel = MagicMock()
-    saved = process(bootstrap.create_post_processor(), event, channel)
+    saved = process(
+        PostProcessor(application.create_enrichment_service()), event, channel
+    )
     installed["digest"] = "digest-two"
     monkeypatch.setattr(settings, "ollama_model", "changed:latest")
-    reused = process(bootstrap.create_post_processor(), event, channel)
+    reused = process(
+        PostProcessor(application.create_enrichment_service()), event, channel
+    )
     assert saved == reused
     assert saved.category_ids == ("science",)
     assert not saved.publication_pending
     assert len(calls) == 1
     assert (
-        json.loads(calls[0]["messages"][1]["content"])["title"]
-        == "Research report"
+        json.loads(calls[0]["messages"][1]["content"])["title"] == "Research report"
     )
     assert channel.basic_publish.call_count == 1
 
 
-def test_startup_composes_starts_and_stops_consumer(
-    ollama, monkeypatch
-) -> None:
+def test_startup_composes_starts_and_stops_consumer(ollama, monkeypatch) -> None:
     init_db = MagicMock()
     consumer = MagicMock()
     thread = MagicMock()
     monkeypatch.setattr(application, "init_db", init_db)
     monkeypatch.setattr(application, "PostConsumer", consumer)
-    monkeypatch.setattr(
-        application, "threading", SimpleNamespace(Thread=thread)
-    )
+    monkeypatch.setattr(application, "threading", SimpleNamespace(Thread=thread))
     with TestClient(application.app) as client:
         assert client.get("/health").json()["status"] == "ok"
         init_db.assert_called_once_with()

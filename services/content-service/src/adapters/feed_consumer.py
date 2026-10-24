@@ -4,7 +4,6 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-import pika
 from pika.adapters.blocking_connection import (
     BlockingChannel,
     BlockingConnection,
@@ -13,6 +12,7 @@ from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
 from sqlalchemy.orm import Session
 
 from src.config.database import SessionLocal
+from src.config.message_broker import create_connection_parameters
 from src.config.settings import settings
 from src.services.feed_processor import FeedProcessor
 
@@ -63,9 +63,7 @@ class FeedConsumer:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
-        params = pika.URLParameters(settings.rabbitmq_url)
-        params.blocked_connection_timeout = settings.blocked_timeout_seconds
-        connection = BlockingConnection(params)
+        connection = BlockingConnection(create_connection_parameters())
         self._connection = connection
         try:
             self._channel = connection.channel()

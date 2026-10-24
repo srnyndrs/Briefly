@@ -5,11 +5,12 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import pika
 import pytest
 
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
-from src.repositories.enrichment_repository import StoredEnrichment
+from src.repositories.stored_enrichment import StoredEnrichment
 
 
 def result(*, pending=False, status="completed"):
@@ -42,9 +43,7 @@ def test_declares_only_input_and_dead_letter_queues():
             "x-dead-letter-routing-key": settings.post_failed_routing_key,
         },
     )
-    assert {
-        c.kwargs["queue"] for c in channel.queue_declare.call_args_list
-    } == {
+    assert {c.kwargs["queue"] for c in channel.queue_declare.call_args_list} == {
         settings.post_queue,
         settings.post_dlq,
     }
@@ -92,6 +91,24 @@ def test_process_and_mark_run_off_broker_thread(deliver):
     deliver(processor, channel, b"{}", 9)
     assert order == ["saved", "confirmed", "marked", "ack"]
     processor.process.assert_called_once_with({})
+
+
+@pytest.mark.parametrize(
+    "error_type", [pika.exceptions.NackError, pika.exceptions.UnroutableError]
+)
+def test_publication_failure_leaves_result_pending(deliver, error_type):
+    saved = result(pending=True)
+    processor = MagicMock()
+    processor.process.return_value = saved
+    channel = MagicMock(is_open=True)
+    channel.basic_publish.side_effect = error_type([])
+
+    deliver(processor, channel, b"{}", 9)
+
+    assert saved.publication_pending is True
+    processor.mark_published.assert_not_called()
+    channel.basic_ack.assert_not_called()
+    channel.basic_nack.assert_called_once_with(delivery_tag=9, requeue=False)
 
 
 def test_invalid_delivery_is_dead_lettered(deliver):

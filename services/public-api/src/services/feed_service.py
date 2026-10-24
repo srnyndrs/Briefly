@@ -34,7 +34,7 @@ class ExploreFeedInput:
     offset: int
     categories: list[str] | None = None
     languages: list[str] | None = None
-    source_ids: list[str] | None = None
+    source_ids: list[UUID] | None = None
     query: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
@@ -65,7 +65,7 @@ class FeedService:
     def get_personal_feed(self, data: PersonalFeedInput) -> FeedOutput:
         preferences = self._preferences_repository.get_preferences(data.user_id)
         subscriptions = account_list_subscriptions(str(data.user_id))
-        source_ids = [str(item["source_id"]) for item in subscriptions]
+        source_ids = [UUID(str(item["source_id"])) for item in subscriptions]
         if not source_ids:
             return FeedOutput(
                 items=[],
@@ -115,7 +115,7 @@ class FeedService:
     def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
         verified_sources = crawler_list_sources(verified_only=True)
         allowed_source_ids = [
-            str(source["source_id"])
+            UUID(str(source["source_id"]))
             for source in verified_sources
             if source.get("source_id") is not None
         ]

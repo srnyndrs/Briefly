@@ -1,17 +1,12 @@
-import json
-from datetime import datetime, timezone
+"""Build the parsed post event published after persistence."""
+
+from datetime import UTC, datetime
 from typing import Any
 
-import pika
-
-from src.config.settings import settings
 from src.events.envelope import build_envelope
 
-_EVENT_NAME = "post.parsed.v1"
 
-
-def publish_post_parsed_success(
-    channel: Any,
+def build_post_parsed_event(
     *,
     post_id: str,
     source_id: str,
@@ -29,7 +24,7 @@ def publish_post_parsed_success(
     author: str | None = None,
     source_title: str,
     image_url: str | None = None,
-) -> None:
+) -> dict[str, Any]:
     payload = {
         "post_id": post_id,
         "source_id": source_id,
@@ -37,7 +32,7 @@ def publish_post_parsed_success(
         "item_guid": item_guid,
         "url": url,
         "title": title,
-        "parsed_at": datetime.now(timezone.utc).isoformat(),
+        "parsed_at": datetime.now(UTC).isoformat(),
         "content": content,
         "content_length": len(content or ""),
         "source_title": source_title,
@@ -49,22 +44,9 @@ def publish_post_parsed_success(
         "author": author,
         "category": category,
     }
-
-    envelope = build_envelope(
-        event_type=_EVENT_NAME,
+    return build_envelope(
+        event_type="post.parsed.v1",
         partition_key=f"source:{source_id}",
         payload=payload,
         correlation_id=correlation_id,
-    )
-    channel.basic_publish(
-        exchange=settings.parsed_exchange,
-        routing_key=_EVENT_NAME,
-        body=json.dumps(envelope, default=str, ensure_ascii=False).encode(
-            "utf-8"
-        ),
-        mandatory=True,
-        properties=pika.BasicProperties(
-            delivery_mode=pika.DeliveryMode.Persistent,
-            content_type="application/json",
-        ),
     )

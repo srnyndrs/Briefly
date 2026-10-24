@@ -1,6 +1,7 @@
 """Opt-in PostgreSQL verification of current collection queries."""
 
 from datetime import UTC, datetime
+from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import text
 
@@ -39,13 +40,13 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
     ]:
         db.add(
             PostProjection(
-                post_id=post_id,
+                post_id=uuid5(NAMESPACE_URL, post_id),
                 title=title,
                 description=description,
                 keywords=keywords,
                 content=content,
                 categories=["science"],
-                source_id="source",
+                source_id=uuid5(NAMESPACE_URL, "source"),
                 source_title="Source",
                 published_at=now,
                 updated_at=now,
@@ -58,9 +59,8 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
     )
     assert total == 3
     assert [item.post_id for item in items] == [
-        "title",
-        "description",
-        "keywords",
+        uuid5(NAMESPACE_URL, value)
+        for value in ("title", "description", "keywords")
     ]
     items, total = repo.list_candidates(
         EffectiveFeedQuery(query="telescope", categories=["health"])
@@ -69,12 +69,15 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
     phrase, phrase_total = repo.list_candidates(
         EffectiveFeedQuery(query='"space telescope"')
     )
-    assert phrase_total == 1 and phrase[0].post_id == "title"
+    assert phrase_total == 1 and phrase[0].post_id == uuid5(NAMESPACE_URL, "title")
     negative, negative_total = repo.list_candidates(
         EffectiveFeedQuery(query="telescope -observations")
     )
     assert negative_total == 2
-    assert {post.post_id for post in negative} == {"title", "keywords"}
+    assert {post.post_id for post in negative} == {
+        uuid5(NAMESPACE_URL, "title"),
+        uuid5(NAMESPACE_URL, "keywords"),
+    }
 
 
 def test_postgres_category_filters_facets_and_pagination(postgres_db):
@@ -89,8 +92,8 @@ def test_postgres_category_filters_facets_and_pagination(postgres_db):
     ]:
         db.add(
             PostProjection(
-                post_id=post_id,
-                source_id=source,
+                post_id=uuid5(NAMESPACE_URL, post_id),
+                source_id=uuid5(NAMESPACE_URL, source),
                 source_title=source,
                 title="Research",
                 categories=categories,
@@ -102,7 +105,10 @@ def test_postgres_category_filters_facets_and_pagination(postgres_db):
         )
     db.commit()
     repo = PostRepository(db)
-    base = dict(allowed_source_ids=["allowed"], languages=["en"])
+    base = dict(
+        allowed_source_ids=[uuid5(NAMESPACE_URL, "allowed")],
+        languages=["en"],
+    )
     first, total = repo.list_candidates(
         EffectiveFeedQuery(**base, categories=["science", "health"], limit=1)
     )
@@ -116,8 +122,8 @@ def test_postgres_category_filters_facets_and_pagination(postgres_db):
         EffectiveFeedQuery(**base, muted_categories=["health"])
     )
     assert total == 2 and {p.post_id for p in visible} == {
-        "two",
-        "empty",
+        uuid5(NAMESPACE_URL, "two"),
+        uuid5(NAMESPACE_URL, "empty"),
     }
     assert repo.list_filter_options(
         EffectiveFeedQuery(**base, categories=["health"])

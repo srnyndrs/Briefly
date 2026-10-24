@@ -6,8 +6,9 @@ from uuid import UUID
 import pika
 import pytest
 
-from src.adapters.post_publisher import publish_post_parsed_success
+from src.adapters.event_publisher import publish_event
 from src.config.settings import settings
+from src.events.post_parsed import build_post_parsed_event
 
 
 @pytest.mark.parametrize(
@@ -34,12 +35,23 @@ def test_publisher_emits_complete_snapshot_and_envelope(
         "language": "en" if populated else None,
         "keywords": ["keyword"] if populated else [],
     }
-    publish_post_parsed_success(channel, correlation_id="corr-123", **snapshot)
+    envelope = build_post_parsed_event(
+        correlation_id="corr-123", **snapshot
+    )
+    publish_event(
+        channel, exchange=settings.parsed_exchange, envelope=envelope
+    )
     channel.basic_publish.assert_called_once()
     published = channel.basic_publish.call_args.kwargs
     assert published["exchange"] == settings.parsed_exchange
     assert published["routing_key"] == "post.parsed.v1"
     assert published["mandatory"] is True
+    assert published["properties"].message_id == envelope["event_id"]
+    assert published["properties"].type == "post.parsed.v1"
+    assert published["properties"].correlation_id == "corr-123"
+    assert published["properties"].timestamp == int(
+        datetime.fromisoformat(envelope["occurred_at"]).timestamp()
+    )
     assert (
         published["properties"].delivery_mode
         == pika.DeliveryMode.Persistent.value

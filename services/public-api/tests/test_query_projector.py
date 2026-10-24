@@ -1,6 +1,7 @@
 import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 import pytest
 
@@ -12,6 +13,10 @@ from src.models.read_models import (
     ProcessedEvent,
     UserPreferencesProjection,
 )
+
+POST_ID = "00000000-0000-0000-0000-000000000001"
+SOURCE_ID = "00000000-0000-0000-0000-000000000002"
+USER_ID = "00000000-0000-0000-0000-000000000003"
 
 
 class RecordingChannel:
@@ -33,15 +38,15 @@ def _post_event():
         "event_id": "parsed-1",
         "event_type": "post.parsed.v1",
         "payload": {
-            "post_id": "post-1",
+            "post_id": POST_ID,
             "post_revision": 2,
-            "source_id": "source-1",
+            "source_id": SOURCE_ID,
             "source_title": "Publisher",
             "title": "Article",
             "content": "Body",
             "keywords": [],
             "published_at": None,
-            "url": "https://example.com/post-1",
+            "url": f"https://example.com/{POST_ID}",
             "description": None,
             "category": "Publisher label",
             "author": None,
@@ -55,7 +60,7 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
     def check_committed():
         with session_factory() as db:
             assert db.get(ProcessedEvent, "parsed-1") is not None
-            assert db.get(PostProjection, "post-1").content == "Body"
+            assert db.get(PostProjection, UUID(POST_ID)).content == "Body"
 
     channel = RecordingChannel(check_committed)
     projector = QueryProjector(session_factory)
@@ -71,7 +76,7 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
         assert db.query(ProcessedEvent).count() == 1
         assert db.query(PostProjection).count() == 1
         # A duplicate must not apply the handler again.
-        db.get(PostProjection, "post-1").title = "Already projected"
+        db.get(PostProjection, UUID(POST_ID)).title = "Already projected"
         db.commit()
     projector._on_message(
         channel,
@@ -80,14 +85,17 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
         json.dumps(event).encode(),
     )
     with session_factory() as db:
-        assert db.get(PostProjection, "post-1").title == "Already projected"
+        assert (
+            db.get(PostProjection, UUID(POST_ID)).title
+            == "Already projected"
+        )
 
     enrichment = {
         "event_id": "enriched-1",
         "event_type": "post.enriched.v1",
         "schema_version": 1,
         "payload": {
-            "post_id": "post-1",
+            "post_id": POST_ID,
             "post_revision": 2,
             "enrichment_revision": 1,
             "status": "completed",
@@ -97,7 +105,7 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
     preferences = {
         "event_id": "preferences-1",
         "event_type": "preferences.updated.v1",
-        "payload": {"user_id": "user-1", "languages": ["en"]},
+        "payload": {"user_id": USER_ID, "languages": ["en"]},
     }
     # Replaying the same content revision keeps matching enrichment.
     event = {**event, "event_id": "parsed-repeat"}
@@ -109,11 +117,13 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
             json.dumps(envelope).encode(),
         )
     with session_factory() as db:
-        assert db.get(PostProjection, "post-1").categories == ["science"]
-        assert db.get(PostEnrichmentProjection, "post-1").category_ids == [
+        assert db.get(PostProjection, UUID(POST_ID)).categories == ["science"]
+        assert db.get(PostEnrichmentProjection, UUID(POST_ID)).category_ids == [
             "science"
         ]
-        assert db.get(UserPreferencesProjection, "user-1").languages == ["en"]
+        assert db.get(UserPreferencesProjection, UUID(USER_ID)).languages == [
+            "en"
+        ]
         assert db.query(ProcessedEvent).count() == 4
     assert channel.acknowledged == [1, 2, 3, 4, 5, 6]
     assert channel.rejected == []
@@ -128,7 +138,7 @@ def test_commit_failure_rolls_back_projection_and_receipt(session_factory):
         session.flush()
         staged.extend(
             [
-                session.get(PostProjection, "post-1").post_id,
+                    session.get(PostProjection, UUID(POST_ID)).post_id,
                 session.get(ProcessedEvent, "parsed-1").event_id,
             ]
         )
@@ -143,7 +153,7 @@ def test_commit_failure_rolls_back_projection_and_receipt(session_factory):
             json.dumps(_post_event()).encode(),
         )
     commit.assert_called_once_with()
-    assert staged == ["post-1", "parsed-1"]
+    assert staged == [UUID(POST_ID), "parsed-1"]
     with session_factory() as db:
         assert db.query(PostProjection).count() == 0
         assert db.query(ProcessedEvent).count() == 0
@@ -157,8 +167,13 @@ def test_query_queue_is_durable_and_binds_all_events():
     with patch(
         "src.adapters.query_projector.pika.BlockingConnection",
         return_value=connection,
-    ):
+    ) as connect:
         QueryProjector(lambda: None)._connect_and_consume()
+    parameters = connect.call_args.args[0]
+    assert (
+        parameters.blocked_connection_timeout
+        == settings.blocked_timeout_seconds
+    )
     channel.queue_declare.assert_called_once_with(
         queue=settings.query_queue, durable=True
     )
@@ -177,6 +192,7 @@ def test_projector_closes_connection_when_consumption_fails():
     connection.channel.return_value.start_consuming.side_effect = RuntimeError(
         "consume failed"
     )
+    projector = QueryProjector(lambda: None)
     with (
         patch(
             "src.adapters.query_projector.pika.BlockingConnection",
@@ -184,8 +200,10 @@ def test_projector_closes_connection_when_consumption_fails():
         ),
         pytest.raises(RuntimeError, match="consume failed"),
     ):
-        QueryProjector(lambda: None)._connect_and_consume()
+        projector._connect_and_consume()
     connection.close.assert_called_once_with()
+    assert projector._connection is None
+    assert projector._channel is None
 
 
 def test_invalid_envelope_records_no_receipt_or_projection(session_factory):
@@ -195,7 +213,7 @@ def test_invalid_envelope_records_no_receipt_or_projection(session_factory):
         "event_type": "post.enriched.v1",
         "schema_version": True,
         "payload": {
-            "post_id": "post-1",
+            "post_id": "not-a-uuid",
             "post_revision": 1,
             "enrichment_revision": 1,
             "status": "completed",

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from src.adapters.feed_consumer import FeedConsumer
-from src.config.message_broker import create_replay_publisher_channel
+from src.config.message_broker import publisher_channel
 from src.config.settings import settings
 
 
@@ -163,7 +163,8 @@ def test_replay_publisher_declares_parsed_exchange_and_enables_confirms(
     mock_connection_cls.return_value = mock_connection
     mock_connection.channel.return_value = mock_channel
 
-    create_replay_publisher_channel()
+    with publisher_channel(exchange=settings.parsed_exchange) as channel:
+        assert channel is mock_channel
 
     mock_channel.exchange_declare.assert_called_once_with(
         exchange=settings.parsed_exchange,
@@ -171,3 +172,4 @@ def test_replay_publisher_declares_parsed_exchange_and_enables_confirms(
         durable=True,
     )
     mock_channel.confirm_delivery.assert_called_once()
+    mock_connection.close.assert_called_once_with()
