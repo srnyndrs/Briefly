@@ -42,6 +42,7 @@ def get_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
+
     return UserResponse.model_validate(user)
 
 
@@ -60,6 +61,7 @@ def patch_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
+
     return UserResponse.model_validate(user)
 
 
@@ -74,6 +76,7 @@ def get_preferences(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
+
     return PreferencesResponse.model_validate(preferences)
 
 
@@ -90,9 +93,7 @@ def update_preferences(
             user_id=user_id,
             muted_keywords=body.muted_keywords,
             muted_categories=body.muted_categories,
-            blocked_source_ids=[
-                str(value) for value in body.blocked_source_ids
-            ],
+            blocked_source_ids=[str(value) for value in body.blocked_source_ids],
             languages=body.languages,
             correlation_id=request_id,
         )
@@ -154,10 +155,7 @@ def create_subscription(
     return SubscriptionResponse.model_validate(subscription)
 
 
-@router.get(
-    "/{user_id}/subscriptions",
-    response_model=list[SubscriptionResponse],
-)
+@router.get("/{user_id}/subscriptions", response_model=list[SubscriptionResponse])
 def list_subscriptions(
     user_id: uuid.UUID,
     service: AccountService = Depends(get_account_service),
@@ -172,10 +170,7 @@ def list_subscriptions(
     return [SubscriptionResponse.model_validate(item) for item in subscriptions]
 
 
-@router.delete(
-    "/{user_id}/subscriptions/{source_id}",
-    status_code=204,
-)
+@router.delete("/{user_id}/subscriptions/{source_id}", status_code=204)
 def delete_subscription(
     user_id: uuid.UUID,
     source_id: uuid.UUID,
@@ -190,4 +185,5 @@ def delete_subscription(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
+
     return Response(status_code=204)

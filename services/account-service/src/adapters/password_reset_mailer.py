@@ -9,7 +9,8 @@ class PasswordResetDeliveryError(Exception):
 
 
 class PasswordResetMailer:
-    def send(self, *, email: str, reset_token: str) -> None:
+    @staticmethod
+    def send(email: str, reset_token: str) -> None:
         if (
             not settings.smtp_host
             or not settings.smtp_from
@@ -32,12 +33,14 @@ class PasswordResetMailer:
             with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
                 if settings.smtp_use_tls:
                     smtp.starttls()
+
                 if settings.smtp_username:
                     if not settings.smtp_password:
                         raise PasswordResetDeliveryError(
                             "SMTP password is not configured"
                         )
                     smtp.login(settings.smtp_username, settings.smtp_password)
+
                 smtp.send_message(message)
         except (OSError, smtplib.SMTPException) as exc:
             raise PasswordResetDeliveryError(

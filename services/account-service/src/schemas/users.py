@@ -23,6 +23,7 @@ class UserResponse(BaseModel):
     def serialize_created_at(self, value: datetime) -> str:
         if value.tzinfo is None:
             value = value.replace(tzinfo=UTC)
+
         return value.isoformat()
 
 
@@ -34,11 +35,13 @@ class AccountPatchRequest(BaseModel):
     def validate_display_name(cls, value: str | None) -> str | None:
         if value is None:
             return None
+
         trimmed = value.strip()
         if not trimmed:
             raise ValueError("display_name must not be blank")
         if len(trimmed) > 80:
             raise ValueError("display_name must be at most 80 characters")
+
         return trimmed
 
 
@@ -70,6 +73,7 @@ class PreferencesResponse(BaseModel):
     def serialize_updated_at(self, value: datetime) -> str:
         if value.tzinfo is None:
             value = value.replace(tzinfo=UTC)
+
         return value.isoformat()
 
 
@@ -88,4 +92,5 @@ class SubscriptionResponse(BaseModel):
     def serialize_created_at(self, value: datetime) -> str:
         if value.tzinfo is None:
             value = value.replace(tzinfo=UTC)
+
         return value.isoformat()

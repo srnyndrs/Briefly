@@ -38,9 +38,7 @@ def test_registration_and_login(client, credentials, db_session) -> None:
     assert argon2.verify(credentials["password"], user.password_hash)
     assert db_session.get(UserPreferences, UUID(account_id)) is not None
     refresh_claims = jwt.decode(tokens["refresh_token"], settings.jwt_secret)
-    assert (
-        db_session.get(RefreshToken, UUID(refresh_claims["jti"])) is not None
-    )
+    assert db_session.get(RefreshToken, UUID(refresh_claims["jti"])) is not None
 
     assert client.post("/auth/register", json=credentials).status_code == 409
     assert (
@@ -165,13 +163,11 @@ def test_failed_password_reset_rolls_back_all_changes(
     user = db_session.get(User, UUID(account["user_id"]))
     assert user is not None
     assert user.password_hash == original_password_hash
-    assert (
-        db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None
-    )
+    assert db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None
     active_tokens = (
         db_session.execute(
             select(RefreshToken).where(
-                    RefreshToken.user_id == UUID(account["user_id"]),
+                RefreshToken.user_id == UUID(account["user_id"]),
                 RefreshToken.revoked_at.is_(None),
             )
         )
@@ -184,9 +180,7 @@ def test_failed_password_reset_rolls_back_all_changes(
 def test_invalid_refresh_tokens(client, account) -> None:
     for token in ("invalid-token", account["access_token"]):
         assert (
-            client.post(
-                "/auth/refresh", json={"refresh_token": token}
-            ).status_code
+            client.post("/auth/refresh", json={"refresh_token": token}).status_code
             == 401
         )
     assert (
@@ -197,9 +191,7 @@ def test_invalid_refresh_tokens(client, account) -> None:
     )
 
 
-def test_password_reset(
-    client, account, credentials, mailer, db_session
-) -> None:
+def test_password_reset(client, account, credentials, mailer, db_session) -> None:
     other_session = client.post("/auth/login", json=credentials)
     assert other_session.status_code == 200
     for email in (account["email"], "unknown@example.com"):
@@ -214,9 +206,7 @@ def test_password_reset(
     stored = db_session.get(PasswordResetToken, UUID(account["user_id"]))
     secret = mailer.messages[0]["reset_token"]
     assert stored.token_hash != secret
-    assert (
-        stored.token_hash == hashlib.sha256(secret.encode("utf-8")).hexdigest()
-    )
+    assert stored.token_hash == hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
     confirmation = {
         "reset_token": mailer.messages[0]["reset_token"],
@@ -226,9 +216,7 @@ def test_password_reset(
     assert confirmed.status_code == 200
     assert confirmed.json() == {"status": "ok"}
     assert (
-        client.post(
-            "/auth/password-reset/confirm", json=confirmation
-        ).status_code
+        client.post("/auth/password-reset/confirm", json=confirmation).status_code
         == 401
     )
     for token in (
@@ -236,9 +224,7 @@ def test_password_reset(
         other_session.json()["refresh_token"],
     ):
         assert (
-            client.post(
-                "/auth/refresh", json={"refresh_token": token}
-            ).status_code
+            client.post("/auth/refresh", json={"refresh_token": token}).status_code
             == 401
         )
     assert client.post("/auth/login", json=credentials).status_code == 401
@@ -254,9 +240,7 @@ def test_password_reset(
     )
 
 
-def test_password_reset_replaces_previous_secret(
-    client, account, mailer
-) -> None:
+def test_password_reset_replaces_previous_secret(client, account, mailer) -> None:
     for _ in range(2):
         response = client.post(
             "/auth/password-reset/request",
@@ -282,9 +266,7 @@ def test_password_reset_expiry(client, account, mailer, db_session) -> None:
     )
     assert requested.status_code == 202
     stored = db_session.get(PasswordResetToken, UUID(account["user_id"]))
-    stored.expires_at = datetime.now(UTC) - timedelta(
-        minutes=1
-    )
+    stored.expires_at = datetime.now(UTC) - timedelta(minutes=1)
     db_session.commit()
 
     response = client.post(
@@ -310,6 +292,4 @@ def test_password_reset_delivery_failure_keeps_generic_response(
     )
     assert response.status_code == 202
     assert response.json() == {"status": "accepted"}
-    assert (
-        db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None
-    )
+    assert db_session.get(PasswordResetToken, UUID(account["user_id"])) is not None

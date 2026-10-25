@@ -17,15 +17,18 @@ from sqlalchemy.types import JSON
 from src.config.database import Base
 
 
-def _json_type():
-    return JSON().with_variant(JSONB, "postgresql")
-
-
 class User(Base):
     __tablename__ = "accounts"
 
-    user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+    )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+    )
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -59,16 +62,24 @@ class UserPreferences(Base):
         primary_key=True,
     )
     muted_keywords: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
+        JSON().with_variant(JSONB, "postgresql"),
+        default=list,
+        nullable=False,
     )
     muted_categories: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
+        JSON().with_variant(JSONB, "postgresql"),
+        default=list,
+        nullable=False,
     )
     blocked_source_ids: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
+        JSON().with_variant(JSONB, "postgresql"),
+        default=list,
+        nullable=False,
     )
     languages: Mapped[list[str]] = mapped_column(
-        _json_type(), default=list, nullable=False
+        JSON().with_variant(JSONB, "postgresql"),
+        default=list,
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -82,19 +93,21 @@ class UserPreferences(Base):
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
-    __table_args__ = (
-        UniqueConstraint("user_id", "source_id", name="uq_user_source"),
-    )
 
     id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
+        Integer,
+        primary_key=True,
+        autoincrement=True,
     )
     user_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    source_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    source_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -103,11 +116,18 @@ class UserSubscription(Base):
 
     user: Mapped[User] = relationship(back_populates="subscriptions")
 
+    __table_args__ = (
+        UniqueConstraint("user_id", "source_id", name="uq_user_source"),
+    )
+
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    token_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    token_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+    )
     user_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("accounts.user_id", ondelete="CASCADE"),

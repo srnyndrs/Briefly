@@ -62,6 +62,7 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
+
     return TokenPairResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -80,6 +81,7 @@ def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
+
     return TokenPairResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -96,6 +98,7 @@ def password_reset_request(
     service: AccountService = Depends(get_account_service),
 ) -> PasswordResetRequestResponse:
     service.password_reset_request(body.email)
+
     return PasswordResetRequestResponse(status="accepted")
 
 
@@ -117,6 +120,7 @@ def password_reset_confirm(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
+
     return StatusResponse(status="ok")
 
 
@@ -132,4 +136,5 @@ def logout(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
+
     return Response(status_code=204)

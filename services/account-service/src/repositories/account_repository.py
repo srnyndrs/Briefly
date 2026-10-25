@@ -42,7 +42,9 @@ class AccountRepository:
             created_at=now,
             updated_at=now,
         )
+
         self._db.add(user)
+
         return user
 
     def update_display_name(
@@ -54,6 +56,7 @@ class AccountRepository:
 
         user.display_name = display_name
         user.updated_at = now
+
         return user
 
     def create_default_preferences(self, user_id: UUID) -> None:
@@ -99,7 +102,9 @@ class AccountRepository:
             source_id=source_id,
             created_at=now,
         )
+
         self._db.add(subscription)
+
         return subscription
 
     def list_subscriptions(self, *, user_id: UUID) -> list[UserSubscription]:
@@ -120,6 +125,7 @@ class AccountRepository:
                 UserSubscription.source_id == source_id,
             )
         ).scalar_one_or_none()
+
         return subscription is not None
 
     def delete_subscription(self, *, user_id: UUID, source_id: UUID) -> bool:
@@ -131,7 +137,9 @@ class AccountRepository:
         ).scalar_one_or_none()
         if subscription is None:
             return False
+
         self._db.delete(subscription)
+
         return True
 
     def get_refresh_token(self, token_id: UUID) -> RefreshToken | None:
@@ -139,9 +147,7 @@ class AccountRepository:
             select(RefreshToken).where(RefreshToken.token_id == token_id)
         ).scalar_one_or_none()
 
-    def list_active_refresh_tokens(
-        self, user_id: UUID
-    ) -> list[RefreshToken]:
+    def list_active_refresh_tokens(self, user_id: UUID) -> list[RefreshToken]:
         return list(
             self._db.execute(
                 select(RefreshToken).where(
@@ -172,6 +178,7 @@ class AccountRepository:
         token.token_hash = token_hash
         token.expires_at = expires_at
         token.created_at = created_at
+
         return token
 
     def get_password_reset_token(
@@ -182,19 +189,23 @@ class AccountRepository:
         )
         if lock:
             query = query.with_for_update()
+
         return self._db.execute(query).scalar_one_or_none()
 
     def delete_password_reset_token(self, user_id: UUID) -> bool:
         token = self._db.get(PasswordResetToken, user_id)
         if token is None:
             return False
+
         self._db.delete(token)
+
         return True
 
     def revoke_active_refresh_tokens(self, user_id: UUID, now: datetime) -> int:
         tokens = self.list_active_refresh_tokens(user_id)
         for token in tokens:
             token.revoked_at = now
+
         return len(tokens)
 
     def commit(self) -> None:

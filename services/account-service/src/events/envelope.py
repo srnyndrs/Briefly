@@ -27,10 +27,12 @@ def build_envelope(
         "partition_key": partition_key,
         "payload": payload,
     }
+
     if correlation_id is not None:
         envelope["correlation_id"] = correlation_id
         envelope["trace"] = {
             "trace_id": uuid4().hex,
             "span_id": uuid4().hex[:16],
         }
+
     return envelope

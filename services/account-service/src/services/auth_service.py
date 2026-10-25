@@ -27,9 +27,11 @@ class AuthService:
 
     def login(self, *, email: str, password: str) -> tuple[str, str]:
         user = self._authenticate_user(email=email, password=password)
+
         try:
             tokens = self.issue_token_pair(user_id=user.user_id)
             self._repo.commit()
+
             return tokens
         except Exception:
             self._repo.rollback()
@@ -41,12 +43,14 @@ class AuthService:
             password, user.password_hash
         ):
             raise AuthError("Invalid credentials")
+
         return user
 
     def issue_token_pair(self, *, user_id: UUID) -> tuple[str, str]:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise AuthError("User not found")
+
         scopes = self._scopes_for_user(user)
 
         refresh_id = uuid4()
@@ -77,6 +81,7 @@ class AuthService:
                 expires_at=expires_at,
             )
         )
+
         return access_token, refresh_token
 
     def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
@@ -107,6 +112,7 @@ class AuthService:
             stored.revoked_at = self._utc_now()
             tokens = self.issue_token_pair(user_id=user.user_id)
             self._repo.commit()
+
             return tokens
         except Exception:
             self._repo.rollback()
@@ -155,6 +161,7 @@ class AuthService:
         except Exception:
             self._repo.rollback()
             raise
+
         return user.email, reset_token
 
     def reset_password(self, *, reset_token: str, new_password: str) -> None:
@@ -188,6 +195,7 @@ class AuthService:
     def _as_utc(value: datetime) -> datetime:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
+
         return value.astimezone(UTC)
 
     @staticmethod
@@ -208,10 +216,13 @@ class AuthService:
             "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
             "type": token_type,
         }
+
         if token_id:
             claims["jti"] = str(token_id)
+
         if scopes:
             claims["scopes"] = scopes
+
         return claims
 
     @staticmethod
@@ -223,11 +234,13 @@ class AuthService:
         }
         if user.user_id in configured_admin_ids:
             return ["admin"]
+
         return []
 
     @staticmethod
     def _encode_token(claims: dict[str, Any]) -> str:
         header = {"alg": "HS256", "typ": "JWT"}
+
         return jwt.encode(header, claims, settings.jwt_secret).decode("utf-8")
 
     @staticmethod
@@ -235,6 +248,7 @@ class AuthService:
         try:
             claims = jwt.decode(token, settings.jwt_secret)
             claims.validate()
+
             return dict(claims)
         except JoseError as exc:
             raise AuthError("Invalid token") from exc

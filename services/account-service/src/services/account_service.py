@@ -62,7 +62,9 @@ class AccountService:
             self._repo.flush()
             self._repo.create_default_preferences(user.user_id)
             tokens = self._auth_service.issue_token_pair(user_id=user.user_id)
+
             self._repo.commit()
+
             return tokens
         except Exception:
             self._repo.rollback()
@@ -86,13 +88,13 @@ class AccountService:
         user = self._repo.get_user_by_id(user_id)
         if user is None:
             raise NotFoundError("User not found")
+
         return user
 
-    def patch_display_name(
-        self, *, user_id: UUID, fields: dict[str, Any]
-    ) -> User:
+    def patch_display_name(self, *, user_id: UUID, fields: dict[str, Any]) -> User:
         if "display_name" not in fields:
             return self.get_user(user_id)
+
         user = self._repo.update_display_name(
             user_id=user_id,
             display_name=fields["display_name"],
@@ -100,17 +102,20 @@ class AccountService:
         )
         if user is None:
             raise NotFoundError("User not found")
+
         try:
             self._repo.commit()
         except Exception:
             self._repo.rollback()
             raise
+
         return user
 
     def get_preferences(self, user_id: UUID) -> UserPreferences:
         preferences = self._repo.get_preferences(user_id)
         if preferences is None:
             raise NotFoundError("User preferences not found")
+
         return preferences
 
     def update_preferences(
@@ -165,9 +170,7 @@ class AccountService:
 
         return self.update_preferences(
             user_id=user_id,
-            muted_keywords=fields.get(
-                "muted_keywords", preferences.muted_keywords
-            )
+            muted_keywords=fields.get("muted_keywords", preferences.muted_keywords)
             or [],
             muted_categories=fields.get(
                 "muted_categories", preferences.muted_categories
@@ -210,6 +213,7 @@ class AccountService:
 
     def list_subscriptions(self, user_id: UUID) -> list[UserSubscription]:
         self.get_user(user_id)
+
         return self._repo.list_subscriptions(user_id=user_id)
 
     def delete_subscription(
@@ -223,6 +227,7 @@ class AccountService:
         )
         if not deleted:
             raise NotFoundError("Subscription not found")
+
         try:
             self._repo.commit()
         except Exception:

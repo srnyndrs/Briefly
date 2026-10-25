@@ -85,7 +85,9 @@ def test_publish_propagates_broker_error() -> None:
         "payload": {},
     }
     try:
-        publish_event(channel, exchange=settings.account_exchange, envelope=envelope)
+        publish_event(
+            channel, exchange=settings.account_exchange, envelope=envelope
+        )
     except pika.exceptions.UnroutableError as caught:
         assert caught is error
     else:

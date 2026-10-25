@@ -22,6 +22,7 @@ engine = create_engine(
     max_overflow=10,
     json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
 )
+
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
@@ -35,7 +36,10 @@ def init_db() -> None:
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};"))
+
+    logger.info("Creating missing database tables...")
     Base.metadata.create_all(bind=engine)
+    logger.info("Database schema ready.")
 
 
 def get_db() -> Generator[Session, None, None]:

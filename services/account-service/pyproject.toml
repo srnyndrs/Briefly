@@ -46,7 +46,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 80
+line-length = 84
 
 [tool.ruff.lint]
 extend-select = ["I"]

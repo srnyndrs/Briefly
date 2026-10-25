@@ -155,11 +155,7 @@ def test_preferences_remain_saved_when_publication_fails(
     app.dependency_overrides.pop(get_event_publisher, None)
     monkeypatch.setattr(
         "src.routers.deps.publisher_channel",
-        Mock(
-            side_effect=pika.exceptions.AMQPConnectionError(
-                "Broker unavailable"
-            )
-        ),
+        Mock(side_effect=pika.exceptions.AMQPConnectionError("Broker unavailable")),
     )
     path = f"/users/{account['user_id']}/preferences"
     response = client.put(path, json={"languages": ["en"]})
