@@ -14,7 +14,6 @@ def build_envelope(
     event_id: str | None = None,
     occurred_at: str | None = None,
 ) -> dict[str, Any]:
-    """Build an envelope, preserving saved metadata when republishing."""
     envelope: dict[str, Any] = {
         "event_id": event_id if event_id is not None else str(uuid.uuid4()),
         "event_type": event_type,
@@ -28,10 +27,12 @@ def build_envelope(
         "partition_key": partition_key,
         "payload": payload,
     }
+
     if correlation_id is not None:
         envelope["correlation_id"] = correlation_id
         envelope["trace"] = {
             "trace_id": uuid.uuid4().hex,
             "span_id": uuid.uuid4().hex[:16],
         }
+
     return envelope

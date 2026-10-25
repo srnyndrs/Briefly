@@ -169,9 +169,6 @@ class SourceRepository:
     def commit(self) -> None:
         self._db.commit()
 
-    def flush(self) -> None:
-        self._db.flush()
-
     def rollback(self) -> None:
         self._db.rollback()
 

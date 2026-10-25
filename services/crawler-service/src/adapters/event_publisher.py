@@ -16,8 +16,10 @@ def publish_event(
     occurred_at = datetime.fromisoformat(
         envelope["occurred_at"].replace("Z", "+00:00")
     )
+
     if occurred_at.tzinfo is None:
         occurred_at = occurred_at.replace(tzinfo=UTC)
+
     channel.basic_publish(
         exchange=exchange,
         routing_key=event_type,

@@ -97,6 +97,7 @@ class CrawlCycleOrchestrator:
                 correlation_id,
                 exc,
             )
+
             return "failed" if updated else "skipped"
 
         if result.status_code == 304:
@@ -110,6 +111,7 @@ class CrawlCycleOrchestrator:
             except Exception:
                 source_repository.rollback()
                 raise
+
             return "not_modified"
 
         envelope = build_feed_fetched_event(
@@ -160,6 +162,7 @@ class CrawlCycleOrchestrator:
                 host,
                 cycle_id,
             )
+
             return False
 
         logger.warning(

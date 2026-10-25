@@ -62,7 +62,7 @@ class SourceDiscoveryAdapter:
             return []
 
         try:
-            with warnings.catch_warnings():
+            with warnings.catch_warnings(record=False):
                 warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
                 result = search_with_info(
                     normalized_url,
