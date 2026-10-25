@@ -9,10 +9,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8002
     log_level: str = "INFO"
+    env: str = "development"
     sentry_dsn: str | None = None
 
     database_url: str = (
@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     feed_dlq: str = "feed.raw_fetched.v1.parser.dlq"
     blocked_timeout_seconds: int = 30
     article_request_timeout_seconds: float = Field(
-        default=5, gt=0, allow_inf_nan=False
+        default=5,
+        gt=0,
+        allow_inf_nan=False,
     )
 
     admin_token: str | None = None

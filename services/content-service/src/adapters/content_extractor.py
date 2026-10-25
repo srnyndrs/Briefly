@@ -48,6 +48,7 @@ def normalize_article_url(value: Any) -> str | None:
     display = re.sub(r"(//)[^/?#]*@", r"\1[redacted]@", url)
     display = display.split("?", 1)[0].split("#", 1)[0][:200]
     logger.warning("Invalid article link: %r", display)
+
     return None
 
 
@@ -55,8 +56,10 @@ def normalize_html_text(text: str) -> str:
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(text, "lxml")
+
     for line_break in soup.find_all("br"):
         line_break.replace_with("\n")
+
     for block in soup.find_all(
         [
             "address",
@@ -70,7 +73,7 @@ def normalize_html_text(text: str) -> str:
     ):
         block.append("\n")
 
-    cleaned = soup.get_text()
+    cleaned = soup.text
     lines = [line.strip() for line in cleaned.splitlines()]
 
     return "\n".join([line for line in lines if line])
@@ -96,13 +99,12 @@ def extract_article(url: str) -> dict[str, Any]:
         article.parse()
 
         content = (
-            article.text_cleaned
-            if article.text_cleaned
-            else article.text or None
+            article.text_cleaned if article.text_cleaned else article.text or None
         )
         if content and _HTML_TAG_RE.search(content):
             content = normalize_html_text(content)
         content = content.strip() if content else None
+
         outcome = "success" if content else "empty"
         image = article.top_image or article.top_img or None
         keywords = article.meta_keywords or article.keywords or None
@@ -121,6 +123,7 @@ def extract_article(url: str) -> dict[str, Any]:
     except Exception as exc:
         outcome = "failed"
         error_type = type(exc).__name__
+
         return {"error": error_type, "outcome": outcome}
     finally:
         logger.log(

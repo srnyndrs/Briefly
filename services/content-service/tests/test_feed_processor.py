@@ -88,30 +88,22 @@ def test_numeric_fragment_variants_reuse_saved_post(
             "src.adapters.content_extractor.extract_article",
             return_value={"content": "Body"},
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         service.process(MagicMock(), event("0", "1"))
         service.process(MagicMock(), event("12"))
         service.process(MagicMock(), event("0", title="Updated RSS title"))
 
     extract.assert_called_once_with("https://example.com/posts/42?rss=1")
-    snapshots = [call.kwargs["envelope"]["payload"] for call in publish.call_args_list]
+    snapshots = [
+        call.kwargs["envelope"]["payload"] for call in publish.call_args_list
+    ]
     assert [snapshot["post_revision"] for snapshot in snapshots] == [1, 1, 1, 2]
-    assert {
-        key: value
-        for key, value in snapshots[0].items()
-        if key != "parsed_at"
-    } == {
-        key: value
-        for key, value in snapshots[1].items()
-        if key != "parsed_at"
-    } == {
-        key: value
-        for key, value in snapshots[2].items()
-        if key != "parsed_at"
-    }
+    assert (
+        {key: value for key, value in snapshots[0].items() if key != "parsed_at"}
+        == {key: value for key, value in snapshots[1].items() if key != "parsed_at"}
+        == {key: value for key, value in snapshots[2].items() if key != "parsed_at"}
+    )
     assert len({snapshot["post_id"] for snapshot in snapshots}) == 1
     assert {snapshot["item_guid"] for snapshot in snapshots} == {
         "https://example.com/posts/42"
@@ -150,9 +142,7 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
                 "publish_date": datetime(2026, 9, 20),
             },
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         service.process(MagicMock(), event)
         first_snapshot = publish.call_args.kwargs["envelope"]["payload"]
@@ -202,7 +192,9 @@ def test_repeated_feed_reuses_extraction_and_publishes_rss_updates(
         assert snapshot["keywords"] == ["extracted keyword"]
         assert snapshot["image_url"] == "https://example.com/image.jpg"
         assert snapshot["language"] == "hu"
-        assert publish.call_args.kwargs["envelope"]["correlation_id"] == "test-corr-id"
+        assert (
+            publish.call_args.kwargs["envelope"]["correlation_id"] == "test-corr-id"
+        )
 
     db_session.expire_all()
     post = db_session.get(Post, UUID(first_snapshot["post_id"]))
@@ -241,9 +233,7 @@ def test_changed_url_extracts_once_and_preserves_stored_fallbacks(
                 "publish_date": datetime(2026, 9, 20),
             },
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         service.process(MagicMock(), event)
         first_id = publish.call_args.kwargs["envelope"]["payload"]["post_id"]
@@ -296,9 +286,7 @@ def test_duplicate_feed_entries_extract_once_and_new_items_extract(
             "src.adapters.content_extractor.extract_article",
             return_value={"content": "Body"},
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         service.process(MagicMock(), event)
         extract.assert_called_once_with("https://example.com/duplicate")
@@ -339,9 +327,7 @@ def test_invalid_article_link_preserves_rss_metadata_without_request(
             return_value=feed,
         ),
         patch("src.adapters.content_extractor.extract_article") as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         FeedProcessor(PostRepository(db_session)).process(
             MagicMock(), _make_event()
@@ -391,9 +377,7 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
             "src.adapters.content_extractor.extract_article",
             return_value={"content": "Body"},
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         publish_count = 0
 
@@ -430,9 +414,7 @@ def test_partial_feed_replay_reuses_committed_entries_after_publish_failure(
         publish.side_effect = None
         progress.reset_mock()
 
-        FeedProcessor(repository).process(
-            MagicMock(), event, on_progress=progress
-        )
+        FeedProcessor(repository).process(MagicMock(), event, on_progress=progress)
 
     extract.assert_not_called()
     replayed_snapshots = [
@@ -480,9 +462,7 @@ def test_rss_metadata_wins_and_description_becomes_plain_text(
                 "publish_date": datetime(2026, 9, 1, tzinfo=timezone.utc),
             },
         ),
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
     post = db_session.query(Post).one()
@@ -522,9 +502,7 @@ def test_atom_uses_extracted_fallbacks(db_session: Session) -> None:
                 "image": " https://example.com/image.jpg ",
             },
         ),
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         FeedProcessor(PostRepository(db_session)).process(MagicMock(), event)
     post = db_session.query(Post).one()
@@ -534,15 +512,19 @@ def test_atom_uses_extracted_fallbacks(db_session: Session) -> None:
     assert post.author == "Extracted author"
     assert post.language == "yue"
     assert post.image_url == "https://example.com/image.jpg"
-    assert publish.call_args.kwargs["envelope"]["payload"]["post_id"] == str(post.post_id)
-    assert publish.call_args.kwargs["envelope"]["payload"]["content"] == post.content == "Body"
+    assert publish.call_args.kwargs["envelope"]["payload"]["post_id"] == str(
+        post.post_id
+    )
+    assert (
+        publish.call_args.kwargs["envelope"]["payload"]["content"]
+        == post.content
+        == "Body"
+    )
 
 
 def test_empty_valid_feed_completes_without_writes_or_publication() -> None:
     repo = MagicMock(spec=PostRepository)
-    with patch(
-        "src.services.feed_processor.publish_event"
-    ) as publish:
+    with patch("src.services.feed_processor.publish_event") as publish:
         FeedProcessor(repo).process(MagicMock(), _make_event())
     repo.upsert_post.assert_not_called()
     publish.assert_not_called()

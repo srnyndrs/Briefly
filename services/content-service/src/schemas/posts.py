@@ -10,9 +10,9 @@ class PostResponse(BaseModel):
     post_id: UUID
     post_revision: int = Field(gt=0)
     source_id: UUID
+    source_title: str
     item_guid: str
     url: str
-    source_title: str
     title: str
     description: str | None = None
     category: str | None = None

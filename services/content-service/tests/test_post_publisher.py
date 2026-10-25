@@ -11,9 +11,7 @@ from src.config.settings import settings
 from src.events.post_parsed import build_post_parsed_event
 
 
-@pytest.mark.parametrize(
-    "populated", [True, False], ids=["populated", "nullable"]
-)
+@pytest.mark.parametrize("populated", [True, False], ids=["populated", "nullable"])
 def test_publisher_emits_complete_snapshot_and_envelope(
     populated: bool,
 ) -> None:
@@ -35,12 +33,8 @@ def test_publisher_emits_complete_snapshot_and_envelope(
         "language": "en" if populated else None,
         "keywords": ["keyword"] if populated else [],
     }
-    envelope = build_post_parsed_event(
-        correlation_id="corr-123", **snapshot
-    )
-    publish_event(
-        channel, exchange=settings.parsed_exchange, envelope=envelope
-    )
+    envelope = build_post_parsed_event(correlation_id="corr-123", **snapshot)
+    publish_event(channel, exchange=settings.parsed_exchange, envelope=envelope)
     channel.basic_publish.assert_called_once()
     published = channel.basic_publish.call_args.kwargs
     assert published["exchange"] == settings.parsed_exchange
@@ -53,8 +47,7 @@ def test_publisher_emits_complete_snapshot_and_envelope(
         datetime.fromisoformat(envelope["occurred_at"]).timestamp()
     )
     assert (
-        published["properties"].delivery_mode
-        == pika.DeliveryMode.Persistent.value
+        published["properties"].delivery_mode == pika.DeliveryMode.Persistent.value
     )
     assert published["properties"].content_type == "application/json"
     envelope = json.loads(published["body"])

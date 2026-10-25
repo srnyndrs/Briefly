@@ -1,6 +1,6 @@
-import uuid
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 _PRODUCER_NAME = "content-service"
 
@@ -15,7 +15,7 @@ def build_envelope(
     occurred_at: str | None = None,
 ) -> dict[str, Any]:
     envelope: dict[str, Any] = {
-        "event_id": event_id if event_id is not None else str(uuid.uuid4()),
+        "event_id": event_id if event_id is not None else str(uuid4()),
         "event_type": event_type,
         "schema_version": 1,
         "occurred_at": (
@@ -27,11 +27,12 @@ def build_envelope(
         "partition_key": partition_key,
         "payload": payload,
     }
+
     if correlation_id is not None:
         envelope["correlation_id"] = correlation_id
         envelope["trace"] = {
-            "trace_id": uuid.uuid4().hex,
-            "span_id": uuid.uuid4().hex[:16],
+            "trace_id": uuid4().hex,
+            "span_id": uuid4().hex[:16],
         }
 
     return envelope

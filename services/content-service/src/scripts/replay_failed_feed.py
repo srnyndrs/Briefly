@@ -20,9 +20,7 @@ def replay_failed_feed(channel: Any, event_id: str) -> bool:
                 "Next failed feed does not match the requested event ID"
             )
         if event.get("event_type") != "feed.raw_fetched.v1":
-            raise ValueError(
-                "Failed message is not a feed.raw_fetched.v1 event"
-            )
+            raise ValueError("Failed message is not a feed.raw_fetched.v1 event")
         publish_event(
             channel,
             exchange=settings.feed_exchange,
@@ -38,9 +36,7 @@ def replay_failed_feed(channel: Any, event_id: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "event_id", help="Expected event ID at the head of the DLQ"
-    )
+    parser.add_argument("event_id", help="Expected event ID at the head of the DLQ")
     args = parser.parse_args()
     with pika.BlockingConnection(create_connection_parameters()) as connection:
         channel = connection.channel()

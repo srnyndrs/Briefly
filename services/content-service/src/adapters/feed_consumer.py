@@ -20,10 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class FeedConsumer:
-    def __init__(
-        self, processor_factory: Callable[[Session], FeedProcessor]
-    ) -> None:
-        self._processor_factory = processor_factory
+    def __init__(self, factory: Callable[[Session], FeedProcessor]) -> None:
+        self._processor_factory = factory
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
@@ -37,34 +35,37 @@ class FeedConsumer:
             except Exception as exc:
                 if self._stop_event.is_set():
                     break
+
                 logger.error(
                     "RabbitMQ consumer error: %s - retrying in %ds",
                     exc,
                     delay,
                 )
+
                 if self._stop_event.wait(delay):
                     break
+
                 delay = min(delay * 2, 60)
 
     def stop(self) -> None:
         self._stop_event.set()
         if self._connection and self._connection.is_open:
             try:
-                self._connection.add_callback_threadsafe(
-                    self._safe_stop_consuming
-                )
+                self._connection.add_callback_threadsafe(self._safe_stop_consuming)
             except Exception:
                 logger.exception("Failed to stop consumer cleanly")
 
     def _safe_stop_consuming(self) -> None:
         if self._channel and self._channel.is_open:
             self._channel.stop_consuming()
+
         if self._connection and self._connection.is_open:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
         connection = BlockingConnection(create_connection_parameters())
         self._connection = connection
+
         try:
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
@@ -84,18 +85,25 @@ class FeedConsumer:
                 exchange_type="direct",
                 durable=True,
             )
-            self._channel.queue_declare(queue=settings.feed_dlq, durable=True)
+            self._channel.queue_declare(
+                queue=settings.feed_dlq,
+                durable=True,
+            )
             self._channel.queue_bind(
                 queue=settings.feed_dlq,
                 exchange=settings.failed_exchange,
                 routing_key="feed.failed",
             )
-            self._channel.queue_declare(queue=settings.feed_queue, durable=True)
+            self._channel.queue_declare(
+                queue=settings.feed_queue,
+                durable=True,
+            )
             self._channel.queue_bind(
                 queue=settings.feed_queue,
                 exchange=settings.feed_exchange,
                 routing_key="feed.raw_fetched.v1",
             )
+
             self._channel.confirm_delivery()
 
             logger.info("Waiting for messages on '%s'...", settings.feed_queue)
@@ -116,17 +124,17 @@ class FeedConsumer:
     def _service_connection(self) -> None:
         if self._connection is None or not self._connection.is_open:
             raise ConnectionWrongStateError("Consumer connection is closed")
+
         self._connection.process_data_events(time_limit=0)
 
-    def _on_message(
-        self, ch: Any, method: Any, properties: Any, body: bytes
-    ) -> None:
+    def _on_message(self, ch: Any, method: Any, props: Any, body: bytes) -> None:
         try:
             event = json.loads(body)
             with SessionLocal() as db:
                 self._processor_factory(db).process(
                     ch, event, on_progress=self._service_connection
                 )
+
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as exc:
             logger.error(
@@ -134,6 +142,8 @@ class FeedConsumer:
                 method.delivery_tag,
                 type(exc).__name__,
             )
+
             if not ch.is_open or isinstance(exc, AMQPConnectionError):
                 raise
+
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

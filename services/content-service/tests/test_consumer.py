@@ -44,9 +44,7 @@ def test_consumer_startup_configures_exchanges_queues_and_confirms(
             durable=True,
         ),
     ]
-    assert all(
-        declaration in declarations for declaration in expected_declarations
-    )
+    assert all(declaration in declarations for declaration in expected_declarations)
     mock_channel.basic_qos.assert_called_once_with(prefetch_count=1)
     mock_channel.confirm_delivery.assert_called_once()
     mock_channel.queue_declare.assert_any_call(
@@ -64,9 +62,7 @@ def test_consumer_startup_configures_exchanges_queues_and_confirms(
     )
 
 
-def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> (
-    None
-):
+def test_consumer_acknowledges_only_after_processing_and_session_cleanup() -> None:
     processor_factory = MagicMock()
     processor = processor_factory.return_value
     session_context = MagicMock()

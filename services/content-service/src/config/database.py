@@ -23,7 +23,11 @@ engine = create_engine(
     json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, class_=Session)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    class_=Session,
+)
 
 
 def init_db() -> None:

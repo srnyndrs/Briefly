@@ -42,9 +42,7 @@ def replay_posts(
     with publisher_channel(exchange=settings.parsed_exchange) as channel:
         for post in posts:
             correlation_id = f"replay-{uuid.uuid4()}"
-            keywords_val = (
-                post.keywords if isinstance(post.keywords, list) else []
-            )
+            keywords_val = post.keywords if isinstance(post.keywords, list) else []
             envelope = build_post_parsed_event(
                 post_id=str(post.post_id),
                 source_id=str(post.source_id),

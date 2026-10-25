@@ -68,9 +68,7 @@ async def lifespan(application: FastAPI):
 
         yield
     finally:
-        consumer: FeedConsumer | None = getattr(
-            application.state, "consumer", None
-        )
+        consumer: FeedConsumer | None = getattr(application.state, "consumer", None)
         if consumer:
             consumer.stop()
 

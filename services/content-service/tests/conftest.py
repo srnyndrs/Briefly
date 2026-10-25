@@ -68,9 +68,7 @@ def restore_application_state():
 
 
 @pytest.fixture()
-def client(
-    db_session: Session, monkeypatch
-) -> Generator[TestClient, Any, None]:
+def client(db_session: Session, monkeypatch) -> Generator[TestClient, Any, None]:
     app.state.testing = True
     app.state.consumer = None
     app.state.consumer_thread = None

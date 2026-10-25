@@ -198,9 +198,7 @@ def test_replay_rejects_unauthorized_request(
     client: TestClient, db_session
 ) -> None:
     _seed_posts(db_session, uuid4(), uuid4())
-    with patch(
-        "src.routers.admin.publisher_channel"
-    ) as publisher:
+    with patch("src.routers.admin.publisher_channel") as publisher:
         response = client.post("/admin/posts/replay")
     assert response.status_code == 401
     publisher.assert_not_called()

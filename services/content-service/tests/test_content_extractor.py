@@ -41,9 +41,7 @@ def test_real_parser_keeps_metadata_image_without_image_downloads(
     metadata_image: bool,
 ) -> None:
     image_tag = (
-        '<meta property="og:image" content="/image.jpg">'
-        if metadata_image
-        else ""
+        '<meta property="og:image" content="/image.jpg">' if metadata_image else ""
     )
     html = (
         f"<html><head><title>Article title</title>{image_tag}</head>"

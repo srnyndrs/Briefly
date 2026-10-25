@@ -58,7 +58,7 @@ def _clean_description(value: Any) -> str | None:
 def _require_source_value(value: Any, field_name: str) -> str:
     normalized = _clean_text(value)
     if normalized is None:
-        raise ValueError(f"{field_name} must be nonblank")
+        raise ValueError(f"{field_name} must be non-empty")
 
     return normalized
 
@@ -75,31 +75,32 @@ def _require_source_title(value: Any) -> str:
     title = _require_source_value(value, "source_title")
     if len(title) > 255:
         raise ValueError("source_title must be at most 255 characters")
+
     return title
 
 
 def _clean_title(value: Any) -> str | None:
     title = _clean_text(value)
+
     if title and title.casefold() not in _INVALID_TITLES:
         return title
+
     return None
 
 
 def _clean_values(values: Any) -> list[str]:
     if not isinstance(values, (list, tuple)):
         return []
+
     return [
-        cleaned
-        for value in values
-        if (cleaned := _clean_text(value)) is not None
+        cleaned for value in values if (cleaned := _clean_text(value)) is not None
     ]
 
 
 def _entry_tags(entry: Any) -> list[str]:
     tags = entry.get("tags") or []
-    return _clean_values(
-        [tag.get("term") for tag in tags if hasattr(tag, "get")]
-    )
+
+    return _clean_values([tag.get("term") for tag in tags if hasattr(tag, "get")])
 
 
 def _entry_image(entry: Any) -> str | None:
@@ -129,6 +130,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 def _entry_published_at(entry: Any) -> datetime | None:
     if entry.get("published_parsed"):
         return datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+
     return None
 
 
@@ -152,8 +154,7 @@ def _entry_guid(entry: Any) -> str:
                 or not parts.hostname
                 or parts.username is not None
                 or parts.password is not None
-                or parts.port
-                not in (None, 443 if parts.scheme == "https" else 80)
+                or parts.port not in (None, 443 if parts.scheme == "https" else 80)
                 or any(char.isspace() or ord(char) < 32 for char in url)
             ):
                 return value
@@ -167,6 +168,7 @@ def _entry_guid(entry: Any) -> str:
         and all("0" <= char <= "9" for char in identity.fragment)
     ):
         return value.rsplit("#", 1)[0]
+
     return value
 
 
@@ -216,10 +218,7 @@ def _build_post_data(
         )
 
     final_title = (
-        title
-        or extracted_title
-        or _clean_title(stored.get("title"))
-        or "Untitled"
+        title or extracted_title or _clean_title(stored.get("title")) or "Untitled"
     )
     description = (
         description
@@ -237,9 +236,7 @@ def _build_post_data(
         or _clean_text(stored.get("author"))
     )
     final_published_at = (
-        published_at
-        or extracted.get("publish_date")
-        or stored.get("published_at")
+        published_at or extracted.get("publish_date") or stored.get("published_at")
     )
     image_url = (
         _entry_image(entry)
@@ -289,10 +286,10 @@ class FeedProcessor:
         self._repo = repository
 
     def reextract_post(self, channel: Any, post_id: UUID) -> bool:
-        """Refresh one post body while preserving stored metadata and identity."""
         post = self._repo.get_by_id(post_id)
         if post is None:
             raise ValueError("Post not found")
+
         extracted = content_extractor.extract_article(post.url)
         content = extracted.get("content")
         if (
@@ -301,6 +298,7 @@ class FeedProcessor:
             or not content.strip()
         ):
             return False
+
         data = {
             **_stored_post_data(post),
             "source_id": post.source_id,
@@ -316,9 +314,12 @@ class FeedProcessor:
         except Exception:
             self._repo.rollback()
             raise
+
         if snapshot is None:
             raise RuntimeError("Post save returned no snapshot")
+
         _publish_success_events(channel, snapshot, f"reextract-{uuid.uuid4()}")
+
         return True
 
     def process(
@@ -335,12 +336,15 @@ class FeedProcessor:
             or event.get("event_type") != "feed.raw_fetched.v1"
         ):
             raise ValueError("Expected a feed.raw_fetched.v1 event")
+
         payload = event.get("payload")
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
+
         raw_xml = payload.get("raw_xml")
         if not isinstance(raw_xml, str) or not raw_xml.strip():
             raise ValueError("raw_xml must be nonblank XML")
+
         source_id = _require_uuid(payload.get("source_id"), "source_id")
         source_title = _require_source_title(payload.get("source_title"))
         crawled_at = _parse_dt(event.get("occurred_at"))
@@ -350,10 +354,10 @@ class FeedProcessor:
             if crawled_at
             else None
         )
-
         feed = feedparser.parse(raw_xml)
         if not feed.entries and (not feed.version or feed.bozo):
             raise ValueError("raw_xml is not a usable RSS/Atom feed")
+
         feed_data = feed.feed if hasattr(feed, "feed") else {}
         feed_language = feed_data.get("language")
         entries = [(_entry_guid(entry), entry) for entry in feed.entries]
@@ -366,14 +370,14 @@ class FeedProcessor:
         }
         attempted = reused = partial = 0
         completed = False
+
         try:
             if on_progress:
                 on_progress()
             for item_guid, entry in entries:
                 stored = stored_posts.get(item_guid)
                 url = (
-                    content_extractor.normalize_article_url(entry.get("link"))
-                    or ""
+                    content_extractor.normalize_article_url(entry.get("link")) or ""
                 )
                 extracted = {}
                 if stored is not None and stored["url"] == url:
@@ -381,6 +385,7 @@ class FeedProcessor:
                 elif url:
                     attempted += 1
                     extracted = content_extractor.extract_article(url)
+
                 post_data = _build_post_data(
                     source_id,
                     entry,
@@ -393,9 +398,7 @@ class FeedProcessor:
                     stored=stored,
                 )
                 partial += bool(
-                    not url
-                    or extracted.get("error")
-                    or not post_data["content"]
+                    not url or extracted.get("error") or not post_data["content"]
                 )
 
                 try:
@@ -404,12 +407,15 @@ class FeedProcessor:
                 except Exception:
                     self._repo.rollback()
                     raise
+
                 if snapshot is None:
                     raise RuntimeError("Post save returned no snapshot")
+
                 stored_posts[item_guid] = snapshot
                 _publish_success_events(channel, snapshot, correlation_id)
                 if on_progress:
                     on_progress()
+
             completed = True
         finally:
             logger.info(

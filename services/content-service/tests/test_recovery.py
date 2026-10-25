@@ -42,9 +42,7 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
                 "title": "Website title",
             },
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         assert FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), post_id
@@ -57,7 +55,9 @@ def test_reextract_refreshes_body_preserving_identity_and_metadata(
     assert post.description == "RSS description"
     assert post.keywords == ["rss"]
     assert post.post_revision == 2
-    assert publish.call_args.kwargs["envelope"]["payload"]["post_id"] == str(post_id)
+    assert publish.call_args.kwargs["envelope"]["payload"]["post_id"] == str(
+        post_id
+    )
     assert publish.call_args.kwargs["envelope"]["payload"]["post_revision"] == 2
     assert publish.call_args.kwargs["envelope"]["payload"]["content"] == "New body"
 
@@ -72,9 +72,7 @@ def test_identical_reextract_republishes_stored_revision_and_timestamps(
             "src.adapters.content_extractor.extract_article",
             return_value={"content": " Original body "},
         ) as extract,
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         assert FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), post_id
@@ -87,7 +85,10 @@ def test_identical_reextract_republishes_stored_revision_and_timestamps(
     assert saved.post_revision == 1
     assert (saved.crawled_at, saved.parsed_at) == original_times
     assert publish.call_args.kwargs["envelope"]["payload"]["post_revision"] == 1
-    assert publish.call_args.kwargs["envelope"]["payload"]["content"] == "Original body"
+    assert (
+        publish.call_args.kwargs["envelope"]["payload"]["content"]
+        == "Original body"
+    )
 
 
 def test_failed_reextract_preserves_post_and_does_not_publish(
@@ -99,9 +100,7 @@ def test_failed_reextract_preserves_post_and_does_not_publish(
             "src.adapters.content_extractor.extract_article",
             return_value={"error": "Blocked"},
         ),
-        patch(
-            "src.services.feed_processor.publish_event"
-        ) as publish,
+        patch("src.services.feed_processor.publish_event") as publish,
     ):
         assert not FeedProcessor(PostRepository(db_session)).reextract_post(
             MagicMock(), stored_post.post_id

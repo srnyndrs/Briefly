@@ -1,9 +1,9 @@
-"""Build the parsed post event published after persistence."""
-
 from datetime import UTC, datetime
 from typing import Any
 
 from src.events.envelope import build_envelope
+
+_POST_EVENT_TYPE = "post.parsed.v1"
 
 
 def build_post_parsed_event(
@@ -44,8 +44,9 @@ def build_post_parsed_event(
         "author": author,
         "category": category,
     }
+
     return build_envelope(
-        event_type="post.parsed.v1",
+        event_type=_POST_EVENT_TYPE,
         partition_key=f"source:{source_id}",
         payload=payload,
         correlation_id=correlation_id,

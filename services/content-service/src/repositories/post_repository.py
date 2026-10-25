@@ -11,7 +11,7 @@ from src.models.post import Post
 
 logger = logging.getLogger(__name__)
 
-CANONICAL_POST_FIELDS = (
+POST_FIELDS = (
     "url",
     "source_title",
     "title",
@@ -60,15 +60,12 @@ class PostRepository:
         if parsed_to:
             conditions.append(Post.parsed_at <= parsed_to)
 
-        statement = (
-            select(Post).where(*conditions).order_by(Post.parsed_at.desc())
-        )
+        statement = select(Post).where(*conditions).order_by(Post.parsed_at.desc())
+
         return list(self._db.scalars(statement.offset(skip).limit(limit)).all())
 
     def get_by_id(self, post_id: UUID) -> Post | None:
-        return self._db.scalar(
-            select(Post).where(Post.post_id == post_id).limit(1)
-        )
+        return self._db.scalar(select(Post).where(Post.post_id == post_id).limit(1))
 
     def get_by_guids(self, source_id: UUID, guids: list[str]) -> list[Post]:
         if not guids:
@@ -89,9 +86,7 @@ class PostRepository:
     def upsert_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
         insert_statement = insert(Post).values(**post_data)
         excluded = insert_statement.excluded
-        update_fields = {
-            field: getattr(excluded, field) for field in CANONICAL_POST_FIELDS
-        }
+        update_fields = {field: getattr(excluded, field) for field in POST_FIELDS}
         update_fields.update(
             {
                 "crawled_at": excluded.crawled_at,
@@ -102,7 +97,7 @@ class PostRepository:
         changed_fields = or_(
             *(
                 getattr(Post, field).is_distinct_from(getattr(excluded, field))
-                for field in CANONICAL_POST_FIELDS
+                for field in POST_FIELDS
             )
         )
         upsert_statement = insert_statement.on_conflict_do_update(
@@ -139,13 +134,11 @@ class PostRepository:
             snapshot["post_id"],
             snapshot["post_revision"],
         )
+
         return snapshot
 
     def commit(self) -> None:
         self._db.commit()
-
-    def flush(self) -> None:
-        self._db.flush()
 
     def rollback(self) -> None:
         self._db.rollback()
