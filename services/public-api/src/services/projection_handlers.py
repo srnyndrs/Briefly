@@ -1,11 +1,11 @@
 import logging
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
+from src.events.post_enriched import EnrichmentPayload
 from src.models.read_models import (
     PostEnrichmentProjection,
     PostProjection,
@@ -14,61 +14,22 @@ from src.models.read_models import (
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_CATEGORIES = frozenset(
-    {
-        "politics",
-        "world",
-        "business",
-        "economy",
-        "finance",
-        "technology",
-        "science",
-        "health",
-        "environment",
-        "entertainment",
-        "lifestyle",
-        "automotive",
-        "sports",
-        "society",
-        "other",
-    }
-)
-
-
-class EnrichmentPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    post_id: UUID
-    post_revision: int = Field(strict=True, ge=1)
-    enrichment_revision: int = Field(strict=True, ge=1)
-    status: Literal["completed", "abstained", "failed"]
-    category_ids: list[str] = Field(strict=True, max_length=2)
-
-    @model_validator(mode="after")
-    def validate_categories(self) -> "EnrichmentPayload":
-        categories = self.category_ids
-        if (
-            any(category not in SUPPORTED_CATEGORIES for category in categories)
-            or len(set(categories)) != len(categories)
-            or ("other" in categories and len(categories) != 1)
-            or (self.status == "completed") != bool(categories)
-        ):
-            raise ValueError("Invalid enrichment category collection or status")
-        return self
-
 
 def _public_categories(result: PostEnrichmentProjection | None) -> list[str]:
     if result is not None and result.status == "completed":
         return list(result.category_ids)
+
     return []
 
 
 def _require_source_value(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field_name} must be a nonblank string")
+
     normalized = value.strip()
     if not normalized:
         raise ValueError(f"{field_name} must be nonblank")
+
     return normalized
 
 
@@ -76,6 +37,7 @@ def _require_source_title(value: Any) -> str:
     title = _require_source_value(value, "source_title")
     if len(title) > 255:
         raise ValueError("source_title must be at most 255 characters")
+
     return title
 
 
@@ -84,15 +46,17 @@ def _parse_dt(value: str | None) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+
         return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
     except ValueError:
         return None
 
 
 def project_post(db: Session, payload: dict[str, Any]) -> None:
-    """Project parsed post event into read model."""
     payload = payload or {}
-    source_id = UUID(str(_require_source_value(payload.get("source_id"), "source_id")))
+    source_id = UUID(
+        str(_require_source_value(payload.get("source_id"), "source_id"))
+    )
     source_title = _require_source_title(payload.get("source_title"))
     post_id_value = payload.get("post_id")
     post_id = UUID(str(post_id_value)) if post_id_value else None
@@ -147,6 +111,7 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
     post = db.get(PostProjection, post_id)
     if post is not None and post.post_revision > revision:
         return
+
     if result is not None and (
         result.post_revision,
         result.enrichment_revision,
@@ -166,11 +131,11 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
 
 
 def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:
-    """Project user preferences update event."""
     payload = payload or {}
     user_id_value = payload.get("user_id")
     if not user_id_value:
         return
+
     user_id = UUID(str(user_id_value))
 
     prefs = db.get(UserPreferencesProjection, user_id)

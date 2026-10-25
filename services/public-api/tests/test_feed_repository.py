@@ -24,9 +24,7 @@ def collection_db(request):
 
 def test_muting_matches_decoded_keywords_only(collection_db):
     posts = [
-        _post(
-            categories=[], language="en", source_id="source", keywords=keywords
-        )
+        _post(categories=[], language="en", source_id="source", keywords=keywords)
         for keywords in [
             [r'árvíz "100%_growth" \path'],
             [r'árvíz "1000xgrowth" \path'],
@@ -167,9 +165,7 @@ def test_filter_options_ignore_their_own_active_dimension(db):
     db.commit()
 
     category_options = repository.list_filter_options(
-        EffectiveFeedQuery(
-            source_ids=[source], categories=["technology"], limit=1
-        )
+        EffectiveFeedQuery(source_ids=[source], categories=["technology"], limit=1)
     )
     language_options = repository.list_filter_options(
         EffectiveFeedQuery(source_ids=[source], languages=["en"])
@@ -184,9 +180,7 @@ def test_filter_options_ignore_their_own_active_dimension(db):
     all_options = repository.list_filter_options(
         EffectiveFeedQuery(source_ids=[source], limit=1)
     )
-    assert [author.casefold() for author in all_options.authors] == [
-        "ada lovelace"
-    ]
+    assert [author.casefold() for author in all_options.authors] == ["ada lovelace"]
     assert all(author == author.strip() for author in all_options.authors)
     assert {keyword.casefold() for keyword in all_options.keywords} == {
         "ai",

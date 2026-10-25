@@ -88,6 +88,7 @@ def discover_sources(
     _ = user
     try:
         results = crawler_discover_sources(body.model_dump(mode="json"))
+
         return [SourceDiscoverResult(**item) for item in results]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -126,6 +127,7 @@ def patch_source(
             str(source_id),
             body.model_dump(mode="json", exclude_unset=True),
         )
+
         return SourceResponse(**updated)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

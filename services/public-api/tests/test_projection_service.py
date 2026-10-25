@@ -30,9 +30,7 @@ def test_post_snapshot_replaces_and_clears_metadata(db):
     project_post(db, payload)
     db.commit()
     db.expire_all()
-    post = db.get(
-        PostProjection, UUID("00000000-0000-0000-0000-000000000001")
-    )
+    post = db.get(PostProjection, UUID("00000000-0000-0000-0000-000000000001"))
     assert post.content == "Full body"
     assert post.description == "Short description"
     assert post.image_ref == payload["image_url"]
@@ -84,10 +82,7 @@ def test_post_rejects_missing_source_identity(db):
             },
         )
     assert (
-        db.get(
-            PostProjection, UUID("00000000-0000-0000-0000-000000000001")
-        )
-        is None
+        db.get(PostProjection, UUID("00000000-0000-0000-0000-000000000001")) is None
     )
 
 
@@ -98,9 +93,7 @@ def test_preference_snapshots_replace_collections(db):
             "user_id": "00000000-0000-0000-0000-000000000003",
             "muted_keywords": ["crypto", "drama"],
             "muted_categories": ["sports"],
-            "blocked_source_ids": [
-                "00000000-0000-0000-0000-000000000004"
-            ],
+            "blocked_source_ids": ["00000000-0000-0000-0000-000000000004"],
             "languages": ["en", "hu"],
         },
     )
@@ -110,9 +103,7 @@ def test_preference_snapshots_replace_collections(db):
     prefs = db.get(UserPreferencesProjection, user_id)
     assert prefs.muted_keywords == ["crypto", "drama"]
     assert prefs.muted_categories == ["sports"]
-    assert prefs.blocked_source_ids == [
-        "00000000-0000-0000-0000-000000000004"
-    ]
+    assert prefs.blocked_source_ids == ["00000000-0000-0000-0000-000000000004"]
     assert prefs.languages == ["en", "hu"]
 
     project_user_preferences(

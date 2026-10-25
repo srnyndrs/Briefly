@@ -85,10 +85,7 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
         json.dumps(event).encode(),
     )
     with session_factory() as db:
-        assert (
-            db.get(PostProjection, UUID(POST_ID)).title
-            == "Already projected"
-        )
+        assert db.get(PostProjection, UUID(POST_ID)).title == "Already projected"
 
     enrichment = {
         "event_id": "enriched-1",
@@ -121,9 +118,7 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
         assert db.get(PostEnrichmentProjection, UUID(POST_ID)).category_ids == [
             "science"
         ]
-        assert db.get(UserPreferencesProjection, UUID(USER_ID)).languages == [
-            "en"
-        ]
+        assert db.get(UserPreferencesProjection, UUID(USER_ID)).languages == ["en"]
         assert db.query(ProcessedEvent).count() == 4
     assert channel.acknowledged == [1, 2, 3, 4, 5, 6]
     assert channel.rejected == []
@@ -138,7 +133,7 @@ def test_commit_failure_rolls_back_projection_and_receipt(session_factory):
         session.flush()
         staged.extend(
             [
-                    session.get(PostProjection, UUID(POST_ID)).post_id,
+                session.get(PostProjection, UUID(POST_ID)).post_id,
                 session.get(ProcessedEvent, "parsed-1").event_id,
             ]
         )
@@ -165,15 +160,12 @@ def test_query_queue_is_durable_and_binds_all_events():
     connection = MagicMock()
     channel = connection.channel.return_value
     with patch(
-        "src.adapters.query_projector.pika.BlockingConnection",
+        "src.adapters.query_projector.BlockingConnection",
         return_value=connection,
     ) as connect:
         QueryProjector(lambda: None)._connect_and_consume()
     parameters = connect.call_args.args[0]
-    assert (
-        parameters.blocked_connection_timeout
-        == settings.blocked_timeout_seconds
-    )
+    assert parameters.blocked_connection_timeout == settings.blocked_timeout_seconds
     channel.queue_declare.assert_called_once_with(
         queue=settings.query_queue, durable=True
     )
@@ -195,7 +187,7 @@ def test_projector_closes_connection_when_consumption_fails():
     projector = QueryProjector(lambda: None)
     with (
         patch(
-            "src.adapters.query_projector.pika.BlockingConnection",
+            "src.adapters.query_projector.BlockingConnection",
             return_value=connection,
         ),
         pytest.raises(RuntimeError, match="consume failed"),

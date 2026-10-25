@@ -36,6 +36,7 @@ class PostRepository:
                 )
             )
         values = func.json_each(PostProjection.categories).table_valued("value")
+
         return (
             select(1)
             .select_from(values)
@@ -47,6 +48,7 @@ class PostRepository:
         eligible = self._apply_query(
             select(PostProjection.post_id, PostProjection.categories), query
         ).subquery()
+
         if self._db.get_bind().dialect.name == "postgresql":
             values = (
                 func.jsonb_array_elements_text(eligible.c.categories)
@@ -56,8 +58,10 @@ class PostRepository:
             )
         else:
             values = func.json_each(eligible.c.categories).table_valued("value")
+
         category = values.c.value.label("category")
         count = func.count(func.distinct(eligible.c.post_id)).label("count")
+
         return self._db.execute(
             select(category, count)
             .select_from(eligible.join(values, true()))
@@ -128,9 +132,7 @@ class PostRepository:
                             func.coalesce(field, "").ilike(
                                 f"%{escaped_keyword}%", escape="\\"
                             ),
-                            func.replace(
-                                func.coalesce(field, ""), "$", "s"
-                            ).ilike(
+                            func.replace(func.coalesce(field, ""), "$", "s").ilike(
                                 f"%{escaped_normalized_keyword}%",
                                 escape="\\",
                             ),
@@ -189,6 +191,7 @@ class PostRepository:
             statement = statement.where(
                 PostProjection.post_id.not_in(query.excluded_post_ids)
             )
+
         return statement
 
     def _apply_search_filter(self, query, search_query: str):
@@ -199,9 +202,7 @@ class PostRepository:
         )
         if self._db.bind and self._db.bind.dialect.name == "postgresql":
             return query.where(
-                document.op("@@")(
-                    func.websearch_to_tsquery("simple", search_query)
-                )
+                document.op("@@")(func.websearch_to_tsquery("simple", search_query))
             )
 
         fields = (
@@ -217,15 +218,14 @@ class PostRepository:
             if not token or token.upper() == "OR":
                 continue
             match = or_(
-                *(
-                    func.coalesce(field, "").ilike(f"%{token}%")
-                    for field in fields
-                )
+                *(func.coalesce(field, "").ilike(f"%{token}%") for field in fields)
             )
             query = query.where(~match if is_negative else match)
+
         return query
 
-    def _order_by(self, sort: str | None):
+    @staticmethod
+    def _order_by(sort: str | None):
         normalized = (sort or "freshness").lower()
         if normalized == "oldest":
             return (
@@ -233,6 +233,7 @@ class PostRepository:
                 PostProjection.updated_at.asc(),
                 PostProjection.post_id.asc(),
             )
+
         return (
             PostProjection.published_at.desc().nullslast(),
             PostProjection.updated_at.desc(),
@@ -244,9 +245,7 @@ class PostRepository:
     ) -> tuple[list[PostDTO], int]:
         statement = self._apply_query(select(PostProjection), query)
         total = (
-            self._db.scalar(
-                select(func.count()).select_from(statement.subquery())
-            )
+            self._db.scalar(select(func.count()).select_from(statement.subquery()))
             or 0
         )
         if query.query and self._db.bind.dialect.name == "postgresql":
@@ -266,10 +265,9 @@ class PostRepository:
         else:
             order_by = self._order_by(query.sort)
         rows = self._db.scalars(
-            statement.order_by(*order_by)
-            .offset(query.offset)
-            .limit(query.limit)
+            statement.order_by(*order_by).offset(query.offset).limit(query.limit)
         ).all()
+
         return [post_projection_to_dto(row) for row in rows], total
 
     def list_headlines(
@@ -279,6 +277,7 @@ class PostRepository:
         rows = self._db.scalars(
             statement.order_by(*self._order_by("freshness")).limit(limit)
         ).all()
+
         return [post_projection_to_dto(row) for row in rows]
 
     def list_filter_options(
@@ -316,6 +315,7 @@ class PostRepository:
             for keyword in row_keywords or []
         )
         sources = None
+
         if include_sources:
             source_query = replace(query, source_ids=None, excluded_post_ids=[])
             normalized_title = func.lower(
@@ -352,6 +352,7 @@ class PostRepository:
         category_query = replace(query, categories=None)
         category_rows = self._category_counts(category_query)
         metadata_options = self.list_filter_options(query)
+
         return FilterOptionsDTO(
             categories=[category for category, _ in category_rows],
             languages=metadata_options.languages,
@@ -364,6 +365,7 @@ class PostRepository:
         values: Iterable[str | None],
     ) -> list[str]:
         normalized: dict[str, str] = {}
+
         for value in values:
             if value is None:
                 continue
@@ -372,12 +374,14 @@ class PostRepository:
                 continue
             key = trimmed.casefold()
             normalized[key] = min(trimmed, normalized.get(key, trimmed))
+
         return [normalized[key] for key in sorted(normalized)]
 
     def get_post(self, post_id: UUID) -> PostDTO | None:
         model = self._db.get(PostProjection, post_id)
         if model is None:
             return None
+
         return post_projection_to_dto(model)
 
 
@@ -387,4 +391,5 @@ class UserPreferencesRepository:
 
     def get_preferences(self, user_id: UUID) -> UserPreferencesDTO:
         model = self._db.get(UserPreferencesProjection, user_id)
+
         return user_preferences_projection_to_dto(model)

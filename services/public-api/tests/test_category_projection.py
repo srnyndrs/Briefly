@@ -84,10 +84,7 @@ def test_revisions_duplicates_failure_and_article_update(db):
     project_enrichment(db, _result(POST_ID, 2, ["health"], 6))
     db.commit()
     assert post.categories == []
-    assert (
-        db.get(PostEnrichmentProjection, UUID(POST_ID)).enrichment_revision
-        == 7
-    )
+    assert db.get(PostEnrichmentProjection, UUID(POST_ID)).enrichment_revision == 7
 
 
 @pytest.mark.parametrize(
@@ -101,7 +98,5 @@ def test_revisions_duplicates_failure_and_article_update(db):
 )
 def test_invalid_current_payload_is_rejected(changes, db):
     with pytest.raises(ValueError):
-        project_enrichment(
-            db, {**_result(POST_ID, 1, ["science"]), **changes}
-        )
+        project_enrichment(db, {**_result(POST_ID, 1, ["science"]), **changes})
     assert db.get(PostEnrichmentProjection, UUID(POST_ID)) is None

@@ -35,6 +35,7 @@ def get_post_by_id(
     item = service.get_post(post_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Post not found")
+
     return to_post_response(item)
 
 
@@ -46,6 +47,7 @@ def admin_get_post(
     _ = admin_user
     try:
         res = content_get_post(str(post_id))
+
         return AdminPostResponse(**res)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

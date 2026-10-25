@@ -105,6 +105,7 @@ class FeedService:
             if data.include_filter_options
             else None
         )
+
         return FeedOutput(
             items=items,
             total=total,
@@ -153,6 +154,7 @@ class FeedService:
             limit=data.limit,
             offset=data.offset,
         )
+
         return self._execute(
             query,
             data.include_filter_options,
@@ -181,6 +183,7 @@ class FeedService:
             if include_options
             else None
         )
+
         return FeedOutput(
             items=items,
             total=total,

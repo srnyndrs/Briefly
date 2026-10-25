@@ -62,7 +62,6 @@ async def lifespan(application: FastAPI):
     try:
         if not getattr(application.state, "testing", False):
             init_db()
-
             application.state.projector = None
             application.state.projector_thread = None
             if settings.query_consumer_enabled:
@@ -92,7 +91,7 @@ async def lifespan(application: FastAPI):
         if thread and thread.is_alive():
             thread.join(timeout=5)
 
-        logger.info("Public API stopped")
+        logger.info("Public API stopped.")
 
 
 app = FastAPI(

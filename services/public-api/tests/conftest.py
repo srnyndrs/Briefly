@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import httpx
 import pytest
@@ -46,19 +47,21 @@ def postgres_db(postgres_engine):
 
 
 @pytest.fixture
-def session_factory(tmp_path):
+def session_factory():
     from src.models.read_models import Base
 
-    engine = create_engine(
-        f"sqlite:///{(tmp_path / 'query.db').as_posix()}",
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"query": None}},
-    )
-    try:
-        Base.metadata.create_all(engine)
-        yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    finally:
-        engine.dispose()
+    # Avoid pytest's shared temp root, which can have stale Windows permissions.
+    with TemporaryDirectory(prefix="public-api-tests-") as directory:
+        engine = create_engine(
+            f"sqlite:///{(Path(directory) / 'query.db').as_posix()}",
+            connect_args={"check_same_thread": False},
+            execution_options={"schema_translate_map": {"query": None}},
+        )
+        try:
+            Base.metadata.create_all(engine)
+            yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+        finally:
+            engine.dispose()
 
 
 @pytest.fixture

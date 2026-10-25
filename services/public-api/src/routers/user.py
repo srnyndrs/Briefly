@@ -41,9 +41,7 @@ def get_me(user: CurrentUser) -> MeDetailsResponse:
 
         return MeDetailsResponse(
             **user_data,
-            preferences=PreferencesResponse(**prefs_data)
-            if prefs_data
-            else None,
+            preferences=PreferencesResponse(**prefs_data) if prefs_data else None,
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -60,6 +58,7 @@ def patch_me(
             body.model_dump(mode="json", exclude_unset=True),
         )
         prefs_data = account_get_preferences(str(user.user_id))
+
         return MeDetailsResponse(
             **updated,
             preferences=PreferencesResponse(**prefs_data),
@@ -88,6 +87,7 @@ def patch_my_preferences(
             body.model_dump(mode="json", exclude_unset=True),
             correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
+
         return PreferencesResponse(**updated)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -102,6 +102,7 @@ def get_my_subscriptions(
 ) -> list[SubscriptionResponse]:
     try:
         subscriptions = account_list_subscriptions(str(user.user_id))
+
         return [SubscriptionResponse(**item) for item in subscriptions]
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -121,6 +122,7 @@ def create_my_subscription(
             str(user.user_id),
             {"source_id": str(body.source_id)},
         )
+
         return SubscriptionResponse(**created)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
@@ -139,6 +141,7 @@ def delete_my_subscription(
             str(user.user_id),
             str(source_id),
         )
+
         return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

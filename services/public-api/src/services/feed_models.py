@@ -99,6 +99,7 @@ def user_preferences_projection_to_dto(
 ) -> UserPreferencesDTO:
     if model is None:
         return UserPreferencesDTO()
+
     return UserPreferencesDTO(
         muted_keywords=model.muted_keywords or [],
         muted_categories=model.muted_categories or [],

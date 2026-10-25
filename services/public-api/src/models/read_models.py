@@ -26,9 +26,7 @@ def post_search_document(
 ) -> ColumnElement:
     configuration = literal_column("'simple'")
     title_vector = func.setweight(
-        func.to_tsvector(
-            configuration, func.coalesce(title, literal_column("''"))
-        ),
+        func.to_tsvector(configuration, func.coalesce(title, literal_column("''"))),
         literal_column("'A'"),
     )
     description_vector = func.setweight(
@@ -39,12 +37,9 @@ def post_search_document(
         literal_column("'B'"),
     )
     keywords_vector = func.setweight(
-        func.to_tsvector(
-            configuration,
-            func.coalesce(
-                func.query.keywords_to_search_text(keywords),
-                literal_column("''"),
-            ),
+        func.coalesce(
+            func.to_tsvector(configuration, keywords),
+            literal_column("''::tsvector"),
         ),
         literal_column("'C'"),
     )
@@ -68,20 +63,14 @@ class PostProjection(Base):
         Uuid(as_uuid=True), nullable=False, index=True
     )
     source_title: Mapped[str] = mapped_column(String(255), nullable=False)
-    canonical_url: Mapped[str | None] = mapped_column(
-        String(2048), nullable=True
-    )
+    canonical_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     categories: Mapped[list[str]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
-    source_category: Mapped[str | None] = mapped_column(
-        String(128), nullable=True
-    )
-    post_revision: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1
-    )
+    source_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    post_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     language: Mapped[str | None] = mapped_column(
         String(32), nullable=True, index=True
     )
@@ -99,6 +88,11 @@ class PostProjection(Base):
     )
 
     __table_args__ = (
+        Index(
+            "ix_post_projections_search_vector",
+            post_search_document(title, description, keywords),
+            postgresql_using="gin",
+        ).ddl_if(dialect="postgresql"),
         Index(
             "ix_post_projections_published_updated",
             "published_at",
@@ -148,15 +142,3 @@ class PostEnrichmentProjection(Base):
     category_ids: Mapped[list[str]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
-
-
-POST_SEARCH_INDEX = Index(
-    "ix_post_projections_search_vector",
-    post_search_document(
-        PostProjection.__table__.c.title,
-        PostProjection.__table__.c.description,
-        PostProjection.__table__.c.keywords,
-    ),
-    postgresql_using="gin",
-).ddl_if(dialect="postgresql")
-PostProjection.__table__.append_constraint(POST_SEARCH_INDEX)

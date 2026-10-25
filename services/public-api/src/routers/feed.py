@@ -33,10 +33,13 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 def _normalize_search_query(value: str | None) -> str | None:
     if value is None:
         return None
+
     normalized = value.strip()
     if not normalized:
         raise HTTPException(status_code=422, detail="query must not be blank")
+
     terms = re.findall(r'"([^"]+)"|([^\s]+)', normalized)
+
     has_term = any(
         re.search(r"[^\W_]", phrase or word, flags=re.UNICODE)
         and (phrase or word).lstrip("-").casefold() != "or"
@@ -46,6 +49,7 @@ def _normalize_search_query(value: str | None) -> str | None:
         raise HTTPException(
             status_code=422, detail="query must contain a search term"
         )
+
     return normalized
 
 
@@ -61,9 +65,7 @@ def _response(output: FeedOutput, page: int, page_size: int) -> FeedResponse:
             keywords=output.filter_options.keywords,
             sources=(
                 [
-                    SourceOptionResponse(
-                        id=option.source_id, title=option.title
-                    )
+                    SourceOptionResponse(id=option.source_id, title=option.title)
                     for option in output.filter_options.sources
                 ]
                 if output.filter_options.sources is not None
@@ -73,6 +75,7 @@ def _response(output: FeedOutput, page: int, page_size: int) -> FeedResponse:
         if output.filter_options is not None
         else None
     )
+
     return FeedResponse(
         items=[to_post_list_item_response(item) for item in output.items],
         total=output.total,
@@ -87,6 +90,7 @@ def _personal_response(
     output: FeedOutput, page: int, page_size: int
 ) -> PersonalFeedResponse:
     response = _response(output, page, page_size)
+
     return PersonalFeedResponse(
         **response.model_dump(),
         headlines=(
@@ -122,6 +126,7 @@ def get_feed(
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
+
     return _personal_response(output, page, page_size)
 
 
@@ -173,6 +178,7 @@ def get_explore(
         )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
+
     return _response(output, page, page_size)
 
 
@@ -189,4 +195,5 @@ def get_general_feed(
 ) -> FeedResponse:
     _ = admin_user
     output = service.get_admin_feed(page_size, (page - 1) * page_size)
+
     return _response(output, page, page_size)

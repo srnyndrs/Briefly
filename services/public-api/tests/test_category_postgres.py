@@ -10,19 +10,8 @@ from src.repositories.feed_repository import PostRepository
 from src.services.feed_models import EffectiveFeedQuery
 
 
-def test_postgres_search_helper_index_and_ranking(postgres_db):
+def test_postgres_search_index_and_ranking(postgres_db):
     db = postgres_db
-    assert (
-        db.scalar(text("SELECT query.keywords_to_search_text('[]'::jsonb)"))
-        == ""
-    )
-    assert (
-        db.scalar(
-            text("""SELECT query.keywords_to_search_text(
-        '["second", "first", "say \\"hello\\"", "árvíz"]'::jsonb)""")
-        )
-        == 'second first say "hello" árvíz'
-    )
     assert (
         db.scalar(
             text("""SELECT indexdef FROM pg_indexes
@@ -78,6 +67,19 @@ def test_postgres_search_helper_index_and_ranking(postgres_db):
         uuid5(NAMESPACE_URL, "title"),
         uuid5(NAMESPACE_URL, "keywords"),
     }
+    keyword_post = db.get(PostProjection, uuid5(NAMESPACE_URL, "keywords"))
+    keyword_post.keywords = ["space telescope"]
+    db.commit()
+    _, phrase_total = repo.list_candidates(
+        EffectiveFeedQuery(query='"space telescope"')
+    )
+    assert phrase_total == 2
+    keyword_post.keywords = ["space", "telescope"]
+    db.commit()
+    phrase, phrase_total = repo.list_candidates(
+        EffectiveFeedQuery(query='"space telescope"')
+    )
+    assert phrase_total == 1 and phrase[0].post_id == uuid5(NAMESPACE_URL, "title")
 
 
 def test_postgres_category_filters_facets_and_pagination(postgres_db):

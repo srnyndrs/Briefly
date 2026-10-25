@@ -4,7 +4,10 @@ import threading
 from datetime import UTC, datetime
 from typing import Any
 
-import pika
+from pika.adapters.blocking_connection import (
+    BlockingChannel,
+    BlockingConnection,
+)
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.config.message_broker import create_connection_parameters
@@ -22,10 +25,8 @@ logger = logging.getLogger(__name__)
 class QueryProjector:
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
-        self._connection: pika.BlockingConnection | None = None
-        self._channel: (
-            pika.adapters.blocking_connection.BlockingChannel | None
-        ) = None
+        self._connection: BlockingConnection | None = None
+        self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
 
     def run(self) -> None:
@@ -37,34 +38,37 @@ class QueryProjector:
             except Exception as exc:
                 if self._stop_event.is_set():
                     break
+
                 logger.error(
                     "Projector error: %s — retrying in %ds",
                     exc,
                     delay,
                 )
+
                 if self._stop_event.wait(delay):
                     break
+
                 delay = min(delay * 2, 60)
 
     def stop(self) -> None:
         self._stop_event.set()
         if self._connection and self._connection.is_open:
             try:
-                self._connection.add_callback_threadsafe(
-                    self._safe_stop_consuming
-                )
+                self._connection.add_callback_threadsafe(self._safe_stop_consuming)
             except Exception:
                 logger.exception("Failed to stop projector cleanly")
 
     def _safe_stop_consuming(self) -> None:
         if self._channel and self._channel.is_open:
             self._channel.stop_consuming()
+
         if self._connection and self._connection.is_open:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
-        connection = pika.BlockingConnection(create_connection_parameters())
+        connection = BlockingConnection(create_connection_parameters())
         self._connection = connection
+
         try:
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=20)
@@ -84,37 +88,30 @@ class QueryProjector:
                 exchange_type="topic",
                 durable=True,
             )
-
-            self._channel.queue_declare(
-                queue=settings.query_queue, durable=True
+            self._channel.queue_declare(queue=settings.query_queue, durable=True)
+            self._channel.queue_bind(
+                queue=settings.query_queue,
+                exchange=settings.account_exchange,
+                routing_key="preferences.updated.v1",
             )
-
-            for key in ("preferences.updated.v1",):
-                self._channel.queue_bind(
-                    queue=settings.query_queue,
-                    exchange=settings.account_exchange,
-                    routing_key=key,
-                )
-
-            for key in ("post.parsed.v1",):
-                self._channel.queue_bind(
-                    queue=settings.query_queue,
-                    exchange=settings.content_exchange,
-                    routing_key=key,
-                )
+            self._channel.queue_bind(
+                queue=settings.query_queue,
+                exchange=settings.content_exchange,
+                routing_key="post.parsed.v1",
+            )
             self._channel.queue_bind(
                 queue=settings.query_queue,
                 exchange=settings.enrichment_exchange,
                 routing_key="post.enriched.v1",
             )
 
-            self._channel.basic_consume(
-                queue=settings.query_queue,
-                on_message_callback=self._on_message,
-            )
             logger.info(
                 "Query projector consuming queue=%s",
                 settings.query_queue,
+            )
+            self._channel.basic_consume(
+                queue=settings.query_queue,
+                on_message_callback=self._on_message,
             )
             self._channel.start_consuming()
         finally:
@@ -126,14 +123,7 @@ class QueryProjector:
                     self._channel = None
                     self._connection = None
 
-    def _on_message(
-        self,
-        ch: Any,
-        method: Any,
-        properties: Any,
-        body: bytes,
-    ) -> None:
-        _ = properties
+    def _on_message(self, ch: Any, method: Any, props: Any, body: bytes) -> None:
         try:
             event = self._decode_message(body)
             if event is None:
@@ -188,9 +178,8 @@ class QueryProjector:
             logger.exception("Unhandled projector message error")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-    def _apply_event(
-        self, db: Session, event_type: str, payload: dict[str, Any]
-    ) -> None:
+    @staticmethod
+    def _apply_event(db: Session, event_type: str, payload: dict[str, Any]) -> None:
         if event_type == "post.parsed.v1":
             project_post(db, payload)
         elif event_type == "post.enriched.v1":
@@ -204,4 +193,5 @@ class QueryProjector:
             return json.loads(body)
         except Exception:
             logger.exception("Invalid JSON event payload")
+
             return None

@@ -31,9 +31,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=TokenPairResponse, status_code=201)
 def register(body: RegisterRequest) -> TokenPairResponse:
     try:
-        return TokenPairResponse(
-            **account_register(body.model_dump(mode="json"))
-        )
+        return TokenPairResponse(**account_register(body.model_dump(mode="json")))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -49,9 +47,7 @@ def login(body: LoginRequest) -> TokenPairResponse:
 @router.post("/refresh", response_model=TokenPairResponse)
 def refresh(body: RefreshRequest) -> TokenPairResponse:
     try:
-        return TokenPairResponse(
-            **account_refresh(body.model_dump(mode="json"))
-        )
+        return TokenPairResponse(**account_refresh(body.model_dump(mode="json")))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -77,8 +73,9 @@ def password_reset_confirm(
     body: PasswordResetConfirmRequest,
 ) -> StatusResponse:
     try:
-        result = account_password_reset_confirm(body.model_dump(mode="json"))
-        return StatusResponse(**result)
+        return StatusResponse(
+            **account_password_reset_confirm(body.model_dump(mode="json"))
+        )
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -93,6 +90,7 @@ def logout(
             body.model_dump(mode="json"),
             correlation_id=x_correlation_id or str(uuid.uuid4()),
         )
+
         return Response(status_code=204)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

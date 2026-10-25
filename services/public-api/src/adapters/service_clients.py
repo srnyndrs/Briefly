@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import httpx
 from fastapi import HTTPException, status
@@ -24,7 +25,7 @@ def _forward(
     params: dict | None = None,
     correlation_id: str | None = None,
     timeout_seconds: float | None = None,
-) -> dict:
+) -> Any:
     headers: dict[str, str] = {}
     if correlation_id:
         headers["x-correlation-id"] = correlation_id
@@ -59,12 +60,10 @@ def _forward(
         except Exception:
             if response.text:
                 detail = response.text
+
         raise ServiceClientError(response.status_code, detail)
 
-    if (
-        response.status_code == status.HTTP_204_NO_CONTENT
-        or not response.content
-    ):
+    if response.status_code == status.HTTP_204_NO_CONTENT or not response.content:
         return {}
 
     return response.json()
@@ -147,9 +146,8 @@ def account_list_subscriptions(user_id: str) -> list[dict]:
         settings.account_service_url,
         f"/users/{user_id}/subscriptions",
     )
-    if isinstance(result, list):
-        return result
-    return []
+
+    return result if isinstance(result, list) else []
 
 
 def account_patch_user(user_id: str, body: dict) -> dict:
@@ -204,9 +202,8 @@ def crawler_list_sources(*, verified_only: bool = False) -> list[dict]:
     result = _forward(
         "GET", settings.crawler_service_url, "/sources", params=params
     )
-    if isinstance(result, list):
-        return result
-    return []
+
+    return result if isinstance(result, list) else []
 
 
 def crawler_discover_sources(body: dict) -> list[dict]:
@@ -217,9 +214,8 @@ def crawler_discover_sources(body: dict) -> list[dict]:
         json=body,
         timeout_seconds=settings.source_discovery_timeout_seconds,
     )
-    if isinstance(result, list):
-        return result
-    return []
+
+    return result if isinstance(result, list) else []
 
 
 def crawler_get_source(source_id: str) -> dict:

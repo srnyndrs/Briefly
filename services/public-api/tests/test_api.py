@@ -18,9 +18,7 @@ from src.services.auth import get_current_user
 def client(session_factory):
     overrides = app.dependency_overrides.copy()
     state = app.state._state.copy()
-    fixed_user = AuthContext(
-        user_id=uuid4(), token_type="access", scopes=["admin"]
-    )
+    fixed_user = AuthContext(user_id=uuid4(), token_type="access", scopes=["admin"])
 
     def override_get_db():
         with session_factory() as session:
@@ -125,9 +123,7 @@ def test_personal_feed_applies_subscriptions_languages_and_category(
                 categories=["technology"],
             ),
             _post("Blocked Story", blocked, categories=["technology"]),
-            _post(
-                "Unsubscribed Story", unsubscribed, categories=["technology"]
-            ),
+            _post("Unsubscribed Story", unsubscribed, categories=["technology"]),
         ]
     )
     db.commit()
@@ -434,9 +430,7 @@ def test_create_source_endpoint_forwards_json_payload(
     }
 
 
-def test_create_source_rejects_client_policy_fields(
-    client, monkeypatch
-) -> None:
+def test_create_source_rejects_client_policy_fields(client, monkeypatch) -> None:
     from unittest.mock import MagicMock
 
     create = MagicMock()
@@ -502,8 +496,7 @@ def test_patch_source_endpoint(monkeypatch, client, source_payload) -> None:
 
 def test_source_metadata_validation(client):
     assert (
-        client.patch(f"/sources/{uuid4()}", json={"title": " "}).status_code
-        == 422
+        client.patch(f"/sources/{uuid4()}", json={"title": " "}).status_code == 422
     )
 
 
@@ -671,9 +664,10 @@ def test_explore_filter_options_are_opt_in_and_cover_all_pages(
         "Climate",
         "policy",
     ]
-    assert {
-        option["title"] for option in payload["filter_options"]["sources"]
-    } == {"Technology Source", "Business Source"}
+    assert {option["title"] for option in payload["filter_options"]["sources"]} == {
+        "Technology Source",
+        "Business Source",
+    }
     assert all(
         set(option) == {"id", "title"}
         for option in payload["filter_options"]["sources"]
@@ -710,9 +704,7 @@ def test_explore_binds_repeatable_source_ids(feed_client, db) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["total"] == 2
-    assert {item["source_id"] for item in payload["items"]} == set(
-        source_ids[:2]
-    )
+    assert {item["source_id"] for item in payload["items"]} == set(source_ids[:2])
     assert payload["filter_options"]["sources"]
     assert all(
         set(option) == {"id", "title"}
@@ -720,9 +712,7 @@ def test_explore_binds_repeatable_source_ids(feed_client, db) -> None:
     )
 
 
-def test_explore_searches_public_fields_and_excludes_body(
-    feed_client, db
-) -> None:
+def test_explore_searches_public_fields_and_excludes_body(feed_client, db) -> None:
     source_id = str(uuid4())
     db.add_all(
         [
@@ -768,12 +758,8 @@ def test_explore_query_validation_rejects_empty_and_sort_combinations(
     feed_client,
 ) -> None:
 
-    assert (
-        feed_client.get("/explore", params={"query": "   "}).status_code == 422
-    )
-    assert (
-        feed_client.get("/explore", params={"query": "..."}).status_code == 422
-    )
+    assert feed_client.get("/explore", params={"query": "   "}).status_code == 422
+    assert feed_client.get("/explore", params={"query": "..."}).status_code == 422
     assert (
         feed_client.get(
             "/explore",
@@ -870,9 +856,7 @@ def test_source_catalog_composition_and_filters(
         ]
 
     def fake_list_subscriptions(user_id: str) -> list[dict]:
-        assert user_id == str(
-            app.dependency_overrides[get_current_user]().user_id
-        )
+        assert user_id == str(app.dependency_overrides[get_current_user]().user_id)
         return [
             {
                 "user_id": user_id,
@@ -908,9 +892,7 @@ def test_source_catalog_composition_and_filters(
     monkeypatch.setattr(
         "src.routers.sources.crawler_get_source",
         lambda sid: next(
-            source
-            for source in fake_list_sources()
-            if source["source_id"] == sid
+            source for source in fake_list_sources() if source["source_id"] == sid
         ),
     )
     detail = client.get(f"/sources/{source_1}")
@@ -946,9 +928,7 @@ def test_feed_pagination_pages_and_counts(monkeypatch, client, db) -> None:
                 source_id,
                 post_id=f"00000000-0000-0000-0000-{i + 1:012d}",
                 source_title=f"Source {i}",
-                published_at=datetime.fromtimestamp(
-                    1700000000 + i * 100, tz=UTC
-                ),
+                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
                 updated_at=now,
             )
         )
@@ -1002,9 +982,7 @@ def test_admin_feed_pagination(client, db) -> None:
                 f"Admin Post {i}",
                 str(uuid4()),
                 source_title=f"Admin Source {i}",
-                published_at=datetime.fromtimestamp(
-                    1700000000 + i * 100, tz=UTC
-                ),
+                published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
                 updated_at=now,
             )
         )
@@ -1120,9 +1098,7 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch, feed_client, db):
         assert [item["title"] for item in response.json()["items"]] == [
             "Clean Post"
         ]
-    response = feed_client.get(
-        "/explore", params={"apply_user_preferences": False}
-    )
+    response = feed_client.get("/explore", params={"apply_user_preferences": False})
     assert response.status_code == 200
     assert response.json()["total"] == 2
 
@@ -1251,9 +1227,7 @@ def access_token(client, monkeypatch):
     return user_id, sign
 
 
-def test_access_token_subject_reaches_profile(
-    monkeypatch, client, access_token
-):
+def test_access_token_subject_reaches_profile(monkeypatch, client, access_token):
     user_id, sign = access_token
 
     def get_user(uid):
@@ -1277,9 +1251,7 @@ def test_access_token_subject_reaches_profile(
         }
 
     monkeypatch.setattr("src.routers.user.account_get_user", get_user)
-    monkeypatch.setattr(
-        "src.routers.user.account_get_preferences", get_preferences
-    )
+    monkeypatch.setattr("src.routers.user.account_get_preferences", get_preferences)
     response = client.get("/me", headers={"Authorization": f"Bearer {sign()}"})
     assert response.status_code == 200
     assert response.json()["user_id"] == user_id
@@ -1292,9 +1264,7 @@ def test_protected_profile_rejects_invalid_access(
     from unittest.mock import MagicMock
 
     _, sign = access_token
-    upstream = MagicMock(
-        side_effect=AssertionError("Unauthorized upstream call")
-    )
+    upstream = MagicMock(side_effect=AssertionError("Unauthorized upstream call"))
     monkeypatch.setattr("src.routers.user.account_get_user", upstream)
     headers = (
         {}
