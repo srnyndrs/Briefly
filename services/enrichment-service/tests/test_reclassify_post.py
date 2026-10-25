@@ -68,6 +68,8 @@ def test_command_fetches_canonical_snapshot_and_reclassifies_without_deleting(
     assert second.post_revision == first.post_revision == 7
     assert second.enrichment_revision == first.enrichment_revision + 1
     assert second.event_id != first.event_id
+    assert first.correlation_id and second.correlation_id
+    assert second.correlation_id != first.correlation_id
     saved = repository.get_by_post_id(post_id)
     assert not saved.publication_pending
     published = json.loads(
@@ -75,7 +77,8 @@ def test_command_fetches_canonical_snapshot_and_reclassifies_without_deleting(
     )
     assert published["event_id"] == second.event_id
     assert published["payload"]["enrichment_revision"] == 2
-    assert "trace" not in published and "correlation_id" not in published
+    assert published["correlation_id"] == second.correlation_id
+    assert saved.correlation_id == second.correlation_id
 
 
 def test_command_failure_preserves_pending_result_and_blocks_reclassification(

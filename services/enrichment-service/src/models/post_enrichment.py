@@ -42,6 +42,7 @@ class PostEnrichment(Base):
         DateTime(timezone=True), nullable=False
     )
     event_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    correlation_id: Mapped[str] = mapped_column(String, nullable=False)
     publication_pending: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )

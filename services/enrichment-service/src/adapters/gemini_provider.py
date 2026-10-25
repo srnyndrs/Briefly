@@ -17,8 +17,10 @@ MAX_RESPONSE_BYTES = 16_384
 def _tokens(value: object) -> int | None:
     if value is None:
         return None
+
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError("Provider returned invalid token usage")
+
     return value
 
 
@@ -33,6 +35,7 @@ class GeminiProvider:
     ) -> None:
         if not model or not api_key or timeout <= 0:
             raise ValueError("Model, API key, and positive timeout are required")
+
         self.model = model
         self.instructions = instructions
         self.api_key = api_key
@@ -61,6 +64,7 @@ class GeminiProvider:
         content = self._content(data)
         categories = parse_categories(json.loads(content))
         usage = data.get("usageMetadata") or {}
+
         return ProviderResult(
             category_ids=categories,
             model=data.get("modelVersion") or self.model,
@@ -79,6 +83,7 @@ class GeminiProvider:
             },
             method="POST",
         )
+
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
@@ -94,17 +99,23 @@ class GeminiProvider:
             status = error.get("status") if isinstance(error, dict) else None
             message = error.get("message") if isinstance(error, dict) else None
             detail = f"Gemini API HTTP {exc.code}"
+
             if isinstance(status, str):
                 detail += f" {status}"
+
             if isinstance(message, str):
                 detail += f": {message}"
+
             detail = detail.replace(self.api_key, "[REDACTED]")
+
             raise ProviderError(detail) from exc
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("Provider response exceeds the size limit")
+
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise ValueError("Provider response must be an object")
+
         return data
 
     @staticmethod
@@ -112,12 +123,16 @@ class GeminiProvider:
         candidates = data.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise ValueError("Gemini returned no candidate")
+
         candidate = candidates[0]
         if not isinstance(candidate, dict):
             raise ValueError("Provider candidate must be an object")
+
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Provider response did not finish normally")
+
         body = candidate.get("content")
+
         parts = body.get("parts") if isinstance(body, dict) else None
         if not isinstance(parts, list) or any(
             not isinstance(part, dict)
@@ -125,9 +140,11 @@ class GeminiProvider:
             for part in parts
         ):
             raise ValueError("Provider returned invalid content parts")
+
         content = "".join(
             part["text"]
             for part in parts
             if "text" in part and not part.get("thought")
         )
+
         return content

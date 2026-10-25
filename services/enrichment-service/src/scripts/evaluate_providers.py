@@ -1,5 +1,3 @@
-"""Compare a bounded labelled sample without writing production results."""
-
 import argparse
 import hashlib
 import json

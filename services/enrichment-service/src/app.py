@@ -51,6 +51,7 @@ if settings.sentry_dsn:
 def create_enrichment_service() -> EnrichmentService:
     if not settings.ollama_model or not settings.ollama_model.strip():
         raise ValueError("OLLAMA_MODEL is required for runtime enrichment")
+
     prompt = instructions([])
     provider = OllamaProvider(
         model=settings.ollama_model,

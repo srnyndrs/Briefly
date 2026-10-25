@@ -27,6 +27,7 @@ def publisher_channel(*, exchange: str) -> Iterator[BlockingChannel]:
         )
         channel.confirm_delivery()
         logger.info("RabbitMQ exchange='%s' ready", exchange)
+
         yield channel
     except BaseException:
         raise

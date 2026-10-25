@@ -1,5 +1,3 @@
-"""Persist revision-ordered classifier results with stable publication identity."""
-
 import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -18,12 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class ReclassificationConflict(RuntimeError):
-    """The observed result changed or needs publication before reclassification."""
+    pass
 
 
 class EnrichmentService:
-    """Classify and persist one post without holding a database transaction."""
-
     def __init__(
         self, repository: EnrichmentRepository, classifier: Classifier
     ) -> None:
@@ -36,10 +32,12 @@ class EnrichmentService:
         article: ArticleInput,
         *,
         post_revision: int = 1,
+        correlation_id: str | None = None,
         force_reclassify: bool = False,
     ) -> StoredEnrichment:
         if type(post_revision) is not int or post_revision < 1:
             raise ValueError("Post revision must be a positive integer")
+
         existing = self._repository.get_by_post_id(post_id)
         if existing is not None:
             if force_reclassify:
@@ -56,8 +54,10 @@ class EnrichmentService:
             ):
                 return existing
 
+        correlation_id = correlation_id or str(uuid4())
         status: EnrichmentStatus
         normalized = normalize_article(article)
+
         try:
             result = classify_article(normalized, self._classifier)
         except Exception as exc:
@@ -96,6 +96,7 @@ class EnrichmentService:
             reason=reason,
             processed_at=datetime.now(UTC),
             event_id=str(uuid4()),
+            correlation_id=correlation_id,
             publication_pending=True,
         )
         saved = self._repository.save(
@@ -108,13 +109,16 @@ class EnrichmentService:
         )
         if saved is not None:
             return saved
+
         if force_reclassify:
             raise ReclassificationConflict(
                 "Saved result changed during classification; inspect before retrying"
             )
+
         latest = self._repository.get_by_post_id(post_id)
         if latest is None:
             raise RuntimeError("Enrichment disappeared during save")
+
         return latest
 
     def mark_published(self, post_id: UUID, event_id: str) -> None:

@@ -28,6 +28,12 @@ def process(processor, event, channel):
     return saved
 
 
+def assert_same_saved_event(actual: dict, expected: dict) -> None:
+    assert {k: v for k, v in actual.items() if k != "trace"} == {
+        k: v for k, v in expected.items() if k != "trace"
+    }
+
+
 def test_failed_result_is_published_before_dlq(deliver, session_factory):
     error = ValueError("invalid output")
     repository = EnrichmentRepository(session_factory)
@@ -220,8 +226,8 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     result_event = build_enrichment_event(saved)
     assert result_event["event_type"] == "post.enriched.v1"
     assert result_event["schema_version"] == 1
-    assert "correlation_id" not in result_event
-    assert "trace" not in result_event
+    assert saved.correlation_id == "correlation-1"
+    assert result_event["correlation_id"] == saved.correlation_id
     assert result_event["payload"]["post_revision"] == 3
     assert result_event["payload"]["enrichment_revision"] == 1
     assert result_event["payload"]["category_ids"] == ["science"]
@@ -234,7 +240,7 @@ def test_consumer_acknowledges_a_saved_parsed_post(
     }
     assert result_event["occurred_at"] == saved.processed_at.isoformat()
     published_event = json.loads(channel.basic_publish.call_args.kwargs["body"])
-    assert published_event == result_event
+    assert_same_saved_event(published_event, result_event)
     assert len(classifier.inputs) == 1
     assert classifier.inputs[0].source_category == "Science"
     assert classifier.inputs[0].keywords == ("study",)
@@ -269,14 +275,17 @@ def test_failed_publish_reuses_saved_event_after_restart(
         EnrichmentService(EnrichmentRepository(session_factory), no_classifier_call)
     )
     retry_channel = MagicMock(is_open=True)
+    event["correlation_id"] = "retry-correlation-id"
     retried = process(restarted, event, retry_channel)
 
     assert retried.event_id == pending.event_id
+    assert retried.correlation_id == pending.correlation_id == "correlation-1"
     assert retried.enrichment_revision == pending.enrichment_revision
     assert not retried.publication_pending
     retried_event = json.loads(retry_channel.basic_publish.call_args.kwargs["body"])
-    assert retried_event == json.loads(
-        channel.basic_publish.call_args.kwargs["body"]
+    assert_same_saved_event(
+        retried_event,
+        json.loads(channel.basic_publish.call_args.kwargs["body"]),
     )
     assert retried_event["payload"]["status"] == "completed"
     assert retried_event["payload"]["post_revision"] == 2
@@ -334,7 +343,7 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     republished = json.loads(
         connection.channel.return_value.basic_publish.call_args.kwargs["body"]
     )
-    assert republished == build_enrichment_event(saved)
+    assert_same_saved_event(republished, build_enrichment_event(saved))
     connection.channel.return_value.confirm_delivery.assert_called_once()
     connection.close.assert_called_once()
     assert repository.get_by_post_id(post_id) == saved
@@ -364,7 +373,7 @@ def test_confirmed_publish_with_failed_completion_can_be_delivered_again(
     second_message = json.loads(
         second_channel.basic_publish.call_args.kwargs["body"]
     )
-    assert first_message == second_message
+    assert_same_saved_event(first_message, second_message)
     assert second_message["payload"]["status"] == "abstained"
     assert second_message["payload"]["category_ids"] == []
 

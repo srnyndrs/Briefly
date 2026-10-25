@@ -35,6 +35,7 @@ def test_fresh_postgres_table_enforces_category_status() -> None:
                             PostEnrichment.__table__.insert().values(
                                 post_id=uuid4(),
                                 event_id=str(uuid4()),
+                                correlation_id=str(uuid4()),
                                 category_ids=[],
                                 status="completed",
                                 processed_at=text("now()"),

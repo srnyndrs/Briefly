@@ -1,5 +1,3 @@
-"""Validated ``post.parsed.v1`` event contract."""
-
 from typing import Literal
 from uuid import UUID
 
@@ -34,4 +32,5 @@ class ParsedPostEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     event_type: Literal["post.parsed.v1"]
+    correlation_id: str | None = None
     payload: ParsedPostPayload

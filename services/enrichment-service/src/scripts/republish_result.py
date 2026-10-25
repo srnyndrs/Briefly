@@ -1,5 +1,3 @@
-"""Republish one stored enrichment event without classifying again."""
-
 import argparse
 from dataclasses import replace
 from uuid import UUID
@@ -25,7 +23,6 @@ def republish_result(post_id: UUID) -> None:
 def publish_saved_result(
     saved: StoredEnrichment, repository: EnrichmentRepository
 ) -> StoredEnrichment:
-    """Publish and confirm this exact saved event, then mark its identity."""
     with publisher_channel(exchange=settings.result_exchange) as channel:
         publish_event(
             channel,
@@ -33,6 +30,7 @@ def publish_saved_result(
             envelope=build_enrichment_event(saved),
         )
         repository.mark_published(saved.post_id, saved.event_id)
+
         return replace(saved, publication_pending=False)
 
 
@@ -41,6 +39,7 @@ def main() -> None:
     parser.add_argument("post_id", type=UUID)
     args = parser.parse_args()
     republish_result(args.post_id)
+
     print("Saved result event published.")
 
 

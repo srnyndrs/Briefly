@@ -1,4 +1,3 @@
-"""Supported enrichment categories and their short definitions."""
 
 CATEGORY_TAXONOMY_VERSION = "categories-v2"
 

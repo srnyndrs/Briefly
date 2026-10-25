@@ -1,16 +1,16 @@
-"""Build the saved result event for one post revision."""
-
 from typing import Any
 
 from src.events.envelope import build_envelope
 from src.repositories.stored_enrichment import StoredEnrichment
 from src.services.categories import validate_category_ids
 
+_ENRICHMENT_EVENT_TYPE = "post.enriched.v1"
+
 
 def build_enrichment_event(saved: StoredEnrichment) -> dict[str, Any]:
-    """Build the same event on every attempt from the saved result."""
     if not saved.event_id:
         raise ValueError("Result has no saved event ID")
+
     categories = validate_category_ids(saved.category_ids)
     if (
         type(saved.post_revision) is not int
@@ -22,6 +22,7 @@ def build_enrichment_event(saved: StoredEnrichment) -> dict[str, Any]:
         or saved.status not in ("completed", "abstained", "failed")
     ):
         raise ValueError("Invalid enrichment result status or revision")
+
     payload = {
         "post_id": str(saved.post_id),
         "post_revision": saved.post_revision,
@@ -29,10 +30,12 @@ def build_enrichment_event(saved: StoredEnrichment) -> dict[str, Any]:
         "status": saved.status,
         "category_ids": list(categories),
     }
+
     return build_envelope(
-        event_type="post.enriched.v1",
+        event_type=_ENRICHMENT_EVENT_TYPE,
         partition_key=f"post:{saved.post_id}",
         payload=payload,
+        correlation_id=saved.correlation_id,
         event_id=saved.event_id,
         occurred_at=saved.processed_at.isoformat(),
     )

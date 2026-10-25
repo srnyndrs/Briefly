@@ -1,5 +1,3 @@
-"""In-memory article classification with an injected classifier callable."""
-
 import re
 import unicodedata
 from collections.abc import Callable
@@ -19,8 +17,6 @@ INPUT_POLICY_VERSION = "bounded-input-v1"
 
 @dataclass(frozen=True, slots=True)
 class ArticleInput:
-    """Text and optional language metadata used for classification."""
-
     title: str
     description: str | None = None
     body: str | None = None
@@ -31,8 +27,6 @@ class ArticleInput:
 
 @dataclass(frozen=True, slots=True)
 class ClassificationResult:
-    """Zero to two supported subject categories."""
-
     category_ids: tuple[str, ...]
 
 
@@ -43,11 +37,6 @@ def classify_article(
     article: ArticleInput,
     classifier: Classifier,
 ) -> ClassificationResult:
-    """Normalize bounded article text and validate the classifier result.
-
-    Empty text returns an abstention without calling the classifier. Exceptions
-    from the injected classifier are allowed to propagate to the caller.
-    """
     normalized = normalize_article(article)
     if not any((normalized.title, normalized.description, normalized.body)):
         return ClassificationResult(category_ids=())
@@ -58,7 +47,6 @@ def classify_article(
 
 
 def normalize_article(article: ArticleInput) -> ArticleInput:
-    """Return the exact normalized, bounded input passed to a classifier."""
     title = _normalize_text(article.title, MAX_TITLE_LENGTH)
     description = _normalize_optional_text(
         article.description, MAX_DESCRIPTION_LENGTH
@@ -74,6 +62,7 @@ def normalize_article(article: ArticleInput) -> ArticleInput:
             description = remainder[separator.end() :].strip() or None
         else:
             break
+
     keywords = tuple(
         dict.fromkeys(
             keyword
@@ -81,6 +70,7 @@ def normalize_article(article: ArticleInput) -> ArticleInput:
             if (keyword := _normalize_text(value, MAX_KEYWORD_LENGTH))
         )
     )
+
     return ArticleInput(
         title=title,
         description=description,
@@ -96,16 +86,20 @@ def normalize_article(article: ArticleInput) -> ArticleInput:
 def _normalize_optional_text(value: str | None, max_length: int) -> str | None:
     if value is None:
         return None
+
     return _normalize_text(value, max_length) or None
 
 
 def _normalize_text(value: str, max_length: int) -> str:
     normalized = unicodedata.normalize("NFKC", value)
+
     return " ".join(normalized.split())[:max_length]
 
 
 def _normalize_language(value: str | None) -> str | None:
     if value is None:
         return None
+
     normalized = " ".join(value.split()).lower()
+
     return normalized[:MAX_LANGUAGE_LENGTH] or None

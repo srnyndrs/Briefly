@@ -1,5 +1,3 @@
-"""Shared classification request and result for provider experiments."""
-
 import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -26,8 +24,6 @@ Provider = Callable[[ArticleInput], ProviderResult]
 
 
 class ProviderError(RuntimeError):
-    """Provider failure with a bounded message safe for evaluation output."""
-
     def __init__(self, message: str) -> None:
         super().__init__(message[:1_000])
 
@@ -85,6 +81,7 @@ def instructions(examples: list[tuple[ArticleInput, tuple[str, ...]]]) -> str:
             f"Answer: {json.dumps({'category_ids': category}, ensure_ascii=False)}"
             for article, category in examples
         )
+
     return text
 
 
@@ -95,4 +92,5 @@ def article_json(article: ArticleInput) -> str:
 def parse_categories(value: object) -> tuple[str, ...]:
     if not isinstance(value, dict) or set(value) != {"category_ids"}:
         raise ValueError("Provider must return only category_ids")
+
     return validate_category_ids(value["category_ids"])

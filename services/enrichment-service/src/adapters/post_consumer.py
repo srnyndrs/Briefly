@@ -32,22 +32,26 @@ class PostConsumer:
         delay = 1
         while not self._stop_event.is_set():
             try:
-                # Wait for old delivery work before reconnecting its broker channel.
                 while self._worker is not None and self._worker.is_alive():
                     self._worker.join(timeout=0.1)
                     if self._stop_event.is_set():
                         return
+
                 self._connect_and_consume()
                 delay = 1
             except Exception as exc:
                 if self._stop_event.is_set():
                     break
+
                 logger.error(
                     "RabbitMQ consumer error: %s - retrying in %ds",
                     exc,
                     delay,
                 )
-                self._stop_event.wait(delay)
+
+                if self._stop_event.wait(delay):
+                    break
+
                 delay = min(delay * 2, 60)
 
     def stop(self) -> None:
@@ -61,12 +65,14 @@ class PostConsumer:
     def _safe_stop_consuming(self) -> None:
         if self._channel and self._channel.is_open:
             self._channel.stop_consuming()
+
         if self._connection and self._connection.is_open:
             self._connection.close()
 
     def _connect_and_consume(self) -> None:
         connection = BlockingConnection(create_connection_parameters())
         self._connection = connection
+
         try:
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
@@ -108,6 +114,7 @@ class PostConsumer:
                 exchange=settings.parsed_exchange,
                 routing_key="post.parsed.v1",
             )
+
             self._channel.confirm_delivery()
 
             logger.info("Waiting for messages on '%s'...", settings.post_queue)
@@ -125,14 +132,14 @@ class PostConsumer:
                     self._channel = None
                     self._connection = None
 
-    def _on_message(
-        self, ch: Any, method: Any, properties: Any, body: bytes
-    ) -> None:
+    def _on_message(self, ch: Any, method: Any, props: Any, body: bytes) -> None:
         if self._stop_event.is_set():
             return
+
         connection = self._connection
         if connection is None:
             raise ConnectionWrongStateError("Delivery has no consumer connection")
+
         self._worker = threading.Thread(
             target=self._process_delivery,
             args=(connection, method.delivery_tag, body),
@@ -146,10 +153,12 @@ class PostConsumer:
     ) -> None:
         saved = None
         error = None
+
         try:
             saved = self._processor.process(json.loads(body))
         except Exception as exc:
             error = exc
+
         self._schedule(connection, self._complete, delivery_tag, saved, error)
 
     @staticmethod
@@ -164,7 +173,6 @@ class PostConsumer:
             )
 
     def _is_current(self, connection: BlockingConnection) -> bool:
-        # A worker may finish after reconnect; settle only on its original channel.
         return (
             not self._stop_event.is_set()
             and connection is self._connection
@@ -188,6 +196,7 @@ class PostConsumer:
         if not saved.publication_pending:
             self._settle(connection, delivery_tag, saved, None)
             return
+
         try:
             publish_event(
                 self._channel,
@@ -197,6 +206,7 @@ class PostConsumer:
         except Exception as exc:
             self._settle(connection, delivery_tag, saved, exc)
             return
+
         self._worker = threading.Thread(
             target=self._mark_delivery,
             args=(connection, delivery_tag, saved),
@@ -216,6 +226,7 @@ class PostConsumer:
             saved = self._processor.mark_published(saved)
         except Exception as exc:
             error = exc
+
         self._schedule(connection, self._settle, delivery_tag, saved, error)
 
     def _settle(
@@ -227,7 +238,9 @@ class PostConsumer:
     ) -> None:
         if not self._is_current(connection):
             return
+
         channel = self._channel
+
         if error is not None or saved is None or saved.status == "failed":
             logger.error(
                 "Parsed-post delivery rejected (delivery_tag=%s, error_type=%s)",

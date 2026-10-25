@@ -16,4 +16,5 @@ class StoredEnrichment:
     post_revision: int = 1
     enrichment_revision: int = 1
     event_id: str = field(default_factory=lambda: str(uuid4()))
+    correlation_id: str = field(default_factory=lambda: str(uuid4()))
     publication_pending: bool = True

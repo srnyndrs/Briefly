@@ -41,13 +41,16 @@ def test_publishes_persistent_mandatory_result(saved) -> None:
     assert kwargs["exchange"] == settings.result_exchange
     assert kwargs["routing_key"] == "post.enriched.v1"
     assert kwargs["mandatory"] is True
-    assert json.loads(kwargs["body"]) == {
+    published = json.loads(kwargs["body"])
+    published.pop("trace")
+    assert published == {
         "event_id": saved.event_id,
         "event_type": "post.enriched.v1",
         "schema_version": 1,
         "partition_key": f"post:{saved.post_id}",
         "producer": "enrichment-service",
         "occurred_at": saved.processed_at.isoformat(),
+        "correlation_id": saved.correlation_id,
         "payload": {
             "post_id": str(saved.post_id),
             "post_revision": 2,

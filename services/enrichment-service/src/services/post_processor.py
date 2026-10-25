@@ -1,5 +1,3 @@
-"""Apply validated parsed-post events to the enrichment service."""
-
 from dataclasses import replace
 from typing import Any
 
@@ -20,18 +18,19 @@ class PostProcessor:
             payload.post_id,
             article_from_payload(payload),
             post_revision=payload.post_revision,
+            correlation_id=parsed_event.correlation_id,
         )
 
     def mark_published(self, saved: StoredEnrichment) -> StoredEnrichment:
-        """Mark the confirmed event in a scoped worker database session."""
         if saved.event_id is None:
             raise RuntimeError("Published result has no saved event ID")
+
         self._enrichment_service.mark_published(saved.post_id, saved.event_id)
+
         return replace(saved, publication_pending=False)
 
 
 def article_from_payload(payload: ParsedPostPayload) -> ArticleInput:
-    """Map both canonical snapshots and parsed events to classifier input."""
     return ArticleInput(
         title=payload.title,
         description=payload.description,

@@ -22,6 +22,7 @@ class EnrichmentRepository:
             record = session.get(PostEnrichment, post_id)
             if record is None:
                 return None
+
             return self._to_stored(record)
 
     def save(
@@ -38,10 +39,13 @@ class EnrichmentRepository:
             or enrichment.status not in ("completed", "abstained", "failed")
         ):
             raise ValueError("Invalid enrichment result status or revision")
+
         UUID(enrichment.event_id)
         categories = validate_category_ids(enrichment.category_ids)
+
         if (enrichment.status == "completed") != bool(categories):
             raise ValueError("Result status and category IDs disagree")
+
         with self._session_factory.begin() as session:
             dialect_name = session.get_bind().dialect.name
             if dialect_name == "sqlite":
@@ -60,6 +64,7 @@ class EnrichmentRepository:
                 reason=enrichment.reason,
                 processed_at=enrichment.processed_at,
                 event_id=enrichment.event_id,
+                correlation_id=enrichment.correlation_id,
                 publication_pending=enrichment.publication_pending,
             )
             excluded = statement.excluded
@@ -72,6 +77,7 @@ class EnrichmentRepository:
                 PostEnrichment.post_revision < excluded.post_revision,
                 replacement,
             )
+
             if expected_enrichment_revision is not None:
                 allowed = and_(
                     PostEnrichment.post_revision <= excluded.post_revision,
@@ -85,19 +91,21 @@ class EnrichmentRepository:
                     set_={
                         "post_revision": excluded.post_revision,
                         "category_ids": excluded.category_ids,
-                        "enrichment_revision": PostEnrichment.enrichment_revision
-                        + 1,
+                        "enrichment_revision": PostEnrichment.enrichment_revision+1,
                         "status": excluded.status,
                         "reason": excluded.reason,
                         "processed_at": excluded.processed_at,
                         "event_id": excluded.event_id,
+                        "correlation_id": excluded.correlation_id,
                         "publication_pending": excluded.publication_pending,
                     },
                     where=allowed,
                 ).returning(PostEnrichment.enrichment_revision)
             ).scalar_one_or_none()
+
             if row is None:
                 return None
+
             return replace(
                 enrichment,
                 category_ids=categories,
@@ -124,6 +132,7 @@ class EnrichmentRepository:
         processed_at = record.processed_at
         if processed_at.tzinfo is None:
             processed_at = processed_at.replace(tzinfo=UTC)
+
         return StoredEnrichment(
             post_id=record.post_id,
             post_revision=record.post_revision,
@@ -133,5 +142,6 @@ class EnrichmentRepository:
             reason=record.reason,
             processed_at=processed_at,
             event_id=record.event_id,
+            correlation_id=record.correlation_id,
             publication_pending=record.publication_pending,
         )
