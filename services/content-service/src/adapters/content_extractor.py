@@ -29,7 +29,9 @@ class _MetadataArticle(Article):
 def normalize_article_url(value: Any) -> str | None:
     if value is None or value == "":
         return None
+
     url = value.strip() if isinstance(value, str) else ""
+
     try:
         parts = urlsplit(url)
         if (
@@ -44,7 +46,6 @@ def normalize_article_url(value: Any) -> str | None:
     except ValueError:
         pass
 
-    # Escaping preserves suspicious punctuation without logging query values.
     display = re.sub(r"(//)[^/?#]*@", r"\1[redacted]@", url)
     display = display.split("?", 1)[0].split("#", 1)[0][:200]
     logger.warning("Invalid article link: %r", display)
@@ -103,6 +104,7 @@ def extract_article(url: str) -> dict[str, Any]:
         )
         if content and _HTML_TAG_RE.search(content):
             content = normalize_html_text(content)
+
         content = content.strip() if content else None
 
         outcome = "success" if content else "empty"

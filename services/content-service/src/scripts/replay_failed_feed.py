@@ -37,6 +37,7 @@ def replay_failed_feed(channel: Any, event_id: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("event_id", help="Expected event ID at the head of the DLQ")
+
     args = parser.parse_args()
     with pika.BlockingConnection(create_connection_parameters()) as connection:
         channel = connection.channel()
@@ -45,6 +46,7 @@ def main() -> int:
             print("DLQ is empty.")
             return 1
     print("Original feed republished and removed from the DLQ.")
+
     return 0
 
 

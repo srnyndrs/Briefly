@@ -12,8 +12,10 @@ from src.services.feed_processor import FeedProcessor
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("post_id", type=UUID, help="Required stored post ID")
+
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
+
     with publisher_channel(exchange=settings.parsed_exchange) as channel:
         with SessionLocal() as db:
             if not FeedProcessor(PostRepository(db)).reextract_post(
@@ -22,6 +24,7 @@ def main() -> int:
                 print("No usable content; stored post unchanged.")
                 return 1
         print("Post snapshot published after re-extraction.")
+
         return 0
 
 
