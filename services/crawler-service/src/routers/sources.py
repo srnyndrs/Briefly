@@ -145,6 +145,7 @@ def patch_source(
     except Exception:
         repository.rollback()
         raise
+
     if updated is None:
         raise HTTPException(status_code=404, detail="Source not found")
 

@@ -94,6 +94,7 @@ class SourceRepository:
             return False
 
         self._db.delete(item)
+
         return True
 
     def update_source(
@@ -179,6 +180,7 @@ class SourceRepository:
             if source.verified
             else settings.unverified_crawl_interval_seconds
         )
+
         if source.consecutive_failures > 0:
             backoff = 2**source.consecutive_failures
             interval = min(backoff * base, timedelta(days=1).total_seconds())

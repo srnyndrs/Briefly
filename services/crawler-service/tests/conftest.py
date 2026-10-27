@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+from starlette.datastructures import State
 
 from src.app import app
 from src.config.database import Base, get_db
@@ -39,7 +40,7 @@ def isolated_boundaries_and_settings(monkeypatch):
 
 
 @pytest.fixture
-def engine():
+def db_engine():
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -54,8 +55,8 @@ def engine():
 
 
 @pytest.fixture
-def db_session(engine):
-    with Session(engine, autoflush=False) as session:
+def db_session(db_engine):
+    with Session(db_engine, autoflush=False) as session:
         yield session
 
 
@@ -69,16 +70,18 @@ def source_factory(db_session):
             }
             | values
         )
+
         db_session.add(source)
         db_session.commit()
         db_session.refresh(source)
+
         return source
 
     return create_source
 
 
 @pytest.fixture
-def crawl_cycle(engine, monkeypatch):
+def crawl_cycle(db_engine, monkeypatch):
     response = Mock(
         status_code=200,
         text="<feed/>",
@@ -98,20 +101,19 @@ def crawl_cycle(engine, monkeypatch):
         "src.services.crawl_orchestrator.publisher_channel",
         publisher_context,
     )
-    monkeypatch.setattr(
-        "src.services.crawl_orchestrator.publish_event", publisher
-    )
+    monkeypatch.setattr("src.services.crawl_orchestrator.publish_event", publisher)
     orchestrator = CrawlCycleOrchestrator(
-        sessionmaker(bind=engine, autoflush=False)
+        sessionmaker(bind=db_engine, autoflush=False)
     )
+
     return orchestrator, http_get, publisher, publisher_factory
 
 
 @pytest.fixture
 def client(db_session):
     overrides = app.dependency_overrides.copy()
-    state = app.state._state.copy()
-    app.state.testing = True
+    state = app.state
+    app.state = State({"testing": True})
 
     def _get_db_override():
         yield db_session
@@ -123,5 +125,4 @@ def client(db_session):
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(overrides)
-        app.state._state.clear()
-        app.state._state.update(state)
+        app.state = state

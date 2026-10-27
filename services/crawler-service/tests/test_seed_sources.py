@@ -18,7 +18,7 @@ def seed_file():
 
 
 def test_seed_command_is_idempotent_and_creates_verified_sources(
-    seed_file, engine, db_session, monkeypatch
+    seed_file, db_engine, db_session, monkeypatch
 ):
     seed_file.write_text(
         json.dumps(
@@ -36,7 +36,7 @@ def test_seed_command_is_idempotent_and_creates_verified_sources(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(seed_sources, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(seed_sources, "SessionLocal", sessionmaker(bind=db_engine))
     monkeypatch.setattr(seed_sources, "init_db", lambda: None)
 
     assert seed_sources.seed_sources(seed_file) == (2, 0)

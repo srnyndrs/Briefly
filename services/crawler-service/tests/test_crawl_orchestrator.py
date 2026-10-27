@@ -96,9 +96,8 @@ def test_feed_failure_retries_and_continues(
     assert first.next_crawl_scheduled_at > first.last_crawled_at
     assert second.last_crawl_succeeded is True
     publisher.assert_called_once()
-    assert (
-        publisher.call_args.kwargs["envelope"]["payload"]["source_id"]
-        == str(second.source_id)
+    assert publisher.call_args.kwargs["envelope"]["payload"]["source_id"] == str(
+        second.source_id
     )
 
 
@@ -168,9 +167,8 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     http_get.assert_called_once()
     assert http_get.call_args.args == (source.url,)
     publisher.assert_called_once()
-    assert (
-        publisher.call_args.kwargs["envelope"]["payload"]["source_id"]
-        == str(source.source_id)
+    assert publisher.call_args.kwargs["envelope"]["payload"]["source_id"] == str(
+        source.source_id
     )
     assert later.last_crawled_at is None
     assert later.consecutive_failures == 0

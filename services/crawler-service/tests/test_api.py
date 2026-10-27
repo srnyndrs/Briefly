@@ -177,12 +177,15 @@ def test_api_rejects_invalid_or_server_owned_fields(client, db_session, payload)
 
 def test_source_metadata_validation(client, source_factory, db_session):
     source = source_factory(title="Original", language="hu")
+
     response = client.patch(
         f"/sources/{source.source_id}",
         json={"title": "Should not persist", "language": "und"},
     )
+
     assert response.status_code == 422
     db_session.refresh(source)
+
     assert source.title == "Original"
     assert source.language == "hu"
 
@@ -213,6 +216,7 @@ def test_source_list_filters_and_orders(client, source_factory):
         return [row["source_id"] for row in response.json()]
 
     verified_ids = [str(source.source_id) for source in (first, second, last)]
+
     assert ids(client.get("/sources")) == verified_ids + [
         str(source.source_id) for source in (unverified, future, suspended)
     ]
@@ -228,6 +232,8 @@ def test_source_list_filters_and_orders(client, source_factory):
 
 def test_patch_rejects_existing_feed_url(client, source_factory):
     first, second = source_factory(), source_factory()
+
     response = client.patch(f"/sources/{second.source_id}", json={"url": first.url})
+
     assert response.status_code == 409
     assert client.get(f"/sources/{second.source_id}").json()["url"] == second.url

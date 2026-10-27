@@ -10,6 +10,7 @@ from src.config.settings import settings
 logger = logging.getLogger(__name__)
 SCHEMA_NAME = "crawler"
 
+
 class Base(DeclarativeBase):
     metadata = MetaData(schema=SCHEMA_NAME)
 
