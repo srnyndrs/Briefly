@@ -1,6 +1,7 @@
 import logging
 import threading
 from contextlib import asynccontextmanager
+from time import monotonic
 
 import sentry_sdk
 import uvicorn
@@ -96,6 +97,7 @@ async def lifespan(application: FastAPI):
         yield
     finally:
         application.state.started = False
+        deadline = monotonic() + settings.shutdown_timeout_seconds
         consumer: PostConsumer | None = getattr(application.state, "consumer", None)
         if consumer:
             consumer.stop()
@@ -104,9 +106,17 @@ async def lifespan(application: FastAPI):
             application.state, "consumer_thread", None
         )
         if thread and thread.is_alive():
-            thread.join(timeout=5)
+            thread.join(timeout=max(0, deadline - monotonic()))
 
-        logger.info("Enrichment Service stopped.")
+        worker_stopped = consumer is None or consumer.wait_for_worker(
+            timeout=max(0, deadline - monotonic())
+        )
+        if (thread and thread.is_alive()) or not worker_stopped:
+            logger.warning(
+                "Background shutdown deadline reached; process termination must stop remaining work."
+            )
+        else:
+            logger.info("Enrichment Service stopped.")
 
 
 app = FastAPI(
@@ -163,4 +173,5 @@ if __name__ == "__main__":
         host=settings.app_host,
         port=settings.app_port,
         reload=settings.env == "development",
+        timeout_graceful_shutdown=10,
     )

@@ -13,6 +13,15 @@ def test_lifespan_stops_scheduler_when_application_raises(monkeypatch) -> None:
     scheduler = MagicMock(running=True)
     scheduler.add_listener.side_effect = lambda callback, mask: callback(None)
     thread = MagicMock()
+    thread.is_alive.side_effect = [True, False]
+    orchestrator = MagicMock()
+    monkeypatch.setattr(
+        application, "CrawlCycleOrchestrator", MagicMock(return_value=orchestrator)
+    )
+    monkeypatch.setattr(application.settings, "shutdown_timeout_seconds", 2)
+    monkeypatch.setattr(
+        application, "monotonic", MagicMock(side_effect=[100, 100.25, 101.5])
+    )
     monkeypatch.setattr(application, "init_db", MagicMock())
     monkeypatch.setattr(
         application, "BlockingScheduler", MagicMock(return_value=scheduler)
@@ -29,9 +38,11 @@ def test_lifespan_stops_scheduler_when_application_raises(monkeypatch) -> None:
     with pytest.raises(RuntimeError, match="application failed"):
         asyncio.run(fail())
 
-    scheduler.shutdown.assert_called_once_with(wait=True)
+    scheduler.shutdown.assert_called_once_with(wait=False)
+    orchestrator.stop.assert_called_once_with()
+    orchestrator.wait_for_idle.assert_called_once_with(timeout=0.5)
     thread.start.assert_called_once_with()
-    thread.join.assert_called_once_with(timeout=5)
+    thread.join.assert_called_once_with(timeout=1.75)
     assert not application.app.state.started
 
 

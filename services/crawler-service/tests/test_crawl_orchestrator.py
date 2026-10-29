@@ -190,3 +190,32 @@ def test_200_republishes_repeated_entries_with_unchanged_validators(
 
     publisher.assert_called_once()
     assert publisher.call_args.kwargs["envelope"]["payload"]["raw_xml"] == body
+
+
+def test_stop_finishes_current_source_and_leaves_remaining_sources_due(
+    crawl_cycle, source_factory, db_session
+):
+    source_factory()
+    source_factory()
+    orchestrator, http_get, publisher, _ = crawl_cycle
+    response = http_get.return_value
+    fetched = []
+
+    def stop_during_fetch(url, **kwargs):
+        fetched.append(url)
+        assert not orchestrator.wait_for_idle(timeout=0)
+        orchestrator.stop()
+        return response
+
+    http_get.side_effect = stop_during_fetch
+    orchestrator.run_crawl_cycle()
+    assert orchestrator.wait_for_idle(timeout=0)
+    http_get.assert_called_once()
+    publisher.assert_called_once()
+    sources = SourceRepository(db_session).get_active_sources(
+        datetime.now(timezone.utc), settings.max_retries
+    )
+    assert len(sources) == 1
+    assert sources[0].url not in fetched
+    orchestrator.run_crawl_cycle()
+    http_get.assert_called_once()

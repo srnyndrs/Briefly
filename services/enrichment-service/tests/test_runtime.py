@@ -153,10 +153,18 @@ def test_lifespan_stops_consumer_when_application_raises(
     import asyncio
 
     consumer = MagicMock()
+    thread = MagicMock()
+    thread.is_alive.side_effect = [True, False]
+    monkeypatch.setattr(settings, "shutdown_timeout_seconds", 2)
+    monkeypatch.setattr(
+        application, "monotonic", MagicMock(side_effect=[100, 100.5, 101.75])
+    )
     monkeypatch.setattr(application, "init_db", MagicMock())
     monkeypatch.setattr(application, "PostConsumer", consumer)
     monkeypatch.setattr(
-        application, "threading", SimpleNamespace(Thread=MagicMock())
+        application,
+        "threading",
+        SimpleNamespace(Thread=MagicMock(return_value=thread)),
     )
 
     async def fail() -> None:
@@ -166,3 +174,5 @@ def test_lifespan_stops_consumer_when_application_raises(
     with pytest.raises(RuntimeError, match="application failed"):
         asyncio.run(fail())
     consumer.return_value.stop.assert_called_once_with()
+    thread.join.assert_called_once_with(timeout=1.5)
+    consumer.return_value.wait_for_worker.assert_called_once_with(timeout=0.25)

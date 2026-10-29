@@ -167,10 +167,12 @@ def test_slow_worker_completion_cannot_touch_closed_or_replaced_channel(
         else:
             consumer.stop()
             callbacks.popleft()()
+            assert not consumer.wait_for_worker(timeout=0.01)
     finally:
         release.set()
         consumer._worker.join(2)
     assert not consumer._worker.is_alive()
+    assert consumer.wait_for_worker(timeout=0)
     while callbacks:
         callbacks.popleft()()
     channel.basic_publish.assert_not_called()

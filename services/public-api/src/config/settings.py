@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     env: str = "development"
     sentry_dsn: str | None = None
+    shutdown_timeout_seconds: float = Field(default=10, gt=0, allow_inf_nan=False)
 
     database_url: str = (
         "postgresql+psycopg2://postgres:postgres@localhost:5432/briefly"

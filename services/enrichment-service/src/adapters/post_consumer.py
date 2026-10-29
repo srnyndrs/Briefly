@@ -81,6 +81,12 @@ class PostConsumer:
         if self._connection and self._connection.is_open:
             self._connection.close()
 
+    def wait_for_worker(self, timeout: float) -> bool:
+        worker = self._worker
+        if worker and worker.is_alive():
+            worker.join(timeout=timeout)
+        return worker is None or not worker.is_alive()
+
     def _connect_and_consume(self) -> None:
         connection = BlockingConnection(create_connection_parameters())
         self._connection = connection

@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -23,10 +24,25 @@ class CrawlCycleOrchestrator:
     def __init__(self, session_factory: sessionmaker):
         self._session_factory = session_factory
         self._http_client = RequestsHttpClient()
+        self._stop_event = threading.Event()
+        self._idle = threading.Event()
+        self._idle.set()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    def wait_for_idle(self, timeout: float) -> bool:
+        return self._idle.wait(timeout)
 
     def run_crawl_cycle(self) -> None:
-        cycle_id = str(uuid.uuid4())
-        self._run_crawl_cycle(cycle_id)
+        if self._stop_event.is_set():
+            return
+        self._idle.clear()
+        try:
+            if not self._stop_event.is_set():
+                self._run_crawl_cycle(str(uuid.uuid4()))
+        finally:
+            self._idle.set()
 
     def _run_crawl_cycle(self, cycle_id: str) -> None:
         with self._session_factory() as db:
@@ -47,6 +63,8 @@ class CrawlCycleOrchestrator:
                 len(sources),
             )
 
+            if self._stop_event.is_set():
+                return
             if not sources:
                 logger.info(
                     "Crawl cycle complete (cycle_id=%s, due=0, succeeded=0, "
@@ -57,6 +75,9 @@ class CrawlCycleOrchestrator:
 
             with publisher_channel(exchange=settings.feed_exchange) as channel:
                 for source in sources:
+                    if self._stop_event.is_set():
+                        logger.info("Crawl cycle stopped (cycle_id=%s)", cycle_id)
+                        return
                     outcome = self._crawl_source(
                         source_repository,
                         channel,

@@ -14,7 +14,8 @@ def test_lifespan_stops_projector_when_application_raises(monkeypatch) -> None:
     )
     projector = MagicMock()
     thread = MagicMock()
-    thread.is_alive.return_value = False
+    thread.is_alive.side_effect = [True, False]
+    monkeypatch.setattr(application.settings, "shutdown_timeout_seconds", 2)
     monkeypatch.setattr(application, "init_db", MagicMock())
     monkeypatch.setattr(
         application, "QueryProjector", MagicMock(return_value=projector)
@@ -33,4 +34,5 @@ def test_lifespan_stops_projector_when_application_raises(monkeypatch) -> None:
         asyncio.run(fail())
 
     projector.stop.assert_called_once_with()
+    thread.join.assert_called_once_with(timeout=2)
     assert not application.app.state.started

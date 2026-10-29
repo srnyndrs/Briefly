@@ -92,9 +92,14 @@ async def lifespan(application: FastAPI):
             application.state, "projector_thread", None
         )
         if thread and thread.is_alive():
-            thread.join(timeout=5)
+            thread.join(timeout=settings.shutdown_timeout_seconds)
 
-        logger.info("Public API stopped.")
+        if thread and thread.is_alive():
+            logger.warning(
+                "Background shutdown deadline reached; process termination must stop remaining work."
+            )
+        else:
+            logger.info("Public API stopped.")
 
 
 app = FastAPI(
@@ -154,4 +159,5 @@ if __name__ == "__main__":
         host=settings.app_host,
         port=settings.app_port,
         reload=settings.env == "development",
+        timeout_graceful_shutdown=10,
     )

@@ -49,6 +49,7 @@ services:
       context: ./services/crawler-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     env_file:
       - path: ./services/crawler-service/.env
         required: false
@@ -93,6 +94,7 @@ services:
       context: ./services/content-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     env_file:
       - path: ./services/content-service/.env
         required: false
@@ -127,6 +129,7 @@ services:
       context: ./services/enrichment-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     env_file:
       - path: ./services/enrichment-service/.env
         required: false
@@ -180,6 +183,7 @@ services:
       context: ./services/account-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     env_file:
       - path: ./services/account-service/.env
         required: false
@@ -222,6 +226,7 @@ services:
       context: ./services/public-api
       dockerfile: Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     env_file:
       - path: ./services/public-api/.env
         required: false

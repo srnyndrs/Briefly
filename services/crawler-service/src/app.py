@@ -1,6 +1,7 @@
 import logging
 import threading
 from contextlib import asynccontextmanager
+from time import monotonic
 
 import sentry_sdk
 import uvicorn
@@ -52,6 +53,7 @@ async def lifespan(application: FastAPI):
     application.state.started = False
     scheduler = None
     thread = None
+    orchestrator = None
     try:
         if not getattr(application.state, "testing", False):
             init_db()
@@ -88,14 +90,24 @@ async def lifespan(application: FastAPI):
         yield
     finally:
         application.state.started = False
+        deadline = monotonic() + settings.shutdown_timeout_seconds
+        if orchestrator:
+            orchestrator.stop()
         if scheduler and scheduler.running:
-            scheduler.shutdown(wait=True)
-            logger.info("Scheduler stopped.")
+            scheduler.shutdown(wait=False)
 
         if thread and thread.is_alive():
-            thread.join(timeout=5)
+            thread.join(timeout=max(0, deadline - monotonic()))
 
-        logger.info("Crawler Service stopped.")
+        idle = orchestrator is None or orchestrator.wait_for_idle(
+            timeout=max(0, deadline - monotonic())
+        )
+        if (thread and thread.is_alive()) or not idle:
+            logger.warning(
+                "Background shutdown deadline reached; process termination must stop remaining work."
+            )
+        else:
+            logger.info("Crawler Service stopped.")
 
 
 app = FastAPI(
@@ -146,4 +158,5 @@ if __name__ == "__main__":
         host=settings.app_host,
         port=settings.app_port,
         reload=settings.env == "development",
+        timeout_graceful_shutdown=10,
     )

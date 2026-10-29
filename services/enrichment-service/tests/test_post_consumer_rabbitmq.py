@@ -150,6 +150,7 @@ def stop(consumer, thread):
     consumer.stop()
     thread.join(timeout=5)
     assert not thread.is_alive()
+    assert consumer.wait_for_worker(timeout=2)
 
 
 def test_live_slow_inference_survives_heartbeat_and_duplicate(
@@ -307,4 +308,56 @@ def test_live_transient_dependency_failure_is_redelivered(
             lambda: not repository.get_by_post_id(saved.post_id).publication_pending
         )
     finally:
+        stop(consumer, thread)
+
+
+def test_live_shutdown_requeues_inflight_work_and_reuses_finished_result(
+    broker, session_factory
+):
+    channel, result_queue, bind = broker
+    bind()
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+
+    def classify(article):
+        calls.append(article)
+        entered.set()
+        assert release.wait(8)
+        return ("science",)
+
+    repository = EnrichmentRepository(session_factory)
+    processor = PostProcessor(EnrichmentService(repository, classify))
+    consumer, thread = start(processor, channel)
+    value = event()
+    try:
+        publish(channel, value)
+        assert entered.wait(2)
+        consumer.stop()
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        assert not consumer.wait_for_worker(timeout=0.01)
+
+        def redelivery():
+            delivery = channel.basic_get(queue=settings.post_queue, auto_ack=False)
+            return delivery if delivery[0] is not None else None
+
+        method, _, body = wait_for(redelivery)
+        assert method.redelivered
+        assert json.loads(body) == value
+        release.set()
+        assert consumer.wait_for_worker(timeout=2)
+        saved = repository.get_by_post_id(UUID(value["payload"]["post_id"]))
+        assert saved.publication_pending
+        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+        consumer, thread = start(processor, channel)
+        delivered = wait_for(
+            lambda: channel.basic_get(queue=result_queue, auto_ack=True)[2]
+        )
+        assert json.loads(delivered)["event_id"] == saved.event_id
+        wait_for(
+            lambda: not repository.get_by_post_id(saved.post_id).publication_pending
+        )
+        assert len(calls) == 1
+    finally:
+        release.set()
         stop(consumer, thread)

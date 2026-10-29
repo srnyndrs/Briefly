@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_port: int = 8005
     log_level: str = "INFO"
     sentry_dsn: str | None = None
+    shutdown_timeout_seconds: float = Field(default=10, gt=0, allow_inf_nan=False)
     gemini_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str | None = Field(default=None, max_length=200)
