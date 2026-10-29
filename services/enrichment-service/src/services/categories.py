@@ -1,4 +1,3 @@
-
 CATEGORY_TAXONOMY_VERSION = "categories-v2"
 
 CATEGORY_DEFINITIONS: dict[str, str] = {

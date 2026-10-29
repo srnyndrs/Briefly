@@ -91,7 +91,8 @@ class EnrichmentRepository:
                     set_={
                         "post_revision": excluded.post_revision,
                         "category_ids": excluded.category_ids,
-                        "enrichment_revision": PostEnrichment.enrichment_revision+1,
+                        "enrichment_revision": PostEnrichment.enrichment_revision
+                        + 1,
                         "status": excluded.status,
                         "reason": excluded.reason,
                         "processed_at": excluded.processed_at,
