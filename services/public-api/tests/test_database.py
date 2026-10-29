@@ -1,10 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from types import SimpleNamespace
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import Column, Integer, MetaData, Table, event, inspect, text
+from sqlalchemy.exc import OperationalError
 
 from src.config import database
 
@@ -12,11 +14,20 @@ from src.config import database
 def test_init_db_can_repeat_with_existing_tables(monkeypatch, session_factory):
     engine = session_factory.kw["bind"]
     monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(database, "readiness_engine", engine)
 
     database.init_db()
     database.init_db()
 
     assert "post_projections" in inspect(engine).get_table_names()
+    assert database.database_ready()
+    with patch.object(
+        engine,
+        "connect",
+        side_effect=OperationalError("connect", {}, RuntimeError("unavailable")),
+    ):
+        assert not database.database_ready()
+    assert database.database_ready()
 
 
 def test_postgres_init_db_rolls_back_and_serializes_starts(

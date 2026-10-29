@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
+from src.app import app
 from src.models.post import Post
 
 SOURCE_ONE = UUID("00000000-0000-0000-0000-000000000001")
@@ -57,12 +58,31 @@ def _seed_posts(db_session, post_id: UUID, other_id: UUID):
     db_session.commit()
 
 
-def test_health(client: TestClient) -> None:
+def test_health(client: TestClient, monkeypatch) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
     assert data["service"] == "content-service"
+    thread = MagicMock()
+    consumer = MagicMock(is_consuming=True)
+    monkeypatch.setattr(app.state, "consumer_thread", thread)
+    monkeypatch.setattr(app.state, "consumer", consumer)
+    monkeypatch.setattr("src.app.database_ready", lambda: True)
+    assert client.get("/live").status_code == 200
+    assert client.get("/ready").status_code == 200
+    consumer.is_consuming = False
+    assert client.get("/ready").status_code == 503
+    assert client.get("/live").status_code == 200
+    consumer.is_consuming = True
+    monkeypatch.setattr("src.app.database_ready", lambda: False)
+    assert client.get("/ready").status_code == 503
+    assert client.get("/live").status_code == 200
+    monkeypatch.setattr("src.app.database_ready", lambda: True)
+    assert client.get("/ready").status_code == 200
+    thread.is_alive.return_value = False
+    assert client.get("/live").status_code == 503
+    assert client.get("/ready").status_code == 503
 
 
 def test_get_post_by_id(client: TestClient, db_session) -> None:

@@ -2,6 +2,8 @@ import json
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from pika.exceptions import ConnectionWrongStateError
+from sqlalchemy.exc import InterfaceError, OperationalError, TimeoutError
 
 from src.adapters.feed_consumer import FeedConsumer
 from src.config.message_broker import publisher_channel
@@ -18,9 +20,17 @@ def test_consumer_startup_configures_exchanges_queues_and_confirms(
     mock_conn.channel.return_value = mock_channel
 
     consumer = FeedConsumer(MagicMock())
-    mock_channel.start_consuming.side_effect = None
+    assert not consumer.is_consuming
+
+    def consume():
+        assert consumer.is_consuming
+        consumer.stop()
+        assert not consumer.is_consuming
+
+    mock_channel.start_consuming.side_effect = consume
 
     consumer._connect_and_consume()
+    assert not consumer.is_consuming
 
     declarations = [
         recorded_call
@@ -108,29 +118,87 @@ def test_invalid_message_is_rejected_without_requeue() -> None:
     channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
 
 
-def test_processing_failure_is_rejected_without_ack() -> None:
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("processing failed"),
+        OperationalError("query", {}, RuntimeError("unavailable")),
+        InterfaceError("query", {}, RuntimeError("connection closed")),
+        TimeoutError("pool unavailable"),
+    ],
+)
+def test_processing_failure_preserves_transient_deliveries(error) -> None:
     channel = MagicMock(is_open=True)
     processor_factory = MagicMock()
     session_context = MagicMock()
     session_context.__enter__.return_value = MagicMock()
-    processor_factory.return_value.process.side_effect = RuntimeError(
-        "Database unavailable"
-    )
+    processor_factory.return_value.process.side_effect = error
     with (
         patch(
             "src.adapters.feed_consumer.SessionLocal",
             return_value=session_context,
         ),
     ):
-        FeedConsumer(processor_factory)._on_message(
-            channel,
-            MagicMock(delivery_tag=7),
-            None,
-            json.dumps({}).encode(),
-        )
+        consumer = FeedConsumer(processor_factory)
+        if isinstance(error, RuntimeError):
+            consumer._on_message(
+                channel, MagicMock(delivery_tag=7), None, json.dumps({}).encode()
+            )
+        else:
+            with pytest.raises(type(error)):
+                consumer._on_message(
+                    channel,
+                    MagicMock(delivery_tag=7),
+                    None,
+                    json.dumps({}).encode(),
+                )
         session_context.__exit__.assert_called_once()
     channel.basic_ack.assert_not_called()
-    channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
+    if isinstance(error, RuntimeError):
+        channel.basic_nack.assert_called_once_with(delivery_tag=7, requeue=False)
+    else:
+        channel.basic_nack.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "stop_timing",
+    ["before_progress", "during_progress", "during_connect", "during_subscribe"],
+)
+def test_stop_prevents_new_deliveries_and_interrupts_feed_progress(
+    stop_timing,
+) -> None:
+    factory = MagicMock()
+    consumer = FeedConsumer(factory)
+    connection = MagicMock(is_open=True)
+    if stop_timing in ("during_connect", "during_subscribe"):
+
+        def connect(params):
+            if stop_timing == "during_connect":
+                consumer.stop()
+            return connection
+
+        connection.channel.return_value.basic_consume.side_effect = lambda **_: (
+            consumer.stop()
+        )
+        with patch(
+            "src.adapters.feed_consumer.BlockingConnection", side_effect=connect
+        ):
+            consumer._connect_and_consume()
+        connection.close.assert_called_once_with()
+        connection.channel.return_value.start_consuming.assert_not_called()
+    elif stop_timing == "before_progress":
+        consumer._connection = connection
+        consumer.stop()
+    else:
+        consumer._connection = connection
+        connection.process_data_events.side_effect = lambda **_: consumer.stop()
+    with pytest.raises(ConnectionWrongStateError, match="stopping"):
+        consumer._service_connection()
+    channel = MagicMock(is_open=True)
+    consumer._on_message(channel, MagicMock(delivery_tag=7), None, b"{}")
+    factory.assert_not_called()
+    channel.basic_ack.assert_not_called()
+    channel.basic_nack.assert_not_called()
 
 
 def test_closed_channel_failure_propagates_for_broker_redelivery() -> None:

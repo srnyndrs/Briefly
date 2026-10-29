@@ -1,17 +1,21 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 import sentry_sdk
 import uvicorn
-from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
+from apscheduler.events import EVENT_SCHEDULER_STARTED
+from apscheduler.schedulers.base import STATE_RUNNING
+from apscheduler.schedulers.blocking import BlockingScheduler
+from fastapi import FastAPI, HTTPException
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
     ignore_logger_for_sentry_logs,
 )
 
-from src.config.database import SessionLocal, init_db
+from src.config.database import SessionLocal, database_ready, init_db
+from src.config.message_broker import broker_ready
 from src.config.settings import settings
 from src.routers import sources
 from src.schemas.common import HealthResponse
@@ -45,13 +49,19 @@ if settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    application.state.started = False
     scheduler = None
+    thread = None
     try:
         if not getattr(application.state, "testing", False):
             init_db()
             orchestrator = CrawlCycleOrchestrator(session_factory=SessionLocal)
-            scheduler = BackgroundScheduler()
+            scheduler = BlockingScheduler()
             application.state.scheduler = scheduler
+            scheduler_started = threading.Event()
+            scheduler.add_listener(
+                lambda _: scheduler_started.set(), EVENT_SCHEDULER_STARTED
+            )
             scheduler.add_job(
                 func=orchestrator.run_crawl_cycle,
                 trigger="interval",
@@ -59,18 +69,31 @@ async def lifespan(application: FastAPI):
                 id="crawl_cycle",
                 replace_existing=True,
             )
-            scheduler.start()
+            thread = threading.Thread(
+                target=scheduler.start,
+                daemon=True,
+                name="crawl-scheduler",
+            )
+            application.state.scheduler_thread = thread
+            thread.start()
+            if not scheduler_started.wait(timeout=5):
+                raise RuntimeError("Crawler scheduler failed to start")
             logger.info(
                 "Crawler Service started crawl interval=%ds, port=%d",
                 settings.crawl_interval_seconds,
                 settings.app_port,
             )
 
+        application.state.started = True
         yield
     finally:
+        application.state.started = False
         if scheduler and scheduler.running:
             scheduler.shutdown(wait=True)
             logger.info("Scheduler stopped.")
+
+        if thread and thread.is_alive():
+            thread.join(timeout=5)
 
         logger.info("Crawler Service stopped.")
 
@@ -86,6 +109,32 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/live", response_model=HealthResponse, tags=["ops"])
+def live() -> HealthResponse:
+    if not getattr(app.state, "started", False):
+        raise HTTPException(status_code=503, detail="Service has not started")
+
+    thread = getattr(app.state, "scheduler_thread", None)
+    if thread is None or not thread.is_alive():
+        raise HTTPException(status_code=503, detail="Scheduler is not running")
+
+    return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/ready", response_model=HealthResponse, tags=["ops"])
+def ready() -> HealthResponse:
+    live()
+    if (
+        not getattr(app.state, "scheduler", None)
+        or app.state.scheduler.state != STATE_RUNNING
+        or not database_ready()
+        or not broker_ready()
+    ):
+        raise HTTPException(status_code=503, detail="Service is not ready")
+
+    return live()
 
 
 app.include_router(sources.router)

@@ -7,7 +7,7 @@ import pika
 import pytest
 
 from src.adapters.event_publisher import publish_event
-from src.config.message_broker import publisher_channel
+from src.config.message_broker import broker_ready, publisher_channel
 from src.config.settings import settings
 from src.events.feed_fetched import build_feed_fetched_event
 
@@ -103,3 +103,22 @@ def test_publisher_cleanup_preserves_primary_exception(
 
     assert caught.value is primary_error
     connection.close.assert_called_once_with()
+
+
+@patch("src.config.message_broker.pika.BlockingConnection")
+def test_broker_probe_recovers_without_publishing(mock_connection_cls) -> None:
+    connection = MagicMock()
+    mock_connection_cls.side_effect = [
+        connection,
+        pika.exceptions.AMQPConnectionError(),
+        connection,
+    ]
+    assert broker_ready()
+    assert not broker_ready()
+    assert broker_ready()
+    assert connection.close.call_count == 2
+    connection.channel.assert_not_called()
+    parameters = mock_connection_cls.call_args.args[0]
+    assert parameters.connection_attempts == 1
+    assert parameters.socket_timeout == 2
+    assert parameters.stack_timeout == 3

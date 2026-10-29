@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 import pytest
+from pika.exceptions import ConnectionWrongStateError
+from sqlalchemy.exc import OperationalError
 
 from src.adapters.query_projector import QueryProjector
 from src.config.settings import settings
@@ -20,6 +22,8 @@ USER_ID = "00000000-0000-0000-0000-000000000003"
 
 
 class RecordingChannel:
+    is_open = True
+
     def __init__(self, on_ack=lambda: None):
         self.acknowledged = []
         self.rejected = []
@@ -124,7 +128,10 @@ def test_duplicate_delivery_and_dispatch_commit_before_ack(session_factory):
     assert channel.rejected == []
 
 
-def test_commit_failure_rolls_back_projection_and_receipt(session_factory):
+@pytest.mark.parametrize("transient", [False, True])
+def test_commit_failure_rolls_back_projection_and_receipt(
+    session_factory, transient
+):
     session = session_factory()
     staged = []
 
@@ -137,33 +144,66 @@ def test_commit_failure_rolls_back_projection_and_receipt(session_factory):
                 session.get(ProcessedEvent, "parsed-1").event_id,
             ]
         )
+        if transient:
+            raise OperationalError("commit", {}, RuntimeError("unavailable"))
         raise RuntimeError("commit failed")
 
     channel = RecordingChannel()
     with patch.object(session, "commit", side_effect=fail_commit) as commit:
-        QueryProjector(lambda: session)._on_message(
-            channel,
-            SimpleNamespace(delivery_tag=1),
-            None,
-            json.dumps(_post_event()).encode(),
-        )
+        projector = QueryProjector(lambda: session)
+        if transient:
+            with pytest.raises(OperationalError):
+                projector._on_message(
+                    channel,
+                    SimpleNamespace(delivery_tag=1),
+                    None,
+                    json.dumps(_post_event()).encode(),
+                )
+        else:
+            projector._on_message(
+                channel,
+                SimpleNamespace(delivery_tag=1),
+                None,
+                json.dumps(_post_event()).encode(),
+            )
     commit.assert_called_once_with()
     assert staged == [UUID(POST_ID), "parsed-1"]
     with session_factory() as db:
         assert db.query(PostProjection).count() == 0
         assert db.query(ProcessedEvent).count() == 0
     assert channel.acknowledged == []
-    assert channel.rejected == [(1, False)]
+    assert channel.rejected == ([] if transient else [(1, False)])
+    if transient:
+        QueryProjector(session_factory)._on_message(
+            channel,
+            SimpleNamespace(delivery_tag=2),
+            None,
+            json.dumps(_post_event()).encode(),
+        )
+        assert channel.acknowledged == [2]
+        with session_factory() as db:
+            assert db.query(PostProjection).count() == 1
+            assert db.get(ProcessedEvent, "parsed-1") is not None
 
 
 def test_query_queue_is_durable_and_binds_all_events():
     connection = MagicMock()
     channel = connection.channel.return_value
+    projector = QueryProjector(lambda: None)
+    assert not projector.is_consuming
+
+    def consume():
+        assert projector.is_consuming
+        projector.stop()
+        assert not projector.is_consuming
+
+    channel.start_consuming.side_effect = consume
     with patch(
         "src.adapters.query_projector.BlockingConnection",
         return_value=connection,
     ) as connect:
-        QueryProjector(lambda: None)._connect_and_consume()
+        projector._connect_and_consume()
+    assert not projector.is_consuming
     parameters = connect.call_args.args[0]
     assert parameters.blocked_connection_timeout == settings.blocked_timeout_seconds
     channel.queue_declare.assert_called_once_with(
@@ -181,10 +221,13 @@ def test_query_queue_is_durable_and_binds_all_events():
 
 def test_projector_closes_connection_when_consumption_fails():
     connection = MagicMock(is_open=True)
-    connection.channel.return_value.start_consuming.side_effect = RuntimeError(
-        "consume failed"
-    )
     projector = QueryProjector(lambda: None)
+
+    def consume():
+        assert projector.is_consuming
+        raise RuntimeError("consume failed")
+
+    connection.channel.return_value.start_consuming.side_effect = consume
     with (
         patch(
             "src.adapters.query_projector.BlockingConnection",
@@ -196,6 +239,7 @@ def test_projector_closes_connection_when_consumption_fails():
     connection.close.assert_called_once_with()
     assert projector._connection is None
     assert projector._channel is None
+    assert not projector.is_consuming
 
 
 def test_invalid_envelope_records_no_receipt_or_projection(session_factory):
@@ -224,3 +268,24 @@ def test_invalid_envelope_records_no_receipt_or_projection(session_factory):
         assert db.query(ProcessedEvent).count() == 0
         assert db.query(PostEnrichmentProjection).count() == 0
         assert db.query(PostProjection).count() == 0
+
+
+def test_ack_failure_leaves_committed_event_safe_to_redeliver(session_factory):
+    def fail_ack():
+        raise ConnectionWrongStateError("closed")
+
+    channel = RecordingChannel(fail_ack)
+    projector = QueryProjector(session_factory)
+    body = json.dumps(_post_event()).encode()
+    with pytest.raises(ConnectionWrongStateError):
+        projector._on_message(channel, SimpleNamespace(delivery_tag=1), None, body)
+    assert channel.rejected == []
+    channel.on_ack = lambda: None
+    projector._on_message(channel, SimpleNamespace(delivery_tag=2), None, body)
+    with session_factory() as db:
+        assert db.query(ProcessedEvent).count() == 1
+        assert db.query(PostProjection).count() == 1
+    assert channel.acknowledged == [2]
+    projector.stop()
+    projector._on_message(channel, SimpleNamespace(delivery_tag=3), None, body)
+    assert channel.acknowledged == [2]

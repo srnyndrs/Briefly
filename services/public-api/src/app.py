@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
@@ -12,7 +12,7 @@ from sentry_sdk.integrations.logging import (
 )
 
 from src.adapters.query_projector import QueryProjector
-from src.config.database import SessionLocal, init_db
+from src.config.database import SessionLocal, database_ready, init_db
 from src.config.settings import settings
 from src.routers.auth import router as auth_router
 from src.routers.feed import (
@@ -59,6 +59,7 @@ if settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    application.state.started = False
     try:
         if not getattr(application.state, "testing", False):
             init_db()
@@ -77,8 +78,10 @@ async def lifespan(application: FastAPI):
 
             logger.info("Public API started on port=%d", settings.app_port)
 
+        application.state.started = True
         yield
     finally:
+        application.state.started = False
         projector: QueryProjector | None = getattr(
             application.state, "projector", None
         )
@@ -105,6 +108,34 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/live", response_model=HealthResponse, tags=["ops"])
+def live() -> HealthResponse:
+    if not getattr(app.state, "started", False):
+        raise HTTPException(status_code=503, detail="Service has not started")
+
+    if settings.query_consumer_enabled:
+        thread = getattr(app.state, "projector_thread", None)
+        if thread is None or not thread.is_alive():
+            raise HTTPException(status_code=503, detail="Projector is not running")
+
+    return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/ready", response_model=HealthResponse, tags=["ops"])
+def ready() -> HealthResponse:
+    live()
+    if (
+        settings.query_consumer_enabled
+        and (
+            not getattr(app.state, "projector", None)
+            or not app.state.projector.is_consuming
+        )
+    ) or not database_ready():
+        raise HTTPException(status_code=503, detail="Service is not ready")
+
+    return live()
 
 
 # Include routers

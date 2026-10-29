@@ -28,6 +28,10 @@ class ProviderError(RuntimeError):
         super().__init__(message[:1_000])
 
 
+class ProviderUnavailableError(ProviderError):
+    pass
+
+
 def category_schema() -> dict:
     return {
         "type": "object",

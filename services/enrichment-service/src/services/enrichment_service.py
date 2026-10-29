@@ -10,7 +10,7 @@ from src.services.classification import (
     classify_article,
     normalize_article,
 )
-from src.services.provider import ProviderError
+from src.services.provider import ProviderError, ProviderUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,8 @@ class EnrichmentService:
 
         try:
             result = classify_article(normalized, self._classifier)
+        except ProviderUnavailableError:
+            raise
         except Exception as exc:
             logger.warning(
                 "Classification failed (post_id=%s, error=%s)",

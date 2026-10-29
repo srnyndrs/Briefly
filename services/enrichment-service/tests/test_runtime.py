@@ -12,6 +12,7 @@ from src.adapters.event_publisher import publish_event
 from src.config.settings import settings
 from src.events.post_enriched import build_enrichment_event
 from src.services.post_processor import PostProcessor
+from src.services.provider import ProviderError
 
 
 def process(processor, event, channel):
@@ -31,7 +32,7 @@ def ollama(monkeypatch, session_factory):
     installed = {"digest": "digest-one"}
 
     def fake_open(request, *, timeout):
-        assert timeout == 60
+        assert timeout in (2, 60)
         if request.full_url.endswith("/api/tags"):
             data = {"models": [{"name": settings.ollama_model, **installed}]}
         else:
@@ -96,16 +97,43 @@ def test_startup_composes_starts_and_stops_consumer(ollama, monkeypatch) -> None
     init_db = MagicMock()
     consumer = MagicMock()
     thread = MagicMock()
+    monkeypatch.setattr(application, "database_ready", lambda: True)
     monkeypatch.setattr(application, "init_db", init_db)
     monkeypatch.setattr(application, "PostConsumer", consumer)
     monkeypatch.setattr(application, "threading", SimpleNamespace(Thread=thread))
     with TestClient(application.app) as client:
         assert client.get("/health").json()["status"] == "ok"
+        assert client.get("/live").status_code == 200
+        assert client.get("/ready").status_code == 200
+        consumer.return_value.is_consuming = False
+        assert client.get("/ready").status_code == 503
+        assert client.get("/live").status_code == 200
+        consumer.return_value.is_consuming = True
+        monkeypatch.setattr(application, "database_ready", lambda: False)
+        assert client.get("/ready").status_code == 503
+        assert client.get("/live").status_code == 200
+        monkeypatch.setattr(application, "database_ready", lambda: True)
+        assert client.get("/ready").status_code == 200
+        with monkeypatch.context() as model_check:
+            model_check.setattr(
+                application.OllamaProvider,
+                "model_digest",
+                MagicMock(side_effect=ProviderError("Ollama unavailable")),
+            )
+            assert client.get("/ready").status_code == 503
+            assert client.get("/live").status_code == 200
+        assert client.get("/ready").status_code == 200
+        thread.return_value.is_alive.return_value = False
+        assert client.get("/live").status_code == 503
+        assert client.get("/ready").status_code == 503
+        assert client.get("/health").status_code == 200
+        thread.return_value.is_alive.return_value = True
         init_db.assert_called_once_with()
         consumer.assert_called_once()
         thread.return_value.start.assert_called_once_with()
     consumer.return_value.stop.assert_called_once_with()
     thread.return_value.join.assert_called_once()
+    assert not application.app.state.started
 
 
 def test_missing_model_prevents_consumer_startup(monkeypatch) -> None:

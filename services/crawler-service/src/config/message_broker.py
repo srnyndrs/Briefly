@@ -18,6 +18,20 @@ def create_connection_parameters() -> pika.URLParameters:
     return params
 
 
+def broker_ready() -> bool:
+    try:
+        params = create_connection_parameters()
+        params.connection_attempts = 1
+        params.socket_timeout = 2
+        params.stack_timeout = 3
+        params.blocked_connection_timeout = 2
+        connection = pika.BlockingConnection(params)
+        connection.close()
+        return True
+    except (pika.exceptions.AMQPError, ValueError):
+        return False
+
+
 @contextmanager
 def publisher_channel(*, exchange: str) -> Iterator[BlockingChannel]:
     connection = pika.BlockingConnection(create_connection_parameters())

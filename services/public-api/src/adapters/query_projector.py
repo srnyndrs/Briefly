@@ -8,6 +8,12 @@ from pika.adapters.blocking_connection import (
     BlockingChannel,
     BlockingConnection,
 )
+from pika.exceptions import (
+    AMQPConnectionError,
+    ChannelClosed,
+    ChannelWrongStateError,
+)
+from sqlalchemy.exc import InterfaceError, OperationalError, TimeoutError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.config.message_broker import create_connection_parameters
@@ -28,6 +34,11 @@ class QueryProjector:
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
+        self._consuming = threading.Event()
+
+    @property
+    def is_consuming(self) -> bool:
+        return self._consuming.is_set() and not self._stop_event.is_set()
 
     def run(self) -> None:
         delay = 1
@@ -41,7 +52,7 @@ class QueryProjector:
 
                 logger.error(
                     "Projector error: %s — retrying in %ds",
-                    exc,
+                    type(exc).__name__,
                     delay,
                 )
 
@@ -70,6 +81,8 @@ class QueryProjector:
         self._connection = connection
 
         try:
+            if self._stop_event.is_set():
+                return
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=20)
 
@@ -113,8 +126,12 @@ class QueryProjector:
                 queue=settings.query_queue,
                 on_message_callback=self._on_message,
             )
+            if self._stop_event.is_set():
+                return
+            self._consuming.set()
             self._channel.start_consuming()
         finally:
+            self._consuming.clear()
             try:
                 if connection.is_open:
                     connection.close()
@@ -124,6 +141,9 @@ class QueryProjector:
                     self._connection = None
 
     def _on_message(self, ch: Any, method: Any, props: Any, body: bytes) -> None:
+        if self._stop_event.is_set():
+            return
+
         try:
             event = self._decode_message(body)
             if event is None:
@@ -145,8 +165,7 @@ class QueryProjector:
                 ch.basic_ack(delivery_tag=method.delivery_tag)
                 return
 
-            db = self._session_factory()
-            try:
+            with self._session_factory() as db:
                 already = db.get(ProcessedEvent, event_id)
                 if already is not None:
                     ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -160,22 +179,21 @@ class QueryProjector:
                     )
                 )
                 db.commit()
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-            except Exception:
-                db.rollback()
-                logger.exception(
-                    "Failed processing event_type=%s event_id=%s",
-                    event_type,
-                    event_id,
-                )
-                ch.basic_nack(
-                    delivery_tag=method.delivery_tag,
-                    requeue=False,
-                )
-            finally:
-                db.close()
+
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        except (
+            AMQPConnectionError,
+            ChannelClosed,
+            ChannelWrongStateError,
+            InterfaceError,
+            OperationalError,
+            TimeoutError,
+        ):
+            raise
         except Exception:
             logger.exception("Unhandled projector message error")
+            if not ch.is_open:
+                raise
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     @staticmethod

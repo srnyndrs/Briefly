@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
@@ -13,14 +13,14 @@ from sentry_sdk.integrations.logging import (
 
 from src.adapters.ollama_provider import OllamaProvider
 from src.adapters.post_consumer import PostConsumer
-from src.config.database import SessionLocal, init_db
+from src.config.database import SessionLocal, database_ready, init_db
 from src.config.settings import settings
 from src.repositories.enrichment_repository import EnrichmentRepository
 from src.schemas.common import HealthResponse
 from src.services.classification import ArticleInput
 from src.services.enrichment_service import EnrichmentService
 from src.services.post_processor import PostProcessor
-from src.services.provider import instructions
+from src.services.provider import ProviderError, instructions
 
 TAG_NAME = "enrichment-service"
 
@@ -77,6 +77,7 @@ def create_enrichment_service() -> EnrichmentService:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    application.state.started = False
     try:
         if not getattr(application.state, "testing", False):
             init_db()
@@ -91,8 +92,10 @@ async def lifespan(application: FastAPI):
             thread.start()
             logger.info("Enrichment Service started on port=%d", settings.app_port)
 
+        application.state.started = True
         yield
     finally:
+        application.state.started = False
         consumer: PostConsumer | None = getattr(application.state, "consumer", None)
         if consumer:
             consumer.stop()
@@ -117,6 +120,41 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/live", response_model=HealthResponse, tags=["ops"])
+def live() -> HealthResponse:
+    if not getattr(app.state, "started", False):
+        raise HTTPException(status_code=503, detail="Service has not started")
+
+    thread = getattr(app.state, "consumer_thread", None)
+    if thread is None or not thread.is_alive():
+        raise HTTPException(status_code=503, detail="Consumer is not running")
+
+    return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/ready", response_model=HealthResponse, tags=["ops"])
+def ready() -> HealthResponse:
+    live()
+    if (
+        not getattr(app.state, "consumer", None)
+        or not app.state.consumer.is_consuming
+        or not database_ready()
+    ):
+        raise HTTPException(status_code=503, detail="Service is not ready")
+
+    try:
+        OllamaProvider(
+            model=settings.ollama_model or "",
+            instructions="",
+            base_url=settings.ollama_base_url,
+            timeout=2,
+        ).model_digest()
+    except (ProviderError, ValueError):
+        raise HTTPException(status_code=503, detail="Model is not ready") from None
+
+    return live()
 
 
 if __name__ == "__main__":

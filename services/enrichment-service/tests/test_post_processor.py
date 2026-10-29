@@ -1,9 +1,11 @@
 import json
+from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.adapters.event_publisher import publish_event
@@ -14,6 +16,7 @@ from src.scripts.republish_result import republish_result
 from src.services.classification import ArticleInput
 from src.services.enrichment_service import EnrichmentService
 from src.services.post_processor import PostProcessor
+from src.services.provider import ProviderUnavailableError
 
 
 def process(processor, event, channel):
@@ -298,24 +301,62 @@ def test_failed_publish_reuses_saved_event_after_restart(
     assert retry_channel.basic_publish.call_count == 1
 
 
+@pytest.mark.parametrize("transient", [False, True])
 def test_save_failure_prevents_publication(
     deliver,
     session_factory: sessionmaker[Session],
+    transient,
 ) -> None:
     repository = EnrichmentRepository(session_factory)
     processor = PostProcessor(EnrichmentService(repository, RecordingClassifier()))
     channel = MagicMock(is_open=True)
 
-    with patch.object(repository, "save", side_effect=RuntimeError("save failed")):
-        deliver(
-            processor,
-            channel,
-            json.dumps(_event(post_id=str(uuid4()))).encode(),
-        )
+    error = (
+        OperationalError("save", {}, RuntimeError("unavailable"))
+        if transient
+        else RuntimeError("save failed")
+    )
+    body = json.dumps(_event(post_id=str(uuid4()))).encode()
+    with patch.object(repository, "save", side_effect=error):
+        if transient:
+            with pytest.raises(OperationalError):
+                deliver(processor, channel, body)
+        else:
+            deliver(processor, channel, body)
 
     channel.basic_publish.assert_not_called()
     channel.basic_ack.assert_not_called()
-    channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
+    if transient:
+        channel.basic_nack.assert_not_called()
+        deliver(processor, channel, body)
+        channel.basic_ack.assert_called_once()
+    else:
+        channel.basic_nack.assert_called_once_with(delivery_tag=1, requeue=False)
+
+
+def test_provider_outage_preserves_delivery_without_saving_failure(
+    deliver, session_factory
+):
+    repository = EnrichmentRepository(session_factory)
+    classifier = MagicMock(
+        side_effect=[ProviderUnavailableError("Ollama unavailable"), ("science",)]
+    )
+    processor = PostProcessor(EnrichmentService(repository, classifier))
+    value = _event(post_id=str(uuid4()))
+    body = json.dumps(value).encode()
+    channel = MagicMock(is_open=True)
+    with pytest.raises(ProviderUnavailableError):
+        deliver(processor, channel, body)
+    assert repository.get_by_post_id(UUID(value["payload"]["post_id"])) is None
+    channel.basic_publish.assert_not_called()
+    channel.basic_ack.assert_not_called()
+    channel.basic_nack.assert_not_called()
+    deliver(processor, channel, body)
+    assert (
+        repository.get_by_post_id(UUID(value["payload"]["post_id"])).status
+        == "completed"
+    )
+    channel.basic_ack.assert_called_once()
 
 
 def test_explicit_republish_uses_saved_event_without_classifier(
@@ -349,20 +390,33 @@ def test_explicit_republish_uses_saved_event_without_classifier(
     assert repository.get_by_post_id(post_id) == saved
 
 
+@pytest.mark.parametrize("transient", [False, True])
 def test_confirmed_publish_with_failed_completion_can_be_delivered_again(
-    deliver, session_factory
+    deliver, session_factory, transient
 ):
     repository = EnrichmentRepository(session_factory)
     classifier = MagicMock(return_value=())
     processor = PostProcessor(EnrichmentService(repository, classifier))
     event = _event(post_id=str(uuid4()))
     first_channel = MagicMock(is_open=True)
-    with patch.object(repository, "mark_published", side_effect=RuntimeError("db")):
+    error = (
+        OperationalError("mark", {}, RuntimeError("unavailable"))
+        if transient
+        else RuntimeError("db")
+    )
+    expected = pytest.raises(OperationalError) if transient else nullcontext()
+    with patch.object(repository, "mark_published", side_effect=error), expected:
         deliver(processor, first_channel, json.dumps(event).encode())
     pending = repository.get_by_post_id(UUID(event["payload"]["post_id"]))
     assert pending.publication_pending
     first_channel.basic_publish.assert_called_once()
     first_channel.basic_ack.assert_not_called()
+    if transient:
+        first_channel.basic_nack.assert_not_called()
+    else:
+        first_channel.basic_nack.assert_called_once_with(
+            delivery_tag=1, requeue=False
+        )
     second_channel = MagicMock(is_open=True)
     recovered = process(processor, event, second_channel)
     assert recovered.event_id == pending.event_id

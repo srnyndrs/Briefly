@@ -8,7 +8,13 @@ from pika.adapters.blocking_connection import (
     BlockingChannel,
     BlockingConnection,
 )
-from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
+from pika.exceptions import (
+    AMQPConnectionError,
+    ChannelClosed,
+    ChannelWrongStateError,
+    ConnectionWrongStateError,
+)
+from sqlalchemy.exc import InterfaceError, OperationalError, TimeoutError
 
 from src.adapters.event_publisher import publish_event
 from src.config.message_broker import create_connection_parameters
@@ -16,6 +22,7 @@ from src.config.settings import settings
 from src.events.post_enriched import build_enrichment_event
 from src.repositories.stored_enrichment import StoredEnrichment
 from src.services.post_processor import PostProcessor
+from src.services.provider import ProviderUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +33,12 @@ class PostConsumer:
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
+        self._consuming = threading.Event()
         self._worker: threading.Thread | None = None
+
+    @property
+    def is_consuming(self) -> bool:
+        return self._consuming.is_set() and not self._stop_event.is_set()
 
     def run(self) -> None:
         delay = 1
@@ -45,7 +57,7 @@ class PostConsumer:
 
                 logger.error(
                     "RabbitMQ consumer error: %s - retrying in %ds",
-                    exc,
+                    type(exc).__name__,
                     delay,
                 )
 
@@ -74,6 +86,8 @@ class PostConsumer:
         self._connection = connection
 
         try:
+            if self._stop_event.is_set():
+                return
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
 
@@ -122,8 +136,12 @@ class PostConsumer:
                 queue=settings.post_queue,
                 on_message_callback=self._on_message,
             )
+            if self._stop_event.is_set():
+                return
+            self._consuming.set()
             self._channel.start_consuming()
         finally:
+            self._consuming.clear()
             try:
                 if connection.is_open:
                     connection.close()
@@ -242,13 +260,24 @@ class PostConsumer:
         channel = self._channel
 
         if error is not None or saved is None or saved.status == "failed":
+            if isinstance(
+                error,
+                (
+                    AMQPConnectionError,
+                    ChannelClosed,
+                    ChannelWrongStateError,
+                    InterfaceError,
+                    OperationalError,
+                    TimeoutError,
+                    ProviderUnavailableError,
+                ),
+            ):
+                raise error
             logger.error(
                 "Parsed-post delivery rejected (delivery_tag=%s, error_type=%s)",
                 delivery_tag,
                 type(error).__name__ if error is not None else "classifier_error",
             )
-            if isinstance(error, AMQPConnectionError):
-                raise error
             channel.basic_nack(
                 delivery_tag=delivery_tag,
                 requeue=False,

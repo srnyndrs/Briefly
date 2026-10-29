@@ -1,12 +1,16 @@
 import json
 from io import BytesIO
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
 from src.adapters.ollama_provider import OllamaProvider, ollama_category_schema
 from src.services.classification import ArticleInput
-from src.services.provider import ProviderError, instructions
+from src.services.provider import (
+    ProviderError,
+    ProviderUnavailableError,
+    instructions,
+)
 
 
 class FakeResponse:
@@ -154,11 +158,14 @@ def test_ollama_rejects_invalid_or_incomplete_response(
         make_provider()(ArticleInput(title="A study"))
 
 
-def test_ollama_http_missing_model_has_bounded_safe_detail(monkeypatch) -> None:
+@pytest.mark.parametrize("status", [400, 404, 408, 429, 503])
+def test_ollama_http_errors_have_safe_detail_and_retry_classification(
+    monkeypatch, status
+) -> None:
     def fail(*_, **__):
         raise HTTPError(
             "http://localhost:11434/api/chat",
-            404,
+            status,
             "not found",
             {},
             BytesIO(b'{"error":"private server detail"}'),
@@ -167,18 +174,30 @@ def test_ollama_http_missing_model_has_bounded_safe_detail(monkeypatch) -> None:
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fail)
     with pytest.raises(ProviderError) as error:
         make_provider()(ArticleInput(title="A study"))
-    assert "HTTP 404" in str(error.value)
+    assert f"HTTP {status}" in str(error.value)
+    assert isinstance(error.value, ProviderUnavailableError) == (
+        status in (408, 429, 503)
+    )
     assert "private server detail" not in str(error.value)
     assert len(str(error.value)) <= 1_000
 
 
-def test_ollama_timeout_has_safe_detail(monkeypatch) -> None:
-    failure = TimeoutError("secret timeout detail")
+@pytest.mark.parametrize(
+    "failure",
+    [
+        TimeoutError("secret detail"),
+        URLError("secret detail"),
+        ConnectionResetError("secret detail"),
+    ],
+)
+def test_ollama_transport_failure_is_retryable_and_has_safe_detail(
+    monkeypatch, failure
+) -> None:
 
     def fail(*_, **__):
         raise failure
 
     monkeypatch.setattr("src.adapters.ollama_provider.urlopen", fail)
-    with pytest.raises(ProviderError, match="Ollama request timed out") as error:
+    with pytest.raises(ProviderUnavailableError) as error:
         make_provider()(ArticleInput(title="A study"))
     assert "secret" not in str(error.value)

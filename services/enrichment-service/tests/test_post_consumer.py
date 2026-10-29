@@ -25,14 +25,31 @@ def result(*, pending=False, status="completed"):
     )
 
 
-def test_declares_only_input_and_dead_letter_queues():
+@pytest.mark.parametrize("disconnect", [False, True])
+def test_declares_only_input_and_dead_letter_queues(disconnect):
     connection = MagicMock(is_open=True)
     channel = connection.channel.return_value
+    consumer = PostConsumer(MagicMock())
+    assert not consumer.is_consuming
+
+    def consume():
+        assert consumer.is_consuming
+        if disconnect:
+            raise RuntimeError("Connection lost")
+        consumer.stop()
+        assert not consumer.is_consuming
+
+    channel.start_consuming.side_effect = consume
     with patch(
         "src.adapters.post_consumer.BlockingConnection",
         return_value=connection,
     ):
-        PostConsumer(MagicMock())._connect_and_consume()
+        if disconnect:
+            with pytest.raises(RuntimeError, match="Connection lost"):
+                consumer._connect_and_consume()
+        else:
+            consumer._connect_and_consume()
+    assert not consumer.is_consuming
     channel.basic_qos.assert_called_once_with(prefetch_count=1)
     channel.confirm_delivery.assert_called_once()
     channel.queue_declare.assert_any_call(

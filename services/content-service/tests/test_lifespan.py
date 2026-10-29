@@ -20,6 +20,7 @@ def test_lifespan_stops_consumer_when_application_raises(monkeypatch) -> None:
 
     async def fail() -> None:
         async with application.lifespan(application.app):
+            assert application.app.state.started
             raise RuntimeError("application failed")
 
     with pytest.raises(RuntimeError, match="application failed"):
@@ -27,3 +28,4 @@ def test_lifespan_stops_consumer_when_application_raises(monkeypatch) -> None:
 
     consumer_factory.assert_called_once_with(application._create_feed_processor)
     consumer.stop.assert_called_once_with()
+    assert not application.app.state.started

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.app import app
 from src.config.database import get_db
+from src.config.settings import settings
 from src.models.read_models import (
     PostProjection,
     UserPreferencesProjection,
@@ -91,10 +93,35 @@ def _post(title, source_id, **metadata):
     )
 
 
-def test_health(client) -> None:
+def test_health(client, monkeypatch) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["service"] == "public-api"
+    thread = MagicMock()
+    projector = MagicMock(is_consuming=True)
+    monkeypatch.setattr(app.state, "projector_thread", thread)
+    monkeypatch.setattr(app.state, "projector", projector)
+    monkeypatch.setattr(settings, "query_consumer_enabled", True)
+    monkeypatch.setattr("src.app.database_ready", lambda: True)
+    assert client.get("/live").status_code == 200
+    assert client.get("/ready").status_code == 200
+    projector.is_consuming = False
+    assert client.get("/ready").status_code == 503
+    assert client.get("/live").status_code == 200
+    projector.is_consuming = True
+    monkeypatch.setattr("src.app.database_ready", lambda: False)
+    assert client.get("/ready").status_code == 503
+    assert client.get("/live").status_code == 200
+    monkeypatch.setattr("src.app.database_ready", lambda: True)
+    assert client.get("/ready").status_code == 200
+    thread.is_alive.return_value = False
+    assert client.get("/live").status_code == 503
+    assert client.get("/ready").status_code == 503
+    monkeypatch.setattr(settings, "query_consumer_enabled", False)
+    monkeypatch.setattr(app.state, "projector", None)
+    monkeypatch.setattr(app.state, "projector_thread", None)
+    assert client.get("/live").status_code == 200
+    assert client.get("/ready").status_code == 200
 
 
 def test_personal_feed_applies_subscriptions_languages_and_category(

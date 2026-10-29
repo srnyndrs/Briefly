@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 import pika
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from src.adapters.post_consumer import PostConsumer
 from src.config.settings import settings
@@ -16,6 +17,7 @@ from src.repositories.enrichment_repository import EnrichmentRepository
 from src.scripts.republish_result import republish_result
 from src.services.enrichment_service import EnrichmentService
 from src.services.post_processor import PostProcessor
+from src.services.provider import ProviderUnavailableError
 
 
 def wait_for(check, timeout=12):
@@ -260,5 +262,49 @@ def test_live_missing_binding_retains_saved_event(
         )
         assert json.loads(delivered)["event_id"] == saved.event_id
         assert not repository.get_by_post_id(saved.post_id).publication_pending
+    finally:
+        stop(consumer, thread)
+
+
+@pytest.mark.parametrize("dependency", ["database", "provider"])
+def test_live_transient_dependency_failure_is_redelivered(
+    broker, session_factory, monkeypatch, dependency
+):
+    channel, result_queue, bind = broker
+    bind()
+    repository = EnrichmentRepository(session_factory)
+    failed = threading.Event()
+    original_get = repository.get_by_post_id
+
+    def get(post_id):
+        if dependency == "database" and not failed.is_set():
+            failed.set()
+            raise OperationalError("query", {}, RuntimeError("unavailable"))
+        return original_get(post_id)
+
+    def classify(article):
+        if dependency == "provider" and not failed.is_set():
+            failed.set()
+            raise ProviderUnavailableError("Ollama unavailable")
+        return ("science",)
+
+    monkeypatch.setattr(repository, "get_by_post_id", get)
+    consumer, thread = start(
+        PostProcessor(EnrichmentService(repository, classify)), channel
+    )
+    value = event()
+    try:
+        publish(channel, value)
+        delivered = wait_for(
+            lambda: channel.basic_get(queue=result_queue, auto_ack=True)[2]
+        )
+        assert failed.is_set()
+        assert json.loads(delivered)["payload"]["status"] == "completed"
+        assert json.loads(delivered)["payload"]["category_ids"] == ["science"]
+        assert channel.basic_get(queue=settings.post_dlq, auto_ack=True)[2] is None
+        saved = repository.get_by_post_id(UUID(value["payload"]["post_id"]))
+        wait_for(
+            lambda: not repository.get_by_post_id(saved.post_id).publication_pending
+        )
     finally:
         stop(consumer, thread)

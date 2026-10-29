@@ -9,13 +9,22 @@ from src.config.settings import settings
 from src.routers.deps import get_event_publisher
 
 
-def test_health(client) -> None:
+def test_health(client, monkeypatch) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
         "service": "account-service",
     }
+    monkeypatch.setattr("src.app.database_ready", lambda: True)
+    assert client.get("/live").status_code == 200
+    assert client.get("/ready").status_code == 200
+    monkeypatch.setattr("src.app.database_ready", lambda: False)
+    assert client.get("/live").status_code == 200
+    assert client.get("/ready").status_code == 503
+    monkeypatch.setattr(app.state, "started", False)
+    assert client.get("/live").status_code == 503
+    assert client.get("/ready").status_code == 503
 
 
 def test_account_display_name(client, account) -> None:

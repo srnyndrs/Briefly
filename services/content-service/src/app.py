@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
@@ -13,7 +13,7 @@ from sentry_sdk.integrations.logging import (
 from sqlalchemy.orm import Session
 
 from src.adapters.feed_consumer import FeedConsumer
-from src.config.database import init_db
+from src.config.database import database_ready, init_db
 from src.config.settings import settings
 from src.repositories.post_repository import PostRepository
 from src.routers import admin, posts
@@ -52,6 +52,7 @@ def _create_feed_processor(db: Session) -> FeedProcessor:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    application.state.started = False
     try:
         if not getattr(application.state, "testing", False):
             init_db()
@@ -66,8 +67,10 @@ async def lifespan(application: FastAPI):
             thread.start()
             logger.info("Content Service started on port=%d", settings.app_port)
 
+        application.state.started = True
         yield
     finally:
+        application.state.started = False
         consumer: FeedConsumer | None = getattr(application.state, "consumer", None)
         if consumer:
             consumer.stop()
@@ -92,6 +95,31 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/live", response_model=HealthResponse, tags=["ops"])
+def live() -> HealthResponse:
+    if not getattr(app.state, "started", False):
+        raise HTTPException(status_code=503, detail="Service has not started")
+
+    thread = getattr(app.state, "consumer_thread", None)
+    if thread is None or not thread.is_alive():
+        raise HTTPException(status_code=503, detail="Consumer is not running")
+
+    return HealthResponse(status="ok", service=TAG_NAME)
+
+
+@app.get("/ready", response_model=HealthResponse, tags=["ops"])
+def ready() -> HealthResponse:
+    live()
+    if (
+        not getattr(app.state, "consumer", None)
+        or not app.state.consumer.is_consuming
+        or not database_ready()
+    ):
+        raise HTTPException(status_code=503, detail="Service is not ready")
+
+    return live()
 
 
 app.include_router(posts.router)

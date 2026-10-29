@@ -26,9 +26,11 @@ def test_lifespan_stops_projector_when_application_raises(monkeypatch) -> None:
 
     async def fail() -> None:
         async with application.lifespan(application.app):
+            assert application.app.state.started
             raise RuntimeError("application failed")
 
     with pytest.raises(RuntimeError, match="application failed"):
         asyncio.run(fail())
 
     projector.stop.assert_called_once_with()
+    assert not application.app.state.started

@@ -6,6 +6,7 @@ from src.services.classification import ArticleInput
 from src.services.provider import (
     ProviderError,
     ProviderResult,
+    ProviderUnavailableError,
     article_json,
     category_schema,
     parse_categories,
@@ -147,15 +148,17 @@ class OllamaProvider:
             if exc.code == 404:
                 detail += ": model may be missing; pull it before evaluation"
 
+            if exc.code in (408, 429) or exc.code >= 500:
+                raise ProviderUnavailableError(detail) from exc
             raise ProviderError(detail) from exc
-        except (URLError, TimeoutError) as exc:
+        except OSError as exc:
             reason = exc.reason if isinstance(exc, URLError) else exc
             detail = (
                 "Ollama request timed out"
                 if isinstance(reason, TimeoutError)
                 else "Ollama connection failed"
             )
-            raise ProviderError(detail) from exc
+            raise ProviderUnavailableError(detail) from exc
 
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("Provider response exceeds the size limit")

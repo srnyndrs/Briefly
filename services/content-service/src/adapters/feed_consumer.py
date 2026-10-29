@@ -8,7 +8,13 @@ from pika.adapters.blocking_connection import (
     BlockingChannel,
     BlockingConnection,
 )
-from pika.exceptions import AMQPConnectionError, ConnectionWrongStateError
+from pika.exceptions import (
+    AMQPConnectionError,
+    ChannelClosed,
+    ChannelWrongStateError,
+    ConnectionWrongStateError,
+)
+from sqlalchemy.exc import InterfaceError, OperationalError, TimeoutError
 from sqlalchemy.orm import Session
 
 from src.config.database import SessionLocal
@@ -25,6 +31,11 @@ class FeedConsumer:
         self._connection: BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
         self._stop_event = threading.Event()
+        self._consuming = threading.Event()
+
+    @property
+    def is_consuming(self) -> bool:
+        return self._consuming.is_set() and not self._stop_event.is_set()
 
     def run(self) -> None:
         delay = 1
@@ -38,7 +49,7 @@ class FeedConsumer:
 
                 logger.error(
                     "RabbitMQ consumer error: %s - retrying in %ds",
-                    exc,
+                    type(exc).__name__,
                     delay,
                 )
 
@@ -67,6 +78,8 @@ class FeedConsumer:
         self._connection = connection
 
         try:
+            if self._stop_event.is_set():
+                return
             self._channel = connection.channel()
             self._channel.basic_qos(prefetch_count=1)
 
@@ -111,8 +124,12 @@ class FeedConsumer:
                 queue=settings.feed_queue,
                 on_message_callback=self._on_message,
             )
+            if self._stop_event.is_set():
+                return
+            self._consuming.set()
             self._channel.start_consuming()
         finally:
+            self._consuming.clear()
             try:
                 if connection.is_open:
                     connection.close()
@@ -122,12 +139,19 @@ class FeedConsumer:
                     self._connection = None
 
     def _service_connection(self) -> None:
+        if self._stop_event.is_set():
+            raise ConnectionWrongStateError("Consumer is stopping")
         if self._connection is None or not self._connection.is_open:
             raise ConnectionWrongStateError("Consumer connection is closed")
 
         self._connection.process_data_events(time_limit=0)
+        if self._stop_event.is_set():
+            raise ConnectionWrongStateError("Consumer is stopping")
 
     def _on_message(self, ch: Any, method: Any, props: Any, body: bytes) -> None:
+        if self._stop_event.is_set():
+            return
+
         try:
             event = json.loads(body)
             with SessionLocal() as db:
@@ -143,7 +167,17 @@ class FeedConsumer:
                 type(exc).__name__,
             )
 
-            if not ch.is_open or isinstance(exc, AMQPConnectionError):
+            if not ch.is_open or isinstance(
+                exc,
+                (
+                    AMQPConnectionError,
+                    ChannelClosed,
+                    ChannelWrongStateError,
+                    InterfaceError,
+                    OperationalError,
+                    TimeoutError,
+                ),
+            ):
                 raise
 
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

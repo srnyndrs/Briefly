@@ -3,7 +3,9 @@ import logging
 from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from src.config.settings import settings
 
@@ -20,8 +22,33 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    connect_args=(
+        {"connect_timeout": 5}
+        if settings.database_url.startswith("postgresql")
+        else {}
+    ),
     json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
 )
+
+readiness_engine = create_engine(
+    settings.database_url,
+    poolclass=NullPool,
+    connect_args=(
+        {"connect_timeout": 2, "options": "-c statement_timeout=2000"}
+        if engine.dialect.name == "postgresql"
+        else {}
+    ),
+)
+
+
+def database_ready() -> bool:
+    try:
+        with readiness_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except SQLAlchemyError:
+        return False
+
 
 SessionLocal = sessionmaker(
     bind=engine,
