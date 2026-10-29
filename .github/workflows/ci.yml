@@ -2,6 +2,7 @@ name: CI and image publishing
 
 on:
   push:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,12 +12,19 @@ jobs:
     name: Select services
     runs-on: ubuntu-latest
     outputs:
-      services: ${{ steps.detect.outputs.services }}
+      services: ${{ steps.all.outputs.services || steps.detect.outputs.services }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Select all backend services for manual run
+        if: github.event_name == 'workflow_dispatch'
+        id: all
+        run: |
+          echo 'services=["account-service","content-service","crawler-service","enrichment-service","public-api"]' >> "$GITHUB_OUTPUT"
+
       - name: Detect changed services
+        if: github.event_name != 'workflow_dispatch'
         id: detect
         uses: ./.github/actions/changed-services
 
@@ -31,7 +39,7 @@ jobs:
   publish:
     name: Publish ${{ matrix.service }}
     needs: [select, quality]
-    if: github.ref == 'refs/heads/master'
+    if: needs.select.outputs.services != '[]' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
