@@ -17,13 +17,11 @@ services:
       retries: 10
 
   rabbitmq:
-    # 'management' variant ships with the web UI at http://localhost:15672
-    # Default credentials: guest / guest
     image: rabbitmq:3-management-alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5672:5672"    # AMQP
-      - "127.0.0.1:15672:15672"  # Management UI
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -65,7 +63,7 @@ services:
       FEED_EXCHANGE: feed.content
       VERIFIED_CRAWL_INTERVAL_SECONDS: 300
       UNVERIFIED_CRAWL_INTERVAL_SECONDS: 1800
-      CRAWL_INTERVAL_SECONDS: 60   # 1 min for local dev (5 min in prod)
+      CRAWL_INTERVAL_SECONDS: 60
       FETCH_TIMEOUT_SECONDS: 30
       MAX_RETRIES: 5
     depends_on:
@@ -133,6 +131,7 @@ services:
     env_file:
       - path: ./services/enrichment-service/.env
         required: false
+      - ./config/ollama/model.env
     ports:
       - "8005:8005"
     environment:
@@ -143,7 +142,6 @@ services:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/briefly
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: &ollama-model qwen2.5:3b
     depends_on:
       postgres:
         condition: service_healthy
@@ -162,20 +160,25 @@ services:
 
   ollama:
     profiles: ["enrichment", "ollama"]
-    build:
-      context: ./config/ollama
-      args:
-        OLLAMA_MODEL: *ollama-model
+    image: ollama/ollama@sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c
+    entrypoint: ["sh", "/etc/ollama/start.sh"]
     restart: unless-stopped
+    env_file:
+      - ./config/ollama/model.env
     ports:
       - "127.0.0.1:11434:11434"
     environment:
-      OLLAMA_MODEL: *ollama-model
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MODELS: /models
+      OLLAMA_NOPRUNE: "true"
+    volumes:
+      - ollama_data:/models
+      - ./config/ollama/start.sh:/etc/ollama/start.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "ollama show \"$${OLLAMA_MODEL}\" >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
-      start_period: 10s
+      start_period: 15m
       retries: 5
 
   account-service:
@@ -270,3 +273,4 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  ollama_data:
