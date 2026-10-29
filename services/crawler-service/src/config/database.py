@@ -33,12 +33,16 @@ SessionLocal = sessionmaker(
 def init_db() -> None:
     from src.models import source  # noqa: F401
 
-    if engine.dialect.name == "postgresql":
-        with engine.begin() as conn:
-            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};"))
-
     logger.info("Creating missing database tables...")
-    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.execute(text("SET LOCAL lock_timeout = '30s'"))
+            conn.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
+                {"lock_name": f"briefly:init_db:{SCHEMA_NAME}"},
+            )
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME};"))
+        Base.metadata.create_all(bind=conn)
     logger.info("Database schema ready.")
 
 
