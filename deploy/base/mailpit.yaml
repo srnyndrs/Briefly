@@ -26,6 +26,8 @@ spec:
       app.kubernetes.io/name: mailpit
   template:
     metadata:
+      annotations:
+        briefly.local/gitops-check: "1"
       labels:
         app.kubernetes.io/name: mailpit
     spec:
