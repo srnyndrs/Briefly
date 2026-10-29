@@ -1,7 +1,7 @@
 [project]
 name = "content-service"
 version = "0.1.0"
-description = "Parses RSS feeds and extracts article content."
+description = "Parses RSS feeds and extracts article contents."
 authors = [
     { name = "Andras Suranyi" }
 ]

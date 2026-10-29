@@ -1,7 +1,7 @@
 [project]
 name = "crawler-service"
 version = "0.1.0"
-description = ""
+description = "Periodically crawls RSS/Atom sources and publishes raw results."
 authors = [
     { name = "Andras Suranyi" }
 ]

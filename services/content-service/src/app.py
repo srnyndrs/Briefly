@@ -91,7 +91,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Content Service",
-    description="Parses RSS feeds and extracts article content.",
+    description="Parses RSS feeds and extracts article contents.",
     version="0.1.0",
     lifespan=lifespan,
 )

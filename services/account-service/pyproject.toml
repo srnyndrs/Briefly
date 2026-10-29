@@ -1,7 +1,7 @@
 [project]
 name = "account-service"
 version = "0.1.0"
-description = ""
+description = "Identity, account settings, preferences, and subscriptions service."
 authors = [
     { name = "Andras Suranyi" }
 ]

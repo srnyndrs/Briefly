@@ -1,7 +1,7 @@
 [project]
 name = "enrichment-service"
 version = "0.1.0"
-description = ""
+description = "Enriches parsed posts with derived metadata."
 authors = [
     { name = "Andras Suranyi" }
 ]

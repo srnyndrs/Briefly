@@ -1,7 +1,7 @@
 [project]
 name = "public-api"
 version = "0.1.0"
-description = "Public gateway API with JWT auth and query projections"
+description = "Gateway API with JWT validation and read-model queries."
 authors = [
     { name = "Andras Suranyi" }
 ]

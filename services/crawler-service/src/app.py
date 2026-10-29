@@ -112,7 +112,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="Crawler Service",
-    description="Periodically crawls RSS/Atom sources and publishes events to RabbitMQ.",
+    description="Periodically crawls RSS/Atom sources and publishes raw results.",
     version="0.1.0",
     lifespan=lifespan,
 )
