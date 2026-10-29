@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: briefly
+resources:
+  - ../../base
+  - ../../backends
+  - ../../enrichment
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: briefly
+    includeTemplates: true
+images:
+  # Backend candidate: release/alpha-v1, c0f6db9c6e686f34fc232e288b95a56f0eaa9517.
+  - name: briefly/account-service
+    newName: ghcr.io/srnyndrs/briefly/account-service
+    digest: sha256:3de12c88ab8ef31c2d1757abcbf72171f5232823673d84fd4cd1e655cafc6e5c
+  - name: briefly/content-service
+    newName: ghcr.io/srnyndrs/briefly/content-service
+    digest: sha256:fd53a297e3ce927626a10b4f3bb9e4e70a2311e3a597c568a32c8cde7660224d
+  - name: briefly/crawler-service
+    newName: ghcr.io/srnyndrs/briefly/crawler-service
+    digest: sha256:240ce24d00e9dd5beeb527a27ab24cf43ba0f43d75b3e328bdc3cdfd624f478e
+  - name: briefly/enrichment-service
+    newName: ghcr.io/srnyndrs/briefly/enrichment-service
+    digest: sha256:f9f4a8f00abc17263ff433230d2e380659a75b4cc092e885670e083105ea6105
+  - name: briefly/public-api
+    newName: ghcr.io/srnyndrs/briefly/public-api
+    digest: sha256:ad45a24b2e427dac7d79dbd365a16f65289caeb2d8d40f3a62b99aa21adef0a4
+  # Official Ollama 0.35.1; model selection is in config/ollama/model.env.
+  - name: ollama/ollama
+    digest: sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c
+  - name: postgres
+    digest: sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+  - name: rabbitmq
+    digest: sha256:0753b75ce99094c385483d89449d532a0544fb85e4942a478b21cc497ab66d33
+  - name: mailpit
+    newName: axllent/mailpit
+    digest: sha256:98b916bd3c8d61f7633a52d3ea2f58d00620cb01ca57ab59edde68c347a95365

@@ -1,1 +1,2 @@
 config/ollama/start.sh text eol=lf
+deploy/base/rabbitmq.conf text eol=lf

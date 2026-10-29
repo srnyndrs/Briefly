@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: briefly
+  namespace: argocd
+spec:
+  description: Briefly workloads in the local briefly namespace
+  sourceRepos:
+    - https://github.com/srnyndrs/Briefly.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: briefly
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: networking.k8s.io
+      kind: NetworkPolicy

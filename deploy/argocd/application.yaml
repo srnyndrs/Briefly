@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: briefly
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: briefly
+  source:
+    repoURL: https://github.com/srnyndrs/Briefly.git
+    targetRevision: master
+    path: deploy/overlays/minikube
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: briefly
+  syncPolicy:
+    automated:
+      enabled: false
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - PruneLast=true
+      - FailOnSharedResource=true
