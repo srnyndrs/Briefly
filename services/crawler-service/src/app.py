@@ -8,7 +8,8 @@ import uvicorn
 from apscheduler.events import EVENT_SCHEDULER_STARTED
 from apscheduler.schedulers.base import STATE_RUNNING
 from apscheduler.schedulers.blocking import BlockingScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
@@ -124,29 +125,37 @@ def health() -> HealthResponse:
 
 
 @app.get("/live", response_model=HealthResponse, tags=["ops"])
-def live() -> HealthResponse:
+def live() -> HealthResponse | JSONResponse:
     if not getattr(app.state, "started", False):
-        raise HTTPException(status_code=503, detail="Service has not started")
+        return JSONResponse(
+            status_code=503, content={"detail": "Service has not started"}
+        )
 
     thread = getattr(app.state, "scheduler_thread", None)
     if thread is None or not thread.is_alive():
-        raise HTTPException(status_code=503, detail="Scheduler is not running")
+        return JSONResponse(
+            status_code=503, content={"detail": "Scheduler is not running"}
+        )
 
     return HealthResponse(status="ok", service=TAG_NAME)
 
 
 @app.get("/ready", response_model=HealthResponse, tags=["ops"])
-def ready() -> HealthResponse:
-    live()
+def ready() -> HealthResponse | JSONResponse:
+    result = live()
+    if isinstance(result, JSONResponse):
+        return result
     if (
         not getattr(app.state, "scheduler", None)
         or app.state.scheduler.state != STATE_RUNNING
         or not database_ready()
         or not broker_ready()
     ):
-        raise HTTPException(status_code=503, detail="Service is not ready")
+        return JSONResponse(
+            status_code=503, content={"detail": "Service is not ready"}
+        )
 
-    return live()
+    return result
 
 
 app.include_router(sources.router)

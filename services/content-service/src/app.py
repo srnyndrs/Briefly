@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.logging import (
     LoggingIntegration,
     ignore_logger,
@@ -103,28 +104,36 @@ def health() -> HealthResponse:
 
 
 @app.get("/live", response_model=HealthResponse, tags=["ops"])
-def live() -> HealthResponse:
+def live() -> HealthResponse | JSONResponse:
     if not getattr(app.state, "started", False):
-        raise HTTPException(status_code=503, detail="Service has not started")
+        return JSONResponse(
+            status_code=503, content={"detail": "Service has not started"}
+        )
 
     thread = getattr(app.state, "consumer_thread", None)
     if thread is None or not thread.is_alive():
-        raise HTTPException(status_code=503, detail="Consumer is not running")
+        return JSONResponse(
+            status_code=503, content={"detail": "Consumer is not running"}
+        )
 
     return HealthResponse(status="ok", service=TAG_NAME)
 
 
 @app.get("/ready", response_model=HealthResponse, tags=["ops"])
-def ready() -> HealthResponse:
-    live()
+def ready() -> HealthResponse | JSONResponse:
+    result = live()
+    if isinstance(result, JSONResponse):
+        return result
     if (
         not getattr(app.state, "consumer", None)
         or not app.state.consumer.is_consuming
         or not database_ready()
     ):
-        raise HTTPException(status_code=503, detail="Service is not ready")
+        return JSONResponse(
+            status_code=503, content={"detail": "Service is not ready"}
+        )
 
-    return live()
+    return result
 
 
 app.include_router(posts.router)
