@@ -46,6 +46,12 @@ spec:
           ports:
             - name: http
               containerPort: 8005
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: enrichment-sentry
+                  key: SENTRY_DSN
           envFrom:
             - configMapRef:
                 name: backend-config

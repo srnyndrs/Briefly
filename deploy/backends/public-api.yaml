@@ -42,6 +42,12 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+          env:
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: public-api-sentry
+                  key: SENTRY_DSN
           envFrom:
             - configMapRef:
                 name: backend-config

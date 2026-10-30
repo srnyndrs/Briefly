@@ -8,6 +8,7 @@ resources:
 labels:
   - pairs:
       app.kubernetes.io/part-of: briefly
+      environment: production
     includeTemplates: true
 images:
   # Backend candidate: release/alpha-v1, c0f6db9c6e686f34fc232e288b95a56f0eaa9517.

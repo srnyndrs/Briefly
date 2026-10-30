@@ -14,9 +14,8 @@ configMapGenerator:
   - name: backend-config
     literals:
       - APP_HOST=0.0.0.0
-      - ENV=development
+      - ENV=production
       - LOG_LEVEL=INFO
-      - SENTRY_DSN=
       - SHUTDOWN_TIMEOUT_SECONDS=10
   - name: public-api-config
     literals:
