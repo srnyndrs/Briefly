@@ -1,0 +1,36 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: briefly
+  namespace: argocd
+spec:
+  commonUpdateSettings:
+    updateStrategy: digest
+  applicationRefs:
+    - namePattern: briefly
+      images:
+        - alias: account
+          imageName: ghcr.io/srnyndrs/briefly/account-service:release-alpha-v1
+          manifestTargets:
+            kustomize:
+              name: briefly/account-service
+        - alias: content
+          imageName: ghcr.io/srnyndrs/briefly/content-service:release-alpha-v1
+          manifestTargets:
+            kustomize:
+              name: briefly/content-service
+        - alias: crawler
+          imageName: ghcr.io/srnyndrs/briefly/crawler-service:release-alpha-v1
+          manifestTargets:
+            kustomize:
+              name: briefly/crawler-service
+        - alias: enrichment
+          imageName: ghcr.io/srnyndrs/briefly/enrichment-service:release-alpha-v1
+          manifestTargets:
+            kustomize:
+              name: briefly/enrichment-service
+        - alias: publicapi
+          imageName: ghcr.io/srnyndrs/briefly/public-api:release-alpha-v1
+          manifestTargets:
+            kustomize:
+              name: briefly/public-api

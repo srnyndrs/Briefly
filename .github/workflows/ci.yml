@@ -44,6 +44,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+    concurrency: publish-${{ github.ref }}-${{ matrix.service }}
     strategy:
       fail-fast: false
       matrix:

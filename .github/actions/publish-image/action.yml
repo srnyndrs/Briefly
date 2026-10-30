@@ -22,29 +22,22 @@ runs:
         username: ${{ github.actor }}
         password: ${{ github.token }}
 
-    - name: Set image reference
-      id: image
-      shell: bash
-      env:
-        SERVICE: ${{ inputs.service }}
-      run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/${SERVICE}" >> "$GITHUB_OUTPUT"
+    - name: Image metadata
+      id: meta
+      uses: docker/metadata-action@v6.2.0
+      with:
+        images: ghcr.io/${{ github.repository }}/${{ inputs.service }}
+        tags: |
+          type=sha,format=long
+          type=ref,event=branch
 
     - name: Build and push image
-      id: build
       uses: docker/build-push-action@v7.4.0
       with:
         context: services/${{ inputs.service }}
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
-        labels: |
-          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha,scope=${{ inputs.service }}
         cache-to: type=gha,scope=${{ inputs.service }},mode=max
-
-    - name: Report published image
-      shell: bash
-      env:
-        IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
-        DIGEST: ${{ steps.build.outputs.digest }}
-      run: 'echo "Published image: `${IMAGE}@${DIGEST}`" >> "$GITHUB_STEP_SUMMARY"'

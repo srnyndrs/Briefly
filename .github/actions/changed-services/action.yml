@@ -17,11 +17,16 @@ runs:
         filters: |
           account-service:
             - 'services/account-service/**'
+            - '.github/actions/publish-image/**'
           content-service:
             - 'services/content-service/**'
+            - '.github/actions/publish-image/**'
           crawler-service:
             - 'services/crawler-service/**'
+            - '.github/actions/publish-image/**'
           enrichment-service:
             - 'services/enrichment-service/**'
+            - '.github/actions/publish-image/**'
           public-api:
             - 'services/public-api/**'
+            - '.github/actions/publish-image/**'
