@@ -24,5 +24,9 @@ spec:
       kind: Deployment
     - group: apps
       kind: StatefulSet
+    - group: apps
+      kind: ReplicaSet
+    - group: ""
+      kind: Pod
     - group: networking.k8s.io
       kind: NetworkPolicy
