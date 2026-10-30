@@ -16,8 +16,8 @@ spec:
     namespace: briefly
   syncPolicy:
     automated:
-      enabled: false
-      prune: false
+      enabled: true
+      prune: true
       selfHeal: true
       allowEmpty: false
     syncOptions:
