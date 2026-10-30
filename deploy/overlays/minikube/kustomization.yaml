@@ -26,7 +26,6 @@ images:
   - name: briefly/public-api
     newName: ghcr.io/srnyndrs/briefly/public-api
     digest: sha256:ad45a24b2e427dac7d79dbd365a16f65289caeb2d8d40f3a62b99aa21adef0a4
-  # Official Ollama 0.35.1; model selection is in config/ollama/model.env.
   - name: ollama/ollama
     digest: sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c
   - name: postgres
