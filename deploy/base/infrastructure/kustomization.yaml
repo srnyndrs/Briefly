@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres.yaml
+  - rabbitmq.yaml
+  - mailpit.yaml
+configMapGenerator:
+  - name: rabbitmq-config
+    files:
+      - rabbitmq.conf

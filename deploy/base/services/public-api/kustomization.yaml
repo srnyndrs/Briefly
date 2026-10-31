@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/component: backend
+    includeTemplates: true
+resources:
+  - deployment.yaml
+configMapGenerator:
+  - name: public-api-config
+    literals:
+      - APP_PORT=8000
+      - ACCOUNT_SERVICE_URL=http://account-service:8003
+      - CRAWLER_SERVICE_URL=http://crawler-service:8001
+      - CONTENT_SERVICE_URL=http://content-service:8002
+      - QUERY_CONSUMER_ENABLED=true
+      - REQUEST_TIMEOUT_SECONDS=10
+      - SOURCE_DISCOVERY_TIMEOUT_SECONDS=15

@@ -3,8 +3,6 @@ kind: Kustomization
 namespace: briefly
 resources:
   - ../../base
-  - ../../backends
-  - ../../enrichment
 labels:
   - pairs:
       app.kubernetes.io/part-of: briefly

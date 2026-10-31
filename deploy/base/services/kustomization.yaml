@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - account
+  - content
+  - crawler
+  - public-api
+  - enrichment
+  - network-policy.yaml
+configMapGenerator:
+  - name: backend-config
+    options:
+      labels:
+        app.kubernetes.io/component: backend
+    literals:
+      - APP_HOST=0.0.0.0
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - SHUTDOWN_TIMEOUT_SECONDS=10

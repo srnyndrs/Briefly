@@ -1,6 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  labels:
+    app.kubernetes.io/component: backend
   name: allow-public-api-services
 spec:
   podSelector:
@@ -33,6 +35,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  labels:
+    app.kubernetes.io/component: backend
   name: allow-internal-http
 spec:
   podSelector:
@@ -53,6 +57,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  labels:
+    app.kubernetes.io/component: backend
   name: allow-feed-http
 spec:
   podSelector:
