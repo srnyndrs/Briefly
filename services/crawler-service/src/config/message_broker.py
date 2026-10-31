@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
+from pika.adapters.utils.connection_workflow import AMQPConnectorStackTimeout
 
 from src.config.settings import settings
 
@@ -28,7 +29,7 @@ def broker_ready() -> bool:
         connection = pika.BlockingConnection(params)
         connection.close()
         return True
-    except (pika.exceptions.AMQPError, ValueError):
+    except (pika.exceptions.AMQPError, AMQPConnectorStackTimeout, ValueError):
         return False
 
 

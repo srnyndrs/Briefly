@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pika
 import pytest
+from pika.adapters.utils.connection_workflow import AMQPConnectorStackTimeout
 
 from src.adapters.event_publisher import publish_event
 from src.config.message_broker import broker_ready, publisher_channel
@@ -111,9 +112,11 @@ def test_broker_probe_recovers_without_publishing(mock_connection_cls) -> None:
     mock_connection_cls.side_effect = [
         connection,
         pika.exceptions.AMQPConnectionError(),
+        AMQPConnectorStackTimeout("AMQP handshake timed out"),
         connection,
     ]
     assert broker_ready()
+    assert not broker_ready()
     assert not broker_ready()
     assert broker_ready()
     assert connection.close.call_count == 2

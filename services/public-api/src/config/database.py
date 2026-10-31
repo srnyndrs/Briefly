@@ -1,9 +1,11 @@
 import json
 import logging
 from collections.abc import Generator
+from time import monotonic, sleep
 
 from sqlalchemy import MetaData, create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -57,11 +59,24 @@ SessionLocal = sessionmaker(
 )
 
 
+def _connect_for_startup() -> Connection:
+    deadline = monotonic() + 60
+    while True:
+        try:
+            return engine.connect()
+        except OperationalError:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise
+            logger.info("Database unavailable; retrying startup connection...")
+            sleep(min(2, remaining))
+
+
 def init_db() -> None:
     from src.models import read_models  # noqa: F401
 
     logger.info("Creating missing database tables...")
-    with engine.begin() as conn:
+    with _connect_for_startup() as conn, conn.begin():
         if conn.dialect.name == "postgresql":
             conn.execute(text("SET LOCAL lock_timeout = '30s'"))
             conn.execute(
