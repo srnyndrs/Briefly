@@ -17,14 +17,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select all backend services for manual run
-        if: github.event_name == 'workflow_dispatch'
+      - name: Select all backend services for release run
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/')
         id: all
         run: |
           echo 'services=["account-service","content-service","crawler-service","enrichment-service","public-api"]' >> "$GITHUB_OUTPUT"
 
       - name: Detect changed services
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/heads/release/')
         id: detect
         uses: ./.github/actions/changed-services
 
