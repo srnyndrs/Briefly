@@ -9,7 +9,7 @@ spec:
   project: briefly
   source:
     repoURL: https://github.com/srnyndrs/Briefly.git
-    targetRevision: master
+    targetRevision: release/alpha-v1
     path: deploy/overlays/minikube
   destination:
     server: https://kubernetes.default.svc
