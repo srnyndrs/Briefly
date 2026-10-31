@@ -184,6 +184,7 @@ def _stored_post_data(post: Post) -> dict[str, Any]:
         "image_url": post.image_url,
         "language": post.language,
         "keywords": post.keywords,
+        "is_deleted": post.is_deleted,
     }
 
 
@@ -376,6 +377,8 @@ class FeedProcessor:
                 on_progress()
             for item_guid, entry in entries:
                 stored = stored_posts.get(item_guid)
+                if stored is not None and stored.get("is_deleted"):
+                    continue
                 url = (
                     content_extractor.normalize_article_url(entry.get("link")) or ""
                 )
@@ -412,6 +415,8 @@ class FeedProcessor:
                     raise RuntimeError("Post save returned no snapshot")
 
                 stored_posts[item_guid] = snapshot
+                if snapshot.get("is_deleted"):
+                    continue
                 _publish_success_events(channel, snapshot, correlation_id)
                 if on_progress:
                     on_progress()
@@ -441,26 +446,7 @@ def _publish_success_events(
     snapshot: dict[str, Any],
     correlation_id: str,
 ) -> None:
-    envelope = build_post_parsed_event(
-        post_id=str(snapshot["post_id"]),
-        source_id=str(snapshot["source_id"]),
-        post_revision=snapshot["post_revision"],
-        item_guid=snapshot["item_guid"],
-        url=snapshot["url"],
-        title=snapshot["title"],
-        correlation_id=correlation_id,
-        category=snapshot["category"],
-        content=snapshot["content"],
-        description=snapshot.get("description"),
-        published_at=snapshot["published_at"].isoformat()
-        if snapshot["published_at"]
-        else None,
-        language=snapshot["language"],
-        keywords=snapshot["keywords"],
-        author=snapshot["author"],
-        source_title=snapshot["source_title"],
-        image_url=snapshot.get("image_url"),
-    )
+    envelope = build_post_parsed_event(snapshot, correlation_id=correlation_id)
     publish_event(
         channel,
         exchange=settings.parsed_exchange,

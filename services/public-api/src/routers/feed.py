@@ -20,6 +20,7 @@ from src.schemas.api import (
 )
 from src.services.auth import CurrentAdminUser, CurrentUser
 from src.services.feed_service import (
+    AdminFeedInput,
     ExploreFeedInput,
     FeedOutput,
     FeedService,
@@ -190,10 +191,48 @@ def get_explore(
 def get_general_feed(
     admin_user: CurrentAdminUser,
     service: FeedService = Depends(get_feed_service),
+    categories: list[str] | None = Query(default=None),
+    languages: list[str] | None = Query(default=None),
+    source_ids: list[UUID] | None = Query(default=None),
+    query: str | None = Query(default=None, max_length=200),
+    from_: datetime | None = Query(default=None, alias="from"),
+    to_: datetime | None = Query(default=None, alias="to"),
+    sort: str | None = Query(default=None, pattern="^(freshness|newest|oldest)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    include_filter_options: bool = False,
 ) -> FeedResponse:
     _ = admin_user
-    output = service.get_admin_feed(page_size, (page - 1) * page_size)
+    normalized_query = _normalize_search_query(query)
+    if normalized_query is not None and sort is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="sort cannot be combined with query",
+        )
+    if from_ is not None and to_ is not None and from_ > to_:
+        raise HTTPException(
+            status_code=422,
+            detail="from cannot be after to",
+        )
+
+    sort_order = "freshness" if sort in (None, "newest", "freshness") else "oldest"
+
+    try:
+        output = service.get_admin_feed(
+            AdminFeedInput(
+                limit=page_size,
+                offset=(page - 1) * page_size,
+                categories=categories,
+                languages=languages,
+                source_ids=source_ids,
+                query=normalized_query,
+                published_from=from_,
+                published_to=to_,
+                sort=sort_order,
+                include_filter_options=include_filter_options,
+            )
+        )
+    except ServiceClientError as exc:
+        raise map_service_error(exc) from exc
 
     return _response(output, page, page_size)

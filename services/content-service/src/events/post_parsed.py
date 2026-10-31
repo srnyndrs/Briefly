@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -7,42 +8,34 @@ _POST_EVENT_TYPE = "post.parsed.v1"
 
 
 def build_post_parsed_event(
-    *,
-    post_id: str,
-    source_id: str,
-    post_revision: int,
-    item_guid: str,
-    url: str,
-    title: str,
-    correlation_id: str,
-    category: str | None = None,
-    content: str | None,
-    description: str | None = None,
-    published_at: str | None = None,
-    language: str | None = None,
-    keywords: list[str] | None = None,
-    author: str | None = None,
-    source_title: str,
-    image_url: str | None = None,
+    snapshot: Mapping[str, Any], *, correlation_id: str
 ) -> dict[str, Any]:
+    published_at = snapshot["published_at"]
+    if published_at is not None:
+        if published_at.tzinfo is None:
+            published_at = published_at.replace(tzinfo=UTC)
+        published_at = published_at.isoformat()
+
+    content = snapshot["content"]
+    source_id = str(snapshot["source_id"])
     payload = {
-        "post_id": post_id,
+        "post_id": str(snapshot["post_id"]),
         "source_id": source_id,
-        "post_revision": post_revision,
-        "item_guid": item_guid,
-        "url": url,
-        "title": title,
+        "post_revision": snapshot["post_revision"],
+        "item_guid": snapshot["item_guid"],
+        "url": snapshot["url"],
+        "title": snapshot["title"],
         "parsed_at": datetime.now(UTC).isoformat(),
         "content": content,
         "content_length": len(content or ""),
-        "source_title": source_title,
-        "image_url": image_url,
-        "description": description,
+        "source_title": snapshot["source_title"],
+        "image_url": snapshot["image_url"],
+        "description": snapshot["description"],
         "published_at": published_at,
-        "language": language,
-        "keywords": keywords if keywords is not None else [],
-        "author": author,
-        "category": category,
+        "language": snapshot["language"],
+        "keywords": snapshot["keywords"],
+        "author": snapshot["author"],
+        "category": snapshot["category"],
     }
 
     return build_envelope(

@@ -2,9 +2,11 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from src.adapters import service_clients
 from src.app import app
 from src.config.database import get_db
 from src.config.settings import settings
@@ -413,6 +415,8 @@ def test_create_source_endpoint_forwards_json_payload(
     monkeypatch, client, source_payload
 ) -> None:
     captured: dict = {}
+    ordinary_user = AuthContext(user_id=uuid4(), token_type="access", scopes=[])
+    app.dependency_overrides[get_current_user] = lambda: ordinary_user
 
     def fake_create_source(body: dict) -> dict:
         captured.update(body)
@@ -455,6 +459,70 @@ def test_create_source_endpoint_forwards_json_payload(
         "language": "hu-HU",
         "submitted_by_user_id": str(current_user.user_id),
     }
+
+
+@pytest.mark.parametrize(
+    "operation,method,owner,path,args",
+    [
+        (
+            "crawler_create_source",
+            "POST",
+            "crawler",
+            "/sources",
+            ({"title": "Example"},),
+        ),
+        (
+            "crawler_patch_source",
+            "PATCH",
+            "crawler",
+            "/sources/id",
+            ("id", {"title": "Changed"}),
+        ),
+        ("crawler_delete_source", "DELETE", "crawler", "/sources/id", ("id",)),
+        (
+            "content_patch_post",
+            "PATCH",
+            "content",
+            "/posts/id",
+            ("id", {"title": "Changed"}),
+        ),
+        ("content_delete_post", "DELETE", "content", "/posts/id", ("id",)),
+    ],
+)
+def test_owner_write_forwards_internal_credential(
+    monkeypatch, operation, method, owner, path, args
+) -> None:
+    request = MagicMock(return_value=httpx.Response(200, json={"ok": True}))
+    monkeypatch.setattr(httpx.Client, "request", request)
+    monkeypatch.setattr(settings, "internal_admin_token", "test-internal-token")
+    owner_url = getattr(settings, f"{owner}_service_url")
+
+    getattr(service_clients, operation)(*args)
+
+    forwarded = request.call_args.kwargs
+    assert forwarded["method"] == method
+    assert forwarded["url"] == f"{owner_url}{path}"
+    assert forwarded["headers"] == {"x-admin-token": "test-internal-token"}
+    assert forwarded["json"] == (args[-1] if isinstance(args[-1], dict) else None)
+
+    request.reset_mock()
+    monkeypatch.setattr(settings, "internal_admin_token", None)
+    with pytest.raises(service_clients.ServiceClientError) as error:
+        getattr(service_clients, operation)(*args)
+    assert error.value.status_code == 503
+    assert error.value.detail == "INTERNAL_ADMIN_TOKEN is not configured"
+    request.assert_not_called()
+
+
+def test_owner_reads_do_not_require_or_forward_internal_credential(
+    monkeypatch,
+) -> None:
+    request = MagicMock(return_value=httpx.Response(200, json={"post_id": "id"}))
+    monkeypatch.setattr(httpx.Client, "request", request)
+    monkeypatch.setattr(settings, "internal_admin_token", None)
+
+    assert service_clients.content_get_post("id") == {"post_id": "id"}
+    assert request.call_args.kwargs["headers"] == {}
 
 
 def test_create_source_rejects_client_policy_fields(client, monkeypatch) -> None:
@@ -535,6 +603,7 @@ def test_admin_get_post_endpoint(monkeypatch, client) -> None:
         assert target_id == post_id
         return {
             "post_id": target_id,
+            "post_revision": 1,
             "source_id": str(uuid4()),
             "source_title": "Admin Source",
             "item_guid": "guid-1",
@@ -556,6 +625,66 @@ def test_admin_get_post_endpoint(monkeypatch, client) -> None:
     response = client.get(f"/admin/posts/{post_id}")
     assert response.status_code == 200
     assert response.json()["post_id"] == post_id
+
+
+def test_admin_patch_post_forwards_only_supplied_fields(
+    monkeypatch, client
+) -> None:
+    post_id = str(uuid4())
+    now = datetime.now(UTC).isoformat()
+    captured = {}
+
+    def fake_patch(target_id: str, body: dict) -> dict:
+        captured.update(body)
+        return {
+            "post_id": target_id,
+            "post_revision": 2,
+            "source_id": str(uuid4()),
+            "source_title": "Source",
+            "item_guid": "guid",
+            "url": "https://example.com/post",
+            "title": body["title"],
+            "parsed_at": now,
+            "publication_status": "published",
+        }
+
+    monkeypatch.setattr("src.routers.posts.content_patch_post", fake_patch)
+    response = client.patch(
+        f"/admin/posts/{post_id}",
+        json={"title": "  Edited  ", "description": None, "published_at": now},
+    )
+    assert response.status_code == 200
+    assert response.json()["post_revision"] == 2
+    assert captured == {
+        "title": "Edited",
+        "description": None,
+        "published_at": now.replace("+00:00", "Z"),
+    }
+    assert client.patch(f"/admin/posts/{post_id}", json={}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "path,owner_call",
+    [
+        ("/admin/posts/{id}", "src.routers.posts.content_delete_post"),
+        ("/sources/{id}", "src.routers.sources.crawler_delete_source"),
+    ],
+)
+def test_admin_delete_forwards_to_owner(
+    monkeypatch, client, path, owner_call
+) -> None:
+    item_id = uuid4()
+    calls = []
+    monkeypatch.setattr(
+        owner_call,
+        lambda target_id: calls.append(target_id),
+    )
+
+    response = client.delete(path.format(id=item_id))
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert calls == [str(item_id)]
 
 
 def test_profile_composition_and_partial_update(monkeypatch, client) -> None:
@@ -1000,14 +1129,30 @@ def test_feed_pagination_pages_and_counts(monkeypatch, client, db) -> None:
     assert [item["title"] for item in res_p3.json()["items"]] == ["Post 0"]
 
 
-def test_admin_feed_pagination(client, db) -> None:
+def test_admin_feed_pagination_and_search_ignore_personal_and_verified_filters(
+    client, db, monkeypatch
+) -> None:
     now = datetime.now(UTC)
+    unverified_source_id = uuid4()
+    verified_catalog = MagicMock(return_value=[])
+    monkeypatch.setattr(
+        "src.services.feed_service.crawler_list_sources", verified_catalog
+    )
+    user_id = app.dependency_overrides[get_current_user]().user_id
+    db.add(
+        UserPreferencesProjection(
+            user_id=user_id,
+            blocked_source_ids=[str(unverified_source_id)],
+            muted_keywords=["Admin"],
+            languages=["de"],
+        )
+    )
 
     for i in range(3):
         db.add(
             _post(
                 f"Admin Post {i}",
-                str(uuid4()),
+                str(unverified_source_id if i else uuid4()),
                 source_title=f"Admin Source {i}",
                 published_at=datetime.fromtimestamp(1700000000 + i * 100, tz=UTC),
                 updated_at=now,
@@ -1015,7 +1160,21 @@ def test_admin_feed_pagination(client, db) -> None:
         )
     db.commit()
 
-    res = client.get("/admin/feed", params={"page": 1, "page_size": 2})
+    db.add(
+        _post(
+            "Deleted Admin Post",
+            str(uuid4()),
+            is_deleted=True,
+            language="zz",
+            categories=["deleted"],
+        )
+    )
+    db.commit()
+
+    res = client.get(
+        "/admin/feed",
+        params={"page": 1, "page_size": 2, "include_filter_options": True},
+    )
     assert res.status_code == 200
     data = res.json()
     assert data["total"] == 3
@@ -1028,6 +1187,26 @@ def test_admin_feed_pagination(client, db) -> None:
         "Admin Post 2",
         "Admin Post 1",
     ]
+    assert "zz" not in data["filter_options"]["languages"]
+    assert "deleted" not in data["filter_options"]["categories"]
+
+    filtered = client.get(
+        "/admin/feed",
+        params={
+            "query": "Admin",
+            "source_ids": str(unverified_source_id),
+            "languages": "en",
+            "page_size": 1,
+            "include_filter_options": True,
+        },
+    )
+    assert filtered.status_code == 200
+    results = filtered.json()
+    assert results["total"] == 2
+    assert results["page_count"] == 2
+    assert [item["title"] for item in results["items"]] == ["Admin Post 2"]
+    assert results["filter_options"]["languages"] == ["en"]
+    verified_catalog.assert_not_called()
 
 
 def test_subscription_forwarding(monkeypatch, client):
@@ -1312,12 +1491,14 @@ def test_protected_profile_rejects_invalid_access(
     "method,path,operation",
     [
         ("PATCH", "/sources/{id}", "src.routers.sources.crawler_patch_source"),
+        ("DELETE", "/sources/{id}", "src.routers.sources.crawler_delete_source"),
         (
             "GET",
             "/admin/feed",
             "src.services.feed_service.FeedService.get_admin_feed",
         ),
         ("GET", "/admin/posts/{id}", "src.routers.posts.content_get_post"),
+        ("DELETE", "/admin/posts/{id}", "src.routers.posts.content_delete_post"),
     ],
 )
 def test_admin_routes_reject_ordinary_access(

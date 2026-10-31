@@ -65,6 +65,9 @@ class Source(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_sources_next_crawl_scheduled_at", "next_crawl_scheduled_at"),

@@ -29,11 +29,11 @@ def test_publisher_emits_complete_snapshot_and_envelope(
         "category": "news" if populated else None,
         "author": "Author" if populated else None,
         "image_url": "https://example.com/image.jpg" if populated else None,
-        "published_at": "2026-05-05T00:00:00+00:00" if populated else None,
+        "published_at": datetime(2026, 5, 5) if populated else None,
         "language": "en" if populated else None,
         "keywords": ["keyword"] if populated else [],
     }
-    envelope = build_post_parsed_event(correlation_id="corr-123", **snapshot)
+    envelope = build_post_parsed_event(snapshot, correlation_id="corr-123")
     publish_event(channel, exchange=settings.parsed_exchange, envelope=envelope)
     channel.basic_publish.assert_called_once()
     published = channel.basic_publish.call_args.kwargs
@@ -63,6 +63,7 @@ def test_publisher_emits_complete_snapshot_and_envelope(
     payload = envelope["payload"]
     assert datetime.fromisoformat(payload["parsed_at"]).tzinfo is not None
     assert payload == snapshot | {
+        "published_at": "2026-05-05T00:00:00+00:00" if populated else None,
         "content_length": 9 if populated else 0,
         "parsed_at": payload["parsed_at"],
     }

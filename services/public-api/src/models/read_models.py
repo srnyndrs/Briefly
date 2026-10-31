@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Index,
     Integer,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Uuid,
     func,
     literal_column,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -86,6 +88,9 @@ class PostProjection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     __table_args__ = (
         Index(
@@ -108,6 +113,16 @@ class PostProjection(Base):
             "language",
             "published_at",
         ),
+    )
+
+
+class PostDeletionProjection(Base):
+    __tablename__ = "post_deletion_projections"
+
+    post_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    post_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 

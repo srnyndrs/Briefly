@@ -72,7 +72,7 @@ def client(db_session: Session, monkeypatch) -> Generator[TestClient, Any, None]
     app.state.testing = True
     app.state.consumer = None
     app.state.consumer_thread = None
-    monkeypatch.setattr(settings, "admin_token", "test-admin-token")
+    monkeypatch.setattr(settings, "internal_admin_token", "test-admin-token")
 
     def override_get_db():
         yield db_session

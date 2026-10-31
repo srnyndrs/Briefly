@@ -14,6 +14,7 @@ class PostDTO:
     title: str
     source_id: UUID
     source_title: str
+    post_revision: int
     description: str | None = None
     canonical_url: str | None = None
     language: str | None = None
@@ -91,6 +92,7 @@ def post_projection_to_dto(model: PostProjection) -> PostDTO:
         image_ref=model.image_ref,
         published_at=model.published_at,
         updated_at=model.updated_at,
+        post_revision=model.post_revision,
     )
 
 

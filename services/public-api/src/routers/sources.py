@@ -6,6 +6,7 @@ from src.adapters.service_clients import (
     ServiceClientError,
     account_list_subscriptions,
     crawler_create_source,
+    crawler_delete_source,
     crawler_discover_sources,
     crawler_get_source,
     crawler_list_sources,
@@ -24,12 +25,13 @@ from src.services.auth import CurrentAdminUser, CurrentUser
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
-@router.post("", status_code=201)
-def create_source(body: SourceCreateRequest, user: CurrentUser) -> dict:
+@router.post("", response_model=SourceResponse, status_code=201)
+def create_source(body: SourceCreateRequest, user: CurrentUser) -> SourceResponse:
     payload = body.model_dump(mode="json")
     payload["submitted_by_user_id"] = str(user.user_id)
     try:
-        return crawler_create_source(payload)
+        created = crawler_create_source(payload)
+        return SourceResponse(**created)
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc
 
@@ -129,5 +131,17 @@ def patch_source(
         )
 
         return SourceResponse(**updated)
+    except ServiceClientError as exc:
+        raise map_service_error(exc) from exc
+
+
+@router.delete("/{source_id}", status_code=204)
+def delete_source(
+    source_id: uuid.UUID,
+    admin_user: CurrentAdminUser,
+) -> None:
+    _ = admin_user
+    try:
+        crawler_delete_source(str(source_id))
     except ServiceClientError as exc:
         raise map_service_error(exc) from exc

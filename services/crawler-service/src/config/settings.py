@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     )
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    internal_admin_token: str | None = None
     feed_exchange: str = "feed.content"
     blocked_timeout_seconds: int = 30
 

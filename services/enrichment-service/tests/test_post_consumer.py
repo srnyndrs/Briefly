@@ -74,10 +74,7 @@ def test_declares_only_input_and_dead_letter_queues(disconnect):
         exchange=settings.failed_exchange,
         routing_key=settings.post_failed_routing_key,
     )
-    assert all(
-        c.kwargs["routing_key"] != "post.enriched.v1"
-        for c in channel.queue_bind.call_args_list
-    )
+    assert channel.queue_bind.call_count == 2
 
 
 def test_process_and_mark_run_off_broker_thread(deliver):

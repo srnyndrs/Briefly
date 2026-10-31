@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.events.post_enriched import EnrichmentPayload
 from src.models.read_models import (
+    PostDeletionProjection,
     PostEnrichmentProjection,
     PostProjection,
     UserPreferencesProjection,
@@ -64,6 +65,8 @@ def project_post(db: Session, payload: dict[str, Any]) -> None:
         return
 
     revision = payload["post_revision"]
+    if db.get(PostDeletionProjection, post_id) is not None:
+        return
     existing = db.get(PostProjection, post_id)
     if existing is not None and existing.post_revision > revision:
         return
@@ -107,8 +110,12 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
     payload = EnrichmentPayload.model_validate(payload).model_dump()
     post_id = UUID(str(payload["post_id"]))
     revision = payload["post_revision"]
+    if db.get(PostDeletionProjection, post_id) is not None:
+        return
     result = db.get(PostEnrichmentProjection, post_id)
     post = db.get(PostProjection, post_id)
+    if post is not None and post.is_deleted:
+        return
     if post is not None and post.post_revision > revision:
         return
 
@@ -128,6 +135,38 @@ def project_enrichment(db: Session, payload: dict[str, Any]) -> None:
 
     if post is not None and post.post_revision == revision:
         post.categories = _public_categories(result)
+
+
+def project_post_deleted(db: Session, payload: dict[str, Any]) -> None:
+    post_id = UUID(_require_source_value(payload["post_id"], "post_id"))
+    revision = payload["post_revision"]
+    if type(revision) is not int or revision < 1:
+        raise ValueError("post_revision must be a positive integer")
+    deleted_at = _parse_dt(
+        _require_source_value(payload["deleted_at"], "deleted_at")
+    )
+    if deleted_at is None:
+        raise ValueError("deleted_at must be a valid timestamp")
+
+    marker = db.get(PostDeletionProjection, post_id)
+    if marker is None:
+        db.add(
+            PostDeletionProjection(
+                post_id=post_id,
+                post_revision=revision,
+                deleted_at=deleted_at,
+            )
+        )
+    else:
+        marker.post_revision = max(marker.post_revision, revision)
+        if marker.deleted_at.tzinfo is None:
+            marker.deleted_at = marker.deleted_at.replace(tzinfo=UTC)
+        marker.deleted_at = min(marker.deleted_at, deleted_at)
+
+    post = db.get(PostProjection, post_id)
+    if post is not None:
+        post.is_deleted = True
+        post.post_revision = max(post.post_revision, revision)
 
 
 def project_user_preferences(db: Session, payload: dict[str, Any]) -> None:

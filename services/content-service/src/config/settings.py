@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         allow_inf_nan=False,
     )
 
-    admin_token: str | None = None
+    internal_admin_token: str | None = None
 
 
 settings = Settings()

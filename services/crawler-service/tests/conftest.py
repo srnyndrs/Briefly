@@ -37,6 +37,7 @@ def isolated_boundaries_and_settings(monkeypatch):
     monkeypatch.setattr(settings, "fetch_timeout_seconds", 30)
     monkeypatch.setattr(settings, "source_validation_timeout_seconds", 10)
     monkeypatch.setattr(settings, "source_validation_max_bytes", 1_048_576)
+    monkeypatch.setattr(settings, "internal_admin_token", "test-admin-token")
 
 
 @pytest.fixture
@@ -120,7 +121,9 @@ def client(db_session):
 
     app.dependency_overrides[get_db] = _get_db_override
     try:
-        with TestClient(app) as test_client:
+        with TestClient(
+            app, headers={"x-admin-token": "test-admin-token"}
+        ) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.clear()

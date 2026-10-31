@@ -24,6 +24,7 @@ def to_post_list_item_response(item: PostDTO) -> PostListItemResponse:
         image_ref=item.image_ref,
         published_at=item.published_at,
         has_content=item.content is not None,
+        post_revision=item.post_revision,
     )
 
 

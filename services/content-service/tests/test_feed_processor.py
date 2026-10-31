@@ -70,6 +70,49 @@ def test_process_source_rejects_missing_entry_identity() -> None:
     repo.upsert_post.assert_not_called()
 
 
+def test_feed_reingestion_does_not_recreate_deleted_post(
+    db_session: Session,
+) -> None:
+    source_id = UUID("00000000-0000-0000-0000-000000000001")
+    guid = "https://example.com/deleted"
+    db_session.add(
+        Post(
+            post_id=UUID("00000000-0000-0000-0000-000000000010"),
+            source_id=source_id,
+            item_guid=guid,
+            url="https://example.com/deleted",
+            source_title="Crawler Source",
+            title="Deleted post",
+            parsed_at=datetime.now(timezone.utc),
+            post_revision=3,
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
+    raw_xml = (
+        "<rss><channel><item><guid>https://example.com/deleted</guid>"
+        "<link>https://example.com/deleted</link><title>Re-crawled</title>"
+        "</item></channel></rss>"
+    )
+    channel = MagicMock()
+
+    with (
+        patch("src.adapters.content_extractor.extract_article") as extract,
+        patch("src.services.feed_processor.publish_event") as publish,
+    ):
+        FeedProcessor(PostRepository(db_session)).process(
+            channel, _make_event(raw_xml=raw_xml)
+        )
+
+    extract.assert_not_called()
+    publish.assert_not_called()
+    retained = db_session.get(Post, UUID("00000000-0000-0000-0000-000000000010"))
+    assert retained.title == "Deleted post"
+    assert retained.is_deleted is True
+    assert retained.post_revision == 3
+
+
 def test_numeric_fragment_variants_reuse_saved_post(
     db_session: Session,
 ) -> None:

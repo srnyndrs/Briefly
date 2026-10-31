@@ -9,6 +9,7 @@ from pydantic import (
     HttpUrl,
     field_serializer,
     field_validator,
+    model_validator,
 )
 
 
@@ -202,6 +203,7 @@ class SourceResponse(BaseModel):
 
 class AdminPostResponse(BaseModel):
     post_id: UUID
+    post_revision: int = Field(gt=0)
     source_id: UUID
     source_title: str
     item_guid: str
@@ -219,6 +221,37 @@ class AdminPostResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
+class AdminPostPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = None
+    content: str | None = None
+    author: str | None = None
+    language: str | None = Field(default=None, max_length=35)
+    keywords: list[str] = Field(default_factory=list)
+    published_at: datetime | None = None
+    image_url: str | None = None
+    category: str | None = None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def trim_title(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("title must not be null")
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def require_changes(self) -> "AdminPostPatchRequest":
+        if not self.model_fields_set:
+            raise ValueError("At least one editable field is required")
+        return self
+
+
+class AdminPostPatchResponse(AdminPostResponse):
+    publication_status: str
+
+
 class PostListItemResponse(BaseModel):
     post_id: UUID
     source_id: UUID
@@ -231,6 +264,7 @@ class PostListItemResponse(BaseModel):
     image_ref: str | None = None
     published_at: datetime | None = None
     has_content: bool = False
+    post_revision: int = Field(gt=0)
 
     @field_serializer("published_at")
     def serialize_published_at(self, value: datetime | None) -> str | None:

@@ -71,6 +71,7 @@ class PostRepository:
         ).all()
 
     def _apply_query(self, statement, query: EffectiveFeedQuery):
+        statement = statement.where(PostProjection.is_deleted.is_(False))
         normalized_muted_categories = [
             category.lower().strip()
             for category in query.muted_categories
@@ -379,7 +380,7 @@ class PostRepository:
 
     def get_post(self, post_id: UUID) -> PostDTO | None:
         model = self._db.get(PostProjection, post_id)
-        if model is None:
+        if model is None or model.is_deleted:
             return None
 
         return post_projection_to_dto(model)

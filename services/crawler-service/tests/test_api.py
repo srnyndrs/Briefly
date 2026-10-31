@@ -106,9 +106,26 @@ def test_source_lifecycle(client, discover, db_session):
         source_id
     ]
 
-    assert client.delete(f"/sources/{source_id}").status_code == 204
+    delete_headers = {"x-admin-token": "test-admin-token"}
+    assert (
+        client.delete(f"/sources/{source_id}", headers=delete_headers).status_code
+        == 204
+    )
+    assert (
+        client.delete(f"/sources/{source_id}", headers=delete_headers).status_code
+        == 204
+    )
     assert client.get(f"/sources/{source_id}").status_code == 404
     assert client.get("/sources").json() == []
+    retained = db_session.get(Source, uuid.UUID(source_id))
+    assert retained is not None
+    assert retained.deleted_at is not None
+    duplicate = client.post(
+        "/sources",
+        json={"url": updated.json()["url"], "title": "Readd"},
+    )
+    assert duplicate.status_code == 409
+    assert "remains reserved" in duplicate.json()["detail"]
 
 
 def test_discovery_endpoint(client, discover):
@@ -237,3 +254,31 @@ def test_patch_rejects_existing_feed_url(client, source_factory):
 
     assert response.status_code == 409
     assert client.get(f"/sources/{second.source_id}").json()["url"] == second.url
+
+
+@pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
+@pytest.mark.parametrize(
+    "configured_token,request_token",
+    [
+        (None, "test-admin-token"),
+        ("test-admin-token", None),
+        ("test-admin-token", "wrong"),
+    ],
+    ids=["unconfigured", "missing", "incorrect"],
+)
+def test_source_writes_require_internal_credential(
+    client, db_session, monkeypatch, method, configured_token, request_token
+):
+    monkeypatch.setattr(settings, "internal_admin_token", configured_token)
+    client.headers.pop("x-admin-token")
+    headers = {"x-admin-token": request_token} if request_token is not None else {}
+    path = "/sources" if method == "POST" else f"/sources/{uuid.uuid4()}"
+    response = client.request(
+        method,
+        path,
+        json={"url": "https://example.com/feed", "title": "Example"},
+        headers=headers,
+    )
+
+    assert response.status_code == 401
+    assert db_session.query(Source).count() == 0

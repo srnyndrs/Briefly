@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     content_service_url: str = "http://localhost:8002"
     request_timeout_seconds: float = 10.0
     source_discovery_timeout_seconds: float = 15.0
+    internal_admin_token: str | None = None
 
 
 settings = Settings()

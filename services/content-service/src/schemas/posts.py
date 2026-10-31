@@ -1,7 +1,14 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 
 class PostResponse(BaseModel):
@@ -38,3 +45,34 @@ class PostResponse(BaseModel):
 
 class PostCountResponse(BaseModel):
     count: int
+
+
+class PostPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = None
+    content: str | None = None
+    author: str | None = None
+    language: str | None = Field(default=None, max_length=35)
+    keywords: list[str] = Field(default_factory=list)
+    published_at: datetime | None = None
+    image_url: str | None = None
+    category: str | None = None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def trim_title(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("title must not be null")
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def require_changes(self) -> "PostPatchRequest":
+        if not self.model_fields_set:
+            raise ValueError("At least one editable field is required")
+        return self
+
+
+class PostPatchResponse(PostResponse):
+    publication_status: str

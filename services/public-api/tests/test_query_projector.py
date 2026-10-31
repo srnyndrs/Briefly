@@ -212,6 +212,7 @@ def test_query_queue_is_durable_and_binds_all_events():
     for exchange, key in (
         (settings.account_exchange, "preferences.updated.v1"),
         (settings.content_exchange, "post.parsed.v1"),
+        (settings.content_exchange, "post.deleted.v1"),
         (settings.enrichment_exchange, "post.enriched.v1"),
     ):
         channel.queue_bind.assert_any_call(

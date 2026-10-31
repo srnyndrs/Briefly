@@ -25,10 +25,15 @@ def _forward(
     params: dict | None = None,
     correlation_id: str | None = None,
     timeout_seconds: float | None = None,
+    internal_admin: bool = False,
 ) -> Any:
     headers: dict[str, str] = {}
     if correlation_id:
         headers["x-correlation-id"] = correlation_id
+    if internal_admin:
+        if not settings.internal_admin_token:
+            raise ServiceClientError(503, "INTERNAL_ADMIN_TOKEN is not configured")
+        headers["x-admin-token"] = settings.internal_admin_token
 
     url = f"{base_url}{path}"
     timeout = (
@@ -194,6 +199,7 @@ def crawler_create_source(body: dict) -> dict:
         settings.crawler_service_url,
         "/sources",
         json=body,
+        internal_admin=True,
     )
 
 
@@ -232,6 +238,16 @@ def crawler_patch_source(source_id: str, body: dict) -> dict:
         settings.crawler_service_url,
         f"/sources/{source_id}",
         json=body,
+        internal_admin=True,
+    )
+
+
+def crawler_delete_source(source_id: str) -> None:
+    _forward(
+        "DELETE",
+        settings.crawler_service_url,
+        f"/sources/{source_id}",
+        internal_admin=True,
     )
 
 
@@ -240,4 +256,23 @@ def content_get_post(post_id: str) -> dict:
         "GET",
         settings.content_service_url,
         f"/posts/{post_id}",
+    )
+
+
+def content_patch_post(post_id: str, body: dict) -> dict:
+    return _forward(
+        "PATCH",
+        settings.content_service_url,
+        f"/posts/{post_id}",
+        json=body,
+        internal_admin=True,
+    )
+
+
+def content_delete_post(post_id: str) -> None:
+    _forward(
+        "DELETE",
+        settings.content_service_url,
+        f"/posts/{post_id}",
+        internal_admin=True,
     )

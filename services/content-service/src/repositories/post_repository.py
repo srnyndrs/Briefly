@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,7 @@ class PostRepository:
         parsed_from: datetime | None = None,
         parsed_to: datetime | None = None,
     ) -> list[Post]:
-        conditions = []
+        conditions = [Post.is_deleted.is_(False)]
 
         if source_id:
             conditions.append(Post.source_id == source_id)
@@ -65,7 +65,44 @@ class PostRepository:
         return list(self._db.scalars(statement.offset(skip).limit(limit)).all())
 
     def get_by_id(self, post_id: UUID) -> Post | None:
-        return self._db.scalar(select(Post).where(Post.post_id == post_id).limit(1))
+        return self._db.scalar(
+            select(Post)
+            .where(Post.post_id == post_id, Post.is_deleted.is_(False))
+            .limit(1)
+        )
+
+    def get_any_by_id(self, post_id: UUID) -> Post | None:
+        return self._db.get(Post, post_id)
+
+    def delete_post(self, post_id: UUID) -> Post | None:
+        post = self.get_any_by_id(post_id)
+        if post is None:
+            return None
+        if not post.is_deleted:
+            post.is_deleted = True
+            post.deleted_at = datetime.now(UTC)
+            post.post_revision += 1
+            post.parsed_at = post.deleted_at
+            self._db.flush()
+        return post
+
+    def patch_post(
+        self, post_id: UUID, fields: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        post = self.get_by_id(post_id)
+        if post is None:
+            return None
+
+        for field, value in fields.items():
+            setattr(post, field, value)
+        post.post_revision += 1
+        post.parsed_at = datetime.now(UTC)
+        self._db.flush()
+        snapshot = {
+            column.name: getattr(post, column.name)
+            for column in Post.__table__.columns
+        }
+        return snapshot
 
     def get_by_guids(self, source_id: UUID, guids: list[str]) -> list[Post]:
         if not guids:
@@ -81,7 +118,14 @@ class PostRepository:
         )
 
     def count_posts(self) -> int:
-        return self._db.scalar(select(func.count()).select_from(Post)) or 0
+        return (
+            self._db.scalar(
+                select(func.count())
+                .select_from(Post)
+                .where(Post.is_deleted.is_(False))
+            )
+            or 0
+        )
 
     def upsert_post(self, post_data: dict[str, Any]) -> dict[str, Any]:
         insert_statement = insert(Post).values(**post_data)
@@ -103,7 +147,7 @@ class PostRepository:
         upsert_statement = insert_statement.on_conflict_do_update(
             index_elements=["source_id", "item_guid"],
             set_=update_fields,
-            where=changed_fields,
+            where=and_(Post.is_deleted.is_(False), changed_fields),
         ).returning(*Post.__table__.columns)
 
         row = self._db.execute(upsert_statement).mappings().one_or_none()
@@ -126,7 +170,7 @@ class PostRepository:
                     "Post upsert matched no row and the existing post could not be read"
                 )
             snapshot = dict(existing)
-            action = "unchanged"
+            action = "deleted" if snapshot["is_deleted"] else "unchanged"
 
         logger.debug(
             "Post snapshot %s (post_id=%s, post_revision=%d)",

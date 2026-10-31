@@ -22,6 +22,7 @@ from src.models.read_models import ProcessedEvent
 from src.services.projection_handlers import (
     project_enrichment,
     project_post,
+    project_post_deleted,
     project_user_preferences,
 )
 
@@ -114,6 +115,11 @@ class QueryProjector:
             )
             self._channel.queue_bind(
                 queue=settings.query_queue,
+                exchange=settings.content_exchange,
+                routing_key="post.deleted.v1",
+            )
+            self._channel.queue_bind(
+                queue=settings.query_queue,
                 exchange=settings.enrichment_exchange,
                 routing_key="post.enriched.v1",
             )
@@ -202,6 +208,8 @@ class QueryProjector:
             project_post(db, payload)
         elif event_type == "post.enriched.v1":
             project_enrichment(db, payload)
+        elif event_type == "post.deleted.v1":
+            project_post_deleted(db, payload)
         elif event_type == "preferences.updated.v1":
             project_user_preferences(db, payload)
 

@@ -81,6 +81,14 @@ class Post(Base):
         default=1,
         server_default=text("1"),
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     image_url: Mapped[str | None] = mapped_column(
         String,
         nullable=True,

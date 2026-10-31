@@ -14,7 +14,7 @@ class SourceRepository:
         self._db = db
 
     def list_sources(self, *, verified_only: bool = False) -> list[Source]:
-        query = self._db.query(Source)
+        query = self._db.query(Source).filter(Source.deleted_at.is_(None))
 
         if verified_only:
             query = query.filter(Source.verified.is_(True))
@@ -35,6 +35,7 @@ class SourceRepository:
         verified_only: bool = False,
     ) -> list[Source]:
         query = self._db.query(Source).filter(
+            Source.deleted_at.is_(None),
             Source.next_crawl_scheduled_at <= now,
             Source.consecutive_failures < max_retries,
         )
@@ -92,8 +93,11 @@ class SourceRepository:
         item = self.get_by_id(source_id)
         if item is None:
             return False
-
-        self._db.delete(item)
+        if item.deleted_at is None:
+            item.deleted_at = datetime.now(timezone.utc)
+            item.verified = False
+            item.updated_at = item.deleted_at
+            self._db.flush()
 
         return True
 
@@ -137,7 +141,7 @@ class SourceRepository:
         last_modified: str | None,
     ) -> None:
         source = self.get_by_id(source_id)
-        if not source:
+        if not source or source.deleted_at is not None:
             return
 
         now = datetime.now(timezone.utc)
@@ -153,7 +157,7 @@ class SourceRepository:
 
     def save_crawl_failure(self, *, source_id: UUID) -> int | None:
         source = self.get_by_id(source_id)
-        if not source:
+        if not source or source.deleted_at is not None:
             return None
 
         now = datetime.now(timezone.utc)

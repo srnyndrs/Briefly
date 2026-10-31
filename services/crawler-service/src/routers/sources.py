@@ -13,6 +13,7 @@ from src.config.settings import settings
 from src.repositories.source_repository import (
     SourceRepository,
 )
+from src.routers.admin_auth import require_internal_admin_token
 from src.schemas.sources import (
     SourceCreateRequest,
     SourceDiscoverRequest,
@@ -47,7 +48,12 @@ def list_sources(
     return [SourceResponse.model_validate(source) for source in sources]
 
 
-@router.post("", response_model=SourceResponse, status_code=201)
+@router.post(
+    "",
+    response_model=SourceResponse,
+    status_code=201,
+    dependencies=[Depends(require_internal_admin_token)],
+)
 def register_source(
     body: SourceCreateRequest,
     repository: SourceRepository = Depends(get_source_repository),
@@ -57,8 +63,12 @@ def register_source(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    if repository.get_by_url(final_url) is not None:
-        raise HTTPException(status_code=409, detail="Source URL already registered")
+    existing = repository.get_by_url(final_url)
+    if existing is not None:
+        detail = "Source URL already registered"
+        if existing.deleted_at is not None:
+            detail = "Feed URL belongs to a deleted source and remains reserved"
+        raise HTTPException(status_code=409, detail=detail)
 
     try:
         source = repository.create_source(
@@ -80,7 +90,11 @@ def register_source(
     return SourceResponse.model_validate(source)
 
 
-@router.delete("/{source_id}", status_code=204)
+@router.delete(
+    "/{source_id}",
+    status_code=204,
+    dependencies=[Depends(require_internal_admin_token)],
+)
 def delete_source(
     source_id: UUID,
     repository: SourceRepository = Depends(get_source_repository),
@@ -102,20 +116,24 @@ def get_source(
     repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
     source = repository.get_by_id(source_id)
-    if source is None:
+    if source is None or source.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Source not found")
 
     return SourceResponse.model_validate(source)
 
 
-@router.patch("/{source_id}", response_model=SourceResponse)
+@router.patch(
+    "/{source_id}",
+    response_model=SourceResponse,
+    dependencies=[Depends(require_internal_admin_token)],
+)
 def patch_source(
     source_id: UUID,
     body: SourcePatchRequest,
     repository: SourceRepository = Depends(get_source_repository),
 ) -> SourceResponse:
     current = repository.get_by_id(source_id)
-    if current is None:
+    if current is None or current.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Source not found")
 
     patch_data = body.model_dump(mode="json", exclude_unset=True)
