@@ -40,6 +40,7 @@ class ExploreFeedInput:
     published_to: datetime | None = None
     sort: str | None = None
     apply_user_preferences: bool = True
+    verified_only: bool = False
     include_filter_options: bool = False
 
 
@@ -128,10 +129,10 @@ class FeedService:
         )
 
     def get_explore_feed(self, data: ExploreFeedInput) -> FeedOutput:
-        verified_sources = crawler_list_sources(verified_only=True)
+        sources = crawler_list_sources(verified_only=data.verified_only)
         allowed_source_ids = [
             UUID(str(source["source_id"]))
-            for source in verified_sources
+            for source in sources
             if source.get("source_id") is not None
         ]
         if not allowed_source_ids:

@@ -153,6 +153,10 @@ def get_explore(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     include_filter_options: bool = False,
+    verified_only: bool = Query(
+        default=False,
+        description="Restrict results to verified sources",
+    ),
 ) -> FeedResponse:
     normalized_query = _normalize_search_query(query)
     if normalized_query is not None and sort is not None:
@@ -174,6 +178,7 @@ def get_explore(
                 published_to=to_,
                 sort=sort,
                 apply_user_preferences=apply_user_preferences,
+                verified_only=verified_only,
                 include_filter_options=include_filter_options,
             )
         )

@@ -1310,7 +1310,7 @@ def test_feed_and_explore_filter_muted_keywords(monkeypatch, feed_client, db):
 
 
 @pytest.mark.parametrize("apply_preferences", ["true", "false"])
-def test_explore_explicit_source_filter_cannot_include_unverified(
+def test_explore_verified_only_excludes_unverified_sources(
     monkeypatch, apply_preferences, client, db
 ):
     verified, unverified = str(uuid4()), str(uuid4())
@@ -1347,6 +1347,7 @@ def test_explore_explicit_source_filter_cannot_include_unverified(
     response = client.get(
         "/explore",
         params=[
+            ("verified_only", "true"),
             ("source_ids", verified),
             ("source_ids", unverified),
             ("apply_user_preferences", apply_preferences),
