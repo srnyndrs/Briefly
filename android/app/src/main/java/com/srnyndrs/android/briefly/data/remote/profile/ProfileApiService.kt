@@ -12,7 +12,7 @@ class ProfileApiService (
 
     companion object {
         private const val BASE_PROFILE_PATH = "me"
-        private const val PREFERENCES_PATH = "me"
+        private const val PREFERENCES_PATH = "preferences"
     }
 
     suspend fun getProfile(): ProfileDataResponseDto {

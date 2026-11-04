@@ -1,14 +1,17 @@
 package com.srnyndrs.android.briefly.data.repository.content.source
 
 import com.srnyndrs.android.briefly.data.remote.content.source.SourceApiService
+import com.srnyndrs.android.briefly.data.remote.content.source.SourceCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.source.SourceDiscoverRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.source.SubscriptionCreateRequestDto
 import com.srnyndrs.android.briefly.data.remote.content.source.toDomain
 import com.srnyndrs.android.briefly.domain.model.content.source.Source
+import com.srnyndrs.android.briefly.domain.model.content.source.exceptions.SourceAlreadyExistsException
 import com.srnyndrs.android.briefly.domain.model.content.source.SourceDetails
 import com.srnyndrs.android.briefly.domain.model.content.source.SourceDiscoveryResult
 import com.srnyndrs.android.briefly.domain.model.content.source.Subscription
 import com.srnyndrs.android.briefly.domain.repository.content.source.SourceRepository
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.HttpStatusCode
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
@@ -18,6 +21,29 @@ import kotlinx.coroutines.CancellationException
 class SourceRepositoryImpl @Inject constructor(
     private val sourceApiService: SourceApiService,
 ) : SourceRepository {
+
+    override suspend fun createFeedSource(source: SourceDiscoveryResult): Result<Source> {
+        return try {
+            val request = SourceCreateRequestDto(
+                url = source.url,
+                title = source.title.trim().take(n = 255),
+                description = source.description,
+                favicon = source.faviconUrl,
+                siteUrl = source.siteUrl,
+                siteName = source.siteName,
+                language = source.language,
+            )
+            Result.success(value = sourceApiService.createFeedSource(request).toDomain())
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: ClientRequestException) {
+            Result.failure(exception = if (exception.response.status == HttpStatusCode.Conflict) {
+                SourceAlreadyExistsException()
+            } else exception)
+        } catch (exception: Exception) {
+            Result.failure(exception = exception)
+        }
+    }
 
     override suspend fun fetchFeedSources(query: String?): Result<List<Source>> {
         return try {

@@ -28,6 +28,7 @@ class ContentApiService(
 
     suspend fun getExplore(request: ExploreRequestDto): PostListItemsResponseDto {
         return client.get(BASE_EXPLORE_PATH) {
+            parameter("verified_only", request.verifiedOnly)
             parameter("apply_user_preferences", request.applyUserPreferences)
             parameter("include_filter_options", request.includeFilterOptions)
             parameter("page", request.page)

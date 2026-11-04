@@ -6,6 +6,7 @@ import com.srnyndrs.android.briefly.domain.model.content.source.SourceDiscoveryR
 import com.srnyndrs.android.briefly.domain.model.content.source.Subscription
 
 interface SourceRepository {
+    suspend fun createFeedSource(source: SourceDiscoveryResult): Result<Source>
     suspend fun fetchFeedSources(query: String? = null): Result<List<Source>>
     suspend fun getFeedSourceSubscriptions(): Result<List<Subscription>>
     suspend fun discoverFeedSources(url: String): Result<List<SourceDiscoveryResult>>

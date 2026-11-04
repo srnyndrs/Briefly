@@ -86,7 +86,7 @@ data class SourceResponseDto(
     val updatedAt: Instant,
 
     @SerialName("is_subscribed")
-    val isSubscribed: Boolean,
+    val isSubscribed: Boolean = false,
 )
 
 @OptIn(ExperimentalTime::class)
@@ -127,5 +127,16 @@ data class SourceDetailsResponseDto(
     val updatedAt: Instant,
 
     @SerialName("is_subscribed")
-    val isSubscribed: Boolean,
+    val isSubscribed: Boolean = false,
+)
+
+@Serializable
+data class SourceCreateRequestDto(
+    val url: String,
+    val title: String,
+    val description: String? = null,
+    val favicon: String? = null,
+    @SerialName("site_url") val siteUrl: String? = null,
+    @SerialName("site_name") val siteName: String? = null,
+    val language: String? = null,
 )

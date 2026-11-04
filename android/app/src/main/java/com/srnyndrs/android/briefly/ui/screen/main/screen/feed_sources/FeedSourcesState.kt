@@ -4,6 +4,7 @@ import com.srnyndrs.android.briefly.domain.model.content.source.Source
 import com.srnyndrs.android.briefly.ui.model.UiState
 
 data class FeedSourcesState(
+    val discovery: DiscoverFeedSourcesState = DiscoverFeedSourcesState(),
     val searchText: String = "",
     val results: UiState<List<Source>> = UiState.Idle,
     val isRefreshing: Boolean = false,

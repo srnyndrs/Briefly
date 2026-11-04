@@ -16,6 +16,7 @@ interface ContentRepository {
         pageSize: Int? = 20,
         sourceIds: List<String>? = null,
         applyUserPreferences: Boolean = true,
+        verifiedOnly: Boolean = false,
     ): Result<PostPagingResult>
     suspend fun fetchExploreFilterOptions(): Result<ExploreFilterOptions>
     suspend fun getArticleById(postId: String): Result<PostDetails>

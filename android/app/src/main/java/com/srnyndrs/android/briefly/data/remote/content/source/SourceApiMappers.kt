@@ -8,12 +8,13 @@ import kotlin.time.ExperimentalTime
 
 fun SourceDiscoveryResultDto.toDomain(): SourceDiscoveryResult {
     return SourceDiscoveryResult(
-        id = url,
         url = url,
-        title = title ?: url,
+        title = title?.takeIf { it.isNotBlank() } ?: url,
         faviconUrl = favicon,
         description = description,
-        isSubscribed = false,
+        siteUrl = siteUrl,
+        siteName = siteName,
+        language = language,
     )
 }
 

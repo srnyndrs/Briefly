@@ -153,4 +153,20 @@
     <string name="post_details_keyword_muted">Keyword muted: %1$s</string>
     <string name="post_details_keyword_saving">Muting keyword: %1$s</string>
     <string name="post_details_keyword_failed">Could not mute “%1$s”. Try again.</string>
+    <string name="feed_sources_discover">Discover</string>
+    <string name="feed_sources_url">Website or feed URL</string>
+    <string name="feed_sources_discovery_hint">Enter a website or feed URL to discover feeds.</string>
+    <string name="feed_sources_discovery_empty">No feeds found for this URL.</string>
+    <string name="feed_sources_add">Add source</string>
+    <string name="feed_sources_adding">Adding…</string>
+    <string name="feed_sources_add_error">Could not add this source. Try again.</string>
+    <string name="feed_sources_duplicate">This feed is already registered. Find it in Search.</string>
+    <string name="feed_sources_retry_discovery">Discovery failed. Retry</string>
+    <string name="feed_sources_close">Close</string>
+    <string name="feed_sources_form_title">Title</string>
+    <string name="feed_sources_form_description">Description</string>
+    <string name="feed_sources_form_favicon">Favicon URL</string>
+    <string name="feed_sources_form_site_url">Website URL</string>
+    <string name="feed_sources_form_site_name">Website name</string>
+    <string name="feed_sources_form_language">Language</string>
 </resources>

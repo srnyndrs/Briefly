@@ -102,6 +102,7 @@ class ContentRepositoryImpl @Inject constructor(
         pageSize: Int?,
         sourceIds: List<String>?,
         applyUserPreferences: Boolean,
+        verifiedOnly: Boolean,
     ): Result<PostPagingResult> {
         return try {
             val response = contentApiService.getExplore(
@@ -110,6 +111,7 @@ class ContentRepositoryImpl @Inject constructor(
                     pageSize = pageSize ?: PAGE_SIZE,
                     sourceIds = sourceIds,
                     applyUserPreferences = applyUserPreferences,
+                    verifiedOnly = verifiedOnly,
                 )
             )
             val items = response.items.map { it.toDomain() }

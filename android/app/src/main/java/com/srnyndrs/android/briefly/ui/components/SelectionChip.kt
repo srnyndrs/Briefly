@@ -49,7 +49,10 @@ fun SelectionChip(
     ) {
         Box(
             modifier = Modifier
-                .defaultMinSize(minHeight = 48.dp)
+                .defaultMinSize(
+                    minWidth = 72.dp,
+                    minHeight = 48.dp,
+                )
                 .clip(shape = shape)
                 .border(
                     width = 1.dp,

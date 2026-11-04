@@ -123,6 +123,7 @@ class SourceDetailsViewModel @AssistedInject constructor(
         getPostsUseCase(
             sourceIds = listOf(sourceId),
             applyUserPreferences = false,
+            verifiedOnly = false,
         ).fold(
             onSuccess = { (_, _, items) ->
                 _state.update { it.copy(articles = UiState.Success(data = items)) }

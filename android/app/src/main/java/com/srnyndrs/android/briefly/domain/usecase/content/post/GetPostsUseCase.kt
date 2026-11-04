@@ -12,12 +12,14 @@ class GetPostsUseCase @Inject constructor(
         pageSize: Int? = 20,
         sourceIds: List<String>? = null,
         applyUserPreferences: Boolean = true,
+        verifiedOnly: Boolean = false,
     ): Result<PostPagingResult> {
         return repository.fetchArticles(
             page = page,
             pageSize = pageSize,
             sourceIds = sourceIds,
             applyUserPreferences = applyUserPreferences,
+            verifiedOnly = verifiedOnly,
         )
     }
 }

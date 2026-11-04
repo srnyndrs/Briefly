@@ -24,6 +24,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
@@ -56,6 +57,7 @@ object NetworkModule {
         authSessionManager: AuthSessionManager,
     ): HttpClient = HttpClient(OkHttp) {
         expectSuccess = true
+        install(HttpTimeout)
         install(Logging) {
             level = LogLevel.INFO
             logger = object : Logger {

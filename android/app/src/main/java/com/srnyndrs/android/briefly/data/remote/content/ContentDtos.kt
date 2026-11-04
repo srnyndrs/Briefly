@@ -20,6 +20,9 @@ data class FeedRequestDto(
 
 @Serializable
 data class ExploreRequestDto(
+    @SerialName("verified_only")
+    val verifiedOnly: Boolean = false,
+
     val page: Int = 1,
 
     @SerialName("page_size")
