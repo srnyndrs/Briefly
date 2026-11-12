@@ -51,6 +51,27 @@ class SourceRepository:
 
         return query.all()
 
+    def get_next_active_source(
+        self,
+        now: datetime,
+        max_retries: int,
+    ) -> Source | None:
+        return (
+            self._db.query(Source)
+            .filter(
+                Source.deleted_at.is_(None),
+                Source.next_crawl_scheduled_at <= now,
+                Source.consecutive_failures < max_retries,
+            )
+            .order_by(
+                Source.verified.desc(),
+                Source.next_crawl_scheduled_at,
+                Source.source_id,
+            )
+            .with_for_update(skip_locked=True)
+            .first()
+        )
+
     def get_by_id(self, source_id: UUID) -> Source | None:
         return self._db.query(Source).filter(Source.source_id == source_id).first()
 
@@ -155,10 +176,12 @@ class SourceRepository:
 
         self._db.flush()
 
-    def save_crawl_failure(self, *, source_id: UUID) -> int | None:
+    def save_crawl_failure(self, *, source_id: UUID) -> int:
         source = self.get_by_id(source_id)
         if not source or source.deleted_at is not None:
-            return None
+            raise ValueError(
+                "Cannot record failure for a missing or deleted source"
+            )
 
         now = datetime.now(timezone.utc)
         source.last_crawled_at = now

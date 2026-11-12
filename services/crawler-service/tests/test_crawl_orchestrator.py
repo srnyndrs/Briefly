@@ -104,7 +104,7 @@ def test_feed_failure_retries_and_continues(
 def test_cycle_shares_correlation_id(crawl_cycle, source_factory):
     source_factory()
     source_factory()
-    orchestrator, _, publisher, _ = crawl_cycle
+    orchestrator, _, publisher, publisher_factory = crawl_cycle
     orchestrator.run_crawl_cycle()
     events = publisher.call_args_list
     assert len(events) == 2
@@ -112,6 +112,7 @@ def test_cycle_shares_correlation_id(crawl_cycle, source_factory):
         events[0].kwargs["envelope"]["correlation_id"]
         == events[1].kwargs["envelope"]["correlation_id"]
     )
+    publisher_factory.assert_called_once()
 
 
 def test_idle_cycle_skips_external_services(crawl_cycle):
@@ -122,7 +123,7 @@ def test_idle_cycle_skips_external_services(crawl_cycle):
     publisher.assert_not_called()
 
 
-@pytest.mark.parametrize("stage", ["publish", "database"])
+@pytest.mark.parametrize("stage", ["publish", "commit"])
 def test_infrastructure_failure_aborts_without_feed_retry(
     crawl_cycle, source_factory, db_session, monkeypatch, stage
 ):
@@ -141,21 +142,19 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     previous_schedule = source.next_crawl_scheduled_at
     orchestrator, http_get, publisher, _ = crawl_cycle
     error = RuntimeError("publication or database failed")
+
+    def fail(*args, **kwargs):
+        raise error
+
     if stage == "publish":
         publisher.side_effect = error
     else:
-
-        def fail_save(*args, **kwargs):
-            raise error
-
-        monkeypatch.setattr(
-            "src.repositories.source_repository.SourceRepository.save_crawl_success",
-            fail_save,
-        )
+        monkeypatch.setattr(SourceRepository, "commit", fail)
 
     with pytest.raises(RuntimeError) as caught:
         orchestrator.run_crawl_cycle()
     assert caught.value is error
+    assert orchestrator.wait_for_idle(timeout=0)
     db_session.refresh(source)
     db_session.refresh(later)
     assert source.consecutive_failures == 0
@@ -172,6 +171,43 @@ def test_infrastructure_failure_aborts_without_feed_retry(
     )
     assert later.last_crawled_at is None
     assert later.consecutive_failures == 0
+
+
+def test_sources_becoming_due_during_cycle_wait_for_next_cycle(
+    crawl_cycle, source_factory, db_session, monkeypatch
+):
+    now = datetime.now(timezone.utc)
+    first = source_factory(next_crawl_scheduled_at=now - timedelta(minutes=1))
+    later = source_factory(next_crawl_scheduled_at=now + timedelta(seconds=1))
+    orchestrator, http_get, _, _ = crawl_cycle
+    response = http_get.return_value
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            return now
+
+    monkeypatch.setattr("src.services.crawl_orchestrator.datetime", Clock)
+
+    def advance_clock(url, **kwargs):
+        nonlocal now
+        now += timedelta(seconds=2)
+        return response
+
+    http_get.side_effect = advance_clock
+    orchestrator.run_crawl_cycle()
+
+    http_get.assert_called_once()
+    assert http_get.call_args.args == (first.url,)
+    db_session.refresh(later)
+    assert later.last_crawled_at is None
+
+    orchestrator.run_crawl_cycle()
+
+    assert http_get.call_count == 2
+    assert http_get.call_args.args == (later.url,)
+    db_session.refresh(later)
+    assert later.last_crawl_succeeded is True
 
 
 def test_200_republishes_repeated_entries_with_unchanged_validators(

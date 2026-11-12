@@ -74,6 +74,21 @@ def test_due_sources_use_tier_time_and_id_order(db_session, source_factory):
         == expected[:3]
     )
 
+    for source in expected:
+        assert (
+            repository.get_next_active_source(
+                now=now, max_retries=settings.max_retries
+            )
+            == source
+        )
+        source.next_crawl_scheduled_at = now + timedelta(days=1)
+        db_session.flush()
+
+    assert (
+        repository.get_next_active_source(now=now, max_retries=settings.max_retries)
+        is None
+    )
+
 
 def test_deleted_sources_are_hidden_and_never_scheduled(db_session, source_factory):
     now = datetime.now(timezone.utc)
@@ -92,4 +107,8 @@ def test_deleted_sources_are_hidden_and_never_scheduled(db_session, source_facto
 
     assert repository.list_sources() == [active]
     assert repository.get_active_sources(now, settings.max_retries) == [active]
+    assert (
+        repository.get_next_active_source(now=now, max_retries=settings.max_retries)
+        == active
+    )
     assert repository.get_by_url(deleted.url) == deleted
