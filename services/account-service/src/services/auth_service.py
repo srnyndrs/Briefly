@@ -95,7 +95,7 @@ class AuthService:
         except (ValueError, TypeError):
             raise AuthError("Invalid refresh token")
 
-        stored = self._repo.get_refresh_token(token_id)
+        stored = self._repo.get_refresh_token(token_id, lock=True)
         if stored is None:
             raise AuthError("Refresh token not found")
         if stored.revoked_at is not None:
@@ -129,7 +129,7 @@ class AuthService:
         except (ValueError, TypeError):
             raise AuthError("Invalid refresh token")
 
-        stored = self._repo.get_refresh_token(token_id)
+        stored = self._repo.get_refresh_token(token_id, lock=True)
         if stored is None:
             raise AuthError("Refresh token not found")
         if stored.token_hash != self._token_hash(refresh_token):

@@ -142,10 +142,13 @@ class AccountRepository:
 
         return True
 
-    def get_refresh_token(self, token_id: UUID) -> RefreshToken | None:
-        return self._db.execute(
-            select(RefreshToken).where(RefreshToken.token_id == token_id)
-        ).scalar_one_or_none()
+    def get_refresh_token(
+        self, token_id: UUID, *, lock: bool = False
+    ) -> RefreshToken | None:
+        query = select(RefreshToken).where(RefreshToken.token_id == token_id)
+        if lock:
+            query = query.with_for_update()
+        return self._db.execute(query).scalar_one_or_none()
 
     def list_active_refresh_tokens(self, user_id: UUID) -> list[RefreshToken]:
         return list(
