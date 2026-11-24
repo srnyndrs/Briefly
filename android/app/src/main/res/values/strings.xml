@@ -85,7 +85,7 @@
     <string name="settings_discard">Discard Changes</string>
     <string name="settings_section_muted">Muted Topics &amp; Keywords</string>
     <string name="settings_muted_description">Articles containing these keywords will be filtered out from your feed.</string>
-    <string name="settings_muted_placeholder">Add keyword or topic to mute</string>
+    <string name="settings_muted_placeholder">Add keyword to mute</string>
     <string name="settings_add_keyword">Mute</string>
     <string name="settings_remove_keyword">Remove muted keyword</string>
     <string name="settings_save">Save Preferences</string>

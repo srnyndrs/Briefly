@@ -177,9 +177,7 @@ fun SourceDetailsScreen(
                                         Spacer(modifier = Modifier.requiredWidth(width = 4.dp))
                                         // Title
                                         Text(
-                                            modifier = Modifier
-                                                .weight(weight = 1f)
-                                                .padding(horizontal = 8.dp),
+                                            modifier = Modifier.padding(horizontal = 8.dp),
                                             text = feedDetails.title.orEmpty(),
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontSize = 24.sp,

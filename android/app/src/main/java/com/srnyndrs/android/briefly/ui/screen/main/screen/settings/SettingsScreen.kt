@@ -119,7 +119,7 @@ fun SettingsScreen(
                     item(key = "languages") {
                         SectionHeader(
                             title = stringResource(id = R.string.settings_section_languages),
-                            subtitle = stringResource(id = R.string.settings_languages_description),
+                            //subtitle = stringResource(id = R.string.settings_languages_description),
                         )
                         LanguageSelectionList(
                             modifier = Modifier.padding(top = 8.dp),
@@ -132,7 +132,7 @@ fun SettingsScreen(
                     item(key = "categories") {
                         SectionHeader(
                             title = stringResource(id = R.string.settings_section_categories),
-                            subtitle = stringResource(id = R.string.settings_categories_description),
+                            //subtitle = stringResource(id = R.string.settings_categories_description),
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
@@ -161,7 +161,7 @@ fun SettingsScreen(
                     item(key = "keywords") {
                         SectionHeader(
                             title = stringResource(id = R.string.settings_section_keywords),
-                            subtitle = stringResource(id = R.string.settings_keywords_description),
+                            //subtitle = stringResource(id = R.string.settings_keywords_description),
                         )
                         PreferenceKeywordInput(
                             modifier = Modifier.padding(top = 8.dp),
@@ -176,7 +176,7 @@ fun SettingsScreen(
                     item(key = "sources") {
                         SectionHeader(
                             title = stringResource(id = R.string.settings_section_sources),
-                            subtitle = stringResource(id = R.string.settings_sources_description),
+                            //subtitle = stringResource(id = R.string.settings_sources_description),
                         )
                         BlockedSourcesSection(
                             modifier = Modifier.padding(top = 8.dp),

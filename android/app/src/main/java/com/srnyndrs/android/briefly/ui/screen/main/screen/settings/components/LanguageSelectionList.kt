@@ -1,5 +1,6 @@
 package com.srnyndrs.android.briefly.ui.screen.main.screen.settings.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -44,26 +46,29 @@ fun LanguageSelectionList(
                         onValueChange = { onToggle(option.code) },
                     )
                     .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
                     checked = selected,
                     onCheckedChange = null,
                     enabled = enabled,
                 )
-                Column(modifier = Modifier.padding(start = 8.dp)) {
-                    Text(text = option.displayName)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    val (code, displayName) = option
                     Text(
-                        text = option.code.uppercase(Locale.ROOT),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = displayName
+                    )
+                    Text(
+                        text = "(${code.uppercase(Locale.ROOT)})",
                     )
                 }
             }
-        }
-        if (selectedCodes.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.settings_no_language_filter),
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }
