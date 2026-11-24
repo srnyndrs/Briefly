@@ -52,7 +52,6 @@ def list_sources(
     "",
     response_model=SourceResponse,
     status_code=201,
-    dependencies=[Depends(require_internal_admin_token)],
 )
 def register_source(
     body: SourceCreateRequest,

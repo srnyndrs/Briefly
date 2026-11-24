@@ -155,7 +155,11 @@ def test_registration_rejects_duplicate_url(client, source_factory):
     assert len(client.get("/sources").json()) == 1
 
 
-def test_registration_allows_other_feeds_on_same_domain(client, source_factory):
+def test_registration_allows_other_feeds_on_same_domain(
+    client, source_factory, monkeypatch
+):
+    monkeypatch.setattr(settings, "internal_admin_token", "")
+    client.headers.pop("x-admin-token")
     source_factory(
         url="https://example.com/main.xml", site_url="https://example.com/"
     )
@@ -256,7 +260,7 @@ def test_patch_rejects_existing_feed_url(client, source_factory):
     assert client.get(f"/sources/{second.source_id}").json()["url"] == second.url
 
 
-@pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
+@pytest.mark.parametrize("method", ["PATCH", "DELETE"])
 @pytest.mark.parametrize(
     "configured_token,request_token",
     [
@@ -272,7 +276,7 @@ def test_source_writes_require_internal_credential(
     monkeypatch.setattr(settings, "internal_admin_token", configured_token)
     client.headers.pop("x-admin-token")
     headers = {"x-admin-token": request_token} if request_token is not None else {}
-    path = "/sources" if method == "POST" else f"/sources/{uuid.uuid4()}"
+    path = f"/sources/{uuid.uuid4()}"
     response = client.request(
         method,
         path,

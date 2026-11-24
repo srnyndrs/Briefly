@@ -1,12 +1,132 @@
 [
-  {
-    "url": "https://telex.hu/rss",
-    "title": "Telex RSS: Legfrissebb",
-    "description": "Articles from https://telex.hu",
-    "content_type": "text/xml",
-    "favicon": "https://telex.hu/favicon.ico",
-    "site_url": "https://telex.hu",
-    "site_name": "telex",
-    "language": null
-  }
+    {
+        "url": "https://telex.hu/rss",
+        "title": "Telex RSS: Legfrissebb",
+        "description": "Articles from https://telex.hu",
+        "content_type": "text/xml",
+        "favicon": "https://telex.hu/favicon.ico",
+        "site_url": "https://telex.hu",
+        "site_name": "Telex",
+        "language": "hu"
+    },
+    {
+        "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+        "title": "BBC News",
+        "description": "BBC News - World",
+        "content_type": "text/xml",
+        "favicon": "https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif",
+        "site_url": "https://www.bbc.co.uk/news/world",
+        "site_name": "BBC",
+        "language": "en"
+    },
+    {
+        "url": "https://www.ft.com/news-feed?format=rss",
+        "title": "Financial Times RSS",
+        "description": "News Feed",
+        "content_type": "text/xml",
+        "favicon": "https://images.ft.com/v3/image/raw/ftlogo-v1:brand-ft-logo-square-coloured?source=page-kit&format=svg",
+        "site_url": "https://www.ft.com",
+        "site_name": "Financial Times",
+        "language": "en"
+    },
+    {
+        "url": "https://www.portfolio.hu/rss/all.xml",
+        "title": "Portfolio.hu - Összes hír",
+        "description": "Összes hír",
+        "content_type": "text/xml",
+        "favicon": "https://assets.portfolio.hu/images/favicon/android-icon-192x192.png",
+        "site_url": "https://www.portfolio.hu",
+        "site_name": "Portfolio.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.penzcentrum.hu/rss/all.xml",
+        "title": "Penzcentrum.hu - Összes hír",
+        "description": "Összes hír",
+        "content_type": "application/xml",
+        "favicon": "https://www.penzcentrum.hu/assets/images/android-icon-192x192.png",
+        "site_url": "https://www.penzcentrum.hu",
+        "site_name": "Pénzcentrum",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "title": "The Verge",
+        "description": "The Verge is about technology and how it makes us feel. Founded in 2011, we offer our audience everything from breaking news to reviews to award-winning features and investigations, on our site, in video, and in podcasts.",
+        "content_type": "application/xml",
+        "favicon": "https://platform.theverge.com/wp-content/uploads/sites/2/2025/01/verge-rss-large_80b47e.png?w=150&h=150&crop=1",
+        "site_url": "https://www.theverge.com",
+        "site_name": "The Verge",
+        "language": "en"
+    },
+    {
+        "url": "https://qubit.hu/feed",
+        "title": "Qubit",
+        "description": "Latest articles from qubit.hu",
+        "content_type": "application/xml",
+        "favicon": "https://cdn.qubitr.cloud/assets/favicon.941c41679e944dc21ec5.svg",
+        "site_url": "https://qubit.hu",
+        "site_name": "Qubit",
+        "language": "hu"
+    },
+    {
+        "url": "https://medicalxpress.com/rss-feed/",
+        "title": "Medical Xpress - latest medical and health news stories",
+        "description": "Medical Xpress internet news portal provides the latest news on science including: Physics, Nanotechnology, Life Sciences, Space Science, Earth Science, Environment, Health and Medicine.",
+        "content_type": "text/xml;charset=utf-8; charset=utf-8",
+        "favicon": "https://medicalxpress.com/favicon.ico",
+        "site_url": "https://medicalxpress.com",
+        "site_name": "Medical Xpress",
+        "language": "en"
+    },
+    {
+        "url": "https://humusz.hu/rss",
+        "title": "Humusz.hu",
+        "description": "Humusz.hu friss tartalmak",
+        "content_type": "application/rss+xml",
+        "favicon": "https://humusz.hu/sites/default/files/favicon.jpg",
+        "site_url": "https://humusz.hu",
+        "site_name": "Humusz",
+        "language": "hu"
+    },
+    {
+        "url": "https://www.nemzetisport.hu/publicapi/hu/rss/nso/articles",
+        "title": "Nemzeti Sport Online",
+        "description": "Nemzeti Sport Online RSS feed",
+        "content_type": "text/xml",
+        "favicon": "https://www.nemzetisport.hu/assets/favicon/favicon.ico",
+        "site_url": "https://nemzetisport.hu",
+        "site_name": "NSO",
+        "language": "hu"
+    },
+    {
+        "url": "https://sg.hu/rss.xml",
+        "title": "SG.hu Hírmagazin - Összes cikk",
+        "description": "SG.hu Hírmagazin - Rendszeres napi hírek az informatika, tudomány, játékok és filmek világából!",
+        "content_type": "application/rss+xml",
+        "favicon": "https://sg.hu/favicon.ico?favicon.2vob68tjqpejf.ico",
+        "site_url": "https://sg.hu",
+        "site_name": "SG.hu",
+        "language": "hu"
+    },
+    {
+        "url": "https://femina.hu/feed/",
+        "title": "Femina",
+        "description": "Latest posts.",
+        "content_type": "text/xml",
+        "favicon": "https://femina.hu/neon/static/images/femina/favicon_32x32.png",
+        "site_url": "https://femina.hu",
+        "site_name": "Femina",
+        "language": "hu"
+    },
+    {
+        "url": "https://totalcar.hu/feed/",
+        "title": "Totalcar",
+        "description": "Latest posts.",
+        "content_type": "text/xml",
+        "favicon": "https://totalcar.hu/static/images/totalcar/favicon_32x32.png",
+        "site_url": "https://totalcar.hu",
+        "site_name": "Totalcar",
+        "language": "hu"
+    }
 ]

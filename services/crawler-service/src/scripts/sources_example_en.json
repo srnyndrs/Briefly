@@ -118,5 +118,15 @@
         "site_url": "https://www.newscientist.com",
         "site_name": "New Scientist",
         "language": "en"
+    },
+    {
+        "url": "https://medicalxpress.com/rss-feed/",
+        "title": "Medical Xpress RSS",
+        "description": "Medical Xpress internet news portal provides the latest news on science including: Physics, Nanotechnology, Life Sciences, Space Science, Earth Science, Environment, Health and Medicine.",
+        "content_type": "text/xml;charset=utf-8; charset=utf-8",
+        "favicon": "https://medicalxpress.com/favicon.ico",
+        "site_url": "https://medicalxpress.com",
+        "site_name": "Medical Xpress",
+        "language": "en"
     }
 ]

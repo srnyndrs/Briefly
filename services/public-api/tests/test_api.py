@@ -465,13 +465,6 @@ def test_create_source_endpoint_forwards_json_payload(
     "operation,method,owner,path,args",
     [
         (
-            "crawler_create_source",
-            "POST",
-            "crawler",
-            "/sources",
-            ({"title": "Example"},),
-        ),
-        (
             "crawler_patch_source",
             "PATCH",
             "crawler",
@@ -514,14 +507,17 @@ def test_owner_write_forwards_internal_credential(
     request.assert_not_called()
 
 
-def test_owner_reads_do_not_require_or_forward_internal_credential(
+def test_post_read_and_source_creation_do_not_require_internal_credential(
     monkeypatch,
 ) -> None:
     request = MagicMock(return_value=httpx.Response(200, json={"post_id": "id"}))
     monkeypatch.setattr(httpx.Client, "request", request)
-    monkeypatch.setattr(settings, "internal_admin_token", None)
+    monkeypatch.setattr(settings, "internal_admin_token", "")
 
     assert service_clients.content_get_post("id") == {"post_id": "id"}
+    assert request.call_args.kwargs["headers"] == {}
+    service_clients.crawler_create_source({"url": "https://example.com/feed"})
+    assert request.call_args.kwargs["method"] == "POST"
     assert request.call_args.kwargs["headers"] == {}
 
 

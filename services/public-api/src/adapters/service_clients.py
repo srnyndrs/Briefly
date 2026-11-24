@@ -199,7 +199,6 @@ def crawler_create_source(body: dict) -> dict:
         settings.crawler_service_url,
         "/sources",
         json=body,
-        internal_admin=True,
     )
 
 
